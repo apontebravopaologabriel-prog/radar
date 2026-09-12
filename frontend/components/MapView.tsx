@@ -69,10 +69,10 @@ function radarFeatures(center: RadarCenter, activeRadius: number): FeatureCollec
   return { type: "FeatureCollection", features: [2, 5, 10].map((radius) => ({ ...circlePolygon(center, radius), properties: { radiusKm: radius, active: radius === activeRadius } })) };
 }
 
-function RadarOverlay({ mode, activeRadius }: { mode: MapMode; activeRadius: number }) {
+function RadarOverlay({ mode, activeRadius, overlayRef }: { mode: MapMode; activeRadius: number; overlayRef: { current: HTMLDivElement | null } }) {
   if (mode !== "radar") return null;
   return (
-    <div className="radar-overlay" aria-hidden="true">
+    <div ref={overlayRef} className="radar-overlay" aria-hidden="true">
       {[10, 5, 2].map((radius) => <span key={radius} className={`radar-overlay-ring radar-overlay-ring-${radius} ${activeRadius === radius ? "active" : ""}`} />)}
       <span className="radar-overlay-center" />
     </div>
@@ -129,6 +129,7 @@ export default function MapView(props: MapViewProps) {
   const selectedDistrictRef = useRef(selectedDistrictKey);
   const districtsReadyRef = useRef(false);
   const districtStateKeysRef = useRef(new Set<string>());
+  const radarOverlayRef = useRef<HTMLDivElement>(null);
   const [webglAvailable, setWebglAvailable] = useState<boolean | null>(null);
 
   useEffect(() => { setWebglAvailable(supportsWebGL2()); }, []);
@@ -172,14 +173,6 @@ export default function MapView(props: MapViewProps) {
     if (map.getLayer("jobs-heat")) map.setLayoutProperty("jobs-heat", "visibility", "none");
     for (const layer of ["radar-fill", "radar-lines", "radar-center-halo", "radar-center-point"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "radar" ? "visible" : "none");
-    }
-  }
-
-  function setRadarInteractionLock(map: MapLibreMap, locked: boolean) {
-    const handlers = [map.dragPan, map.scrollZoom, map.boxZoom, map.doubleClickZoom, map.touchZoomRotate, map.keyboard];
-    for (const handler of handlers) {
-      if (locked) handler.disable();
-      else handler.enable();
     }
   }
 
@@ -240,7 +233,6 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "radar-center-halo", type: "circle", source: "radar-center", paint: { "circle-color": "#10a37f", "circle-radius": 15, "circle-opacity": 0.18, "circle-stroke-color": "#72d8bd", "circle-stroke-width": 1, "circle-stroke-opacity": 0.8 } });
       map.addLayer({ id: "radar-center-point", type: "circle", source: "radar-center", paint: { "circle-color": "#4f46e5", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       setModeVisibility(map, mode);
-      setRadarInteractionLock(map, mode === "radar");
       map.once("idle", () => setModeVisibility(map, modeRef.current));
     });
 
@@ -289,7 +281,6 @@ export default function MapView(props: MapViewProps) {
     const applyMode = () => {
       if (!map.isStyleLoaded()) return;
       setModeVisibility(map, mode);
-      setRadarInteractionLock(map, mode === "radar");
     };
     if (map.isStyleLoaded()) applyMode();
     else map.once("load", applyMode);
@@ -307,20 +298,39 @@ export default function MapView(props: MapViewProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const applyRadarState = () => {
+    const syncRadarState = () => {
       if (!map.isStyleLoaded()) return;
       if (mode === "radar") map.easeTo({ center: [radarCenter.longitude, radarCenter.latitude], zoom: 13, duration: 700 });
       (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
       (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
       setModeVisibility(map, mode);
-      setRadarInteractionLock(map, mode === "radar");
     };
-    if (map.isStyleLoaded()) applyRadarState();
-    else map.once("load", applyRadarState);
-    return () => { map.off("load", applyRadarState); };
+    const syncRadarOverlay = () => {
+      if (mode !== "radar" || !radarOverlayRef.current) return;
+      const center = map.project([radarCenter.longitude, radarCenter.latitude]);
+      const latitudeRadians = (radarCenter.latitude * Math.PI) / 180;
+      const eastLongitude = radarCenter.longitude + 10 / (111.32 * Math.max(0.2, Math.cos(latitudeRadians)));
+      const eastPoint = map.project([eastLongitude, radarCenter.latitude]);
+      const diameter = Math.max(80, Math.abs(eastPoint.x - center.x) * 2);
+      radarOverlayRef.current.style.left = `${center.x}px`;
+      radarOverlayRef.current.style.top = `${center.y}px`;
+      radarOverlayRef.current.style.setProperty("--radar-diameter", `${diameter}px`);
+    };
+    if (map.isStyleLoaded()) syncRadarState();
+    else map.once("load", syncRadarState);
+    map.on("move", syncRadarOverlay);
+    map.on("zoom", syncRadarOverlay);
+    map.on("resize", syncRadarOverlay);
+    syncRadarOverlay();
+    return () => {
+      map.off("load", syncRadarState);
+      map.off("move", syncRadarOverlay);
+      map.off("zoom", syncRadarOverlay);
+      map.off("resize", syncRadarOverlay);
+    };
   }, [mode, radarCenter, radarRadiusKm]);
 
-  if (webglAvailable === false) return <div className="map-canvas"><LeafletMapView {...props} /><RadarOverlay mode={mode} activeRadius={radarRadiusKm} /></div>;
+  if (webglAvailable === false) return <LeafletMapView {...props} />;
   if (webglAvailable === null) return <div className="map-loading">Preparando mapa…</div>;
-  return <div ref={containerRef} className="map-canvas" aria-label="Mapa de ofertas laborales de Lima"><RadarOverlay mode={mode} activeRadius={radarRadiusKm} /></div>;
+  return <div ref={containerRef} className="map-canvas" aria-label="Mapa de ofertas laborales de Lima"><RadarOverlay mode={mode} activeRadius={radarRadiusKm} overlayRef={radarOverlayRef} /></div>;
 }
