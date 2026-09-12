@@ -5,7 +5,7 @@ set -u
 PROJECT_DIR="/home/paolo/Projects/Radar"
 STATE_DIR="/home/paolo/.local/state/radar"
 API_URL="http://127.0.0.1:8100/api/health"
-FRONTEND_PORT=3001
+FRONTEND_PORT=3000
 APP_URL="http://127.0.0.1:${FRONTEND_PORT}/radar"
 
 mkdir -p "$STATE_DIR"
@@ -53,13 +53,7 @@ fi
 
 if ! /usr/bin/curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
     cd "$PROJECT_DIR/frontend" || exit 1
-    if [ ! -f "$PROJECT_DIR/frontend/.next/BUILD_ID" ]; then
-        /usr/bin/npm run build >>"$STATE_DIR/frontend.log" 2>&1 || {
-            notify_error "No se pudo compilar el frontend. Revisa $STATE_DIR/frontend.log"
-            exit 1
-        }
-    fi
-    nohup /usr/bin/npm run start -- --hostname 127.0.0.1 --port "$FRONTEND_PORT" >>"$STATE_DIR/frontend.log" 2>&1 &
+    nohup /usr/bin/npm run dev -- --hostname 127.0.0.1 --port "$FRONTEND_PORT" >>"$STATE_DIR/frontend.log" 2>&1 &
     frontend_ready=0
     for _ in $(seq 1 45); do
         if /usr/bin/curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then

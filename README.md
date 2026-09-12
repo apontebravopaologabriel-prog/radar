@@ -77,16 +77,10 @@ Para abrir el frontend geográfico manualmente en desarrollo, inicia la API y lu
 cd frontend && npm run dev
 ```
 
-Visita `http://localhost:3000/radar`. Para abrirlo sin el indicador de desarrollo de Next.js, compila y usa el servidor de producción en `http://localhost:3001/radar`:
-
-```bash
-cd frontend && npm run build && npm run start -- --hostname 127.0.0.1 --port 3001
-```
-
-La API HTTP de solo lectura escucha en `http://127.0.0.1:8100`; el MCP para Hermes mantiene su transporte stdio independiente.
+Visita `http://localhost:3000/radar`. La API HTTP de solo lectura escucha en `http://127.0.0.1:8100`; el MCP para Hermes mantiene su transporte stdio independiente.
 
 También puedes abrir Radar desde el launcher de aplicaciones del sistema. El acceso ejecuta
-`scripts/radar-launch.sh`, inicia PostgreSQL, la API y el frontend de producción si no están activos y abre
+`scripts/radar-launch.sh`, inicia PostgreSQL, la API y Next.js en desarrollo si no están activos y abre
 Chromium como aplicación independiente (`--app`) con un perfil separado en
 `~/.local/state/radar/chromium`.
 

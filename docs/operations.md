@@ -102,9 +102,7 @@ tail -f /home/paolo/.local/state/radar/frontend.log
 ```
 
 La entrada `.desktop` abre Chromium con `--app`, por lo que Radar aparece como una ventana
-independiente. El launcher usa el frontend de producción en `http://127.0.0.1:3001/radar`,
-por lo que no aparece el indicador `N` de desarrollo de Next.js. Para desarrollo manual usa
-`http://127.0.0.1:3000/radar` con `npm run dev`.
+independiente. El launcher usa Next.js en desarrollo en `http://127.0.0.1:3000/radar`.
 
 ## Verificación y respaldo
 
