@@ -171,7 +171,7 @@ export default function MapView(props: MapViewProps) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "heatmap" ? "none" : "visible");
     }
     if (map.getLayer("jobs-heat")) map.setLayoutProperty("jobs-heat", "visibility", "none");
-    for (const layer of ["radar-fill", "radar-lines", "radar-center-halo", "radar-center-point"]) {
+    for (const layer of ["radar-fill", "radar-lines"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "radar" ? "visible" : "none");
     }
   }
@@ -229,9 +229,6 @@ export default function MapView(props: MapViewProps) {
       map.addSource("radar-rings", { type: "geojson", data: radarFeatures(radarCenter, radarRadiusKm) });
       map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#4f46e5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.1, 0.012] } });
       map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#8c83ff", "#5b5b91"], "line-width": ["case", ["boolean", ["get", "active"], false], 3, 1.3], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72] } });
-      map.addSource("radar-center", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } } });
-      map.addLayer({ id: "radar-center-halo", type: "circle", source: "radar-center", paint: { "circle-color": "#10a37f", "circle-radius": 15, "circle-opacity": 0.18, "circle-stroke-color": "#72d8bd", "circle-stroke-width": 1, "circle-stroke-opacity": 0.8 } });
-      map.addLayer({ id: "radar-center-point", type: "circle", source: "radar-center", paint: { "circle-color": "#4f46e5", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       setModeVisibility(map, mode);
       map.once("idle", () => setModeVisibility(map, modeRef.current));
     });
@@ -302,7 +299,6 @@ export default function MapView(props: MapViewProps) {
       if (!map.isStyleLoaded()) return;
       if (mode === "radar") map.easeTo({ center: [radarCenter.longitude, radarCenter.latitude], zoom: 13, duration: 700 });
       (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
-      (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
       setModeVisibility(map, mode);
     };
     const syncRadarOverlay = () => {
