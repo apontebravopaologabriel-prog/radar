@@ -98,7 +98,7 @@ def test_freshness_excludes_old_undated_and_future_jobs():
     assert is_recent(recent.published_at, 14, today)
     assert not is_recent(old.published_at, 14, today)
     assert not is_recent(future.published_at, 14, today)
-    assert filter_recent_jobs([recent, old, future, undated], 14)[1] == 3
+    assert filter_recent_jobs([recent, old, future, undated], 14, today)[1] == 3
 
 
 def test_json_safe_converts_nan_to_null():

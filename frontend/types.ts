@@ -19,6 +19,9 @@ export type Job = {
   hours_per_week: number | null;
   schedule_text: string | null;
   application_status: string;
+  user_status?: "visible" | "hidden";
+  user_reason?: string | null;
+  is_favorite?: boolean;
   latitude: number | null;
   longitude: number | null;
   location_precision: "district" | "city" | "unknown";
@@ -34,7 +37,25 @@ export type Filters = {
   max_age_days: string;
 };
 
-export type MapMode = "heatmap" | "radar";
+export type MapMode = "heatmap" | "radar" | "skills";
+
+export type SkillDemand = {
+  name: string;
+  category: string;
+  job_count: number;
+  required_count: number;
+  confidence: number;
+  user_level: "none" | "basic" | "intermediate" | "advanced";
+  interest: "low" | "medium" | "high" | null;
+  evidence: string | null;
+  share: number;
+};
+
+export type SkillOverview = {
+  total_jobs: number;
+  max_age_days: number;
+  skills: SkillDemand[];
+};
 
 export type DistrictSummary = {
   key: string;

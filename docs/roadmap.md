@@ -10,7 +10,7 @@
 - Perfil separado.
 - Score trazable.
 - Consultas MCP para Hermes.
-- Sin frontend ni postulaciones automáticas.
+- Sin postulaciones automáticas; el frontend geográfico se documenta en la sección correspondiente.
 
 ## V2 — implementada en esta iteración
 
@@ -22,13 +22,13 @@
 - Herramientas MCP `get_job_history` y `get_career_timeline`.
 - Extracción conservadora de salario desde descripciones con moneda explícita.
 - Snapshots de mercado y seguimiento de postulaciones por MCP.
-- Estado de aceptación de la oferta (`application_status`) y fecha de verificación, con filtro estricto para LinkedIn.
+- Estado de aceptación de la oferta (`application_status`) y fecha de verificación, con requisitos estrictos para recomendaciones de LinkedIn.
 - Frescura configurable de 7 o 14 días y exclusión de ofertas no accionables en las consultas.
 
 ## Frontend geográfico — primera entrega implementada
 
 - Aplicación Next.js independiente en `frontend/`.
-- API HTTP FastAPI de solo lectura sobre las consultas existentes.
+- API HTTP FastAPI para consultas de mercado y estado personal de ofertas.
 - Mapa de Lima con MapLibre y datos GeoJSON.
 - Filtros por búsqueda, área, seniority, modalidad, salario y frescura.
 - Clusters, heatmap y Radar funcional con centro fijo por distrito, zoom automático, radios de 2,
@@ -41,6 +41,9 @@
 - Fallback automático a Leaflet cuando el navegador no soporta WebGL2.
 - Launcher `.desktop` que inicia servicios y abre Radar como web app independiente
   de Chromium.
+- Ocultar/restaurar ofertas desde la interfaz, con motivo persistido en `job_user_status`.
+- Vista `Skills` con demanda de mercado desde PostgreSQL, cruce contra el perfil y
+  ruta visual de aprendizaje por etapas.
 
 ## Frontend geográfico — siguiente etapa
 
@@ -53,7 +56,11 @@
 ## V2 — siguiente etapa
 - Snapshots automáticos por semana/mes/año y reportes comparativos.
 - Métricas por área, empresa y skill.
-- Skill Gap priorizado.
+- Skill Gap priorizado con evidencias de proyectos, cursos y eventos de carrera.
+- Evolucionar `Skills` hacia `Competencias`: separar skill de mercado, capacidad humana,
+  asistencia de IA y evidencia verificable.
+- Añadir career tracks y roles adyacentes sin ampliar inicialmente el foco más allá de
+  Ingeniería Industrial y sus áreas cercanas.
 - Mejorar el flujo de estados de aplicaciones y su auditoría desde CLI/MCP seguro.
 - Pruebas de contrato por fuente.
 

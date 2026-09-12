@@ -30,12 +30,12 @@ Pipeline Python
 PostgreSQL
 ```
 
-La interfaz web usa una API HTTP de solo lectura, sin acceder directamente al
+La interfaz web usa una API HTTP, sin acceder directamente al
 MCP ni a PostgreSQL:
 
 ```text
 Browser
-  ↓ HTTP GET
+  ↓ HTTP GET / PATCH
 Radar API (FastAPI, puerto 8100)
   ↓ reutiliza consultas
 PostgreSQL
@@ -45,7 +45,7 @@ Hermes es la interfaz conversacional. Python coordina fuentes, transforma respue
 
 La clasificación actual es heurística y usa alias definidos en `src/radar/classify.py`; el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Todavía no depende de un LLM.
 
-Las consultas operativas aplican frescura por `published_at`. Las ofertas cerradas o vencidas no se muestran; para LinkedIn además se exige `application_status=open` y una verificación (`application_checked_at`) dentro del mismo rango consultado. Las ofertas no accionables permanecen en PostgreSQL para historial. `job_areas` permite consultar y agrupar la vista por área industrial.
+Las consultas de la vista web aplican frescura por `published_at` y excluyen únicamente las ofertas ocultadas por el usuario. No aplican una exclusión especial por `is_active`, estado de aplicación o fuente LinkedIn. Las recomendaciones MCP mantienen sus propias reglas de calidad y verificación de fuente. Las ofertas no accionables permanecen en PostgreSQL para historial. `job_areas` permite consultar y agrupar la vista por área industrial.
 
 ## Estructura
 
@@ -63,6 +63,7 @@ frontend/
 ├── components/RadarClient.tsx # filtros, lista, selección y estado de la vista
 ├── components/MapView.tsx  # MapLibre, distritos, coropleta, clusters y radios
 ├── components/LeafletMapView.tsx # fallback sin WebGL2
+├── components/SkillsView.tsx # demanda de skills, perfil y ruta sugerida
 ├── app/globals.css         # tema grafito, layout y scroll del explorador
 └── lib/api.ts              # cliente HTTP de Radar API
 ```
@@ -75,7 +76,7 @@ frontend/
 - Los duplicados no se borran automáticamente.
 - Las cookies de Computrabajo no forman parte de V1.
 - LinkedIn no se activa por defecto por sus restricciones de automatización.
-- La API web inicial es de solo lectura y limita CORS a localhost.
+- La API web limita CORS a localhost; expone consultas de mercado y un PATCH para el estado personal de una oferta.
 - La vista `Distritos` usa límites de Lima/Callao, color por cantidad filtrada y
   selección sincronizada con el ranking y la lista de ofertas.
 - Las coordenadas actuales se infieren de forma conservadora desde distrito o
@@ -88,6 +89,26 @@ frontend/
 - El sidebar del explorador usa scroll vertical propio y la lista de ofertas tiene
   un límite interno para que ranking, ofertas y detalles sigan accesibles en ventanas
   reducidas.
+- Las ofertas pueden ocultarse desde el detalle con un motivo y restaurarse desde la vista de ocultas; el estado vive en `job_user_status` y no altera `jobs`.
+- Las ofertas pueden guardarse con una estrella; Favoritos consulta `job_user_favorites` y es independiente de las ofertas ocultas.
+- La barra superior fue eliminada; `Radar` queda como encabezado principal del explorador y el mapa usa todo el alto disponible.
+- La vista `Skills` consulta `/api/skills/overview` y cruza la demanda reciente de
+  `job_skills` con el nivel, interés y evidencia declarados en `user_skills`.
+  Muestra una constelación de skills y una ruta sugerida; el progreso es orientativo
+  hasta que se registren evidencias verificables como proyectos o eventos de carrera.
+
+## Frontera con T
+
+Radar conserva la fuente de verdad profesional: ofertas, demanda, perfil,
+skills declaradas, eventos de carrera y estado histórico. T no replica esas
+tablas. T Knowledge aporta libros, PDFs, clippings, notas y provenance para
+investigar o preparar la práctica; Plane conserva el proyecto y sus entregables;
+IAI conserva el contexto episódico de las sesiones.
+
+La futura integración debe relacionar una skill de Radar con una capacidad
+humana observable y una evidencia revisable. La frecuencia de una skill, un
+curso terminado o una salida generada por IA no deben elevar automáticamente
+el nivel profesional.
 
 ## Memoria profesional
 

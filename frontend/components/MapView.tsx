@@ -70,15 +70,6 @@ function radarFeatures(center: RadarCenter, activeRadius: number): FeatureCollec
   return { type: "FeatureCollection", features: [2, 5, 10].map((radius) => ({ ...circlePolygon(center, radius), properties: { radiusKm: radius, active: radius === activeRadius } })) };
 }
 
-function RadarOverlay({ mode, activeRadius, active, overlayRef }: { mode: MapMode; activeRadius: number; active: boolean; overlayRef: { current: HTMLDivElement | null } }) {
-  if (mode !== "radar" || !active) return null;
-  return (
-    <div ref={overlayRef} className="radar-overlay" aria-hidden="true">
-      {[10, 5, 2].map((radius) => <span key={radius} className={`radar-overlay-ring radar-overlay-ring-${radius} ${activeRadius === radius ? "active" : ""}`} />)}
-    </div>
-  );
-}
-
 type DistrictCount = { district: string; districtKey: string; job_count: number };
 
 function districtCountFeatures(jobs: Job[]): FeatureCollection<Point, DistrictCount> {
@@ -130,8 +121,8 @@ export default function MapView(props: MapViewProps) {
   const selectedDistrictRef = useRef(selectedDistrictKey);
   const districtsReadyRef = useRef(false);
   const districtStateKeysRef = useRef(new Set<string>());
-  const radarOverlayRef = useRef<HTMLDivElement>(null);
   const [webglAvailable, setWebglAvailable] = useState<boolean | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => { setWebglAvailable(supportsWebGL2()); }, []);
 
@@ -164,13 +155,14 @@ export default function MapView(props: MapViewProps) {
   }
 
   function setModeVisibility(map: MapLibreMap, nextMode: MapMode, radarActive = Boolean(radarDistrictKeyRef.current)) {
-    const showDistricts = nextMode === "heatmap";
+    const showDistricts = nextMode === "heatmap" || nextMode === "radar";
+    const showJobLayers = nextMode !== "heatmap" && nextMode !== "radar";
     for (const layer of ["district-fill", "district-labels"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", showDistricts ? "visible" : "none");
     }
     if (map.getLayer("district-outline")) map.setLayoutProperty("district-outline", "visibility", showDistricts || Boolean(selectedDistrictRef.current) ? "visible" : "none");
     for (const layer of ["clusters", "cluster-count", "job-points"]) {
-      if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "heatmap" ? "none" : "visible");
+      if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", showJobLayers ? "visible" : "none");
     }
     if (map.getLayer("jobs-heat")) map.setLayoutProperty("jobs-heat", "visibility", "none");
     for (const layer of ["radar-fill", "radar-lines"]) {
@@ -220,6 +212,7 @@ export default function MapView(props: MapViewProps) {
           const source = map.getSource("districts") as maplibregl.GeoJSONSource;
           source.setData(normalizeDistrictGeoJson(payload));
           districtsReadyRef.current = true;
+          setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current));
           window.setTimeout(() => syncDistrictState(map, jobsRef.current, selectedDistrictRef.current), 150);
         })
         .catch(() => undefined);
@@ -232,6 +225,7 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#4f46e5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.1, 0.012] } });
       map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#8c83ff", "#5b5b91"], "line-width": ["case", ["boolean", ["get", "active"], false], 3, 1.3], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72] } });
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
+      setMapReady(true);
       map.once("idle", () => setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current)));
     });
 
@@ -272,6 +266,7 @@ export default function MapView(props: MapViewProps) {
     (map.getSource("jobs") as maplibregl.GeoJSONSource | undefined)?.setData(pointFeatures(jobs));
     (map.getSource("district-counts") as maplibregl.GeoJSONSource | undefined)?.setData(districtCountFeatures(jobs));
     syncDistrictState(map, jobs, selectedDistrictRef.current);
+    setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current));
   }, [jobs]);
 
   useEffect(() => {
@@ -281,9 +276,13 @@ export default function MapView(props: MapViewProps) {
       if (!map.isStyleLoaded()) return;
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
     };
-    if (map.isStyleLoaded()) applyMode();
+    const reapplyWhenIdle = () => applyMode();
+    if (map.isStyleLoaded()) {
+      applyMode();
+      map.once("idle", reapplyWhenIdle);
+    }
     else map.once("load", applyMode);
-    return () => { map.off("load", applyMode); };
+    return () => { map.off("load", applyMode); map.off("idle", reapplyWhenIdle); };
   }, [mode, radarDistrictKey]);
 
   useEffect(() => {
@@ -298,37 +297,25 @@ export default function MapView(props: MapViewProps) {
     const map = mapRef.current;
     if (!map) return;
     const syncRadarState = () => {
-      if (!map.isStyleLoaded()) return;
-      if (mode === "radar" && radarDistrictKey) map.easeTo({ center: [radarCenter.longitude, radarCenter.latitude], zoom: 13, duration: 700 });
-      (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
+      const source = map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined;
+      if (!source) return;
+      source.setData(radarFeatures(radarCenter, radarRadiusKm));
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
+      map.triggerRepaint();
     };
-    const syncRadarOverlay = () => {
-      if (mode !== "radar" || !radarDistrictKey || !radarOverlayRef.current) return;
-      const center = map.project([radarCenter.longitude, radarCenter.latitude]);
-      const latitudeRadians = (radarCenter.latitude * Math.PI) / 180;
-      const eastLongitude = radarCenter.longitude + 10 / (111.32 * Math.max(0.2, Math.cos(latitudeRadians)));
-      const eastPoint = map.project([eastLongitude, radarCenter.latitude]);
-      const diameter = Math.max(80, Math.abs(eastPoint.x - center.x) * 2);
-      radarOverlayRef.current.style.left = `${center.x}px`;
-      radarOverlayRef.current.style.top = `${center.y}px`;
-      radarOverlayRef.current.style.setProperty("--radar-diameter", `${diameter}px`);
-    };
-    if (map.isStyleLoaded()) syncRadarState();
-    else map.once("load", syncRadarState);
-    map.on("move", syncRadarOverlay);
-    map.on("zoom", syncRadarOverlay);
-    map.on("resize", syncRadarOverlay);
-    syncRadarOverlay();
+    if (map.getSource("radar-rings")) {
+      syncRadarState();
+      map.once("idle", syncRadarState);
+    } else {
+      map.once("load", syncRadarState);
+    }
     return () => {
       map.off("load", syncRadarState);
-      map.off("move", syncRadarOverlay);
-      map.off("zoom", syncRadarOverlay);
-      map.off("resize", syncRadarOverlay);
+      map.off("idle", syncRadarState);
     };
-  }, [mode, radarCenter, radarRadiusKm, radarDistrictKey]);
+  }, [mode, radarCenter, radarRadiusKm, radarDistrictKey, mapReady]);
 
   if (webglAvailable === false) return <LeafletMapView {...props} />;
   if (webglAvailable === null) return <div className="map-loading">Preparando mapa…</div>;
-  return <div ref={containerRef} className="map-canvas" aria-label="Mapa de ofertas laborales de Lima"><RadarOverlay mode={mode} activeRadius={radarRadiusKm} active={Boolean(radarDistrictKey)} overlayRef={radarOverlayRef} /></div>;
+  return <div ref={containerRef} className="map-canvas" aria-label="Mapa de ofertas laborales de Lima" />;
 }

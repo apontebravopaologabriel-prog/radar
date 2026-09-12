@@ -23,8 +23,9 @@ def is_recent(
 
 
 def filter_recent_jobs(
-    jobs: list[RawJob], max_age_days: int = DEFAULT_MAX_AGE_DAYS
+    jobs: list[RawJob], max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    today: datetime | None = None,
 ) -> tuple[list[RawJob], int]:
     """Filter undated, future and stale jobs while preserving them upstream."""
-    recent = [job for job in jobs if is_recent(job.published_at, max_age_days)]
+    recent = [job for job in jobs if is_recent(job.published_at, max_age_days, today)]
     return recent, len(jobs) - len(recent)

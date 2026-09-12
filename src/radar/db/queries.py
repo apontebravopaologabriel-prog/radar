@@ -14,6 +14,7 @@ def list_jobs(
     search: str | None = None,
     work_mode: str | None = None,
     min_salary: float | None = None,
+    include_hidden: bool = False,
 ) -> list[dict[str, Any]]:
     clauses = [
         "j.published_at IS NOT NULL",
@@ -37,6 +38,8 @@ def list_jobs(
     if min_salary is not None:
         clauses.append("COALESCE(j.salary_max, j.salary_min, 0) >= %s")
         params.append(min_salary)
+    if not include_hidden:
+        clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
     limit_clause = ""
     if limit is not None:
         params.append(max(limit, 1))
@@ -44,15 +47,146 @@ def list_jobs(
     sql = f"""SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency, js.source_url,
         j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
-        j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at
+        j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
+        COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
+        EXISTS (SELECT 1 FROM job_user_favorites juf WHERE juf.job_id=j.id) AS is_favorite
         FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=TRUE
         LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
+        LEFT JOIN job_user_status jus ON jus.job_id=j.id
         LEFT JOIN LATERAL (SELECT source_url FROM job_sources WHERE job_id=j.id ORDER BY last_seen_at DESC LIMIT 1) js ON TRUE
         WHERE {" AND ".join(clauses)} ORDER BY j.published_at DESC NULLS LAST, j.detected_at DESC{limit_clause}"""
     with connection() as conn:
         rows = conn.execute(sql, params).fetchall()
     return [_row_to_dict(row) for row in rows]
+
+
+def list_hidden_jobs() -> list[dict[str, Any]]:
+    """Devuelve ofertas ocultadas por el usuario para poder restaurarlas."""
+    sql = """SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
+        j.work_mode, j.salary_min, j.salary_max, j.salary_currency, js.source_url,
+        j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
+        j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
+        jus.status AS user_status, jus.reason AS user_reason, TRUE AS is_favorite
+        FROM jobs j
+        LEFT JOIN companies c ON c.id=j.company_id
+        LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=TRUE
+        LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
+        LEFT JOIN job_user_status jus ON jus.job_id=j.id
+        LEFT JOIN LATERAL (SELECT source_url FROM job_sources WHERE job_id=j.id ORDER BY last_seen_at DESC LIMIT 1) js ON TRUE
+        WHERE jus.status='hidden'
+        ORDER BY jus.updated_at DESC, j.published_at DESC NULLS LAST"""
+    with connection() as conn:
+        rows = conn.execute(sql).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
+def set_job_user_status(job_id: str, status: str, reason: str | None = None, note: str | None = None) -> None:
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO job_user_status(job_id, status, reason, note)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (job_id) DO UPDATE SET status=EXCLUDED.status,
+                reason=EXCLUDED.reason, note=EXCLUDED.note, updated_at=now()""",
+            (job_id, status, reason, note),
+        )
+        conn.commit()
+
+
+def list_favorite_jobs() -> list[dict[str, Any]]:
+    """Devuelve las ofertas guardadas por el usuario, más recientes primero."""
+    sql = """SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
+        j.work_mode, j.salary_min, j.salary_max, j.salary_currency, js.source_url,
+        j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
+        j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
+        COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
+        TRUE AS is_favorite
+        FROM jobs j
+        JOIN job_user_favorites juf ON juf.job_id=j.id
+        LEFT JOIN companies c ON c.id=j.company_id
+        LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=TRUE
+        LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
+        LEFT JOIN job_user_status jus ON jus.job_id=j.id
+        LEFT JOIN LATERAL (SELECT source_url FROM job_sources WHERE job_id=j.id ORDER BY last_seen_at DESC LIMIT 1) js ON TRUE
+        ORDER BY juf.created_at DESC, j.published_at DESC NULLS LAST"""
+    with connection() as conn:
+        rows = conn.execute(sql).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
+def skill_overview(
+    max_age_days: int = 30,
+    area: str | None = None,
+    seniority: str | None = None,
+    work_mode: str | None = None,
+) -> dict[str, Any]:
+    """Resume demanda de skills y la cruza con el último perfil local."""
+    clauses = [
+        "j.published_at IS NOT NULL",
+        "j.published_at >= CURRENT_DATE - (%s * INTERVAL '1 day')",
+        "j.published_at < CURRENT_DATE + INTERVAL '1 day'",
+        "NOT EXISTS (SELECT 1 FROM job_user_status jus2 WHERE jus2.job_id=j.id AND jus2.status='hidden')",
+    ]
+    params: list[Any] = [max_age_days]
+    if area:
+        clauses.append("EXISTS (SELECT 1 FROM job_areas ja2 JOIN industrial_areas ia2 ON ia2.id=ja2.area_id WHERE ja2.job_id=j.id AND ja2.is_primary AND ia2.name=%s)")
+        params.append(area)
+    if seniority:
+        clauses.append("j.seniority=%s")
+        params.append(seniority)
+    if work_mode:
+        clauses.append("j.work_mode=%s")
+        params.append(work_mode)
+    where = " AND ".join(clauses)
+    sql = f"""WITH eligible_jobs AS (
+        SELECT DISTINCT j.id FROM jobs j WHERE {where}
+    )
+    SELECT s.name, COALESCE(s.category, 'other') AS category,
+        count(DISTINCT js.job_id)::int AS job_count,
+        count(DISTINCT js.job_id) FILTER (WHERE js.requirement_type='required')::int AS required_count,
+        round(avg(js.confidence)::numeric, 3) AS confidence,
+        COALESCE(us.level, 'none') AS user_level,
+        us.interest, us.evidence
+    FROM job_skills js
+    JOIN eligible_jobs ej ON ej.id=js.job_id
+    JOIN skills s ON s.id=js.skill_id
+    LEFT JOIN user_skills us ON us.skill_id=s.id
+        AND us.profile_id=(SELECT id FROM user_profile ORDER BY updated_at DESC LIMIT 1)
+    GROUP BY s.name, s.category, us.level, us.interest, us.evidence
+    ORDER BY job_count DESC, s.name"""
+    with connection() as conn:
+        total = conn.execute(f"SELECT count(*)::int FROM jobs j WHERE {where}", params).fetchone()[0]
+        rows = conn.execute(sql, params).fetchall()
+    skills = []
+    for row in rows:
+        skills.append({
+            "name": row[0],
+            "category": row[1],
+            "job_count": row[2],
+            "required_count": row[3],
+            "confidence": float(row[4]) if row[4] is not None else 0,
+            "user_level": row[5],
+            "interest": row[6],
+            "evidence": row[7],
+            "share": round(row[2] / total, 4) if total else 0,
+        })
+    return {"total_jobs": total, "max_age_days": max_age_days, "skills": skills}
+
+
+def set_job_favorite(job_id: str) -> None:
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO job_user_favorites(job_id)
+            VALUES (%s) ON CONFLICT (job_id) DO NOTHING""",
+            (job_id,),
+        )
+        conn.commit()
+
+
+def remove_job_favorite(job_id: str) -> None:
+    with connection() as conn:
+        conn.execute("DELETE FROM job_user_favorites WHERE job_id=%s", (job_id,))
+        conn.commit()
 
 
 def market_summary() -> dict[str, Any]:
@@ -230,6 +364,9 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "schedule_text",
         "application_status",
         "application_checked_at",
+        "user_status",
+        "user_reason",
+        "is_favorite",
     )
     result = dict(zip(keys, row, strict=True))
     result["id"] = str(result["id"])

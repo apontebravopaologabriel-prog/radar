@@ -1,4 +1,4 @@
-import type { Filters, Job } from "../types";
+import type { Filters, Job, SkillOverview } from "../types";
 
 const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL || "http://127.0.0.1:8100";
 
@@ -11,4 +11,40 @@ export async function fetchJobs(filters: Filters, signal?: AbortSignal): Promise
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   const payload = (await response.json()) as { jobs: Job[] };
   return payload.jobs;
+}
+
+export async function fetchHiddenJobs(signal?: AbortSignal): Promise<Job[]> {
+  const response = await fetch(`${API_URL}/api/jobs/hidden`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  const payload = (await response.json()) as { jobs: Job[] };
+  return payload.jobs;
+}
+
+export async function fetchFavoriteJobs(signal?: AbortSignal): Promise<Job[]> {
+  const response = await fetch(`${API_URL}/api/jobs/favorites`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  const payload = (await response.json()) as { jobs: Job[] };
+  return payload.jobs;
+}
+
+export async function updateJobFavorite(id: string, favorite: boolean): Promise<void> {
+  const response = await fetch(`${API_URL}/api/jobs/${id}/favorite`, { method: favorite ? "PUT" : "DELETE" });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+}
+
+export async function fetchSkillOverview(filters: Pick<Filters, "area" | "seniority" | "work_mode" | "max_age_days">, signal?: AbortSignal): Promise<SkillOverview> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  const response = await fetch(`${API_URL}/api/skills/overview?${params.toString()}`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return (await response.json()) as SkillOverview;
+}
+
+export async function updateJobStatus(id: string, status: "visible" | "hidden", reason?: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/jobs/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, reason }),
+  });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }

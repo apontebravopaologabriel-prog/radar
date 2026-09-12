@@ -12,6 +12,10 @@ buscar → normalizar → clasificar → deduplicar → observar → guardar →
 
 La fuente de verdad es PostgreSQL. Hermes se conecta mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
 
+El frontend incluye las vistas `Distritos`, `Radar` y `Skills`. `Skills` resume la
+demanda de habilidades de las ofertas recientes y la compara con el perfil local,
+sin reemplazar la fuente de verdad PostgreSQL.
+
 ## Documentación
 
 - [Arquitectura y flujo](docs/architecture.md)
@@ -21,6 +25,7 @@ La fuente de verdad es PostgreSQL. Hermes se conecta mediante el MCP propio `rad
 - [Troubleshooting](docs/troubleshooting.md)
 - [Seguridad y cumplimiento](docs/security.md)
 - [Roadmap V2/V3](docs/roadmap.md)
+- [Dirección de producto](docs/product-direction.md)
 
 ## Arranque
 
@@ -77,7 +82,7 @@ Para abrir el frontend geográfico manualmente en desarrollo, inicia la API y lu
 cd frontend && npm run dev
 ```
 
-Visita `http://localhost:3000/radar`. La API HTTP de solo lectura escucha en `http://127.0.0.1:8100`; el MCP para Hermes mantiene su transporte stdio independiente.
+Visita `http://localhost:3000/radar`. La API HTTP escucha en `http://127.0.0.1:8100`; además de consultas de lectura permite actualizar el estado personal visible/oculta de una oferta y consultar `/api/skills/overview`. El MCP para Hermes mantiene su transporte stdio independiente.
 
 También puedes abrir Radar desde el launcher de aplicaciones del sistema. El acceso ejecuta
 `scripts/radar-launch.sh`, inicia PostgreSQL, la API y Next.js en desarrollo si no están activos y abre
@@ -87,13 +92,13 @@ Chromium como aplicación independiente (`--app`) con un perfil separado en
 ### Frontend geográfico
 
 La vista `/radar` ofrece búsqueda, filtros por área/seniority/modalidad/salario/frescura,
-lista de ofertas, detalle, ranking por distrito y tres modos de visualización:
+lista de ofertas, detalle, ranking por distrito y dos modos de visualización:
 
 - `Distritos`: coropleta de Lima/Callao con cantidad de ofertas y selección sincronizada.
 - `Radar`: selector de distrito como centro fijo, zoom automático, radios concéntricos
   seleccionables de 2, 5 y 10 km y distancia geográfica calculada con Haversine. El filtro se
-  refleja simultáneamente en contador/lista/mapa; el radio activo y el centro se resaltan con un
-  barrido visual sutil que respeta `prefers-reduced-motion`.
+  refleja simultáneamente en contador/lista/mapa; el radio activo y el centro permanecen anclados
+  al mapa y respetan `prefers-reduced-motion`.
 
 Las coordenadas se infieren de forma aproximada desde distrito o ciudad y se informa esa
 limitación en la interfaz. MapLibre es el motor principal; si el navegador no soporta
@@ -112,7 +117,16 @@ El CSV puede incluir `published_at`, `work_mode`, `hours_per_week`, `schedule_te
 
 Las búsquedas automáticas y la vista web usan por defecto ofertas publicadas en los últimos 7 días; puedes cambiar la antigüedad a 14, 30 o 90 días desde la interfaz. Las ofertas antiguas no se borran: quedan en PostgreSQL como historial, pero no aparecen cuando están fuera de la ventana elegida.
 
-La vista web se basa en la antigüedad de `published_at` y ya no excluye ofertas por `is_active`, estado de aplicación o una regla especial de LinkedIn. La URL original se conserva y el popup identifica la plataforma por su dominio cuando es posible.
+La vista web se basa en la antigüedad de `published_at` y no excluye ofertas por `is_active`, estado de aplicación ni una regla especial de LinkedIn. Las ofertas ocultadas manualmente se excluyen de la vista normal y pueden consultarse/restaurarse desde el ícono de ojo. La URL original se conserva y el popup identifica la plataforma por su dominio cuando es posible. El detalle usa una tarjeta compacta: la descripción se resume inicialmente y se puede expandir con `Ver descripción completa`, evitando scrollbars anidados tanto en ofertas como en señales del Radar.
+
+La interfaz mantiene una composición sin barra superior: `Radar` funciona como título principal
+del explorador, dejando todo el alto disponible para filtros, ofertas y mapa.
+
+El estado personal se guarda en `job_user_status`, separado de `jobs`. Ocultar una oferta requiere
+un motivo (`closed`, `not_interested`, `applied`, `duplicate` u `other`) y no elimina la oferta
+canónica. Actualmente aplica a la instalación local completa; todavía no existe soporte multiusuario.
+Las ofertas favoritas se guardan en `job_user_favorites` y se consultan desde la vista Favoritos
+mediante la estrella `☆`/`★`.
 
 Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta dieciséis consultas amplias de áreas industriales cada seis horas y usa una ventana de 7 días por defecto. La ingesta no filtra por salario; el sueldo se utiliza después como dato de análisis y filtro opcional:
 

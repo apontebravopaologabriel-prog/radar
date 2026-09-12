@@ -104,6 +104,17 @@ tail -f /home/paolo/.local/state/radar/frontend.log
 La entrada `.desktop` abre Chromium con `--app`, por lo que Radar aparece como una ventana
 independiente. El launcher usa Next.js en desarrollo en `http://127.0.0.1:3000/radar`.
 
+### Ocultar y restaurar ofertas
+
+Desde el detalle de una oferta visible, selecciona `Ocultar oferta` y elige un motivo:
+`Ya cerró`, `No me interesa`, `Ya postulé`, `Oferta duplicada` u `Otro`. La oferta se registra
+en `job_user_status` y deja de aparecer en la vista normal. El ícono de ojo junto a `Ofertas
+recientes` abre la lista de ofertas ocultas; desde el detalle se puede seleccionar `Restaurar
+oferta` para volver a incluirla.
+
+Este flujo no elimina ni modifica la fila de `jobs`. Actualmente el estado es local a la instalación
+de Radar y no hay separación por cuentas de usuario.
+
 ## Verificación y respaldo
 
 Ejecuta `ruff check`, `pytest`, `python -m compileall` y `docker compose ps`. Para respaldo lógico usa `docker exec radar-postgres pg_dump -U radar -d radar > radar-backup.sql`. No borres el volumen para actualizar tablas; crea migraciones incrementales.
