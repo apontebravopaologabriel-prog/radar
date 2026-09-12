@@ -175,6 +175,14 @@ export default function MapView(props: MapViewProps) {
     }
   }
 
+  function setRadarInteractionLock(map: MapLibreMap, locked: boolean) {
+    const handlers = [map.dragPan, map.scrollZoom, map.boxZoom, map.doubleClickZoom, map.touchZoomRotate, map.keyboard];
+    for (const handler of handlers) {
+      if (locked) handler.disable();
+      else handler.enable();
+    }
+  }
+
   useEffect(() => {
     if (webglAvailable !== true) return;
     if (!containerRef.current) return;
@@ -232,6 +240,7 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "radar-center-halo", type: "circle", source: "radar-center", paint: { "circle-color": "#10a37f", "circle-radius": 15, "circle-opacity": 0.18, "circle-stroke-color": "#72d8bd", "circle-stroke-width": 1, "circle-stroke-opacity": 0.8 } });
       map.addLayer({ id: "radar-center-point", type: "circle", source: "radar-center", paint: { "circle-color": "#4f46e5", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       setModeVisibility(map, mode);
+      setRadarInteractionLock(map, mode === "radar");
       map.once("idle", () => setModeVisibility(map, modeRef.current));
     });
 
@@ -280,6 +289,7 @@ export default function MapView(props: MapViewProps) {
     const applyMode = () => {
       if (!map.isStyleLoaded()) return;
       setModeVisibility(map, mode);
+      setRadarInteractionLock(map, mode === "radar");
     };
     if (map.isStyleLoaded()) applyMode();
     else map.once("load", applyMode);
@@ -303,6 +313,7 @@ export default function MapView(props: MapViewProps) {
       (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
       (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
       setModeVisibility(map, mode);
+      setRadarInteractionLock(map, mode === "radar");
     };
     if (map.isStyleLoaded()) applyRadarState();
     else map.once("load", applyRadarState);

@@ -50,6 +50,11 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const lockRadarCenter = mode === "radar";
+    for (const handler of [map.dragging, map.scrollWheelZoom, map.doubleClickZoom, map.boxZoom, map.keyboard, map.touchZoom]) {
+      if (lockRadarCenter) handler.disable();
+      else handler.enable();
+    }
     map.eachLayer((layer) => { if (!(layer instanceof L.TileLayer)) map.removeLayer(layer); });
     const counts = jobsByDistrict(jobs);
     const maxCount = Math.max(0, ...Array.from(counts.values()));
