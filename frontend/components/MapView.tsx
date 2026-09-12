@@ -69,6 +69,16 @@ function radarFeatures(center: RadarCenter, activeRadius: number): FeatureCollec
   return { type: "FeatureCollection", features: [2, 5, 10].map((radius) => ({ ...circlePolygon(center, radius), properties: { radiusKm: radius, active: radius === activeRadius } })) };
 }
 
+function RadarOverlay({ mode, activeRadius }: { mode: MapMode; activeRadius: number }) {
+  if (mode !== "radar") return null;
+  return (
+    <div className="radar-overlay" aria-hidden="true">
+      {[10, 5, 2].map((radius) => <span key={radius} className={`radar-overlay-ring radar-overlay-ring-${radius} ${activeRadius === radius ? "active" : ""}`} />)}
+      <span className="radar-overlay-center" />
+    </div>
+  );
+}
+
 type DistrictCount = { district: string; districtKey: string; job_count: number };
 
 function districtCountFeatures(jobs: Job[]): FeatureCollection<Point, DistrictCount> {
@@ -299,7 +309,7 @@ export default function MapView(props: MapViewProps) {
     return () => { map.off("load", applyRadarState); };
   }, [mode, radarCenter, radarRadiusKm]);
 
-  if (webglAvailable === false) return <LeafletMapView {...props} />;
+  if (webglAvailable === false) return <div className="map-canvas"><LeafletMapView {...props} /><RadarOverlay mode={mode} activeRadius={radarRadiusKm} /></div>;
   if (webglAvailable === null) return <div className="map-loading">Preparando mapa…</div>;
-  return <div ref={containerRef} className="map-canvas" aria-label="Mapa de ofertas laborales de Lima" />;
+  return <div ref={containerRef} className="map-canvas" aria-label="Mapa de ofertas laborales de Lima"><RadarOverlay mode={mode} activeRadius={radarRadiusKm} /></div>;
 }
