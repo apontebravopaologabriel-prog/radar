@@ -171,6 +171,26 @@ export default function RadarClient() {
           <div className="job-list">{loading && <div className="empty-state">Buscando ofertas…</div>}{!loading && error && <div className="empty-state error-state">{error}</div>}{!loading && !error && visibleJobs.length === 0 && <div className="empty-state">No hay ofertas con estos filtros.</div>}{visibleJobs.map((job) => <button key={job.id} className={`job-card ${selectedId === job.id ? "selected" : ""}`} onClick={() => selectJob(job)}><div className="job-card-top"><span className="job-area">{job.primary_area || "Sin área"}</span><span className="job-date">{formatDate(job.published_at)}</span></div><strong>{job.title}</strong><span className="job-company">{job.company || "Empresa no indicada"}</span><div className="job-meta"><span>⌖ {job.district || job.location || "Ubicación pendiente"}</span><span>{job.work_mode === "hybrid" ? "Híbrido" : job.work_mode === "remote" ? "Remoto" : job.work_mode === "onsite" ? "Presencial" : "Modalidad n/i"}</span></div></button>)}</div>
         </aside>
 
+        <section className="map-panel">
+          <div className="map-header">
+            <div>
+              <p className="eyebrow">Vista geográfica</p>
+              <h2>{mode === "heatmap" && selectedDistrict ? selectedDistrict.district : mode === "heatmap" ? "Concentración por distrito" : mode === "radar" ? `Radar · ${radarDistrict?.district || "Lima"}` : "Lima Metropolitana"}</h2>
+            </div>
+            <div className="map-legend">
+              {mode === "heatmap" ? <><span><i className="legend-scale low" /> Pocas ofertas</span><span><i className="legend-scale high" /> Más ofertas</span></> : <><span><i className="legend-dot" /> Oferta cercana</span><span><i className="legend-cluster" /> Concentración</span></>}
+              {mode === "radar" && <span><i className="legend-ring" /> Radio activo</span>}
+            </div>
+          </div>
+          <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
+            <MapView jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
+            {mode === "heatmap" && <div className="map-hint">El tono indica la cantidad de ofertas · selecciona un distrito para ver sus ofertas</div>}
+            {mode === "radar" && <div className="radar-hint">RADAR FIJO · {radarDistrict?.district || "selecciona un distrito"} · muestra ofertas dentro de {radarRadiusKm} km</div>}
+            {selectedDistrict && <div className="district-focus"><span className="eyebrow">Distrito seleccionado</span><strong>{selectedDistrict.district}</strong><span>{selectedDistrict.count} ofertas con estos filtros</span><button type="button" onClick={() => setSelectedDistrictKey(null)}>Ver todos</button></div>}
+            {selectedJob && <div className="map-popover"><button className="close-button" onClick={() => setSelectedId(null)} aria-label="Cerrar">×</button><span className="job-area">{selectedJob.primary_area || "Sin área"}</span><h3>{selectedJob.title}</h3><p>{selectedJob.company || "Empresa no indicada"}</p><div className="popover-divider" /><div className="popover-row"><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div><div className="popover-row"><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div><a href={selectedJob.url || "#"} target="_blank" rel="noreferrer">Ver oferta original ↗</a></div>}
+          </div>
+        </section>
+
       </section>
       <footer className="statusbar"><span><i className="status-dot" /> API Radar conectada</span><span>Fuente de verdad: PostgreSQL</span><span>Actualización: últimas {filters.max_age_days} días</span></footer>
     </main>
