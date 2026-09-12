@@ -7,7 +7,7 @@ from radar.freshness import DEFAULT_MAX_AGE_DAYS
 
 
 def list_jobs(
-    limit: int = 20,
+    limit: int | None = 20,
     seniority: str | None = None,
     area: str | None = None,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
@@ -16,14 +16,11 @@ def list_jobs(
     min_salary: float | None = None,
 ) -> list[dict[str, Any]]:
     clauses = [
-        "j.is_active = TRUE",
         "j.published_at IS NOT NULL",
-        "COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')",
-        "NOT EXISTS (SELECT 1 FROM job_sources jsl JOIN sources sl ON sl.id=jsl.source_id WHERE jsl.job_id=j.id AND lower(sl.name)='linkedin' AND (COALESCE(j.application_status, 'unknown') <> 'open' OR j.application_checked_at IS NULL OR j.application_checked_at < CURRENT_DATE - (%s * INTERVAL '1 day')))",
         "j.published_at >= CURRENT_DATE - (%s * INTERVAL '1 day')",
         "j.published_at < CURRENT_DATE + INTERVAL '1 day'",
     ]
-    params: list[Any] = [max_age_days, max_age_days]
+    params: list[Any] = [max_age_days]
     if seniority:
         clauses.append("j.seniority = %s")
         params.append(seniority)
@@ -40,7 +37,10 @@ def list_jobs(
     if min_salary is not None:
         clauses.append("COALESCE(j.salary_max, j.salary_min, 0) >= %s")
         params.append(min_salary)
-    params.append(min(max(limit, 1), 100))
+    limit_clause = ""
+    if limit is not None:
+        params.append(max(limit, 1))
+        limit_clause = " LIMIT %s"
     sql = f"""SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency, js.source_url,
         j.published_at, ia.name AS primary_area, j.sector,
@@ -49,7 +49,7 @@ def list_jobs(
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=TRUE
         LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
         LEFT JOIN LATERAL (SELECT source_url FROM job_sources WHERE job_id=j.id ORDER BY last_seen_at DESC LIMIT 1) js ON TRUE
-        WHERE {" AND ".join(clauses)} ORDER BY j.published_at DESC NULLS LAST, j.detected_at DESC LIMIT %s"""
+        WHERE {" AND ".join(clauses)} ORDER BY j.published_at DESC NULLS LAST, j.detected_at DESC{limit_clause}"""
     with connection() as conn:
         rows = conn.execute(sql, params).fetchall()
     return [_row_to_dict(row) for row in rows]

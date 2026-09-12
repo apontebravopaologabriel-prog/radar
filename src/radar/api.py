@@ -44,10 +44,9 @@ def jobs(
     work_mode: str | None = None,
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
-    limit: int = Query(default=100, ge=1, le=100),
 ) -> dict[str, Any]:
     rows = list_jobs(
-        limit=limit,
+        limit=None,
         seniority=seniority,
         area=area,
         max_age_days=max_age_days,
@@ -66,10 +65,9 @@ def map_jobs(
     work_mode: str | None = None,
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
-    limit: int = Query(default=100, ge=1, le=100),
 ) -> dict[str, Any]:
     rows = list_jobs(
-        limit=limit,
+        limit=None,
         seniority=seniority,
         area=area,
         max_age_days=max_age_days,
