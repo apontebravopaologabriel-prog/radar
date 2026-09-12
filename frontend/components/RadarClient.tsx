@@ -24,6 +24,20 @@ function formatSalary(job: Job) {
   return `${currency} ${(job.salary_min ?? job.salary_max)?.toLocaleString("es-PE")}`;
 }
 
+function sourceLabel(url: string | null) {
+  if (!url) return "Abrir oferta original";
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("linkedin")) return "Ver en LinkedIn";
+    if (host.includes("indeed")) return "Ver en Indeed";
+    if (host.includes("computrabajo")) return "Ver en Computrabajo";
+    if (host.includes("glassdoor")) return "Ver en Glassdoor";
+  } catch {
+    return "Abrir oferta original";
+  }
+  return "Ver oferta original";
+}
+
 function distanceKm(from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) {
   const earthRadiusKm = 6371;
   const latDelta = ((to.latitude - from.latitude) * Math.PI) / 180;
@@ -183,7 +197,7 @@ export default function RadarClient() {
           </div>
           <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
             <MapView jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-            {selectedJob && <article className="job-popover"><button className="close-button" onClick={() => setSelectedId(null)} aria-label="Cerrar detalle" type="button">×</button><span className="job-area">{selectedJob.primary_area || "Sin área"}</span><h3>{selectedJob.title}</h3><p className="popover-company">{selectedJob.company || "Empresa no indicada"}</p><div className="popover-divider" /><div className="popover-grid"><div><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div><div><span>Modalidad</span><strong>{selectedJob.work_mode === "hybrid" ? "Híbrido" : selectedJob.work_mode === "remote" ? "Remoto" : selectedJob.work_mode === "onsite" ? "Presencial" : "No indicada"}</strong></div><div><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div><div><span>Publicado</span><strong>{formatDate(selectedJob.published_at)}</strong></div></div>{selectedJob.description && <p className="popover-description">{selectedJob.description}</p>}{selectedJob.url && <a className="popover-link" href={selectedJob.url} target="_blank" rel="noreferrer">Abrir oferta original ↗</a>}</article>}
+            {selectedJob && <article className="job-popover"><button className="close-button" onClick={() => setSelectedId(null)} aria-label="Cerrar detalle" type="button">×</button><span className="job-area">{selectedJob.primary_area || "Sin área"}</span><h3>{selectedJob.title}</h3><p className="popover-company">{selectedJob.company || "Empresa no indicada"}</p><div className="popover-divider" /><div className="popover-grid"><div><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div><div><span>Modalidad</span><strong>{selectedJob.work_mode === "hybrid" ? "Híbrido" : selectedJob.work_mode === "remote" ? "Remoto" : selectedJob.work_mode === "onsite" ? "Presencial" : "No indicada"}</strong></div><div><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div><div><span>Publicado</span><strong>{formatDate(selectedJob.published_at)}</strong></div></div>{selectedJob.description && <p className="popover-description">{selectedJob.description}</p>}{selectedJob.url && <a className="popover-link" href={selectedJob.url} target="_blank" rel="noreferrer">{sourceLabel(selectedJob.url)} ↗</a>}</article>}
           </div>
         </section>
 
