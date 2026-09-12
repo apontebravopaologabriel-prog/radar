@@ -33,7 +33,7 @@ export type Filters = {
   max_age_days: string;
 };
 
-export type MapMode = "jobs" | "heatmap" | "radar";
+export type MapMode = "heatmap" | "radar";
 
 export type DistrictSummary = {
   key: string;
