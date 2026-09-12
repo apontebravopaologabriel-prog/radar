@@ -52,6 +52,11 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .segmented { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border: 1px solid #383838; border-radius: 4px; background: var(--soft); }
 .segmented button { height: 29px; padding: 0 4px; border: 0; border-radius: 2px; color: var(--muted); background: transparent; font-size: 10px; }
 .segmented button.active { color: #d9fff5; background: #245044; box-shadow: none; font-weight: 700; }
+.radar-controls { margin-top: 12px; padding: 10px; border: 1px solid #3d4b47; border-radius: 3px; background: #202a27; }
+.radar-readout { display: block; margin-bottom: 8px; color: #72d8bd; font-size: 9px; letter-spacing: .06em; }
+.radar-radius { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.radar-radius button { padding: 6px 3px; border: 1px solid #46524f; border-radius: 2px; color: var(--muted); background: #292929; font-size: 9px; }
+.radar-radius button.active { border-color: #10a37f; color: #d9fff5; background: #245044; }
 .sidebar-note { display: flex; gap: 9px; margin: 15px 0 12px; padding: 10px; border-radius: 8px; background: #2a2a2a; }
 .sidebar-note p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .note-icon { display: grid; flex: 0 0 16px; place-items: center; width: 16px; height: 16px; border: 1px solid #9bb0b7; border-radius: 50%; color: #718b93; font-size: 10px; font-weight: 700; }
@@ -92,6 +97,10 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .legend-scale.high { background: #65d4c0; }
 .map-wrap { position: relative; flex: 1; min-height: 500px; overflow: hidden; border: 1px solid #424242; border-radius: 4px; background: #191919; box-shadow: 0 8px 22px #00000066; }
 .map-wrap::before { position: absolute; z-index: 2; inset: 0; pointer-events: none; background-image: linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg, #ffffff08 1px, transparent 1px); background-size: 42px 42px; content: ""; mix-blend-mode: screen; }
+.radar-active .map-canvas { position: relative; }
+.radar-active .map-canvas::after { position: absolute; z-index: 3; top: 50%; left: 50%; width: 150%; height: 150%; pointer-events: none; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0deg, #10a37f00 300deg, #10a37f66 338deg, #b7fff022 350deg, transparent 360deg); content: ""; transform: translate(-50%, -50%); animation: radar-sweep 4s linear infinite; }
+@keyframes radar-sweep { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .radar-active .map-canvas::after { animation: none; opacity: .22; } }
 .map-canvas { width: 100%; height: 100%; min-height: 500px; }
 .leaflet-container { font: inherit; }
 .district-tooltip { border: 0; border-radius: 5px; color: #c9fff7; background: #10272bdd; box-shadow: 0 2px 8px #00000066; font-size: 10px; font-weight: 700; text-align: center; }

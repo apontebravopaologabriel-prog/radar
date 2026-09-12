@@ -12,6 +12,7 @@ export type MapViewProps = {
   jobs: Job[];
   mode: MapMode;
   radarCenter: RadarCenter;
+  radarRadiusKm: number;
   selectedDistrictKey: string | null;
   onRadarCenterChange: (center: RadarCenter) => void;
   onSelectJob: (jobId: string) => void;
@@ -65,8 +66,8 @@ function circlePolygon(center: RadarCenter, radiusKm: number): Feature<Polygon> 
   return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [points] } };
 }
 
-function radarFeatures(center: RadarCenter): FeatureCollection<Polygon> {
-  return { type: "FeatureCollection", features: [2, 5, 10].map((radius) => circlePolygon(center, radius)) };
+function radarFeatures(center: RadarCenter, activeRadius: number): FeatureCollection<Polygon> {
+  return { type: "FeatureCollection", features: [2, 5, 10].map((radius) => ({ ...circlePolygon(center, radius), properties: { radiusKm: radius, active: radius === activeRadius } })) };
 }
 
 type DistrictCount = { district: string; districtKey: string; job_count: number };
@@ -111,7 +112,7 @@ function normalizeDistrictGeoJson(payload: FeatureCollection<Polygon | MultiPoly
 }
 
 export default function MapView(props: MapViewProps) {
-  const { jobs, mode, radarCenter, selectedDistrictKey, onRadarCenterChange, onSelectJob, onSelectDistrict } = props;
+  const { jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onRadarCenterChange, onSelectJob, onSelectDistrict } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const modeRef = useRef(mode);
@@ -215,9 +216,9 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "clusters", type: "circle", source: "jobs", filter: ["has", "point_count"], paint: { "circle-color": ["step", ["get", "point_count"], "#4f46e5", 10, "#7c3aed", 30, "#db2777"], "circle-radius": ["step", ["get", "point_count"], 20, 10, 25, 30, 31], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       map.addLayer({ id: "cluster-count", type: "symbol", source: "jobs", filter: ["has", "point_count"], layout: { "text-field": "{point_count_abbreviated}", "text-size": 12 }, paint: { "text-color": "#ffffff" } });
       map.addLayer({ id: "job-points", type: "circle", source: "jobs", filter: ["!", ["has", "point_count"]], paint: { "circle-color": "#0f766e", "circle-radius": 7, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
-      map.addSource("radar-rings", { type: "geojson", data: radarFeatures(radarCenter) });
+      map.addSource("radar-rings", { type: "geojson", data: radarFeatures(radarCenter, radarRadiusKm) });
       map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#4f46e5", "fill-opacity": 0.05 } });
-      map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": "#4f46e5", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [2, 2] } });
+      map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": "#4f46e5", "line-width": ["case", ["boolean", ["get", "active"], false], 3, 1.2], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.95, 0.45], "line-dasharray": [2, 2] } });
       map.addSource("radar-center", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } } });
       map.addLayer({ id: "radar-center-point", type: "circle", source: "radar-center", paint: { "circle-color": "#4f46e5", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       setModeVisibility(map, mode);
@@ -286,9 +287,9 @@ export default function MapView(props: MapViewProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter));
+    (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
     (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
-  }, [radarCenter]);
+  }, [radarCenter, radarRadiusKm]);
 
   if (webglAvailable === false) return <LeafletMapView {...props} />;
   if (webglAvailable === null) return <div className="map-loading">Preparando mapa…</div>;

@@ -24,7 +24,7 @@ function jobsByDistrict(jobs: Job[]) {
   return counts;
 }
 
-export default function LeafletMapView({ jobs, mode, radarCenter, selectedDistrictKey, onRadarCenterChange, onSelectJob, onSelectDistrict }: MapViewProps) {
+export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onRadarCenterChange, onSelectJob, onSelectDistrict }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const districtsRef = useRef<FeatureCollection<Polygon | MultiPolygon, Record<string, unknown>> | null>(null);
@@ -91,7 +91,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, selectedDistri
     }
 
     if (mode === "radar") {
-      for (const radius of [2, 5, 10]) L.circle([radarCenter.latitude, radarCenter.longitude], { radius: radius * 1000, color: "#4f46e5", weight: 1.5, dashArray: "5 5", fillColor: "#4f46e5", fillOpacity: 0.04 }).addTo(map);
+      for (const radius of [2, 5, 10]) L.circle([radarCenter.latitude, radarCenter.longitude], { radius: radius * 1000, color: "#8c83ff", weight: radius === radarRadiusKm ? 3 : 1.2, opacity: radius === radarRadiusKm ? 0.95 : 0.45, dashArray: "5 5", fillColor: "#4f46e5", fillOpacity: radius === radarRadiusKm ? 0.08 : 0.02 }).addTo(map);
       L.circleMarker([radarCenter.latitude, radarCenter.longitude], { radius: 6, color: "#ffffff", weight: 2, fillColor: "#4f46e5", fillOpacity: 1 }).addTo(map);
     }
     if (selectedDistrictKey) {
