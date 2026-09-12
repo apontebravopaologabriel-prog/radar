@@ -48,6 +48,10 @@ gtk-launch radar
 Si la ventana anterior quedó abierta en otro navegador, ciérrala y vuelve a iniciar Radar
 desde el launcher. Los logs están en `/home/paolo/.local/state/radar/`.
 
+El logo `N` en la esquina inferior corresponde al indicador de desarrollo de Next.js. No debe
+aparecer al abrir Radar desde el launcher: esa entrada usa `next start` en el puerto 3001.
+Usa `npm run dev` en el puerto 3000 únicamente para desarrollo.
+
 ## El explorador no muestra el contenido inferior
 
 El sidebar tiene scroll propio. Si parece no actualizarse durante `npm run dev`, recarga la

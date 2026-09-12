@@ -70,17 +70,23 @@ Para conectar Hermes:
 }
 ```
 
-Para abrir el frontend geográfico manualmente, inicia la API y luego Next.js en terminales separadas:
+Para abrir el frontend geográfico manualmente en desarrollo, inicia la API y luego Next.js en terminales separadas:
 
 ```bash
 .venv/bin/radar-api
 cd frontend && npm run dev
 ```
 
-Visita `http://localhost:3000/radar`. La API HTTP de solo lectura escucha en `http://127.0.0.1:8100`; el MCP para Hermes mantiene su transporte stdio independiente.
+Visita `http://localhost:3000/radar`. Para abrirlo sin el indicador de desarrollo de Next.js, compila y usa el servidor de producción en `http://localhost:3001/radar`:
+
+```bash
+cd frontend && npm run build && npm run start -- --hostname 127.0.0.1 --port 3001
+```
+
+La API HTTP de solo lectura escucha en `http://127.0.0.1:8100`; el MCP para Hermes mantiene su transporte stdio independiente.
 
 También puedes abrir Radar desde el launcher de aplicaciones del sistema. El acceso ejecuta
-`scripts/radar-launch.sh`, inicia PostgreSQL, la API y Next.js si no están activos y abre
+`scripts/radar-launch.sh`, inicia PostgreSQL, la API y el frontend de producción si no están activos y abre
 Chromium como aplicación independiente (`--app`) con un perfil separado en
 `~/.local/state/radar/chromium`.
 
@@ -89,7 +95,6 @@ Chromium como aplicación independiente (`--app`) con un perfil separado en
 La vista `/radar` ofrece búsqueda, filtros por área/seniority/modalidad/salario/frescura,
 lista de ofertas, detalle, ranking por distrito y tres modos de visualización:
 
-- `Ofertas`: puntos y clusters.
 - `Distritos`: coropleta de Lima/Callao con cantidad de ofertas y selección sincronizada.
 - `Radar`: selector de distrito como centro fijo, zoom automático, radios concéntricos
   seleccionables de 2, 5 y 10 km y distancia geográfica calculada con Haversine. El filtro se
@@ -111,11 +116,11 @@ Para sumar LinkedIn, Bumeran, Laborum o Empleos Perú sin automatizar cuentas pe
 
 El CSV puede incluir `published_at`, `work_mode`, `hours_per_week`, `schedule_text`, `salary_min`, `salary_max`, `salary_currency`, `salary_period`, `application_status` y `application_checked_at`. La vista de Radar se puede consultar por área (`area`) y ordena por fecha y actualización; el agrupamiento por área se obtiene desde `job_areas`.
 
-Las búsquedas automáticas y recomendaciones usan por defecto ofertas publicadas en los últimos 14 días. Para máxima frescura puedes usar `--max-age-days 7` en CLI o `max_age_days=7` mediante MCP. Las ofertas antiguas no se borran: quedan como historial, pero no aparecen como recomendadas.
+Las búsquedas automáticas y la vista web usan por defecto ofertas publicadas en los últimos 7 días; puedes cambiar la antigüedad a 14, 30 o 90 días desde la interfaz. Las ofertas antiguas no se borran: quedan en PostgreSQL como historial, pero no aparecen cuando están fuera de la ventana elegida.
 
-Para LinkedIn, Radar también exige `application_status=open` y una comprobación reciente (`application_checked_at`) antes de mostrar una oferta en búsquedas o recomendaciones. Los anuncios `closed`, `expired` o `unknown` quedan fuera del flujo accionable; vuelve a importar la misma oferta cuando verifiques que sigue aceptando solicitudes.
+La vista web se basa en la antigüedad de `published_at` y ya no excluye ofertas por `is_active`, estado de aplicación o una regla especial de LinkedIn. La URL original se conserva y el popup identifica la plataforma por su dominio cuando es posible.
 
-Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta ocho consultas de áreas industriales cada seis horas:
+Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta dieciséis consultas amplias de áreas industriales cada seis horas y usa una ventana de 7 días por defecto. La ingesta no filtra por salario; el sueldo se utiliza después como dato de análisis y filtro opcional:
 
 ```bash
 systemctl --user status radar-refresh.timer
