@@ -73,6 +73,7 @@ export default function RadarClient() {
   const visibleJobs = useMemo(
     () => {
       if (mode === "radar") {
+        if (!radarDistrictKey) return [];
         return jobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radarRadiusKm);
       }
       return selectedDistrictKey ? jobs.filter((job) => districtKey(job.district) === selectedDistrictKey) : jobs;
@@ -82,8 +83,8 @@ export default function RadarClient() {
   const selectedDistrict = districtStats.find((district) => district.key === selectedDistrictKey) || null;
   const radarDistrict = districtStats.find((district) => district.key === radarDistrictKey) || null;
   const radarRadiusCounts = useMemo(
-    () => RADAR_RADII.map((radius) => ({ radius, count: jobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length })),
-    [jobs, radarCenter],
+    () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? jobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
+    [jobs, radarCenter, radarDistrictKey],
   );
 
   useEffect(() => {
@@ -165,7 +166,7 @@ export default function RadarClient() {
           <div className="map-header">
             <div>
               <p className="eyebrow">Vista geográfica</p>
-              <h2>{mode === "heatmap" && selectedDistrict ? selectedDistrict.district : mode === "heatmap" ? "Concentración por distrito" : mode === "radar" ? `Radar · ${radarDistrict?.district || "Lima"}` : "Lima Metropolitana"}</h2>
+              <h2>{mode === "heatmap" && selectedDistrict ? selectedDistrict.district : mode === "heatmap" ? "Concentración por distrito" : mode === "radar" ? `Radar${radarDistrict ? ` · ${radarDistrict.district}` : ""}` : "Lima Metropolitana"}</h2>
             </div>
             <div className="map-legend">
               {mode === "heatmap" ? <><span><i className="legend-scale low" /> Pocas ofertas</span><span><i className="legend-scale high" /> Más ofertas</span></> : <><span><i className="legend-dot" /> Oferta cercana</span><span><i className="legend-cluster" /> Concentración</span></>}
