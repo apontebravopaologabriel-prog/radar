@@ -43,7 +43,7 @@ def list_jobs(
         limit_clause = " LIMIT %s"
     sql = f"""SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency, js.source_url,
-        j.published_at, ia.name AS primary_area, j.sector,
+        j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at
         FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=TRUE
@@ -225,6 +225,7 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "published_at",
         "primary_area",
         "sector",
+        "description",
         "hours_per_week",
         "schedule_text",
         "application_status",
