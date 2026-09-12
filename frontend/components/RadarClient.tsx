@@ -46,6 +46,7 @@ export default function RadarClient() {
   const [error, setError] = useState<string | null>(null);
   const [radarCenter, setRadarCenter] = useState({ longitude: -77.043, latitude: -12.046 });
   const [radarRadiusKm, setRadarRadiusKm] = useState<number>(5);
+  const [radarDistrictKey, setRadarDistrictKey] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,12 +89,26 @@ export default function RadarClient() {
     [jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey],
   );
   const selectedDistrict = districtStats.find((district) => district.key === selectedDistrictKey) || null;
+  const radarDistrict = districtStats.find((district) => district.key === radarDistrictKey) || null;
+  const radarRadiusCounts = useMemo(
+    () => RADAR_RADII.map((radius) => ({ radius, count: jobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length })),
+    [jobs, radarCenter],
+  );
 
   useEffect(() => {
     if (selectedDistrictKey && !districtStats.some((district) => district.key === selectedDistrictKey)) {
       setSelectedDistrictKey(null);
     }
   }, [districtStats, selectedDistrictKey]);
+
+  useEffect(() => {
+    if (mode !== "radar" || districtStats.length === 0) return;
+    const nextDistrict = districtStats.find((district) => district.key === radarDistrictKey) || districtStats[0];
+    if (nextDistrict.key === radarDistrictKey) return;
+    setRadarDistrictKey(nextDistrict.key);
+    setRadarCenter({ longitude: nextDistrict.longitude, latitude: nextDistrict.latitude });
+    setSelectedId(null);
+  }, [districtStats, mode, radarDistrictKey]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -111,6 +126,14 @@ export default function RadarClient() {
 
   function selectDistrict(key: string) {
     setSelectedDistrictKey(key);
+    setSelectedId(null);
+  }
+
+  function selectRadarDistrict(key: string) {
+    const district = districtStats.find((item) => item.key === key);
+    if (!district) return;
+    setRadarDistrictKey(key);
+    setRadarCenter({ longitude: district.longitude, latitude: district.latitude });
     setSelectedId(null);
   }
 
@@ -139,7 +162,7 @@ export default function RadarClient() {
             <div className="two-columns"><label>Salario mínimo<input type="number" min="0" placeholder="S/" value={filters.min_salary} onChange={(event) => updateFilter("min_salary", event.target.value)} /></label><label>Antigüedad<select value={filters.max_age_days} onChange={(event) => updateFilter("max_age_days", event.target.value)}><option value="7">7 días</option><option value="14">14 días</option><option value="30">30 días</option><option value="90">90 días</option></select></label></div>
           </div>
 
-          <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><span className="radar-readout">RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{RADAR_RADII.map((radius) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}>{radius} KM</button>)}</div></div>}</div>
+          <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><label className="radar-center-control">Centro del radar<select value={radarDistrictKey || ""} onChange={(event) => selectRadarDistrict(event.target.value)}><option value="" disabled>Selecciona un distrito</option>{districtStats.map((district) => <option key={district.key} value={district.key}>{district.district} · {district.count} ofertas</option>)}</select></label><span className="radar-readout">CENTER // {radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
           <div className="sidebar-note"><span className="note-icon">i</span><p>Las ubicaciones por distrito son aproximadas. Radar separa la precisión geográfica de la compatibilidad del perfil.</p></div>
 
           {mode === "heatmap" && districtStats.length > 0 && <div className="district-ranking"><div className="section-label">Distritos con más oportunidades</div><div className="district-ranking-list">{districtStats.slice(0, 6).map((district) => <button key={district.key} className={`district-row ${selectedDistrictKey === district.key ? "selected" : ""}`} onClick={() => selectDistrict(district.key)} type="button"><span className="district-row-top"><strong>{district.district}</strong><span>{district.count}</span></span><span className="district-bar"><i style={{ width: `${Math.max(10, (district.count / districtStats[0].count) * 100)}%` }} /></span></button>)}</div></div>}
@@ -148,7 +171,6 @@ export default function RadarClient() {
           <div className="job-list">{loading && <div className="empty-state">Buscando ofertas…</div>}{!loading && error && <div className="empty-state error-state">{error}</div>}{!loading && !error && visibleJobs.length === 0 && <div className="empty-state">No hay ofertas con estos filtros.</div>}{visibleJobs.map((job) => <button key={job.id} className={`job-card ${selectedId === job.id ? "selected" : ""}`} onClick={() => selectJob(job)}><div className="job-card-top"><span className="job-area">{job.primary_area || "Sin área"}</span><span className="job-date">{formatDate(job.published_at)}</span></div><strong>{job.title}</strong><span className="job-company">{job.company || "Empresa no indicada"}</span><div className="job-meta"><span>⌖ {job.district || job.location || "Ubicación pendiente"}</span><span>{job.work_mode === "hybrid" ? "Híbrido" : job.work_mode === "remote" ? "Remoto" : job.work_mode === "onsite" ? "Presencial" : "Modalidad n/i"}</span></div></button>)}</div>
         </aside>
 
-        <section className="map-panel"><div className="map-header"><div><p className="eyebrow">Vista geográfica</p><h2>{selectedDistrict ? selectedDistrict.district : mode === "heatmap" ? "Concentración por distrito" : mode === "radar" ? `Radar · ${radarRadiusKm} km` : "Lima Metropolitana"}</h2></div><div className="map-legend">{mode === "heatmap" ? <><span><i className="legend-scale low" /> Pocas ofertas</span><span><i className="legend-scale high" /> Más ofertas</span></> : <><span><i className="legend-dot" /> Oferta cercana</span><span><i className="legend-cluster" /> Concentración</span></>}{mode === "radar" && <span><i className="legend-ring" /> Radio activo</span>}</div></div><div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}><MapView jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} selectedDistrictKey={selectedDistrictKey} onRadarCenterChange={(center) => { setRadarCenter(center); setSelectedId(null); }} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />{mode === "heatmap" && <div className="map-hint">El tono indica la cantidad de ofertas · selecciona un distrito para ver sus ofertas</div>}{mode === "radar" && <div className="radar-hint">RADAR ACTIVE · clic para mover el centro · solo ofertas dentro de {radarRadiusKm} km</div>}{selectedDistrict && <div className="district-focus"><span className="eyebrow">Distrito seleccionado</span><strong>{selectedDistrict.district}</strong><span>{selectedDistrict.count} ofertas con estos filtros</span><button type="button" onClick={() => setSelectedDistrictKey(null)}>Ver todos</button></div>}{selectedJob && <div className="map-popover"><button className="close-button" onClick={() => setSelectedId(null)} aria-label="Cerrar">×</button><span className="job-area">{selectedJob.primary_area || "Sin área"}</span><h3>{selectedJob.title}</h3><p>{selectedJob.company || "Empresa no indicada"}</p><div className="popover-divider" /><div className="popover-row"><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div><div className="popover-row"><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div><a href={selectedJob.url || "#"} target="_blank" rel="noreferrer">Ver oferta original ↗</a></div>}</div></section>
       </section>
       <footer className="statusbar"><span><i className="status-dot" /> API Radar conectada</span><span>Fuente de verdad: PostgreSQL</span><span>Actualización: últimas {filters.max_age_days} días</span></footer>
     </main>

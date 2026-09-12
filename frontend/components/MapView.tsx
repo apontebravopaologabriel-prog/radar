@@ -14,7 +14,6 @@ export type MapViewProps = {
   radarCenter: RadarCenter;
   radarRadiusKm: number;
   selectedDistrictKey: string | null;
-  onRadarCenterChange: (center: RadarCenter) => void;
   onSelectJob: (jobId: string) => void;
   onSelectDistrict: (districtKey: string) => void;
 };
@@ -112,7 +111,7 @@ function normalizeDistrictGeoJson(payload: FeatureCollection<Polygon | MultiPoly
 }
 
 export default function MapView(props: MapViewProps) {
-  const { jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onRadarCenterChange, onSelectJob, onSelectDistrict } = props;
+  const { jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onSelectJob, onSelectDistrict } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const modeRef = useRef(mode);
@@ -161,7 +160,7 @@ export default function MapView(props: MapViewProps) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "heatmap" ? "none" : "visible");
     }
     if (map.getLayer("jobs-heat")) map.setLayoutProperty("jobs-heat", "visibility", "none");
-    for (const layer of ["radar-fill", "radar-lines", "radar-center-point"]) {
+    for (const layer of ["radar-fill", "radar-lines", "radar-center-halo", "radar-center-point"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "radar" ? "visible" : "none");
     }
   }
@@ -217,9 +216,10 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "cluster-count", type: "symbol", source: "jobs", filter: ["has", "point_count"], layout: { "text-field": "{point_count_abbreviated}", "text-size": 12 }, paint: { "text-color": "#ffffff" } });
       map.addLayer({ id: "job-points", type: "circle", source: "jobs", filter: ["!", ["has", "point_count"]], paint: { "circle-color": "#0f766e", "circle-radius": 7, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       map.addSource("radar-rings", { type: "geojson", data: radarFeatures(radarCenter, radarRadiusKm) });
-      map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#4f46e5", "fill-opacity": 0.05 } });
-      map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": "#4f46e5", "line-width": ["case", ["boolean", ["get", "active"], false], 3, 1.2], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.95, 0.45], "line-dasharray": [2, 2] } });
+      map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#4f46e5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.1, 0.012] } });
+      map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#8c83ff", "#5b5b91"], "line-width": ["case", ["boolean", ["get", "active"], false], 3, 1.3], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72] } });
       map.addSource("radar-center", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } } });
+      map.addLayer({ id: "radar-center-halo", type: "circle", source: "radar-center", paint: { "circle-color": "#10a37f", "circle-radius": 15, "circle-opacity": 0.18, "circle-stroke-color": "#72d8bd", "circle-stroke-width": 1, "circle-stroke-opacity": 0.8 } });
       map.addLayer({ id: "radar-center-point", type: "circle", source: "radar-center", paint: { "circle-color": "#4f46e5", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       setModeVisibility(map, mode);
     });
@@ -242,10 +242,6 @@ export default function MapView(props: MapViewProps) {
     map.on("click", "district-labels", (event) => {
       const feature = map.queryRenderedFeatures(event.point, { layers: ["district-labels"] })[0];
       if (feature?.properties?.districtKey) onSelectDistrict(String(feature.properties.districtKey));
-    });
-    map.on("click", (event) => {
-      const interactiveFeatures = map.queryRenderedFeatures(event.point, { layers: ["clusters", "job-points", "district-fill", "district-labels"] });
-      if (modeRef.current === "radar" && interactiveFeatures.length === 0) onRadarCenterChange({ longitude: event.lngLat.lng, latitude: event.lngLat.lat });
     });
     for (const layer of ["clusters", "job-points", "district-fill", "district-labels"]) {
       map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
@@ -271,7 +267,7 @@ export default function MapView(props: MapViewProps) {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     setModeVisibility(map, mode);
-    for (const layer of ["radar-fill", "radar-lines", "radar-center-point"]) {
+    for (const layer of ["radar-fill", "radar-lines", "radar-center-halo", "radar-center-point"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", mode === "radar" ? "visible" : "none");
     }
   }, [mode]);
@@ -287,9 +283,10 @@ export default function MapView(props: MapViewProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
+    if (mode === "radar") map.easeTo({ center: [radarCenter.longitude, radarCenter.latitude], zoom: 13, duration: 700 });
     (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
     (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
-  }, [radarCenter, radarRadiusKm]);
+  }, [mode, radarCenter, radarRadiusKm]);
 
   if (webglAvailable === false) return <LeafletMapView {...props} />;
   if (webglAvailable === null) return <div className="map-loading">Preparando mapa…</div>;

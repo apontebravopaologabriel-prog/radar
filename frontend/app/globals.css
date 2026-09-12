@@ -53,10 +53,15 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .segmented button { height: 29px; padding: 0 4px; border: 0; border-radius: 2px; color: var(--muted); background: transparent; font-size: 10px; }
 .segmented button.active { color: #d9fff5; background: #245044; box-shadow: none; font-weight: 700; }
 .radar-controls { margin-top: 12px; padding: 10px; border: 1px solid #3d4b47; border-radius: 3px; background: #202a27; }
+.radar-center-control { margin-bottom: 10px; color: #b7c8c4; font-size: 10px; }
+.radar-center-control select { margin-top: 5px; border-color: #41655c; background: #182522; }
 .radar-readout { display: block; margin-bottom: 8px; color: #72d8bd; font-size: 9px; letter-spacing: .06em; }
 .radar-radius { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.radar-radius button { padding: 6px 3px; border: 1px solid #46524f; border-radius: 2px; color: var(--muted); background: #292929; font-size: 9px; }
+.radar-radius button { display: flex; min-height: 39px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 5px 3px; border: 1px solid #46524f; border-radius: 2px; color: var(--muted); background: #292929; font-size: 9px; }
+.radar-radius button strong { color: inherit; font-size: 9px; }
+.radar-radius button span { color: #7d8986; font-size: 8px; }
 .radar-radius button.active { border-color: #10a37f; color: #d9fff5; background: #245044; }
+.radar-radius button.active span { color: #9fe8d4; }
 .sidebar-note { display: flex; gap: 9px; margin: 15px 0 12px; padding: 10px; border-radius: 8px; background: #2a2a2a; }
 .sidebar-note p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .note-icon { display: grid; flex: 0 0 16px; place-items: center; width: 16px; height: 16px; border: 1px solid #9bb0b7; border-radius: 50%; color: #718b93; font-size: 10px; font-weight: 700; }

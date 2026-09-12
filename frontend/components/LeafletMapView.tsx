@@ -24,24 +24,16 @@ function jobsByDistrict(jobs: Job[]) {
   return counts;
 }
 
-export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onRadarCenterChange, onSelectJob, onSelectDistrict }: MapViewProps) {
+export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onSelectJob, onSelectDistrict }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const districtsRef = useRef<FeatureCollection<Polygon | MultiPolygon, Record<string, unknown>> | null>(null);
-  const modeRef = useRef(mode);
-  const radarCenterChangeRef = useRef(onRadarCenterChange);
   const [districtVersion, setDistrictVersion] = useState(0);
-
-  useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { radarCenterChangeRef.current = onRadarCenterChange; }, [onRadarCenterChange]);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17 }).setView(INITIAL_CENTER, 10.7);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 19 }).addTo(map);
-    map.on("click", (event) => {
-      if (modeRef.current === "radar") radarCenterChangeRef.current({ longitude: event.latlng.lng, latitude: event.latlng.lat });
-    });
     mapRef.current = map;
     fetch(DISTRICT_GEOJSON_URL)
       .then((response) => response.json())
@@ -92,7 +84,9 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
 
     if (mode === "radar") {
       for (const radius of [2, 5, 10]) L.circle([radarCenter.latitude, radarCenter.longitude], { radius: radius * 1000, color: "#8c83ff", weight: radius === radarRadiusKm ? 3 : 1.2, opacity: radius === radarRadiusKm ? 0.95 : 0.45, dashArray: "5 5", fillColor: "#4f46e5", fillOpacity: radius === radarRadiusKm ? 0.08 : 0.02 }).addTo(map);
+      L.circleMarker([radarCenter.latitude, radarCenter.longitude], { radius: 15, color: "#72d8bd", weight: 1, fillColor: "#10a37f", fillOpacity: 0.18 }).addTo(map);
       L.circleMarker([radarCenter.latitude, radarCenter.longitude], { radius: 6, color: "#ffffff", weight: 2, fillColor: "#4f46e5", fillOpacity: 1 }).addTo(map);
+      map.setView([radarCenter.latitude, radarCenter.longitude], 13, { animate: true, duration: 0.7 });
     }
     if (selectedDistrictKey) {
       const selected = jobs.find((job) => districtKey(job.district) === selectedDistrictKey && job.latitude !== null && job.longitude !== null);

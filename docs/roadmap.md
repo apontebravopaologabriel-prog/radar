@@ -31,7 +31,8 @@
 - API HTTP FastAPI de solo lectura sobre las consultas existentes.
 - Mapa de Lima con MapLibre y datos GeoJSON.
 - Filtros por búsqueda, área, seniority, modalidad, salario y frescura.
-- Clusters, heatmap y Radar funcional con radios de 2, 5 y 10 km, filtro Haversine y barrido visual.
+- Clusters, heatmap y Radar funcional con centro fijo por distrito, zoom automático, radios de 2,
+  5 y 10 km, filtro Haversine y barrido visual.
 - Ubicaciones aproximadas por distrito o ciudad, con precisión visible.
 - Vista `Distritos` con coropleta real de Lima/Callao, etiquetas de cantidad y
   resaltado del distrito seleccionado.
