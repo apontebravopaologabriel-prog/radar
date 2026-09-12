@@ -13,6 +13,7 @@ export type Job = {
   salary_currency: string | null;
   url: string | null;
   published_at: string | null;
+  description: string | null;
   primary_area: string | null;
   sector: string | null;
   hours_per_week: number | null;

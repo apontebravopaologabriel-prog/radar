@@ -17,6 +17,13 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short" }).format(new Date(value));
 }
 
+function formatSalary(job: Job) {
+  if (job.salary_min === null && job.salary_max === null) return "No indicado";
+  const currency = job.salary_currency === "PEN" ? "S/" : job.salary_currency || "";
+  if (job.salary_min !== null && job.salary_max !== null) return `${currency} ${job.salary_min.toLocaleString("es-PE")} – ${job.salary_max.toLocaleString("es-PE")}`;
+  return `${currency} ${(job.salary_min ?? job.salary_max)?.toLocaleString("es-PE")}`;
+}
+
 function distanceKm(from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) {
   const earthRadiusKm = 6371;
   const latDelta = ((to.latitude - from.latitude) * Math.PI) / 180;
@@ -39,6 +46,7 @@ export default function RadarClient() {
   const [radarCenter, setRadarCenter] = useState({ longitude: -77.043, latitude: -12.046 });
   const [radarRadiusKm, setRadarRadiusKm] = useState<number>(5);
   const [radarDistrictKey, setRadarDistrictKey] = useState<string | null>(null);
+  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedId) || null, [jobs, selectedId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -175,6 +183,7 @@ export default function RadarClient() {
           </div>
           <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
             <MapView jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
+            {selectedJob && <article className="job-popover"><button className="close-button" onClick={() => setSelectedId(null)} aria-label="Cerrar detalle" type="button">×</button><span className="job-area">{selectedJob.primary_area || "Sin área"}</span><h3>{selectedJob.title}</h3><p className="popover-company">{selectedJob.company || "Empresa no indicada"}</p><div className="popover-divider" /><div className="popover-grid"><div><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div><div><span>Modalidad</span><strong>{selectedJob.work_mode === "hybrid" ? "Híbrido" : selectedJob.work_mode === "remote" ? "Remoto" : selectedJob.work_mode === "onsite" ? "Presencial" : "No indicada"}</strong></div><div><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div><div><span>Publicado</span><strong>{formatDate(selectedJob.published_at)}</strong></div></div>{selectedJob.description && <p className="popover-description">{selectedJob.description}</p>}{selectedJob.url && <a className="popover-link" href={selectedJob.url} target="_blank" rel="noreferrer">Abrir oferta original ↗</a>}</article>}
           </div>
         </section>
 
