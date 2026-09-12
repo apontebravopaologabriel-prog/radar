@@ -91,7 +91,9 @@ lista de ofertas, detalle, ranking por distrito y tres modos de visualización:
 
 - `Ofertas`: puntos y clusters.
 - `Distritos`: coropleta de Lima/Callao con cantidad de ofertas y selección sincronizada.
-- `Radar`: radios interactivos de 2, 5 y 10 km; se puede mover el centro haciendo clic.
+- `Radar`: radios seleccionables de 2, 5 y 10 km; calcula distancia geográfica con Haversine,
+  filtra simultáneamente contador/lista/mapa y permite mover el centro haciendo clic. El radio
+  activo se resalta y cuenta con un barrido visual sutil que respeta `prefers-reduced-motion`.
 
 Las coordenadas se infieren de forma aproximada desde distrito o ciudad y se informa esa
 limitación en la interfaz. MapLibre es el motor principal; si el navegador no soporta
