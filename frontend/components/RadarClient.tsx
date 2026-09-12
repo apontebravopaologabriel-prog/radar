@@ -140,11 +140,6 @@ export default function RadarClient() {
   function changeMode(nextMode: MapMode) {
     setMode(nextMode);
     setSelectedId(null);
-    if (nextMode === "radar" && districtStats.length > 0) {
-      const nextDistrict = districtStats.find((district) => district.key === radarDistrictKey) || districtStats[0];
-      setRadarDistrictKey(nextDistrict.key);
-      setRadarCenter({ longitude: nextDistrict.longitude, latitude: nextDistrict.latitude });
-    }
     if (nextMode !== "heatmap") setSelectedDistrictKey(null);
   }
 
