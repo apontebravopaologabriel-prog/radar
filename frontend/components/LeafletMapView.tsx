@@ -24,7 +24,7 @@ function jobsByDistrict(jobs: Job[]) {
   return counts;
 }
 
-export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey, onSelectJob, onSelectDistrict }: MapViewProps) {
+export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const districtsRef = useRef<FeatureCollection<Polygon | MultiPolygon, Record<string, unknown>> | null>(null);
@@ -82,7 +82,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
       }
     }
 
-    if (mode === "radar") {
+    if (mode === "radar" && radarDistrictKey) {
       for (const radius of [2, 5, 10]) L.circle([radarCenter.latitude, radarCenter.longitude], { radius: radius * 1000, color: "#8c83ff", weight: radius === radarRadiusKm ? 3 : 1.2, opacity: radius === radarRadiusKm ? 0.95 : 0.45, dashArray: "5 5", fillColor: "#4f46e5", fillOpacity: radius === radarRadiusKm ? 0.08 : 0.02 }).addTo(map);
       L.circleMarker([radarCenter.latitude, radarCenter.longitude], { radius: 15, color: "#72d8bd", weight: 1, fillColor: "#10a37f", fillOpacity: 0.18 }).addTo(map);
       L.circleMarker([radarCenter.latitude, radarCenter.longitude], { radius: 6, color: "#ffffff", weight: 2, fillColor: "#4f46e5", fillOpacity: 1 }).addTo(map);
@@ -92,7 +92,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
       const selected = jobs.find((job) => districtKey(job.district) === selectedDistrictKey && job.latitude !== null && job.longitude !== null);
       if (selected) map.setView([selected.latitude as number, selected.longitude as number], Math.max(map.getZoom(), 12));
     }
-  }, [jobs, mode, radarCenter, selectedDistrictKey, onSelectDistrict, onSelectJob, districtVersion]);
+  }, [jobs, mode, radarCenter, radarDistrictKey, selectedDistrictKey, onSelectDistrict, onSelectJob, districtVersion]);
 
   return <div ref={containerRef} className="map-canvas leaflet-map" aria-label="Mapa de ofertas laborales de Lima" />;
 }
