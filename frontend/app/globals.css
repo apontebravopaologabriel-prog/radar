@@ -109,7 +109,6 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .radar-overlay-ring-5 { top: 25%; left: 25%; width: 50%; }
 .radar-overlay-ring-2 { top: 40%; left: 40%; width: 20%; }
 .radar-overlay-ring.active { border-width: 2px; border-color: #b8b0ff; background: #4f46e51c; box-shadow: 0 0 22px #8c83ff55 inset, 0 0 18px #8c83ff44; }
-.radar-overlay-center { width: 12px; height: 12px; border: 2px solid #ffffff; border-radius: 50%; background: #4f46e5; box-shadow: 0 0 0 7px #10a37f38, 0 0 18px #72d8bdcc; }
 .map-canvas { width: 100%; height: 100%; min-height: 500px; }
 .leaflet-container { font: inherit; }
 .district-tooltip { border: 0; border-radius: 5px; color: #c9fff7; background: #10272bdd; box-shadow: 0 2px 8px #00000066; font-size: 10px; font-weight: 700; text-align: center; }

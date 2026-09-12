@@ -74,7 +74,6 @@ function RadarOverlay({ mode, activeRadius, overlayRef }: { mode: MapMode; activ
   return (
     <div ref={overlayRef} className="radar-overlay" aria-hidden="true">
       {[10, 5, 2].map((radius) => <span key={radius} className={`radar-overlay-ring radar-overlay-ring-${radius} ${activeRadius === radius ? "active" : ""}`} />)}
-      <span className="radar-overlay-center" />
     </div>
   );
 }
