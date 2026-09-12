@@ -12,14 +12,6 @@ const AREAS = ["", "Operaciones", "Producción", "Mejora continua", "Procesos", 
 const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "14" };
 const RADAR_RADII = [2, 5, 10] as const;
 
-function formatSalary(job: Job) {
-  if (job.salary_min === null && job.salary_max === null) return "Salario no indicado";
-  const currency = job.salary_currency === "PEN" ? "S/" : job.salary_currency || "";
-  const min = job.salary_min !== null ? `${currency} ${Math.round(job.salary_min).toLocaleString("es-PE")}` : "";
-  const max = job.salary_max !== null ? ` – ${currency} ${Math.round(job.salary_max).toLocaleString("es-PE")}` : "";
-  return `${min}${max}`;
-}
-
 function formatDate(value: string | null) {
   if (!value) return "Fecha no indicada";
   return new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short" }).format(new Date(value));
@@ -61,7 +53,6 @@ export default function RadarClient() {
     return () => controller.abort();
   }, [filters]);
 
-  const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedId) || null, [jobs, selectedId]);
   const mappedCount = jobs.filter((job) => job.latitude !== null && job.longitude !== null).length;
   const districtStats = useMemo<DistrictSummary[]>(() => {
     const groups = new Map<string, DistrictSummary>();
@@ -102,12 +93,9 @@ export default function RadarClient() {
   }, [districtStats, selectedDistrictKey]);
 
   useEffect(() => {
-    if (mode !== "radar" || districtStats.length === 0) return;
-    const nextDistrict = districtStats.find((district) => district.key === radarDistrictKey) || districtStats[0];
-    if (nextDistrict.key === radarDistrictKey) return;
-    setRadarDistrictKey(nextDistrict.key);
-    setRadarCenter({ longitude: nextDistrict.longitude, latitude: nextDistrict.latitude });
-    setSelectedId(null);
+    if (mode !== "radar" || !radarDistrictKey || districtStats.some((district) => district.key === radarDistrictKey)) return;
+    setRadarDistrictKey(null);
+    setRadarCenter({ longitude: -77.043, latitude: -12.046 });
   }, [districtStats, mode, radarDistrictKey]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
@@ -141,6 +129,10 @@ export default function RadarClient() {
     setMode(nextMode);
     setSelectedId(null);
     if (nextMode !== "heatmap") setSelectedDistrictKey(null);
+    if (nextMode === "radar") {
+      setRadarDistrictKey(null);
+      setRadarCenter({ longitude: -77.043, latitude: -12.046 });
+    }
   }
 
   return (
@@ -163,8 +155,6 @@ export default function RadarClient() {
           </div>
 
           <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><label className="radar-center-control">Centro del radar<select value={radarDistrictKey || ""} onChange={(event) => selectRadarDistrict(event.target.value)}><option value="" disabled>Selecciona un distrito</option>{districtStats.map((district) => <option key={district.key} value={district.key}>{district.district} · {district.count} ofertas</option>)}</select></label><span className="radar-readout">CENTER // {radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
-          <div className="sidebar-note"><span className="note-icon">i</span><p>Las ubicaciones por distrito son aproximadas. Radar separa la precisión geográfica de la compatibilidad del perfil.</p></div>
-
           {mode === "heatmap" && districtStats.length > 0 && <div className="district-ranking"><div className="section-label">Distritos con más oportunidades</div><div className="district-ranking-list">{districtStats.slice(0, 6).map((district) => <button key={district.key} className={`district-row ${selectedDistrictKey === district.key ? "selected" : ""}`} onClick={() => selectDistrict(district.key)} type="button"><span className="district-row-top"><strong>{district.district}</strong><span>{district.count}</span></span><span className="district-bar"><i style={{ width: `${Math.max(10, (district.count / districtStats[0].count) * 100)}%` }} /></span></button>)}</div></div>}
 
           <div className="job-list-header"><span>{selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><span>{loading ? "…" : `${visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} en mapa`}</span></div>
@@ -184,9 +174,6 @@ export default function RadarClient() {
           </div>
           <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
             <MapView jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-            {mode === "heatmap" && <div className="map-hint">El tono indica la cantidad de ofertas · selecciona un distrito para ver sus ofertas</div>}
-            {selectedDistrict && <div className="district-focus"><span className="eyebrow">Distrito seleccionado</span><strong>{selectedDistrict.district}</strong><span>{selectedDistrict.count} ofertas con estos filtros</span><button type="button" onClick={() => setSelectedDistrictKey(null)}>Ver todos</button></div>}
-            {selectedJob && <div className="map-popover"><button className="close-button" onClick={() => setSelectedId(null)} aria-label="Cerrar">×</button><span className="job-area">{selectedJob.primary_area || "Sin área"}</span><h3>{selectedJob.title}</h3><p>{selectedJob.company || "Empresa no indicada"}</p><div className="popover-divider" /><div className="popover-row"><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div><div className="popover-row"><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div><a href={selectedJob.url || "#"} target="_blank" rel="noreferrer">Ver oferta original ↗</a></div>}
           </div>
         </section>
 

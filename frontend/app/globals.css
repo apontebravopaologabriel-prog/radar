@@ -62,9 +62,6 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .radar-radius button span { color: #7d8986; font-size: 8px; }
 .radar-radius button.active { border-color: #10a37f; color: #d9fff5; background: #245044; }
 .radar-radius button.active span { color: #9fe8d4; }
-.sidebar-note { display: flex; gap: 9px; margin: 15px 0 12px; padding: 10px; border-radius: 8px; background: #2a2a2a; }
-.sidebar-note p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
-.note-icon { display: grid; flex: 0 0 16px; place-items: center; width: 16px; height: 16px; border: 1px solid #9bb0b7; border-radius: 50%; color: #718b93; font-size: 10px; font-weight: 700; }
 .district-ranking { padding: 15px 0 10px; border-bottom: 1px solid var(--line); }
 .district-ranking .section-label { margin-bottom: 8px; }
 .district-ranking-list { display: grid; gap: 4px; }
@@ -80,7 +77,7 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .job-list { flex: 1 1 auto; max-height: none; min-height: 0; padding-right: 4px; overflow-y: auto; scrollbar-color: #555555 transparent; scrollbar-width: thin; }
 .job-card { display: block; width: 100%; margin-bottom: 7px; padding: 11px 12px; border: 1px solid transparent; border-radius: 3px; text-align: left; color: var(--ink); background: #2a2a2a; }
 .job-card:hover, .job-card.selected { border-color: #347d69; background: #263b35; }
-.job-card-top, .job-meta, .popover-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.job-card-top, .job-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .job-area { color: var(--teal); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .job-date { color: var(--muted); font-size: 9px; }
 .job-card strong { display: block; margin: 8px 0 3px; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -113,20 +110,6 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .leaflet-container { font: inherit; }
 .district-tooltip { border: 0; border-radius: 5px; color: #c9fff7; background: #10272bdd; box-shadow: 0 2px 8px #00000066; font-size: 10px; font-weight: 700; text-align: center; }
 .map-loading { display: grid; height: 100%; min-height: 500px; place-items: center; color: var(--muted); font-size: 12px; }
-.map-hint { position: absolute; bottom: 17px; left: 50%; padding: 8px 12px; border: 1px solid #2d625e; border-radius: 6px; color: #b9eee6; background: #142e31ee; box-shadow: 0 4px 12px #00000066; font-size: 10px; transform: translateX(-50%); }
-.district-focus { position: absolute; top: 18px; left: 18px; display: flex; min-width: 190px; flex-direction: column; padding: 13px 15px; border: 1px solid #347d69; border-radius: 4px; background: #2a2a2af2; box-shadow: 0 9px 30px #00000066; backdrop-filter: blur(8px); }
-.district-focus .eyebrow { margin-bottom: 4px; font-size: 8px; }
-.district-focus strong { font-size: 16px; }
-.district-focus > span:not(.eyebrow) { margin-top: 4px; color: var(--muted); font-size: 10px; }
-.district-focus button { align-self: flex-start; margin-top: 9px; padding: 0; border: 0; color: var(--teal); background: transparent; font-size: 10px; font-weight: 700; }
-.map-popover { position: absolute; top: 18px; right: 18px; width: 268px; padding: 18px; border: 1px solid #424242; border-radius: 4px; background: #2a2a2af2; box-shadow: 0 9px 30px #00000066; backdrop-filter: blur(8px); }
-.map-popover h3 { margin: 9px 0 4px; font-size: 16px; line-height: 1.2; }
-.map-popover > p { margin-bottom: 13px; color: var(--muted); font-size: 11px; }
-.close-button { position: absolute; top: 9px; right: 10px; border: 0; color: var(--muted); background: transparent; font-size: 20px; line-height: 1; }
-.popover-divider { height: 1px; margin: 11px 0; background: var(--line); }
-.popover-row { margin: 7px 0; color: var(--muted); font-size: 10px; }
-.popover-row strong { color: var(--ink); font-size: 10px; text-align: right; }
-.map-popover a { display: block; margin-top: 15px; color: var(--teal); font-size: 11px; font-weight: 700; text-decoration: none; }
 .statusbar { display: flex; align-items: center; gap: 25px; height: 34px; padding: 0 24px; border-top: 1px solid var(--line); color: var(--muted); background: #171717; font-size: 10px; }
 .statusbar span:first-child { color: #31866e; }
 
