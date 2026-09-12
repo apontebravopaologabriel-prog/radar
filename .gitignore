@@ -1,0 +1,13 @@
+.env
+.venv/
+frontend/node_modules/
+frontend/.next/
+frontend/.next.*
+graphify-out/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+dist/
+build/
+*.egg-info/
+.ruff_cache/
