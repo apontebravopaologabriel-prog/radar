@@ -222,6 +222,7 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "radar-center-halo", type: "circle", source: "radar-center", paint: { "circle-color": "#10a37f", "circle-radius": 15, "circle-opacity": 0.18, "circle-stroke-color": "#72d8bd", "circle-stroke-width": 1, "circle-stroke-opacity": 0.8 } });
       map.addLayer({ id: "radar-center-point", type: "circle", source: "radar-center", paint: { "circle-color": "#4f46e5", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
       setModeVisibility(map, mode);
+      map.once("idle", () => setModeVisibility(map, modeRef.current));
     });
 
     map.on("click", "clusters", async (event: MapMouseEvent) => {
@@ -265,11 +266,14 @@ export default function MapView(props: MapViewProps) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    setModeVisibility(map, mode);
-    for (const layer of ["radar-fill", "radar-lines", "radar-center-halo", "radar-center-point"]) {
-      if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", mode === "radar" ? "visible" : "none");
-    }
+    if (!map) return;
+    const applyMode = () => {
+      if (!map.isStyleLoaded()) return;
+      setModeVisibility(map, mode);
+    };
+    if (map.isStyleLoaded()) applyMode();
+    else map.once("load", applyMode);
+    return () => { map.off("load", applyMode); };
   }, [mode]);
 
   useEffect(() => {
@@ -282,10 +286,17 @@ export default function MapView(props: MapViewProps) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    if (mode === "radar") map.easeTo({ center: [radarCenter.longitude, radarCenter.latitude], zoom: 13, duration: 700 });
-    (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
-    (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
+    if (!map) return;
+    const applyRadarState = () => {
+      if (!map.isStyleLoaded()) return;
+      if (mode === "radar") map.easeTo({ center: [radarCenter.longitude, radarCenter.latitude], zoom: 13, duration: 700 });
+      (map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined)?.setData(radarFeatures(radarCenter, radarRadiusKm));
+      (map.getSource("radar-center") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [radarCenter.longitude, radarCenter.latitude] } });
+      setModeVisibility(map, mode);
+    };
+    if (map.isStyleLoaded()) applyRadarState();
+    else map.once("load", applyRadarState);
+    return () => { map.off("load", applyRadarState); };
   }, [mode, radarCenter, radarRadiusKm]);
 
   if (webglAvailable === false) return <LeafletMapView {...props} />;
