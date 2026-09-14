@@ -1,4 +1,4 @@
-import type { Filters, Job, SkillOverview } from "../types";
+import type { Filters, Job, SkillOverview, SkillSnapshot } from "../types";
 
 const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL || "http://127.0.0.1:8100";
 
@@ -38,6 +38,19 @@ export async function fetchSkillOverview(filters: Pick<Filters, "area" | "senior
   const response = await fetch(`${API_URL}/api/skills/overview?${params.toString()}`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as SkillOverview;
+}
+
+export async function fetchSkillHistory(signal?: AbortSignal): Promise<SkillSnapshot[]> {
+  const response = await fetch(`${API_URL}/api/skills/history`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { snapshots: SkillSnapshot[] }).snapshots;
+}
+
+export async function fetchJobsForSkill(skill: string, signal?: AbortSignal): Promise<Job[]> {
+  const params = new URLSearchParams({ skill, max_age_days: "365" });
+  const response = await fetch(`${API_URL}/api/jobs?${params.toString()}`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { jobs: Job[] }).jobs;
 }
 
 export async function updateJobStatus(id: string, status: "visible" | "hidden", reason?: string): Promise<void> {

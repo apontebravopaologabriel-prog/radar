@@ -50,6 +50,19 @@ SKILL_ALIASES: dict[str, tuple[str, ...]] = {
     "Project Management": ("project management", "gestion de proyectos"),
     "Scrum": ("scrum",),
     "English": ("ingles", "english"),
+    # Explicit soft-skill language only; generic boilerplate is excluded.
+    "Comunicación": ("comunicacion efectiva", "comunicacion asertiva", "comunicacion escrita", "comunicacion verbal", "habilidades de comunicacion", "comunicacion"),
+    "Trabajo en equipo": ("trabajo en equipo", "trabajo colaborativo", "teamwork"),
+    "Pensamiento analítico": ("pensamiento analitico", "capacidad analitica", "habilidad analitica"),
+    "Resolución de problemas": ("resolucion de problemas", "solucion de problemas", "problem solving"),
+    "Liderazgo": ("liderazgo", "leadership", "liderar equipos", "gestion de equipos"),
+    "Adaptabilidad": ("adaptabilidad", "capacidad de adaptacion", "flexibilidad para adaptarse", "flexible y adaptable"),
+    "Negociación": ("habilidades de negociacion", "capacidad de negociacion", "negociacion con proveedores", "negociacion"),
+    "Proactividad": ("proactividad", "proactivo", "iniciativa"),
+    "Atención al detalle": ("atencion al detalle", "orientacion al detalle", "detallista"),
+    "Orientación al cliente": ("orientacion al cliente", "enfoque en el cliente", "servicio al cliente", "customer service", "customer focus"),
+    "Toma de decisiones": ("toma de decisiones", "toma de decision", "decision making"),
+    "Colaboración": ("colaboracion", "colaborativo", "collaboration"),
 }
 
 
@@ -64,6 +77,19 @@ def _evidence(text: str, phrase: str) -> str:
 
 def _contains(text: str, phrase: str) -> bool:
     return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
+
+
+def _match(text: str, phrase: str) -> re.Match[str] | None:
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text)
+
+
+def _requirement_type(text: str, start: int) -> str:
+    context = text[max(0, start - 120):start]
+    if any(token in context for token in ("requisito", "requerido", "indispensable", "obligatorio", "must", "debe contar")):
+        return "required"
+    if any(token in context for token in ("deseable", "preferible", "plus", "valorado", "seria ideal")):
+        return "preferred"
+    return "unknown"
 
 
 def classify(job: RawJob) -> ClassifiedJob:
@@ -82,17 +108,10 @@ def classify(job: RawJob) -> ClassifiedJob:
     matched.sort(key=lambda item: (-item[0], item[1]))
     skills: list[tuple[str, Evidence]] = []
     for skill, aliases in SKILL_ALIASES.items():
-        phrase = next((p for p in sorted(aliases, key=len, reverse=True) if _contains(text, p)), None)
-        if phrase:
-            req = (
-                "required"
-                if any(
-                    x in text[max(0, text.find(phrase) - 45) : text.find(phrase)]
-                    for x in ("requerido", "required", "indispensable", "must")
-                )
-                else "unknown"
-            )
-            skills.append((skill, Evidence(skill, 0.9, _evidence(text, phrase), req)))
+        match = next((candidate for candidate in (_match(text, phrase) for phrase in sorted(aliases, key=len, reverse=True)) if candidate), None)
+        if match:
+            phrase = match.group(0)
+            skills.append((skill, Evidence(skill, 0.9, _evidence(text, phrase), _requirement_type(text, match.start()))))
     evidences = [item[2] for item in matched]
     return ClassifiedJob(evidences[0], evidences[1:], skills)
 

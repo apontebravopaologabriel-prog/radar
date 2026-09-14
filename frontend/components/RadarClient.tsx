@@ -2,9 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobs, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobs, fetchSkillHistory, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
 import { districtKey } from "../lib/districts";
-import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
+import type { DistrictSummary, Filters, Job, MapMode, SkillOverview, SkillSnapshot } from "../types";
 import SkillsView from "./SkillsView";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima…</div> });
@@ -56,11 +56,13 @@ export default function RadarClient() {
   const [hiddenJobs, setHiddenJobs] = useState<Job[]>([]);
   const [favoriteJobs, setFavoriteJobs] = useState<Job[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [mode, setMode] = useState<MapMode>("heatmap");
   const [selectedDistrictKey, setSelectedDistrictKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [skillOverview, setSkillOverview] = useState<SkillOverview | null>(null);
+  const [skillHistory, setSkillHistory] = useState<SkillSnapshot[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [radarCenter, setRadarCenter] = useState({ longitude: -77.043, latitude: -12.046 });
@@ -82,22 +84,22 @@ export default function RadarClient() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    fetchJobs(filters, controller.signal)
+    fetchJobs(selectedSkill ? { ...filters, skill: selectedSkill } : filters, controller.signal)
       .then((result) => setJobs(result))
       .catch((reason: Error) => {
         if (reason.name !== "AbortError") setError("No se pudo conectar con Radar API. Inicia `radar-api` y vuelve a cargar.");
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [filters]);
+  }, [filters, selectedSkill]);
 
   useEffect(() => {
     if (mode !== "skills") return;
     const controller = new AbortController();
     setSkillsLoading(true);
     setSkillsError(null);
-    fetchSkillOverview(filters, controller.signal)
-      .then((result) => setSkillOverview(result))
+    Promise.all([fetchSkillOverview(filters, controller.signal), fetchSkillHistory(controller.signal)])
+      .then(([result, snapshots]) => { setSkillOverview(result); setSkillHistory(snapshots); })
       .catch((reason: Error) => {
         if (reason.name !== "AbortError") setSkillsError("No se pudo cargar el mapa de habilidades.");
       })
@@ -285,6 +287,7 @@ export default function RadarClient() {
     setMode(nextMode);
     setRadarCenterOpen(false);
     setSelectedId(null);
+    if (nextMode !== "skills") setSelectedSkill(null);
     if (nextMode !== "heatmap") setSelectedDistrictKey(null);
     if (nextMode === "radar") {
       setRadarDistrictKey(null);
@@ -306,13 +309,13 @@ export default function RadarClient() {
           </div>
 
           <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["heatmap", "Distritos"], ["radar", "Radar"], ["skills", "Competencias"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><span className="radar-readout">CENTER // {radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
-          <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && !showHidden && !showFavorites ? "…" : `${showHidden ? hiddenJobs.length : showFavorites ? favoriteJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "ocultas" : showFavorites ? "guardadas" : "en mapa"}`}</span><button className={`favorites-toggle ${showFavorites ? "active" : ""}`} type="button" onClick={toggleFavoriteJobs} aria-label={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"} title={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"}>{favoriteJobs.length > 0 ? "★" : "☆"}</button><button className={`hidden-toggle ${showHidden ? "active" : ""}`} type="button" onClick={toggleHiddenJobs} aria-label={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"} title={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>{hiddenJobs.length > 0 && <b>{hiddenJobs.length}</b>}</button></div></div>
+          <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : selectedSkill ? `Ofertas con ${selectedSkill}` : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && !showHidden && !showFavorites ? "…" : `${showHidden ? hiddenJobs.length : showFavorites ? favoriteJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "ocultas" : showFavorites ? "guardadas" : "en mapa"}`}</span>{selectedSkill && !showHidden && !showFavorites && <button className="clear-skill-filter" type="button" onClick={() => setSelectedSkill(null)} aria-label="Quitar filtro de competencia" title="Quitar filtro de competencia">×</button>}<button className={`favorites-toggle ${showFavorites ? "active" : ""}`} type="button" onClick={toggleFavoriteJobs} aria-label={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"} title={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"}>{favoriteJobs.length > 0 ? "★" : "☆"}</button><button className={`hidden-toggle ${showHidden ? "active" : ""}`} type="button" onClick={toggleHiddenJobs} aria-label={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"} title={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5-6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>{hiddenJobs.length > 0 && <b>{hiddenJobs.length}</b>}</button></div></div>
           {statusError && <div className="status-error">{statusError}</div>}
           <div className="job-list">{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas…</div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "No tienes ofertas ocultas." : showFavorites ? "No tienes favoritos guardados." : "No hay ofertas con estos filtros."}</div>}{listedJobs.map((job) => <button key={job.id} className={`job-card ${selectedId === job.id ? "selected" : ""}`} onClick={() => selectJob(job)}><div className="job-card-top"><span className="job-area">{job.primary_area || "Sin área"}</span><span className="job-date">{formatDate(job.published_at)}</span><span className="favorite-toggle" role="button" tabIndex={0} aria-label={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"} title={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"} onClick={(event) => { event.stopPropagation(); void toggleFavorite(job); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); void toggleFavorite(job); } }}>{job.is_favorite ? "★" : "☆"}</span></div><strong>{job.title}</strong><span className="job-company">{job.company || "Empresa no indicada"}</span><div className="job-meta"><span>⌖ {job.district || job.location || "Ubicación pendiente"}</span><span>{job.work_mode === "hybrid" ? "Híbrido" : job.work_mode === "remote" ? "Remoto" : job.work_mode === "onsite" ? "Presencial" : "Modalidad n/i"}</span></div>{showHidden && <span className="hidden-reason">{job.user_reason || "Oculta"} · Restaurar desde el detalle</span>}</button>)}</div>
         </aside>
 
         <section className={`map-panel ${mode === "skills" ? "skills-panel" : ""}`}>
-          {mode === "skills" ? <SkillsView data={skillOverview} loading={skillsLoading} error={skillsError} /> : <>
+          {mode === "skills" ? <SkillsView data={skillOverview} history={skillHistory} loading={skillsLoading} error={skillsError} selectedName={selectedSkill} onSelectSkill={setSelectedSkill} /> : <>
           <div className="map-header">
             <div>
               <p className="eyebrow">Vista geográfica</p>

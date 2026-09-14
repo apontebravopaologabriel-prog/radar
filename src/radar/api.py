@@ -19,6 +19,7 @@ from radar.db.queries import (
     skill_overview,
     set_job_favorite,
     set_job_user_status,
+    skill_history,
 )
 from radar.geolocation import infer_location
 
@@ -54,6 +55,7 @@ def jobs(
     seniority: str | None = None,
     area: str | None = None,
     work_mode: str | None = None,
+    skill: str | None = None,
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
     include_hidden: bool = False,
@@ -67,6 +69,7 @@ def jobs(
         work_mode=work_mode,
         min_salary=min_salary,
         include_hidden=include_hidden,
+        skill=skill,
     )
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
 
@@ -127,6 +130,11 @@ def skills_overview(
     work_mode: str | None = None,
 ) -> dict[str, Any]:
     return skill_overview(max_age_days=max_age_days, area=area, seniority=seniority, work_mode=work_mode)
+
+
+@app.get("/api/skills/history")
+def skills_history(limit: int = Query(default=180, ge=1, le=2000)) -> dict[str, Any]:
+    return {"snapshots": skill_history(limit)}
 
 
 class JobStatusUpdate(BaseModel):

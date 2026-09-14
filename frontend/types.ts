@@ -35,6 +35,7 @@ export type Filters = {
   work_mode: string;
   min_salary: string;
   max_age_days: string;
+  skill?: string;
 };
 
 export type MapMode = "heatmap" | "radar" | "skills";
@@ -42,6 +43,7 @@ export type MapMode = "heatmap" | "radar" | "skills";
 export type SkillDemand = {
   name: string;
   category: string;
+  skill_type: "technical" | "soft" | "language" | "methodology" | "domain";
   job_count: number;
   required_count: number;
   confidence: number;
@@ -56,6 +58,8 @@ export type SkillOverview = {
   max_age_days: number;
   skills: SkillDemand[];
 };
+
+export type SkillSnapshot = { date: string; skill: string; value: number };
 
 export type DistrictSummary = {
   key: string;

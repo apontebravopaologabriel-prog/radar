@@ -294,6 +294,9 @@ def save_profile(
     work_modes: list[str],
     skills: dict[str, str],
 ) -> str:
+    areas_json = json.dumps(areas, ensure_ascii=False) if isinstance(areas, list) else areas
+    locations_json = json.dumps(locations, ensure_ascii=False) if isinstance(locations, list) else locations
+    work_modes_json = json.dumps(work_modes, ensure_ascii=False) if isinstance(work_modes, list) else work_modes
     with connection() as conn:
         existing = conn.execute(
             "SELECT id FROM user_profile ORDER BY updated_at DESC LIMIT 1"
@@ -302,12 +305,12 @@ def save_profile(
             profile_id = existing[0]
             conn.execute(
                 "UPDATE user_profile SET name=%s, education=%s, target_roles=%s, preferred_locations=%s, preferred_work_modes=%s, updated_at=now() WHERE id=%s",
-                (name, education, areas, locations, work_modes, profile_id),
+                (name, education, areas_json, locations_json, work_modes_json, profile_id),
             )
         else:
             profile_id = conn.execute(
                 "INSERT INTO user_profile(name,education,target_roles,preferred_locations,preferred_work_modes) VALUES (%s,%s,%s,%s,%s) RETURNING id",
-                (name, education, areas, locations, work_modes),
+                (name, education, areas_json, locations_json, work_modes_json),
             ).fetchone()[0]
         for skill, level in skills.items():
             row = conn.execute(
@@ -348,10 +351,13 @@ def recompute_scores(profile_id: str) -> int:
             "SELECT s.name, us.level FROM user_skills us JOIN skills s ON s.id=us.skill_id WHERE us.profile_id=%s",
             (profile_id,),
         ).fetchall()
+        target_roles = json.loads(profile_row[0]) if isinstance(profile_row[0], str) else (profile_row[0] or [])
+        locations = json.loads(profile_row[1]) if isinstance(profile_row[1], str) else (profile_row[1] or [])
+        work_modes = json.loads(profile_row[2]) if isinstance(profile_row[2], str) else (profile_row[2] or [])
         profile = {
-            "areas": profile_row[0],
-            "locations": profile_row[1],
-            "work_modes": profile_row[2],
+            "areas": target_roles,
+            "locations": locations,
+            "work_modes": work_modes,
             "skills": dict(user_skills),
         }
         jobs = conn.execute(
