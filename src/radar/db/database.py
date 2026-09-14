@@ -47,7 +47,7 @@ def _configure_connection(conn: RadarConnection) -> None:
     conn.execute("PRAGMA synchronous = NORMAL;")
     conn.execute("PRAGMA busy_timeout = 5000;")
     conn.create_function("gen_random_uuid", 0, lambda: str(uuid.uuid4()))
-    conn.create_function("now", 0, lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    conn.create_function("now", 0, lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 @contextmanager

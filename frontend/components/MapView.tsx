@@ -204,8 +204,8 @@ export default function MapView(props: MapViewProps) {
         id: "district-labels",
         type: "symbol",
         source: "district-counts",
-        layout: { "text-field": ["concat", ["get", "district"], "\n", ["to-string", ["get", "job_count"]], " ofertas"], "text-size": 11, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": false },
-        paint: { "text-color": "#dedede", "text-halo-color": "#050505", "text-halo-width": 1.6 },
+        layout: { "text-field": ["concat", ["get", "district"], " · ", ["to-string", ["get", "job_count"]]], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": false },
+        paint: { "text-color": "#bdbdbd", "text-halo-color": "#050505", "text-halo-width": 1.2 },
       });
       fetch(DISTRICT_GEOJSON_URL)
         .then((response) => response.json())

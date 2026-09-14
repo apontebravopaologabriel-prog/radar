@@ -18,6 +18,7 @@ sin reemplazar la fuente de verdad PostgreSQL.
 
 ## Documentación
 
+- [Guía para agentes](AGENTS.md)
 - [Arquitectura y flujo](docs/architecture.md)
 - [Modelo PostgreSQL](docs/database.md)
 - [MCP para Hermes](docs/mcp.md)

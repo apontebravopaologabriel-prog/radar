@@ -1,4 +1,3 @@
-from radar.db.database import connection
 from radar.db.queries import (
     get_profile,
     list_jobs,
@@ -6,7 +5,6 @@ from radar.db.queries import (
     recommendations,
     skill_overview,
 )
-from radar.db.repository import capture_market_snapshot
 
 
 def test_sqlite_queries_work():

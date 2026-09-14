@@ -66,7 +66,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
           const raw = String(feature.properties?.distrito2 || feature.properties?.distrito || "");
           const key = districtKey(raw);
           const count = key ? counts.get(key) || 0 : 0;
-          if (count) layer.bindTooltip(`${raw}<br>${count} ofertas`, { permanent: true, direction: "center", className: "district-tooltip" });
+          if (count) layer.bindTooltip(`${raw} · ${count}`, { permanent: true, direction: "center", className: "district-tooltip" });
           if (key) layer.on("click", () => onSelectDistrict(key));
         },
       }).addTo(map);

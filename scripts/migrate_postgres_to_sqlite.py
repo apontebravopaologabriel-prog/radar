@@ -8,7 +8,6 @@ import decimal
 import json
 import os
 import sqlite3
-import sys
 import uuid
 from pathlib import Path
 
@@ -60,13 +59,13 @@ def serialize_value(val):
 
 
 def main():
-    print(f"Iniciando migración de PostgreSQL a SQLite...")
+    print("Iniciando migración de PostgreSQL a SQLite...")
     print(f"Origen: {POSTGRES_URL}")
     print(f"Destino: {SQLITE_PATH}")
 
     SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
     if SQLITE_PATH.exists():
-        backup_path = SQLITE_PATH.with_suffix(f".bak.{int(datetime.datetime.now().timestamp())}")
+        backup_path = SQLITE_PATH.with_suffix(f".bak.{int(datetime.datetime.now(datetime.UTC).timestamp())}")
         print(f"Base SQLite existente encontrada. Respaldando a {backup_path}")
         SQLITE_PATH.rename(backup_path)
 

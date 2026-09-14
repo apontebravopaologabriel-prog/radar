@@ -167,7 +167,7 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .skill-detail-empty { display: grid; min-height: 250px; align-content: center; justify-items: center; color: var(--muted); text-align: center; }.skill-detail-empty > span { color: var(--teal); font-size: 27px; }.skill-detail-empty strong { margin-top: 8px; color: var(--ink); font-size: 12px; }.skill-detail-empty p { max-width: 180px; font-size: 9px; line-height: 1.4; }
 .skill-market-note { margin-top: 16px; padding: 9px; border-left: 2px solid var(--teal); background: #1d2925; }.skill-market-note span { color: #83928e; font-size: 8px; text-transform: uppercase; }.skill-market-note p { margin: 5px 0 0; color: #c5cfcc; font-size: 9px; line-height: 1.4; }.skill-detail-action { width: 100%; margin-top: 16px; padding: 8px; border: 1px solid #347d69; border-radius: 4px; color: #9fe8d4; background: transparent; font-size: 9px; }.skill-detail-action:hover { background: #245044; }
 .skill-jobs { display: grid; gap: 5px; margin-top: 16px; }.skill-jobs > span { color: #83928e; font-size: 8px; text-transform: uppercase; }.skill-jobs a { display: grid; gap: 3px; padding: 7px; border: 1px solid #2e403a; color: #d9fff5; background: #1d2925; text-decoration: none; }.skill-jobs a:hover { border-color: var(--teal); background: #245044; }.skill-jobs strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.skill-jobs small { overflow: hidden; color: #83928e; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.skills-ranking, .skills-evolution { padding: 12px; border: 1px solid #354640; border-radius: 5px; background: #18211f; }.skills-ranking-head, .skills-ranking-row { display: grid; grid-template-columns: minmax(150px, 1.2fr) 55px minmax(100px, 1fr) 70px 90px; align-items: center; gap: 10px; }.skills-ranking-head { padding: 0 8px 8px; color: #83928e; font-size: 8px; text-transform: uppercase; }.skills-ranking-row { width: 100%; padding: 8px; border: 0; border-top: 1px solid #2b3935; color: #c5cfcc; background: transparent; font: inherit; font-size: 10px; text-align: left; }.skills-ranking-row:hover, .skills-ranking-row.selected { background: #20332d; }.skills-ranking-row strong { color: #d9fff5; }.skills-ranking-row span { text-align: right; }.skills-ranking-row i { display: block; height: 5px; overflow: hidden; border-radius: 3px; background: #2d3935; }.skills-ranking-row i em { display: block; height: 100%; border-radius: inherit; background: var(--teal); }.skills-ranking-row small { color: #83928e; font-size: 8px; }.skills-ranking > .skill-detail-panel { margin-top: 14px; }.evolution-heading { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 10px; border-bottom: 1px solid #354640; }.evolution-heading h3 { margin: 4px 0 0; color: var(--ink); font-size: 16px; }.evolution-heading > span { color: #83928e; font-size: 9px; }.evolution-list { display: grid; gap: 4px; padding-top: 10px; }.evolution-row { display: grid; grid-template-columns: 130px 1fr 80px; align-items: center; gap: 12px; min-height: 42px; padding: 6px 8px; border: 0; border-bottom: 1px solid #2b3935; color: var(--ink); background: transparent; font: inherit; text-align: left; }.evolution-row:hover { background: #20332d; }.evolution-row strong { font-size: 10px; }.evolution-track { display: flex; align-items: end; gap: 3px; height: 30px; border-bottom: 1px solid #526a62; }.evolution-track i { flex: 1; min-width: 3px; background: #65d4c0; opacity: .75; }.evolution-row > span { color: #d9fff5; font-size: 10px; text-align: right; }.evolution-row b { margin-left: 4px; font-size: 8px; }.evolution-row b.up { color: #65d4c0; }.evolution-row b.down { color: #d87878; }.skills-empty-history { padding: 40px; color: var(--muted); font-size: 10px; text-align: center; }
+.skills-ranking, .skills-evolution { padding: 12px; border: 1px solid #354640; border-radius: 5px; background: #18211f; }.skills-ranking-head, .skills-ranking-row { display: grid; grid-template-columns: minmax(150px, 1.2fr) 55px minmax(100px, 1fr) 70px 90px; align-items: center; gap: 10px; }.skills-ranking-head { padding: 0 8px 8px; color: #83928e; font-size: 8px; text-transform: uppercase; }.skills-ranking-row { width: 100%; padding: 8px; border: 0; border-top: 1px solid #2b3935; color: #c5cfcc; background: transparent; font: inherit; font-size: 10px; text-align: left; }.skills-ranking-row:hover, .skills-ranking-row.selected { background: #20332d; }.skills-ranking-row strong { color: #d9fff5; }.skills-ranking-row span { text-align: right; }.skills-ranking-row i { display: block; height: 5px; overflow: hidden; border-radius: 3px; background: #2d3935; }.skills-ranking-row i em { display: block; height: 100%; border-radius: inherit; background: var(--teal); }.skills-ranking-row small { color: #83928e; font-size: 8px; }.skills-ranking > .skill-detail-panel { margin-top: 14px; }.evolution-heading { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 10px; border-bottom: 1px solid #354640; }.evolution-heading h3 { margin: 4px 0 0; color: var(--ink); font-size: 16px; }.evolution-heading > span { color: #83928e; font-size: 9px; }.evolution-list { display: grid; gap: 4px; padding-top: 10px; }.evolution-row { display: grid; grid-template-columns: 130px 1fr 80px; align-items: center; gap: 12px; min-height: 42px; padding: 6px 8px; border: 0; border-bottom: 1px solid #2b3935; color: var(--ink); background: transparent; font: inherit; text-align: left; }.evolution-row:hover { background: #20332d; }.evolution-row strong { font-size: 10px; }.evolution-track { display: flex; align-items: flex-end; gap: 3px; height: 30px; border-bottom: 1px solid #526a62; }.evolution-track i { flex: 1; min-width: 3px; background: #65d4c0; opacity: .75; }.evolution-row > span { color: #d9fff5; font-size: 10px; text-align: right; }.evolution-row b { margin-left: 4px; font-size: 8px; }.evolution-row b.up { color: #65d4c0; }.evolution-row b.down { color: #d87878; }.skills-empty-history { padding: 40px; color: var(--muted); font-size: 10px; text-align: center; }
 .skills-loading { display: grid; min-height: 360px; place-items: center; color: var(--muted); font-size: 11px; }
 .roadmap-section { padding: 13px; }.roadmap-heading { align-items: center; padding-bottom: 10px; border-bottom: 1px solid #354640; }.roadmap-heading h3 { margin: 4px 0 0; color: var(--ink); font-size: 15px; }.roadmap-heading > span { color: #83928e; font-size: 9px; }
 .roadmap-track { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 10px; }.roadmap-stage { min-width: 0; padding: 8px; border: 1px solid #2e403a; border-radius: 4px; background: #1d2925; }.roadmap-stage-top { display: flex; align-items: center; gap: 6px; }.roadmap-stage-top b { color: var(--teal); font-size: 9px; }.roadmap-stage-top strong { overflow: hidden; color: var(--ink); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.roadmap-stage-top span { margin-left: auto; color: #83928e; font-size: 9px; }.roadmap-stage-skills { display: grid; gap: 4px; margin-top: 8px; }.roadmap-skill { display: flex; justify-content: space-between; gap: 6px; padding: 4px 5px; border: 0; border-radius: 3px; color: #b9c6c2; background: #25332e; font-size: 9px; text-align: left; }.roadmap-skill:hover { background: #2b443b; }.roadmap-skill i { color: #83928e; font-size: 8px; font-style: normal; }.roadmap-skill.basic, .roadmap-skill.intermediate, .roadmap-skill.advanced { color: #9fe8d4; }.roadmap-skill.advanced { color: #8bb8e8; }
@@ -623,6 +623,12 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 
 /* Filters and radar are independent popups; the job tool is list-only. */
 .sidebar.tool-filters .map-mode,
+.sidebar.tool-skills .sidebar-heading,
+.sidebar.tool-skills .search-box,
+.sidebar.tool-skills .filter-section,
+.sidebar.tool-skills .map-mode,
+.sidebar.tool-skills .job-list-header,
+.sidebar.tool-skills .job-list,
 .sidebar.tool-filters .job-list-header,
 .sidebar.tool-filters .job-list,
 .sidebar.tool-radar .sidebar-heading,
@@ -638,12 +644,28 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .sidebar.tool-jobs .map-mode { display: none; }
 .sidebar.tool-filters .sidebar-heading { margin-bottom: 0; }
 .sidebar.tool-filters { padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+.sidebar.tool-skills { top: auto; right: 18px; bottom: 18px; max-height: min(520px, calc(100% - 36px)); }
+.skill-float-panel { display: flex; min-width: 290px; max-width: 340px; max-height: min(480px, calc(100vh - 72px)); flex-direction: column; padding: 14px; }
+.skill-float-heading { display: flex; align-items: center; justify-content: space-between; padding-bottom: 9px; border-bottom: 1px solid #363636; color: #a8a8a8; font-size: 8px; letter-spacing: .16em; text-transform: uppercase; }
+.skill-float-heading strong { color: #eeeeee; font-size: 10px; font-weight: 500; }
+.skill-float-list { display: grid; min-height: 0; overflow-y: auto; padding-top: 6px; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
+.skill-float-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 4px; border: 0; border-bottom: 1px solid #252525; color: #c8c8c8; background: transparent; text-align: left; cursor: pointer; }
+.skill-float-row > span { display: grid; min-width: 0; gap: 2px; grid-template-columns: 7px minmax(0, 1fr); align-items: center; }
+.skill-float-row i { display: block; width: 5px; height: 5px; border: 1px solid #a8a8a8; border-radius: 50%; }
+.skill-float-row small { grid-column: 2; overflow: hidden; color: #777777; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.skill-float-row > strong { color: #eeeeee; font-size: 10px; font-weight: 500; }
+.skill-float-row:hover, .skill-float-row.selected { color: #ffffff; background: #252525; }
+.skill-float-row.selected i { background: #eeeeee; }
+.skill-float-status { padding: 18px 4px 8px; color: #969696; font-size: 10px; }
+.skill-float-clear { margin-top: 9px; padding: 7px 4px; border: 1px solid #4e4e4e; color: #dddddd; background: #161616; font-size: 9px; text-align: left; cursor: pointer; }
+.skill-float-clear:hover { border-color: #bdbdbd; background: #262626; }
 .sidebar.tool-radar .map-mode { display: block; margin-top: 15px; padding-top: 15px; }
 .sidebar.tool-radar .radar-controls { margin-top: 0; border: 0; background: transparent; box-shadow: none; }
 .sidebar.tool-radar { top: auto; right: 18px; bottom: 18px; max-height: calc(100% - 36px); }
 .sidebar.tool-radar .map-mode { margin: 0; padding: 14px; border: 0; background: transparent; box-shadow: none; }
 .sidebar.tool-radar .radar-center-menu { top: auto; right: 0; bottom: calc(100% + 8px); left: 0; width: auto; max-height: min(280px, 40vh); }
 .sidebar.tool-radar.is-open + .map-panel .job-popover { right: 18px; left: auto; }
+.sidebar.tool-skills.is-open + .map-panel .job-popover { right: 18px; left: auto; }
 .sidebar.tool-jobs .job-list-header { display: flex; margin-top: 15px; }
 .sidebar.tool-jobs .job-list { display: block; max-height: calc(100vh - 145px); }
 .sidebar.tool-jobs { padding-bottom: 14px; }
@@ -708,20 +730,28 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .job-popover .popover-company { font-size: 11px; }
 .job-popover .popover-grid span { font-size: 9px; }
 .job-popover .popover-grid strong { font-size: 11px; }
-.job-popover .popover-description { display: block; max-height: 83px; font-size: 11px; line-height: 1.52; }
+.job-popover .popover-description { display: block; max-height: 83px; font-size: 11px; line-height: 1.52; text-align: left; }
+.job-popover .popover-description p, .job-popover .popover-description h4, .job-popover .popover-description li { text-align: left; }
 .job-popover.is-description-expanded .popover-description { max-height: none; }
+.district-tooltip { border: 0; border-radius: 0; color: #bdbdbd; background: transparent; box-shadow: none; font-size: 10px; font-weight: 500; }
+.district-tooltip::before { display: none; }
 .job-popover .popover-link, .job-popover .hide-button, .job-popover .restore-button { font-size: 10px; }
 
 @media (max-width: 900px) {
   .district-map-overlay { right: 14px; left: auto; }
   .offer-scroll { left: 14px; right: auto; bottom: 14px; width: min(330px, calc(100% - 28px)); }
   .sidebar.tool-radar { right: 14px; bottom: 14px; max-height: calc(100% - 28px); }
+  .sidebar.tool-skills { right: 14px; bottom: 14px; max-height: calc(100% - 28px); }
+  .sidebar.tool-skills.is-open + .map-panel .job-popover { right: 18px; left: auto; top: auto; bottom: 18px; }
 }
 
 @media (max-width: 680px) {
   .district-map-overlay { right: 12px; left: auto; height: min(300px, calc(100% - 24px)); }
   .offer-scroll { left: 12px; right: auto; bottom: 12px; width: min(320px, calc(100% - 24px)); height: 230px; max-height: calc(100% - 24px); }
   .sidebar.tool-radar { right: 12px; bottom: 12px; max-height: calc(100% - 24px); }
+  .sidebar.tool-skills { right: 12px; bottom: 12px; max-height: calc(100% - 24px); }
+  .sidebar.tool-skills.is-open + .map-panel .job-popover { right: 12px; left: auto; bottom: 12px; }
+  .skill-float-panel { min-width: 0; max-width: none; }
   .job-popover { width: min(350px, calc(100% - 24px)); padding: 14px; }
   .job-popover h3 { font-size: 15px; }
   .job-popover .popover-description { font-size: 10px; }
