@@ -3,9 +3,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from radar.db.queries import (
@@ -23,13 +27,32 @@ from radar.db.queries import (
 )
 from radar.geolocation import infer_location
 
+FRONTEND_OUT = Path(__file__).resolve().parent.parent.parent / "frontend/out"
+
 app = FastAPI(title="Radar Career Intelligence API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("RADAR_API_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(","),
+    allow_origins=os.getenv("RADAR_API_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8100").split(","),
     allow_methods=["GET", "PATCH", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+if FRONTEND_OUT.exists():
+    next_dir = FRONTEND_OUT / "_next"
+    if next_dir.exists():
+        app.mount("/_next", StaticFiles(directory=str(next_dir)), name="next_static")
+
+    @app.get("/radar", include_in_schema=False)
+    @app.get("/radar/", include_in_schema=False)
+    def serve_radar_ui():
+        radar_html = FRONTEND_OUT / "radar.html"
+        if radar_html.exists():
+            return FileResponse(str(radar_html))
+        return FileResponse(str(FRONTEND_OUT / "index.html"))
+
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse(url="/radar")
 
 
 def _with_location(job: dict[str, Any]) -> dict[str, Any]:
@@ -196,5 +219,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    remove_job_favorite,
-    set_job_favorite,

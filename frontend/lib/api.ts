@@ -1,6 +1,6 @@
 import type { Filters, Job, SkillOverview, SkillSnapshot } from "../types";
 
-const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL || "http://127.0.0.1:8100";
+const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL || (typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:8100");
 
 export async function fetchJobs(filters: Filters, signal?: AbortSignal): Promise<Job[]> {
   const params = new URLSearchParams();

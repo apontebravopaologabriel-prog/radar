@@ -38,7 +38,7 @@ export type Filters = {
   skill?: string;
 };
 
-export type MapMode = "heatmap" | "radar" | "skills";
+export type MapMode = "jobs" | "heatmap" | "radar" | "skills";
 
 export type SkillDemand = {
   name: string;
