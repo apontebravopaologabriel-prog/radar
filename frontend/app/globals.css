@@ -127,6 +127,12 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .reading-body { padding-top: 10px; }
 .reading-body h3 { font-size: 14px; color: var(--ink); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px; border-bottom: 1px dashed #383838; padding-bottom: 6px; }
 .reading-description { font-size: 12px; line-height: 1.7; color: #cfcfcf; white-space: pre-line; word-break: break-word; }
+.reading-description p { margin: 0 0 12px; }
+.reading-description h4 { margin: 0 0 8px; color: #eeeeee; font-size: 13px; }
+.reading-description ul, .reading-description ol { margin: 0 0 12px; padding-left: 20px; }
+.reading-description li { margin-bottom: 5px; }
+.reading-description code, .popover-description code { padding: 1px 4px; border: 1px solid #444444; color: #eeeeee; background: #171717; font-size: .9em; }
+.reading-description a, .popover-description a { color: #eeeeee; text-decoration: underline; }
 .reading-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 380px; text-align: center; color: var(--muted); }
 .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .7; }
 .reading-empty h3 { font-size: 16px; color: var(--ink); margin-bottom: 6px; }
@@ -204,6 +210,8 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .is-description-expanded .popover-description { display: block; overflow: visible; }
 .description-toggle { display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 3px; color: inherit; background: transparent; font: inherit; text-align: left; }
 .description-toggle:hover { background: #ffffff08; }
+.description-toggle { cursor: pointer; }
+.description-toggle:focus-visible { outline: 1px solid #bdbdbd; outline-offset: 3px; }
 .popover-link { display: inline-block; border: 1px solid #347d69; border-radius: 4px; color: #9fe8d4; text-decoration: none; }
 .popover-actions { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
 .popover-actions.is-hiding { display: block; }
@@ -267,4 +275,454 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
   .district-map-overlay { bottom: 12px; left: 12px; width: min(300px, calc(100% - 24px)); }
   .statusbar { gap: 10px; height: auto; min-height: 34px; padding: 8px 15px; font-size: 9px; }
   .statusbar span:last-child { display: none; }
+}
+
+/* Radar console skin: dark, quiet and data-first. */
+:root {
+  --ink: #e8f0e8;
+  --muted: #78857d;
+  --line: #26332c;
+  --soft: #101713;
+  --paper: #070b09;
+  --teal: #b8ff72;
+  --indigo: #8ee8c4;
+  --pink: #f2c45e;
+}
+
+body { background: #030504; color: var(--ink); }
+.radar-shell { position: relative; overflow: hidden; background: #030504; }
+.radar-shell::before { position: fixed; z-index: 20; inset: 0; pointer-events: none; opacity: .14; background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, #b8ff7208 4px); content: ""; mix-blend-mode: screen; }
+.topbar { height: 58px; padding: 0 22px; border-bottom-color: #26332c; background: #070b09eF; box-shadow: 0 1px 0 #b8ff7210; }
+.brand-lockup { gap: 11px; }
+.brand-mark { width: 28px; height: 28px; border: 1px solid #b8ff72; border-radius: 0; color: #b8ff72; background: transparent; font-size: 23px; box-shadow: 0 0 16px #b8ff7226; }
+.brand-lockup strong { color: #e8f0e8; font-size: 13px; letter-spacing: .22em; }
+.brand-lockup span:not(.brand-mark) { color: #748177; font-size: 8px; letter-spacing: .13em; }
+.brand-lockup .status-dot { width: 5px; height: 5px; margin-right: 6px; background: #b8ff72; box-shadow: 0 0 0 2px #b8ff7228; }
+.topbar-readout, .topbar-actions { display: flex; align-items: center; gap: 18px; color: #718077; font-size: 8px; letter-spacing: .12em; }
+.topbar-readout span:first-child { color: #b8ff72; }
+.topbar-actions { margin-left: auto; }
+.topbar-clock { color: #718077; }
+.topbar-signal { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
+.topbar-signal i { display: block; width: 3px; background: #b8ff72; }
+.topbar-signal i:nth-child(1) { height: 4px; opacity: .45; }
+.topbar-signal i:nth-child(2) { height: 8px; opacity: .7; }
+.topbar-signal i:nth-child(3) { height: 12px; }
+.workspace { position: relative; z-index: 1; }
+.sidebar { width: 342px; min-width: 342px; padding: 20px 17px 13px; border-right-color: #26332c; background: #070b09; }
+.sidebar-heading { margin-bottom: 18px; }
+.sidebar-heading h1 { color: #e8f0e8; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; }
+.sidebar-heading .eyebrow { margin-bottom: 5px; }
+.eyebrow { color: #b8ff72; font-size: 8px; letter-spacing: .19em; }
+.result-count { min-width: 52px; height: 28px; border: 1px solid #49613d; border-radius: 0; color: #b8ff72; background: #0b120d; font-size: 10px; box-shadow: inset 0 0 12px #b8ff7208; }
+.search-box { height: 38px; border-color: #314238; border-radius: 0; background: #0c120e; }
+.search-box:focus-within { border-color: #b8ff72; box-shadow: 0 0 0 2px #b8ff7217; }
+.search-box > span { color: #b8ff72; font-size: 17px; }
+.search-box input { color: #dce8dd; font-size: 10px; }
+.search-box input::placeholder { color: #5d6c61; }
+.search-box button { color: #b8ff72; font-size: 11px; }
+.filter-section, .map-mode { border-bottom-color: #26332c; }
+.filter-section::before { color: #526259; content: "// FILTER MATRIX"; }
+.section-label { color: #cbd8cc; font-size: 9px; letter-spacing: .15em; }
+.section-label span { min-width: 17px; height: 17px; border: 1px solid #49613d; border-radius: 0; color: #b8ff72; background: #0d170e; font-size: 8px; }
+label { color: #718077; font-size: 9px; letter-spacing: .04em; }
+select, label input { height: 31px; border-color: #29392f; border-radius: 0; color: #cbd8cc; background: #0c120e; font-size: 9px; }
+select:focus, label input:focus { border-color: #b8ff72; box-shadow: 0 0 0 2px #b8ff7217; }
+.segmented { padding: 2px; border-color: #29392f; border-radius: 0; background: #0a100c; }
+.segmented button { height: 27px; border-radius: 0; color: #718077; font-size: 9px; }
+.segmented button.active { color: #071006; background: #b8ff72; box-shadow: 0 0 16px #b8ff7228; }
+.job-list-header { color: #728078; font-size: 8px; letter-spacing: .15em; }
+.job-list-tools > span { color: #b8ff72; font-size: 9px; }
+.job-card { margin-bottom: 5px; padding: 10px; border-color: #16221a; border-radius: 0; background: #0b110d; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+.job-card:hover, .job-card.selected { border-color: #62884d; background: #101b12; transform: translateX(2px); }
+.job-card strong { color: #dce8dd; font-size: 11px; }
+.job-company, .job-meta { color: #718077; font-size: 9px; }
+.job-area { color: #b8ff72; font-size: 8px; }
+.job-date { color: #58665d; font-size: 8px; }
+.favorite-toggle { color: #59665c; }
+.favorite-toggle[aria-label="Quitar de favoritos"] { color: #f2c45e; }
+.map-panel { padding: 20px 20px 13px; background: #030504; }
+.map-header { padding: 0 2px 13px; }
+.map-header h2 { color: #dce8dd; font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.sidebar-heading h1::before, .map-header h2::before { color: #b8ff72; content: "//"; }
+.map-legend { color: #66746b; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+.legend-dot { background: #b8ff72; border-color: #dfffc5; box-shadow: 0 0 8px #b8ff72; }
+.legend-cluster { background: #8ee8c4; }
+.legend-ring { border-color: #f2c45e; }
+.legend-scale.low { background: #14261a; }
+.legend-scale.high { background: #b8ff72; }
+.map-wrap { border-color: #26332c; border-radius: 0; background: #020403; box-shadow: inset 0 0 80px #000, 0 12px 28px #000000aa; }
+.map-wrap::before { background-image: linear-gradient(#b8ff720a 1px, transparent 1px), linear-gradient(90deg, #b8ff720a 1px, transparent 1px); background-size: 54px 54px; }
+.map-wrap::after { position: absolute; z-index: 3; top: -10%; left: 0; width: 100%; height: 1px; pointer-events: none; background: linear-gradient(90deg, transparent, #b8ff72, transparent); box-shadow: 0 0 18px 2px #b8ff7255; content: ""; animation: radar-sweep 8s linear infinite; }
+.map-wrap.radar-active::after { background: linear-gradient(90deg, transparent, #f2c45e, transparent); box-shadow: 0 0 22px 3px #f2c45e66; animation-duration: 3.2s; }
+.map-scan-label { position: absolute; z-index: 4; pointer-events: none; color: #b8ff72; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-shadow: 0 0 12px #b8ff7255; }
+.map-scan-label small { display: block; margin-top: 5px; color: #66746b; font-size: 7px; font-weight: 400; letter-spacing: .15em; }
+.map-scan-label-top { top: 17px; left: 18px; }
+.map-scan-label-bottom { right: 18px; bottom: 15px; display: flex; gap: 18px; color: #66746b; font-size: 7px; letter-spacing: .1em; }
+.scan-live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: #b8ff72; box-shadow: 0 0 0 3px #b8ff7222, 0 0 12px #b8ff72; animation: signal-pulse 1.8s ease-in-out infinite; }
+.district-map-overlay, .job-popover { border-color: #49613d; border-radius: 0; background: #081009ee; box-shadow: 0 12px 30px #000000aa, inset 0 0 24px #b8ff7208; }
+.district-map-overlay { padding: 13px; }
+.district-overlay-heading { border-bottom-color: #26332c; }
+.district-overlay-heading strong { color: #dce8dd; font-size: 14px; }
+.district-row:hover, .district-row.selected { border-color: #62884d; background: #132017; }
+.district-row-top { color: #dce8dd; font-size: 9px; }
+.district-row-top span { color: #b8ff72; }
+.district-bar { background: #1b2b1d; }
+.district-bar i { background: #b8ff72; box-shadow: 0 0 8px #b8ff7266; }
+.overlay-action, .overlay-more { border-color: #49613d; border-radius: 0; color: #b8ff72; background: #0d170e; }
+.overlay-action:hover, .overlay-more:hover { background: #172818; }
+.statusbar { height: 27px; border-top-color: #26332c; color: #607067; background: #070b09; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.statusbar span:first-child { color: #b8ff72; }
+.status-dot { background: #b8ff72; box-shadow: 0 0 0 3px #b8ff7222; }
+.maplibregl-ctrl-group { border-color: #49613d; border-radius: 0; background: #081009dd; }
+
+@keyframes radar-sweep {
+  0% { transform: translateY(0); opacity: 0; }
+  8% { opacity: .8; }
+  92% { opacity: .8; }
+  100% { transform: translateY(1200px); opacity: 0; }
+}
+
+@keyframes signal-pulse {
+  0%, 100% { opacity: .55; transform: scale(.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-shell::before, .map-wrap::after, .scan-live-dot { animation: none; }
+  .job-card { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .topbar-readout { display: none; }
+}
+
+@media (max-width: 680px) {
+  .topbar { padding: 0 15px; }
+  .topbar-clock { display: none; }
+  .map-scan-label-bottom { right: 12px; bottom: 11px; gap: 8px; flex-direction: column; align-items: flex-end; }
+}
+
+/* Monochrome intelligence map: the map is the canvas and controls become edge popups. */
+:root {
+  --ink: #ededed;
+  --muted: #929292;
+  --line: #303030;
+  --soft: #111111;
+  --paper: #080808;
+  --teal: #c5c5c5;
+  --indigo: #989898;
+  --pink: #d0d0d0;
+}
+
+body { background: #030303; color: var(--ink); }
+.radar-shell { background: #030303; }
+.radar-shell::before { opacity: .1; background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, #ffffff08 4px); }
+.topbar { position: relative; z-index: 12; border-bottom-color: #292929; background: #060606ed; box-shadow: 0 1px 0 #ffffff10; }
+.brand-mark { border-color: #bdbdbd; color: #ededed; box-shadow: 0 0 18px #ffffff16; }
+.brand-lockup strong { color: #ededed; }
+.brand-lockup span:not(.brand-mark), .topbar-readout, .topbar-actions { color: #858585; }
+.brand-lockup .status-dot, .status-dot { background: #d0d0d0; box-shadow: 0 0 0 2px #ffffff1c; }
+.topbar-readout span:first-child { color: #d0d0d0; }
+.topbar-signal i { background: #bdbdbd; }
+
+.workspace { position: relative; display: block; overflow: hidden; }
+.map-panel { position: absolute; inset: 0; display: flex; padding: 0; background: #030303; }
+.map-panel.reading-panel, .map-panel.skills-panel { position: relative; inset: auto; height: 100%; overflow-y: auto; padding: 30px 35px; }
+
+/* Left-side controls remain usable, but read as a stack of translucent windows. */
+.sidebar { position: absolute; z-index: 10; top: 0; left: 0; width: 310px; min-width: 310px; height: 100%; padding: 18px 0 18px; overflow: visible; border: 0; background: linear-gradient(90deg, #030303e8 0%, #030303b8 72%, transparent 100%); pointer-events: none; }
+.sidebar > * { pointer-events: auto; }
+.sidebar-heading, .search-box, .filter-section, .map-mode, .job-list-header, .job-list, .status-error { width: 292px; margin-left: 0; }
+.sidebar-heading { margin-bottom: 9px; padding: 0 16px 13px; border-bottom: 1px solid #383838; }
+.sidebar-heading h1 { color: #ededed; }
+.result-count { border-color: #5d5d5d; color: #e2e2e2; background: #111111d9; box-shadow: inset 0 0 16px #ffffff08; }
+.search-box { height: 37px; border-color: #4a4a4a; border-radius: 0; background: #0b0b0bcc; box-shadow: 0 10px 24px #00000038; backdrop-filter: blur(14px); }
+.search-box:focus-within { border-color: #c7c7c7; box-shadow: 0 0 0 2px #ffffff14, 0 10px 24px #00000038; }
+.search-box > span, .search-box button { color: #c8c8c8; }
+.search-box input { color: #e3e3e3; }
+.search-box input::placeholder { color: #777777; }
+.filter-section, .map-mode { margin-top: 8px; padding: 13px 15px 8px; border: 1px solid #3a3a3a; background: #0a0a0ac9; box-shadow: 0 10px 24px #00000038; backdrop-filter: blur(16px); }
+.filter-section::before { color: #777777; content: "// FILTER MATRIX"; }
+.filter-section, .map-mode { border-bottom-color: #3a3a3a; }
+.section-label { color: #d5d5d5; }
+.section-label span { border-color: #555555; border-radius: 0; color: #d8d8d8; background: #1c1c1c; }
+label { color: #8d8d8d; }
+select, label input { border-color: #363636; border-radius: 0; color: #d0d0d0; background: #111111; }
+select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #ffffff14; }
+.segmented { border-color: #3e3e3e; border-radius: 0; background: #101010; }
+.segmented button { color: #8c8c8c; }
+.segmented button.active { color: #080808; background: #d0d0d0; box-shadow: 0 0 15px #ffffff18; }
+.job-list-header { margin: 10px 0 7px; padding: 9px 12px; border: 1px solid #383838; color: #949494; background: #0a0a0ac9; box-shadow: 0 10px 24px #00000038; backdrop-filter: blur(16px); }
+.job-list-tools > span { color: #c8c8c8; }
+.job-list { max-height: min(290px, calc(100% - 500px)); padding: 0 7px 0 0; overflow-y: auto; scrollbar-color: #606060 transparent; }
+.job-card { margin-bottom: 5px; padding: 10px; border: 1px solid #242424; border-radius: 0; background: #0a0a0acc; box-shadow: 0 7px 18px #0000002b; backdrop-filter: blur(12px); }
+.job-card:hover, .job-card.selected { border-color: #898989; background: #1b1b1bd9; transform: translateX(2px); }
+.job-card strong { color: #ededed; }
+.job-company, .job-meta, .job-date { color: #8c8c8c; }
+.job-area { color: #cacaca; }
+.favorite-toggle, .hidden-toggle, .cancel-hide { color: #858585; }
+.favorite-toggle[aria-label="Quitar de favoritos"] { color: #ededed; }
+.status-error { color: #d1a0a0; }
+
+/* Full-bleed map and quiet edge metadata. */
+.map-header { position: absolute; z-index: 6; top: 19px; right: 24px; left: 330px; padding: 0; pointer-events: none; }
+.map-header .map-legend { pointer-events: auto; }
+.map-header h2 { color: #eeeeee; }
+.sidebar-heading h1::before, .map-header h2::before { color: #bdbdbd; }
+.eyebrow, .map-scan-label { color: #d0d0d0; text-shadow: 0 0 12px #ffffff25; }
+.map-legend { color: #8b8b8b; }
+.legend-dot { background: #eeeeee; border-color: #ffffff; box-shadow: 0 0 8px #ffffff88; }
+.legend-cluster { background: #888888; }
+.legend-ring { border-color: #d8d8d8; }
+.legend-scale.low { background: #292929; }
+.legend-scale.high { background: #c5c5c5; }
+.map-wrap { position: absolute; inset: 0; flex: none; border: 0; border-radius: 0; background: #020202; box-shadow: inset 0 0 130px #000000, 0 0 0 1px #111111; }
+.map-wrap::before { background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 58px 58px; mix-blend-mode: screen; }
+.map-wrap::after { height: 1px; background: linear-gradient(90deg, transparent, #d7d7d7, transparent); box-shadow: 0 0 20px 2px #ffffff44; animation-duration: 10s; }
+.map-wrap.radar-active::after { background: linear-gradient(90deg, transparent, #ffffff, transparent); box-shadow: 0 0 24px 3px #ffffff55; }
+.map-canvas::after { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, #00000018 66%, #000000b3 100%); content: ""; }
+.map-scan-label { font-size: 9px; }
+.map-scan-label small, .map-scan-label-bottom { color: #858585; }
+.scan-live-dot { background: #eeeeee; box-shadow: 0 0 0 3px #ffffff20, 0 0 12px #ffffff; }
+
+/* Popups attach to the viewport edges and let the map show through. */
+.district-map-overlay, .job-popover { border-color: #646464; border-radius: 0; background: #090909d9; box-shadow: 0 18px 36px #0000009c, inset 0 0 28px #ffffff08; backdrop-filter: blur(18px) grayscale(1); }
+.district-map-overlay { bottom: 20px; left: 16px; width: min(276px, calc(100% - 32px)); padding: 13px; }
+.district-overlay-heading { border-bottom-color: #383838; }
+.district-overlay-heading strong, .district-row-top { color: #eeeeee; }
+.district-overlay-heading span { color: #8c8c8c; }
+.district-row:hover, .district-row.selected { border-color: #898989; background: #242424; }
+.district-row-top span { color: #d0d0d0; }
+.district-bar { background: #373737; }
+.district-bar i { background: #bdbdbd; box-shadow: 0 0 8px #ffffff44; }
+.overlay-action, .overlay-more { border-color: #666666; border-radius: 0; color: #dedede; background: #161616; }
+.overlay-action:hover, .overlay-more:hover { background: #2b2b2b; }
+.job-popover { top: 96px; right: 18px; left: auto; width: min(322px, calc(100% - 36px)); padding: 14px; }
+.close-button { border-color: #5d5d5d; border-radius: 0; color: #a0a0a0; }
+.close-button:hover { border-color: #dedede; color: #ffffff; }
+.popover-company, .popover-grid span { color: #8c8c8c; }
+.popover-divider { background: #3d3d3d; }
+.popover-description { color: #c5c5c5; }
+.popover-description p { margin: 0 0 8px; }
+.popover-description h4 { margin: 0 0 6px; color: #eeeeee; font-size: 11px; }
+.popover-description ul, .popover-description ol { margin: 0 0 8px; padding-left: 17px; }
+.popover-description li { margin-bottom: 3px; }
+.popover-link, .hide-button, .restore-button { border-color: #666666; border-radius: 0; color: #dedede; background: #151515; }
+.popover-link:hover, .hide-button:hover, .restore-button:hover:not(:disabled) { border-color: #d0d0d0; color: #ffffff; background: #2a2a2a; }
+.hide-controls { border-top-color: #3d3d3d; }
+.hidden-toggle:hover, .hidden-toggle.active, .favorites-toggle:hover, .favorites-toggle.active { border-color: #666666; color: #eeeeee; background: #222222; }
+.favorites-toggle[aria-label="Quitar de favoritos"] { color: #eeeeee; }
+
+.statusbar { position: relative; z-index: 12; border-top-color: #292929; color: #707070; background: #060606e8; }
+.statusbar span:first-child { color: #c8c8c8; }
+.maplibregl-ctrl-group { border-color: #686868; border-radius: 0; background: #0b0b0bd9; backdrop-filter: blur(10px) grayscale(1); }
+.maplibregl-ctrl-group button { filter: grayscale(1) invert(1) brightness(.8); }
+.maplibregl-ctrl-attrib { color: #8c8c8c; background: #0b0b0bd9 !important; }
+.maplibregl-ctrl-attrib a { color: #c3c3c3; }
+
+@media (max-width: 680px) {
+  .map-panel { position: relative; inset: auto; min-height: 570px; }
+  .map-panel.reading-panel, .map-panel.skills-panel { height: auto; min-height: 570px; padding: 25px 15px; }
+  .sidebar { width: calc(100% - 30px); min-width: 0; height: auto; max-height: calc(100% - 60px); padding: 12px 0 12px 15px; overflow: hidden; background: linear-gradient(90deg, #030303f0 0%, #030303b8 78%, transparent 100%); }
+  .sidebar-heading, .search-box, .filter-section, .map-mode, .job-list-header, .job-list, .status-error { width: min(292px, calc(100vw - 30px)); }
+  .filter-section, .map-mode { display: none; }
+  .job-list { max-height: 215px; }
+  .map-header { top: 14px; right: 15px; left: 15px; }
+  .map-header .map-legend { display: none; }
+  .map-scan-label-top { top: 82px; left: 15px; }
+  .job-popover { top: auto; right: 12px; bottom: 12px; width: min(320px, calc(100% - 24px)); max-height: 54%; }
+  .district-map-overlay { bottom: 12px; left: 12px; width: min(280px, calc(100% - 24px)); }
+  .job-popover + * { z-index: 4; }
+}
+
+/* Minimal mode: one small selector reveals the rest of the controls on demand. */
+.radar-shell { filter: grayscale(1); }
+.edge-menu-toggle { position: absolute; z-index: 16; top: 17px; left: 16px; display: grid; width: 39px; height: 39px; place-items: center; padding: 0; border: 1px solid #666666; border-radius: 0; color: #dedede; background: #090909bf; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px); }
+.edge-menu-toggle span { display: block; font-size: 19px; line-height: 1; }
+.edge-menu-toggle small { position: absolute; top: calc(100% + 5px); left: 0; color: #898989; font-size: 7px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.edge-menu-toggle:hover, .edge-menu-toggle.is-open { border-color: #eeeeee; color: #ffffff; background: #202020d9; }
+.sidebar { visibility: hidden; opacity: 0; transform: translateX(-22px); transition: opacity .2s ease, transform .2s ease, visibility .2s ease; }
+.sidebar.is-open { visibility: visible; opacity: 1; transform: translateX(0); pointer-events: auto; }
+.map-mode .segmented { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.map-mode .segmented button:first-child, .map-mode .segmented button:last-child { display: none; }
+.map-header { top: 20px; left: 76px; }
+.map-scan-label { display: none; }
+.map-wrap::after { display: none; }
+.radar-shell::before { display: none; }
+.statusbar { display: none; }
+.map-canvas::after { background: radial-gradient(ellipse at center, transparent 34%, #0000001c 68%, #000000c2 100%); }
+
+@media (max-width: 680px) {
+  .edge-menu-toggle { top: 12px; left: 12px; width: 35px; height: 35px; }
+  .map-header { top: 15px; left: 64px; }
+  .map-header h2 { font-size: 15px; }
+  .sidebar { max-height: calc(100% - 24px); }
+}
+
+/* Controls are a floating command window, never a permanent map column. */
+.sidebar {
+  top: 72px;
+  right: 18px;
+  bottom: auto;
+  left: auto;
+  width: min(340px, calc(100% - 36px));
+  min-width: 0;
+  height: auto;
+  max-height: calc(100% - 90px);
+  padding: 0 0 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #4b4b4b;
+  background: #070707ed;
+  box-shadow: 0 22px 48px #000000b8, inset 0 0 28px #ffffff06;
+  backdrop-filter: blur(20px) grayscale(1);
+  transform: translateY(-12px);
+}
+.sidebar.is-open { max-height: none; overflow: visible; }
+.sidebar > * { width: auto; margin-right: 14px; margin-left: 14px; }
+.sidebar-heading { margin-top: 15px; padding-right: 0; padding-left: 0; }
+.sidebar-heading, .search-box, .filter-section, .map-mode, .job-list-header, .job-list, .status-error { width: auto; }
+.sidebar-heading { border-bottom-color: #383838; }
+.search-box { margin-top: 0; }
+.filter-section, .map-mode { margin-top: 8px; }
+.job-list { max-height: 250px; }
+.radar-center-select { z-index: 20; }
+.radar-center-menu { z-index: 30; top: 0; right: calc(100% + 8px); bottom: auto; left: auto; width: min(300px, 30vw); max-height: min(220px, 34vh); border-color: #666666; border-radius: 0; color: #dddddd; background: #0d0d0df5; box-shadow: 0 18px 36px #000000b8; scrollbar-color: #777777 transparent; }
+.radar-center-menu button { border-radius: 0; color: #bdbdbd; }
+.radar-center-menu button span { color: #929292; }
+.radar-center-menu button:hover, .radar-center-menu button.active { color: #ffffff; background: #292929; }
+.radar-center-select > button.open { border-color: #eeeeee; box-shadow: 0 0 0 2px #ffffff18; }
+.radar-radius button.active { border-color: #eeeeee; color: #ffffff; background: #2b2b2b; }
+.sidebar.is-open + .map-panel .job-popover { right: 376px; }
+
+@media (max-width: 900px) {
+  .sidebar.is-open + .map-panel .job-popover { right: 18px; top: auto; bottom: 18px; }
+}
+
+@media (max-width: 680px) {
+  .sidebar {
+    top: 58px;
+    right: 12px;
+    width: min(340px, calc(100% - 24px));
+    max-height: calc(100% - 70px);
+    padding-bottom: 8px;
+  }
+  .sidebar.is-open { max-height: calc(100% - 70px); overflow-y: auto; overflow-x: hidden; }
+  .sidebar > * { margin-right: 12px; margin-left: 12px; }
+  .sidebar-heading { margin-top: 12px; }
+  .radar-center-menu { top: auto; right: 0; bottom: calc(100% + 4px); left: 0; width: auto; max-height: 34vh; }
+  .sidebar.is-open + .map-panel .job-popover { right: 12px; bottom: 12px; }
+}
+
+/* Three quiet square tools keep each popup focused on one task. */
+.mode-rail { position: absolute; z-index: 17; top: 70px; left: 16px; display: grid; gap: 6px; }
+.mode-rail button { display: grid; width: 39px; height: 39px; place-items: center; padding: 0; border: 1px solid #444444; border-radius: 0; color: #858585; background: #080808c9; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px) grayscale(1); font: inherit; cursor: pointer; }
+.mode-rail button span { font-size: 19px; line-height: 1; }
+.mode-rail button:hover, .mode-rail button.active { border-color: #eeeeee; color: #ffffff; background: #272727e6; }
+.mode-rail button.active { box-shadow: inset 3px 0 0 #eeeeee, 0 10px 24px #00000066; }
+
+/* Filters and radar are independent popups; the job tool is list-only. */
+.sidebar.tool-filters .map-mode,
+.sidebar.tool-filters .job-list-header,
+.sidebar.tool-filters .job-list,
+.sidebar.tool-radar .sidebar-heading,
+.sidebar.tool-radar .search-box,
+.sidebar.tool-radar .filter-section,
+.sidebar.tool-radar .map-mode > .section-label,
+.sidebar.tool-radar .map-mode > .segmented,
+.sidebar.tool-radar .job-list-header,
+.sidebar.tool-radar .job-list,
+.sidebar.tool-jobs .sidebar-heading,
+.sidebar.tool-jobs .search-box,
+.sidebar.tool-jobs .filter-section,
+.sidebar.tool-jobs .map-mode { display: none; }
+.sidebar.tool-filters .sidebar-heading { margin-bottom: 0; }
+.sidebar.tool-filters { padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+.sidebar.tool-radar .map-mode { display: block; margin-top: 15px; padding-top: 15px; }
+.sidebar.tool-radar .radar-controls { margin-top: 0; border: 0; background: transparent; box-shadow: none; }
+.sidebar.tool-radar { top: auto; right: 18px; bottom: 18px; max-height: calc(100% - 36px); }
+.sidebar.tool-radar .map-mode { margin: 0; padding: 14px; border: 0; background: transparent; box-shadow: none; }
+.sidebar.tool-radar .radar-center-menu { top: auto; right: 0; bottom: calc(100% + 8px); left: 0; width: auto; max-height: min(280px, 40vh); }
+.sidebar.tool-radar.is-open + .map-panel .job-popover { right: 18px; left: auto; }
+.sidebar.tool-jobs .job-list-header { display: flex; margin-top: 15px; }
+.sidebar.tool-jobs .job-list { display: block; max-height: calc(100vh - 145px); }
+.sidebar.tool-jobs { padding-bottom: 14px; }
+
+@media (max-width: 680px) {
+  .mode-rail { top: 59px; left: 12px; gap: 5px; }
+  .mode-rail button { width: 35px; height: 35px; }
+  .sidebar.tool-jobs .job-list { max-height: calc(100vh - 125px); }
+  .workspace, .map-panel { min-height: 100vh; }
+  .map-panel { height: 100vh; }
+}
+
+/* The offers remain available without becoming a second full-screen view. */
+.sidebar .map-mode { display: none; }
+.sidebar.tool-radar .map-mode { display: block; }
+.sidebar.tool-filters .sidebar-heading { display: none; }
+.sidebar.tool-filters .filter-section::before { display: none; }
+.sidebar.tool-filters .filter-section { margin-top: 8px; padding-top: 10px; }
+.district-map-overlay { right: 18px; left: auto; height: min(330px, calc(100% - 36px)); max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+.district-map-overlay .district-overlay-list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
+.district-map-overlay .district-row { padding: 7px 8px; }
+.district-map-overlay .district-row-all { margin-bottom: 2px; }
+.offer-scroll {
+  position: absolute;
+  z-index: 6;
+  left: 18px;
+  right: auto;
+  bottom: 18px;
+  width: min(350px, calc(100% - 36px));
+  height: min(460px, calc(100% - 36px));
+  min-height: 180px;
+  max-height: calc(100% - 36px);
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid #4f4f4f;
+  border-radius: 0;
+  background: #070707df;
+  box-shadow: 0 18px 38px #000000aa, inset 0 0 26px #ffffff08;
+  backdrop-filter: blur(18px) grayscale(1);
+  resize: none;
+  overflow: hidden;
+}
+.offer-resize-handle { position: absolute; z-index: 2; top: -5px; right: 14px; left: 14px; height: 10px; cursor: ns-resize; touch-action: none; }
+.offer-resize-handle::after { position: absolute; top: 4px; right: 0; left: 0; height: 1px; background: #777777; opacity: .35; content: ""; transition: opacity .15s ease; }
+.offer-resize-handle:hover::after { opacity: .9; }
+.offer-scroll-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid #333333; color: #a8a8a8; font-size: 8px; letter-spacing: .16em; text-transform: uppercase; }
+.offer-scroll-heading strong { color: #eeeeee; font-size: 10px; font-weight: 500; letter-spacing: .08em; }
+.offer-scroll-list { display: grid; align-content: start; grid-auto-rows: max-content; flex: 1; min-height: 0; gap: 4px; padding-top: 8px; overflow-y: auto; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
+.offer-scroll-card { display: grid; gap: 3px; width: 100%; padding: 7px; border: 1px solid #2e2e2e; border-radius: 0; color: #c9c9c9; background: #101010cc; text-align: left; cursor: pointer; }
+.offer-scroll-card:hover, .offer-scroll-card.selected { border-color: #a0a0a0; background: #262626; }
+.offer-scroll-meta { display: flex; justify-content: space-between; gap: 10px; color: #858585; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.offer-scroll-card strong { overflow: hidden; color: #eeeeee; font-size: 12px; font-weight: 600; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-company, .offer-scroll-location { overflow: hidden; color: #888888; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-location { color: #aaaaaa; }
+.offer-scroll-empty { padding: 16px 8px 12px; color: #8c8c8c; font-size: 11px; line-height: 1.4; }
+
+/* Keep selected job details readable without losing the quiet monochrome treatment. */
+.job-popover { width: min(390px, calc(100% - 36px)); padding: 17px; }
+.job-popover .job-area { font-size: 10px; }
+.job-popover h3 { font-size: 17px; line-height: 1.25; }
+.job-popover .popover-company { font-size: 11px; }
+.job-popover .popover-grid span { font-size: 9px; }
+.job-popover .popover-grid strong { font-size: 11px; }
+.job-popover .popover-description { display: block; max-height: 83px; font-size: 11px; line-height: 1.52; }
+.job-popover.is-description-expanded .popover-description { max-height: none; }
+.job-popover .popover-link, .job-popover .hide-button, .job-popover .restore-button { font-size: 10px; }
+
+@media (max-width: 900px) {
+  .district-map-overlay { right: 14px; left: auto; }
+  .offer-scroll { left: 14px; right: auto; bottom: 14px; width: min(330px, calc(100% - 28px)); }
+  .sidebar.tool-radar { right: 14px; bottom: 14px; max-height: calc(100% - 28px); }
+}
+
+@media (max-width: 680px) {
+  .district-map-overlay { right: 12px; left: auto; height: min(300px, calc(100% - 24px)); }
+  .offer-scroll { left: 12px; right: auto; bottom: 12px; width: min(320px, calc(100% - 24px)); height: 230px; max-height: calc(100% - 24px); }
+  .sidebar.tool-radar { right: 12px; bottom: 12px; max-height: calc(100% - 24px); }
+  .job-popover { width: min(350px, calc(100% - 24px)); padding: 14px; }
+  .job-popover h3 { font-size: 15px; }
+  .job-popover .popover-description { font-size: 10px; }
 }

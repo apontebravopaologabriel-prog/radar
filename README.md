@@ -85,9 +85,10 @@ cd frontend && npm run dev
 Visita `http://localhost:3000/radar`. La API HTTP escucha en `http://127.0.0.1:8100`; además de consultas de lectura permite actualizar el estado personal visible/oculta de una oferta y consultar `/api/skills/overview`. El MCP para Hermes mantiene su transporte stdio independiente.
 
 También puedes abrir Radar desde el launcher de aplicaciones del sistema. El acceso ejecuta
-`scripts/radar-launch.sh`, inicia PostgreSQL, la API y Next.js en desarrollo si no están activos y abre
-Chromium como aplicación independiente (`--app`) con un perfil separado en
-`~/.local/state/radar/chromium`.
+`scripts/radar-launch.sh`, compila `frontend/out` si hace falta, inicia la API si no está activa y abre
+FastAPI como aplicación independiente de Chromium (`--app`) con un perfil separado en
+`~/.local/state/radar/chromium`. La API permanece activa aunque se cierre la ventana para que una
+ventana reutilizada no quede sin backend.
 
 ### Frontend geográfico
 

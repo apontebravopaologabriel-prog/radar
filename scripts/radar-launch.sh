@@ -4,6 +4,7 @@ set -u
 
 PROJECT_DIR="/home/paolo/Projects/Radar"
 STATE_DIR="/home/paolo/.local/state/radar"
+FRONTEND_OUT="$PROJECT_DIR/frontend/out"
 API_URL="http://127.0.0.1:8100/api/health"
 APP_URL="http://127.0.0.1:8100/radar"
 
@@ -15,13 +16,27 @@ notify_error() {
     fi
 }
 
-cleanup() {
-    pkill -f "$PROJECT_DIR/.venv/bin/radar-api" 2>/dev/null || true
-}
-trap cleanup EXIT INT TERM
+build_frontend_if_needed() {
+    if [ -f "$FRONTEND_OUT/radar.html" ] && [ -d "$FRONTEND_OUT/_next" ]; then
+        newest_source=$(find \
+            "$PROJECT_DIR/frontend/app" \
+            "$PROJECT_DIR/frontend/components" \
+            "$PROJECT_DIR/frontend/lib" \
+            "$PROJECT_DIR/frontend/types.ts" \
+            "$PROJECT_DIR/frontend/next.config.ts" \
+            -type f -newer "$FRONTEND_OUT/radar.html" -print -quit)
+        if [ -z "$newest_source" ]; then
+            return 0
+        fi
+    fi
 
-# Iniciar la API local si no responde (sirve API + Frontend estático)
-if ! /usr/bin/curl -fsS --max-time 2 "$API_URL" >/dev/null 2>&1; then
+    (
+        cd "$PROJECT_DIR/frontend" || exit 1
+        /usr/bin/npm run build >>"$STATE_DIR/frontend.log" 2>&1
+    )
+}
+
+start_api() {
     cd "$PROJECT_DIR" || exit 1
     nohup "$PROJECT_DIR/.venv/bin/radar-api" >>"$STATE_DIR/api.log" 2>&1 &
     api_ready=0
@@ -36,6 +51,31 @@ if ! /usr/bin/curl -fsS --max-time 2 "$API_URL" >/dev/null 2>&1; then
         notify_error "La API de Radar no pudo iniciar. Revisa $STATE_DIR/api.log"
         exit 1
     fi
+}
+
+# FastAPI sirve la aplicación estática. El build debe existir antes de importar
+# radar.api, porque las rutas /radar y /_next se registran al arrancar la API.
+if ! build_frontend_if_needed; then
+    notify_error "El frontend de Radar no pudo compilar. Revisa $STATE_DIR/frontend.log"
+    exit 1
+fi
+
+# Mantener la API viva al cerrar Chromium evita dejar una ventana estática sin
+# backend. El siguiente lanzamiento solo la inicia si realmente no responde.
+if ! /usr/bin/curl -fsS --max-time 2 "$API_URL" >/dev/null 2>&1; then
+    start_api
+fi
+
+if ! /usr/bin/curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
+    # Recuperar una instancia antigua de radar-api que responda en /api/health
+    # pero todavía no conozca las rutas del frontend estático.
+    pkill -f "$PROJECT_DIR/.venv/bin/radar-api" 2>/dev/null || true
+    start_api
+fi
+
+if ! /usr/bin/curl -fsS --max-time 2 "$APP_URL" >/dev/null 2>&1; then
+    notify_error "La interfaz de Radar no está disponible. Revisa $STATE_DIR/api.log"
+    exit 1
 fi
 
 CHROMIUM_PROFILE="$STATE_DIR/chromium"
@@ -50,4 +90,5 @@ CHROMIUM_PROFILE="$STATE_DIR/chromium"
     --enable-zero-copy \
     --user-data-dir="$CHROMIUM_PROFILE"
 
-# Al cerrar la ventana, el trap cleanup apagará radar-api de inmediato
+# radar-api queda activo para que una ventana reutilizada de Chromium no pierda
+# el backend al terminar este script.

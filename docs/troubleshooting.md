@@ -48,9 +48,10 @@ gtk-launch radar
 Si la ventana anterior quedó abierta en otro navegador, ciérrala y vuelve a iniciar Radar
 desde el launcher. Los logs están en `/home/paolo/.local/state/radar/`.
 
-El indicador `N` corresponde al modo desarrollo de Next.js. El launcher actual usa `npm run dev`
-en el puerto 3000, por lo que puede aparecer. Para una distribución limpia como aplicación se
-deberá cambiar el launcher a un flujo de producción con `npm run build` y `npm run start`.
+El launcher actual no usa el servidor de Next.js: compila `frontend/out` cuando falta y FastAPI
+sirve la interfaz junto con la API en el puerto 8100. Si la interfaz no carga, revisa
+`/home/paolo/.local/state/radar/frontend.log` y confirma que `/radar` responde después de
+`/api/health`.
 
 ## El explorador no muestra el contenido inferior
 

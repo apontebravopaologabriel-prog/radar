@@ -102,7 +102,9 @@ tail -f /home/paolo/.local/state/radar/frontend.log
 ```
 
 La entrada `.desktop` abre Chromium con `--app`, por lo que Radar aparece como una ventana
-independiente. El launcher usa Next.js en desarrollo en `http://127.0.0.1:3000/radar`.
+independiente. El launcher verifica `frontend/out`, inicia la API si hace falta y abre la aplicación
+estática servida por FastAPI en `http://127.0.0.1:8100/radar`. `radar-api` permanece activo al cerrar
+la ventana para soportar la reutilización del perfil de Chromium.
 
 ### Ocultar y restaurar ofertas
 

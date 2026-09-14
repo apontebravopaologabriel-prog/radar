@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import os
-from typing import Any
-
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
@@ -20,10 +19,10 @@ from radar.db.queries import (
     market_history,
     market_summary,
     remove_job_favorite,
-    skill_overview,
     set_job_favorite,
     set_job_user_status,
     skill_history,
+    skill_overview,
 )
 from radar.geolocation import infer_location
 

@@ -156,7 +156,9 @@ export default function MapView(props: MapViewProps) {
 
   function setModeVisibility(map: MapLibreMap, nextMode: MapMode, radarActive = Boolean(radarDistrictKeyRef.current)) {
     const showDistricts = nextMode === "heatmap" || nextMode === "radar";
-    const showJobLayers = nextMode !== "heatmap" && nextMode !== "radar";
+    // Distritos is intentionally a clean choropleth: offer bubbles belong to
+    // the detail popup, not on top of the district geometry.
+    const showJobLayers = nextMode === "jobs";
     for (const layer of ["district-fill", "district-labels"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", showDistricts ? "visible" : "none");
     }
@@ -174,7 +176,6 @@ export default function MapView(props: MapViewProps) {
     if (webglAvailable !== true) return;
     if (!containerRef.current) return;
     const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17 });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     mapRef.current = map;
 
     map.on("load", () => {
@@ -184,7 +185,7 @@ export default function MapView(props: MapViewProps) {
         type: "fill",
         source: "districts",
         paint: {
-          "fill-color": ["interpolate", ["linear"], ["coalesce", ["feature-state", "job_count"], 0], 0, "#182329", 1, "#1d3439", 3, "#25504d", 8, "#2f7770", 15, "#43a89b", 30, "#65d4c0"],
+          "fill-color": ["interpolate", ["linear"], ["coalesce", ["feature-state", "job_count"], 0], 0, "#080808", 1, "#171717", 3, "#303030", 8, "#555555", 15, "#878787", 30, "#c8c8c8"],
           "fill-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 0.86, 0.62],
         },
       });
@@ -193,7 +194,7 @@ export default function MapView(props: MapViewProps) {
         type: "line",
         source: "districts",
         paint: {
-          "line-color": ["case", ["boolean", ["feature-state", "selected"], false], "#45c7b5", "#53706f"],
+          "line-color": ["case", ["boolean", ["feature-state", "selected"], false], "#f4f4f4", "#737373"],
           "line-width": ["case", ["boolean", ["feature-state", "selected"], false], 3.2, 0.8],
           "line-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 1, 0.62],
         },
@@ -203,8 +204,8 @@ export default function MapView(props: MapViewProps) {
         id: "district-labels",
         type: "symbol",
         source: "district-counts",
-        layout: { "text-field": ["concat", ["get", "district"], "\n", ["to-string", ["get", "job_count"]], " ofertas"], "text-size": 11, "text-font": ["Open Sans Bold"], "text-anchor": "center", "text-allow-overlap": false },
-        paint: { "text-color": "#c9fff7", "text-halo-color": "#102027", "text-halo-width": 1.6 },
+        layout: { "text-field": ["concat", ["get", "district"], "\n", ["to-string", ["get", "job_count"]], " ofertas"], "text-size": 11, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": false },
+        paint: { "text-color": "#dedede", "text-halo-color": "#050505", "text-halo-width": 1.6 },
       });
       fetch(DISTRICT_GEOJSON_URL)
         .then((response) => response.json())
@@ -218,12 +219,12 @@ export default function MapView(props: MapViewProps) {
         .catch(() => undefined);
       map.addSource("jobs", { type: "geojson", data: pointFeatures(jobs), cluster: true, clusterMaxZoom: 13, clusterRadius: 48 });
       map.addLayer({ id: "jobs-heat", type: "heatmap", source: "jobs", maxzoom: 14, paint: { "heatmap-weight": ["interpolate", ["linear"], ["get", "location_confidence"], 0, 0.4, 1, 1], "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 2.5], "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 9, 22, 14, 35], "heatmap-opacity": 0.82 } });
-      map.addLayer({ id: "clusters", type: "circle", source: "jobs", filter: ["has", "point_count"], paint: { "circle-color": ["step", ["get", "point_count"], "#4f46e5", 10, "#7c3aed", 30, "#db2777"], "circle-radius": ["step", ["get", "point_count"], 20, 10, 25, 30, 31], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
+      map.addLayer({ id: "clusters", type: "circle", source: "jobs", filter: ["has", "point_count"], paint: { "circle-color": ["step", ["get", "point_count"], "#5d5d5d", 10, "#8c8c8c", 30, "#d7d7d7"], "circle-radius": ["step", ["get", "point_count"], 20, 10, 25, 30, 31], "circle-stroke-color": "#eeeeee", "circle-stroke-width": 1.5, "circle-opacity": 0.9 } });
       map.addLayer({ id: "cluster-count", type: "symbol", source: "jobs", filter: ["has", "point_count"], layout: { "text-field": "{point_count_abbreviated}", "text-size": 12 }, paint: { "text-color": "#ffffff" } });
-      map.addLayer({ id: "job-points", type: "circle", source: "jobs", filter: ["!", ["has", "point_count"]], paint: { "circle-color": "#0f766e", "circle-radius": 7, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
+      map.addLayer({ id: "job-points", type: "circle", source: "jobs", filter: ["!", ["has", "point_count"]], paint: { "circle-color": "#f0f0f0", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5, "circle-opacity": 0.95 } });
       map.addSource("radar-rings", { type: "geojson", data: radarFeatures(radarCenter, radarRadiusKm) });
-      map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#4f46e5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.1, 0.012] } });
-      map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#8c83ff", "#5b5b91"], "line-width": ["case", ["boolean", ["get", "active"], false], 3, 1.3], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72] } });
+      map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#d5d5d5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.08, 0.008] } });
+      map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#ffffff", "#858585"], "line-width": ["case", ["boolean", ["get", "active"], false], 2.4, 1], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72], "line-dasharray": [2, 2] } });
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
       setMapReady(true);
       map.once("idle", () => setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current)));
