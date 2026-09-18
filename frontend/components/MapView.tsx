@@ -199,7 +199,7 @@ export default function MapView(props: MapViewProps) {
           "line-opacity": ["case", ["boolean", ["feature-state", "selected"], false], 1, 0.62],
         },
       });
-      map.addSource("district-counts", { type: "geojson", data: districtCountFeatures(jobs) });
+      map.addSource("district-counts", { type: "geojson", data: districtCountFeatures(jobsRef.current) });
       map.addLayer({
         id: "district-labels",
         type: "symbol",
@@ -219,7 +219,7 @@ export default function MapView(props: MapViewProps) {
           window.setTimeout(() => syncDistrictState(map, jobsRef.current, selectedDistrictRef.current), 150);
         })
         .catch(() => undefined);
-      map.addSource("jobs", { type: "geojson", data: pointFeatures(jobs), cluster: true, clusterMaxZoom: 13, clusterRadius: 48 });
+      map.addSource("jobs", { type: "geojson", data: pointFeatures(jobsRef.current), cluster: true, clusterMaxZoom: 13, clusterRadius: 48 });
       map.addLayer({ id: "jobs-heat", type: "heatmap", source: "jobs", maxzoom: 14, paint: { "heatmap-weight": ["interpolate", ["linear"], ["get", "location_confidence"], 0, 0.4, 1, 1], "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 2.5], "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 9, 22, 14, 35], "heatmap-opacity": 0.82 } });
       map.addLayer({ id: "clusters", type: "circle", source: "jobs", filter: ["has", "point_count"], paint: { "circle-color": ["step", ["get", "point_count"], "#5d5d5d", 10, "#8c8c8c", 30, "#d7d7d7"], "circle-radius": ["step", ["get", "point_count"], 20, 10, 25, 30, 31], "circle-stroke-color": "#eeeeee", "circle-stroke-width": 1.5, "circle-opacity": 0.9 } });
       map.addLayer({ id: "cluster-count", type: "symbol", source: "jobs", filter: ["has", "point_count"], layout: { "text-field": "{point_count_abbreviated}", "text-size": 12 }, paint: { "text-color": "#ffffff" } });
