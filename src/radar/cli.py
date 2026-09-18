@@ -8,12 +8,14 @@ from radar.db.repository import (
     add_career_event,
     audit_data_quality,
     capture_market_snapshot,
+    expire_stale_jobs,
     ingest_jobs,
     repair_data_quality,
     save_profile,
     track_application,
 )
 from radar.importers import load_job_file
+from radar.liveness import check_application_status
 from radar.pipeline import run_ingestion
 
 
@@ -57,6 +59,11 @@ def main() -> None:
     importer.add_argument("--source", required=True, help="linkedin, bumeran, laborum, empleos-peru o ATS")
     sub.add_parser("repair-data", help="Repara modalidad, sector, salario y horario incompletos")
     sub.add_parser("audit-data", help="Audita duplicados, clasificación comercial y consistencia SQL")
+    expire = sub.add_parser("expire-stale", help="Desactiva ofertas que ninguna fuente volvió a ver")
+    expire.add_argument("--days", type=int, default=45, help="Días sin ser vista antes de desactivar (default: 45)")
+    check = sub.add_parser("check-applications", help="Visita URLs activas y detecta ofertas cerradas")
+    check.add_argument("--limit", type=int, default=50, help="Máximo de ofertas a revisar en esta corrida")
+    check.add_argument("--recheck-after-days", type=int, default=3, help="Días antes de volver a revisar una oferta ya chequeada")
     profile.add_argument(
         "--skill",
         action="append",
@@ -94,6 +101,10 @@ def main() -> None:
         print(repair_data_quality())
     elif args.command == "audit-data":
         print(audit_data_quality())
+    elif args.command == "expire-stale":
+        print({"deactivated": expire_stale_jobs(args.days)})
+    elif args.command == "check-applications":
+        print(check_application_status(args.limit, args.recheck_after_days))
 
 
 if __name__ == "__main__":

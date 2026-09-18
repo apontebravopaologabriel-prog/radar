@@ -347,6 +347,28 @@ def repair_data_quality() -> dict[str, int]:
     return stats
 
 
+def expire_stale_jobs(stale_after_days: int = 45) -> int:
+    """Desactiva ofertas que ninguna fuente volvió a ver en stale_after_days.
+
+    El filtro de frescura de list_jobs ya oculta ofertas viejas de la vista,
+    pero is_active nunca bajaba, así que la tabla crecía sin límite. Un valor
+    generoso evita apagar ofertas que solo tardan un poco en refrescarse.
+    """
+    with connection() as conn:
+        cursor = conn.execute(
+            """UPDATE jobs SET is_active = 0, updated_at = now()
+            WHERE is_active = 1
+            AND NOT EXISTS (
+                SELECT 1 FROM job_sources js
+                WHERE js.job_id = jobs.id
+                AND date(js.last_seen_at) >= date('now', '-' || %s || ' days')
+            )""",
+            (stale_after_days,),
+        )
+        conn.commit()
+        return cursor.rowcount
+
+
 def save_profile(
     name: str,
     education: str | None,

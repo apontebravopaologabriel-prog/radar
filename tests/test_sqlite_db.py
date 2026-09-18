@@ -9,7 +9,8 @@ from radar.db.queries import (
     recommendations,
     skill_overview,
 )
-from radar.db.repository import ingest_jobs, save_profile
+from radar.db.database import connection
+from radar.db.repository import expire_stale_jobs, ingest_jobs, save_profile
 from radar.domain.models import RawJob
 
 
@@ -68,3 +69,21 @@ def test_sqlite_skill_overview():
     overview = skill_overview(max_age_days=60)
     assert overview["total_jobs"] > 0
     assert len(overview["skills"]) > 0
+
+
+def test_expire_stale_jobs_deactivates_only_unseen_jobs():
+    with connection() as conn:
+        conn.execute(
+            "UPDATE job_sources SET last_seen_at = datetime('now', '-90 days')"
+        )
+        conn.commit()
+
+    deactivated = expire_stale_jobs(stale_after_days=45)
+    assert deactivated == 1
+
+    jobs = list_jobs(limit=10, max_age_days=365)
+    assert len(jobs) == 0
+
+    with connection() as conn:
+        still_active = conn.execute("SELECT count(*) FROM jobs WHERE is_active=1").fetchone()[0]
+    assert still_active == 0

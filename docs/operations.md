@@ -84,9 +84,23 @@ Para reparar ofertas capturadas antes de la inferencia de modalidad y sector:
 .venv/bin/radar repair-data
 ```
 
+Para desactivar ofertas que ninguna fuente volvió a ver en N días (por defecto 45, evita que la tabla crezca sin límite aunque la vista ya las oculte por fecha):
+
+```bash
+.venv/bin/radar expire-stale --days 45
+```
+
+Para visitar las URLs de ofertas activas y detectar cierres reales (404/410 se marcan `closed`; bloqueos anti-bot 401/403 quedan en `unknown`, nunca se asumen como cierre):
+
+```bash
+.venv/bin/radar check-applications --limit 150 --recheck-after-days 3
+```
+
+Computrabajo e Indeed bloquean este chequeo casi siempre (anti-bot), así que en la práctica solo detecta cierres de forma confiable en LinkedIn.
+
 ## Refresco continuo
 
-El refresco persistente se ejecuta como servicio de usuario una vez al día. Consulta dieciséis búsquedas amplias de datos/BI, procesos, automatización, transformación digital, ERP, planeamiento, supply chain, logística, compras, producción, calidad, mantenimiento, control de gestión y PMO en Indeed. Computrabajo queda pausado en el ciclo programado mientras se valida su extractor de detalle; puede activarse temporalmente con `RADAR_COMPUTRABAJO_ENABLED=1`. Cada portal corre de forma aislada y un fallo no bloquea el otro. La ingesta no filtra por salario: captura el mercado y deja el sueldo para análisis posterior. El servicio usa 7 días por defecto para mantener la vista accionable; puedes ampliar el rango temporalmente con `RADAR_MAX_AGE_DAYS=14`.
+El refresco persistente se ejecuta como servicio de usuario una vez al día. Consulta dieciséis búsquedas amplias de datos/BI, procesos, automatización, transformación digital, ERP, planeamiento, supply chain, logística, compras, producción, calidad, mantenimiento, control de gestión y PMO en Indeed, LinkedIn (vía `python-jobspy`, sin login) y Computrabajo (vía MCP, con detalle completo por oferta). Cada portal corre de forma aislada y un fallo no bloquea el otro; el script registra qué paso falló en el resumen final del log en vez de tragarse el error en silencio. La ingesta no filtra por salario: captura el mercado y deja el sueldo para análisis posterior. El servicio usa 7 días por defecto para mantener la vista accionable; puedes ampliar el rango temporalmente con `RADAR_MAX_AGE_DAYS=14`. Tras ingerir, corre `repair-data`, `expire-stale` y `check-applications` antes de guardar el snapshot del mercado.
 
 ```bash
 systemctl --user status radar-refresh.timer
@@ -94,7 +108,7 @@ systemctl --user list-timers radar-refresh.timer
 tail -f /home/paolo/.local/state/radar/refresh.log
 ```
 
-El servicio es tolerante a fallos por consulta, usa un máximo de 7 días por defecto y guarda snapshots del mercado. No borra el histórico: una oferta pasada desaparece de la vista accionable por el filtro de fecha, pero permanece en SQLite para análisis. Para detenerlo temporalmente: `systemctl --user disable --now radar-refresh.timer`; para reactivarlo: `systemctl --user enable --now radar-refresh.timer`.
+El servicio es tolerante a fallos por consulta, usa un máximo de 7 días por defecto y guarda snapshots del mercado. Una oferta pasada desaparece de la vista accionable por el filtro de fecha; si además ninguna fuente la vuelve a ver en 45 días, `expire-stale` la desactiva mientras el registro histórico permanece en SQLite. Para detenerlo temporalmente: `systemctl --user disable --now radar-refresh.timer`; para reactivarlo: `systemctl --user enable --now radar-refresh.timer`.
 
 Las ofertas incorporadas incluyen `sector`, `work_mode`, `hours_per_week`, `schedule_text` y el estado de solicitud cuando la fuente entrega evidencia suficiente. Los campos ausentes permanecen como `NULL` o `unknown`; en LinkedIn un estado `unknown` no se muestra como oferta accionable.
 
