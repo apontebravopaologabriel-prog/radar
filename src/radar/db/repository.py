@@ -10,6 +10,58 @@ from radar.enrichment import extract_schedule, infer_sector, infer_work_mode, no
 from radar.normalize import clean_description, content_hash, fingerprint, normalize_text
 from radar.salary import extract_salary
 from radar.scoring import score_job
+from radar.taxonomy import infer_relevance
+
+
+def audit_data_quality() -> dict:
+    """Return a read-only, reproducible quality audit for the current market."""
+    with connection() as conn:
+        exact = conn.execute(
+            "SELECT COUNT(*) FROM (SELECT canonical_fingerprint FROM jobs GROUP BY canonical_fingerprint HAVING COUNT(*) > 1)"
+        ).fetchone()[0]
+        same_role = conn.execute(
+            """SELECT COUNT(*) FROM (
+                SELECT company_id, title_normalized FROM jobs
+                GROUP BY company_id, title_normalized HAVING COUNT(*) > 1
+            )"""
+        ).fetchone()[0]
+        multiple_primary = conn.execute(
+            """SELECT COUNT(*) FROM (
+                SELECT job_id FROM job_areas WHERE is_primary=1 GROUP BY job_id HAVING COUNT(*) > 1
+            )"""
+        ).fetchone()[0]
+        commercial_titles = conn.execute(
+            """SELECT COUNT(*) FROM jobs
+            WHERE (lower(title) LIKE 'venta%' OR lower(title) LIKE '% venta%'
+               OR lower(title) LIKE '%comercial%' OR lower(title) LIKE '%vendedor%'
+               OR lower(title) LIKE '%sales%' OR lower(title) LIKE '%account executive%'
+               OR lower(title) LIKE '%key account%')
+              AND lower(title) NOT LIKE '%inventario%'
+              AND lower(title) NOT LIKE '%postventa%'"""
+        ).fetchone()[0]
+        commercial_in_target = conn.execute(
+            """SELECT COUNT(*) FROM jobs j
+            JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
+            JOIN industrial_areas ia ON ia.id=ja.area_id
+            WHERE ia.name <> 'Ventas / Comercial'
+              AND (lower(j.title) LIKE 'venta%' OR lower(j.title) LIKE '% venta%'
+                OR lower(j.title) LIKE '%comercial%' OR lower(j.title) LIKE '%vendedor%'
+                OR lower(j.title) LIKE '%sales%' OR lower(j.title) LIKE '%account executive%'
+                OR lower(j.title) LIKE '%key account%')
+              AND lower(j.title) NOT LIKE '%inventario%'
+              AND lower(j.title) NOT LIKE '%postventa%'"""
+        ).fetchone()[0]
+        source_links = conn.execute("SELECT COUNT(*) FROM job_sources").fetchone()[0]
+        jobs = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+    return {
+        "jobs": jobs,
+        "source_links": source_links,
+        "exact_duplicate_groups": exact,
+        "same_company_title_groups": same_role,
+        "jobs_with_multiple_primary_areas": multiple_primary,
+        "commercial_title_jobs": commercial_titles,
+        "commercial_titles_in_target_areas": commercial_in_target,
+    }
 
 
 def _json_safe(value):
@@ -69,6 +121,8 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                 work_mode = inferred_mode if inferred_mode != "unknown" else (raw.work_mode or "unknown")
                 sector = infer_sector(raw)
                 hours_per_week, schedule_text = extract_schedule(raw)
+                classified = classify(raw)
+                relevance = infer_relevance(raw, classified.primary_area.value)
                 application_status = raw.application_status if raw.application_status in {"unknown", "open", "closed", "expired"} else "unknown"
                 application_source = raw.application_status_source if application_status != "unknown" else "unknown"
                 existing = conn.execute(
@@ -83,6 +137,7 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                         description_raw=%s, description_clean=%s, salary_min=%s, salary_max=%s,
                         salary_currency=%s, salary_period=%s, salary_source=%s,
                         work_mode=%s, sector=%s, sector_confidence=%s,
+                        relevance_tier=%s, relevance_score=%s, relevance_evidence=%s,
                         hours_per_week=%s, schedule_text=%s,
                         application_status=COALESCE(NULLIF(%s, 'unknown'), application_status),
                         application_checked_at=COALESCE(%s, application_checked_at),
@@ -90,7 +145,8 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                         published_at=COALESCE(%s, published_at) WHERE id=%s""",
                         (content_hash(raw), raw.description, clean_description(raw.description), salary_min,
                          salary_max, salary_currency, salary_period, salary_source, work_mode,
-                         sector, 0.75 if sector else None, hours_per_week, schedule_text,
+                         sector, 0.75 if sector else None, relevance.tier, relevance.score, relevance.evidence,
+                         hours_per_week, schedule_text,
                          application_status, raw.application_checked_at, application_source,
                          raw.published_at, job_id),
                     )
@@ -98,8 +154,8 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                 else:
                     row = conn.execute(
                         """INSERT INTO jobs(company_id,title,title_normalized,location,location_normalized,country,description_raw,description_clean,
-                        salary_min,salary_max,salary_currency,salary_period,salary_source,published_at,seniority,work_mode,employment_type,sector,sector_confidence,hours_per_week,schedule_text,application_status,application_checked_at,application_status_source,canonical_fingerprint,content_hash)
-                        VALUES (%s,%s,%s,%s,%s,'PE',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                        salary_min,salary_max,salary_currency,salary_period,salary_source,published_at,seniority,work_mode,employment_type,sector,sector_confidence,relevance_tier,relevance_score,relevance_evidence,hours_per_week,schedule_text,application_status,application_checked_at,application_status_source,canonical_fingerprint,content_hash)
+                        VALUES (%s,%s,%s,%s,%s,'PE',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                         (
                             company_id,
                             raw.title,
@@ -119,6 +175,9 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                             raw.employment_type,
                             sector,
                             0.75 if sector else None,
+                            relevance.tier,
+                            relevance.score,
+                            relevance.evidence,
                             hours_per_week,
                             schedule_text,
                             application_status,
@@ -130,7 +189,6 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                     ).fetchone()
                     job_id = row[0]
                     stats["created"] += 1
-                    classified = classify(raw)
                     areas = [classified.primary_area, *classified.secondary_areas]
                     for idx, area in enumerate(areas):
                         area_id = conn.execute(
@@ -225,6 +283,8 @@ def repair_data_quality() -> dict[str, int]:
             inferred_sector = infer_sector(raw)
             sector = inferred_sector or row[10]
             hours_per_week, schedule_text = extract_schedule(raw)
+            classified = classify(raw)
+            relevance = infer_relevance(raw, classified.primary_area.value)
             text_salary = extract_salary(raw.description)
             if text_salary:
                 salary_min, salary_max, salary_currency = normalize_salary(
@@ -255,14 +315,15 @@ def repair_data_quality() -> dict[str, int]:
             conn.execute(
                 """UPDATE jobs SET work_mode=%s, salary_min=%s, salary_max=%s,
                 salary_currency=%s, salary_period=%s, salary_source=%s,
-                sector=%s, sector_confidence=%s, hours_per_week=%s, schedule_text=%s WHERE id=%s""",
+                sector=%s, sector_confidence=%s, relevance_tier=%s, relevance_score=%s,
+                relevance_evidence=%s, hours_per_week=%s, schedule_text=%s WHERE id=%s""",
                 (mode, salary_min, salary_max, salary_currency, salary_period, salary_source,
-                 sector, 0.75 if sector else None, hours_per_week, schedule_text, row[0]),
+                 sector, 0.75 if sector else None, relevance.tier, relevance.score,
+                 relevance.evidence, hours_per_week, schedule_text, row[0]),
             )
             # Rebuild derived areas/skills so classifier fixes apply to old jobs too.
             conn.execute("DELETE FROM job_areas WHERE job_id=%s", (row[0],))
             conn.execute("DELETE FROM job_skills WHERE job_id=%s", (row[0],))
-            classified = classify(raw)
             for idx, area in enumerate([classified.primary_area, *classified.secondary_areas]):
                 area_id = conn.execute(
                     "SELECT id FROM industrial_areas WHERE name=%s", (area.value,)
@@ -361,7 +422,7 @@ def recompute_scores(profile_id: str) -> int:
             "skills": dict(user_skills),
         }
         jobs = conn.execute(
-            "SELECT id,title,location,work_mode FROM jobs WHERE is_active"
+            "SELECT id,title,location,work_mode FROM jobs WHERE is_active AND duplicate_status='canonical'"
         ).fetchall()
         count = 0
         for job_id, title, location, work_mode in jobs:
@@ -433,14 +494,14 @@ def capture_market_snapshot(snapshot_date: str | None = None) -> int:
 
     day = snapshot_date or datetime.now(UTC).date().isoformat()
     with connection() as conn:
-        metrics = [("active_jobs", {}, conn.execute("SELECT count(*) FROM jobs WHERE is_active").fetchone()[0])]
+        metrics = [("active_jobs", {}, conn.execute("SELECT count(*) FROM jobs WHERE is_active AND duplicate_status='canonical'").fetchone()[0])]
         metrics.extend(("area_jobs", {"area": row[0]}, row[1]) for row in conn.execute(
             """SELECT ia.name, count(*) FROM job_areas ja JOIN industrial_areas ia ON ia.id=ja.area_id
-            JOIN jobs j ON j.id=ja.job_id WHERE j.is_active AND ja.is_primary GROUP BY ia.name"""
+            JOIN jobs j ON j.id=ja.job_id WHERE j.is_active AND j.duplicate_status='canonical' AND ja.is_primary GROUP BY ia.name"""
         ).fetchall())
         metrics.extend(("skill_jobs", {"skill": row[0]}, row[1]) for row in conn.execute(
             """SELECT s.name, count(*) FROM job_skills js JOIN skills s ON s.id=js.skill_id
-            JOIN jobs j ON j.id=js.job_id WHERE j.is_active GROUP BY s.name"""
+            JOIN jobs j ON j.id=js.job_id WHERE j.is_active AND j.duplicate_status='canonical' GROUP BY s.name"""
         ).fetchall())
         for name, dimensions, value in metrics:
             conn.execute(

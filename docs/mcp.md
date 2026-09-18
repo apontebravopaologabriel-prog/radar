@@ -12,7 +12,8 @@
 }
 ```
 
-El proceso necesita acceso a `DATABASE_URL` y al PostgreSQL local.
+El proceso necesita acceso de lectura/escritura al archivo SQLite local (por defecto
+`~/.local/share/radar/radar.db`, configurable con `RADAR_DB_PATH`).
 
 ## Antigravity
 

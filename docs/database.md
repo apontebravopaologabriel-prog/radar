@@ -1,12 +1,24 @@
-# Modelo de datos PostgreSQL
+# Modelo de datos
 
-Las migraciones están en [`migrations/001_initial.sql`](../migrations/001_initial.sql), [`migrations/002_career_history.sql`](../migrations/002_career_history.sql), [`migrations/003_job_quality.sql`](../migrations/003_job_quality.sql), [`migrations/004_application_status.sql`](../migrations/004_application_status.sql), [`migrations/005_job_user_status.sql`](../migrations/005_job_user_status.sql) y [`migrations/006_job_user_favorites.sql`](../migrations/006_job_user_favorites.sql).
+La base activa es SQLite. El esquema completo, incluido el catálogo de áreas y skills, vive en
+[`src/radar/db/schema_sqlite.sql`](../src/radar/db/schema_sqlite.sql) y se aplica íntegro al crear
+un archivo `.db` nuevo; `_ensure_runtime_schema()` en
+[`src/radar/db/database.py`](../src/radar/db/database.py) reaplica de forma aditiva (`ON CONFLICT DO
+NOTHING`) los índices y el catálogo en cada conexión, para que una base creada antes de un cambio de
+esquema quede al día automáticamente.
+
+El directorio [`migrations/`](../migrations/) conserva los `.sql` originales de la era PostgreSQL
+del proyecto (sintaxis `UUID`, `JSONB`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`). Ya no se
+ejecutan contra SQLite ni contra ninguna base activa; quedan como referencia histórica del diseño y
+para quien necesite levantar el `docker-compose.yml` heredado. Un cambio de esquema SQLite se hace
+directamente en `schema_sqlite.sql` (y, si aplica a bases existentes, también en
+`_ensure_runtime_schema()`), no agregando un archivo a `migrations/`.
 
 | Tabla | Propósito |
 |---|---|
 | `sources` | Fuentes y tipo de conector |
 | `companies` | Empresas normalizadas |
-| `jobs` | Oferta canónica independiente de la fuente; incluye modalidad, sector, salario, horario y estado de postulación cuando hay evidencia |
+| `jobs` | Oferta canónica independiente de la fuente; incluye modalidad, sector, salario, horario, relevancia del perfil y estado de postulación cuando hay evidencia |
 | `job_sources` | Aparición por fuente y `raw_payload` |
 | `industrial_areas` | Catálogo de áreas |
 | `job_areas` | Área primaria/secundaria, evidencia y confianza |
@@ -39,9 +51,28 @@ Las migraciones están en [`migrations/001_initial.sql`](../migrations/001_initi
 
 Los campos `sector`, `sector_confidence`, `hours_per_week` y `schedule_text` se enriquecen durante la ingesta. `repair-data` los puede recalcular junto con modalidad y salario para ofertas capturadas antes de estas mejoras.
 
-## Duplicados
+`relevance_tier`, `relevance_score` y `relevance_evidence` separan el mercado en núcleo de Ingeniería Industrial, áreas adyacentes y fuera de foco. No usan el salario como criterio de entrada y no eliminan ofertas; sirven para priorizar la vista y auditar la clasificación.
 
-V1 detecta duplicados exactos por fingerprint y conserva las apariciones de cada fuente. No fusiona automáticamente casos ambiguos por similitud de descripción.
+## Duplicados y calidad
+
+Radar detecta duplicados exactos por fingerprint y conserva las apariciones de cada fuente en
+`job_sources`; una misma oferta puede tener varias URLs de Indeed sin aparecer varias veces como
+`jobs`. La base impone un fingerprint único y una sola área primaria por oferta. Los casos que
+coinciden en empresa y título pero difieren en ubicación se reportan para revisión, no se fusionan
+automáticamente porque podrían ser vacantes legítimas.
+
+`duplicate_status` permite mantener una oferta canónica y separar candidatos o registros fusionados
+sin borrar históricos. Las consultas normales muestran solo registros canónicos y activos.
+
+`radar audit-data` genera un informe reproducible con grupos repetidos, enlaces por fuente,
+integridad de áreas y posibles títulos comerciales dentro de áreas objetivo.
+
+## Clasificación profesional
+
+`Ventas / Comercial` es un área explícita. Las señales comerciales presentes en el título tienen
+prioridad sobre palabras genéricas de la descripción (`operaciones`, `planning` o `procesos`), de
+modo que un puesto como `Ejecutivo Comercial` no se presenta como una oferta de Ingeniería
+Industrial. La clasificación sigue siendo determinista y conserva la evidencia textual.
 
 ## Mercado y usuario
 
@@ -60,4 +91,4 @@ La vista `Skills` calcula la demanda desde las ofertas filtradas por antigüedad
 nivel cuando el usuario no lo declaró. La API expone este agregado mediante
 `GET /api/skills/overview`.
 
-Docker ejecuta los SQL de `migrations/` solo cuando el volumen se crea por primera vez. Cambios posteriores deben ser migraciones nuevas o aplicarse explícitamente.
+Ver la sección inicial de este documento para cómo se aplica y actualiza el esquema SQLite.

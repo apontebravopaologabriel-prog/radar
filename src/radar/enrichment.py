@@ -83,7 +83,7 @@ def normalize_salary(
     if (
         normalized_currency == "PEN"
         and not re.search(r"hora|diari", normalized_period)
-        and (any(value < 100 for value in values) or any(value > 100_000 for value in values))
+        and (any(value <= 100 for value in values) or any(value > 100_000 for value in values))
     ):
         return None, None, None
     if minimum is not None and maximum is not None and minimum > maximum:

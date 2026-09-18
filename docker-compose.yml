@@ -1,3 +1,6 @@
+# Infraestructura heredada: Radar migró su persistencia a SQLite nativo (ver docs/database.md)
+# y ya no depende de este Postgres para operar. Se conserva únicamente como referencia histórica
+# y por si hace falta reabrir un backup lógico antiguo (ver backups/).
 services:
   postgres:
     image: postgres:16-alpine

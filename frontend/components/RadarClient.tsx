@@ -9,8 +9,8 @@ import SkillsView from "./SkillsView";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima…</div> });
 
-const AREAS = ["", "Operaciones", "Producción", "Mejora continua", "Procesos", "Supply Chain", "Logística", "Compras", "Planeamiento", "Demand Planning", "Calidad", "Data / BI", "Analytics", "Automatización", "Proyectos / PMO", "Finanzas / Control de gestión", "Seguridad y Salud en el Trabajo", "Recursos Humanos / People Analytics"];
-const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7" };
+const AREAS = ["", "Operaciones", "Producción", "Mejora continua", "Procesos", "Supply Chain", "Logística", "Compras", "Planeamiento", "Demand Planning", "Calidad", "Data / BI", "Analytics", "Automatización", "Proyectos / PMO", "Finanzas / Control de gestión", "Seguridad y Salud en el Trabajo", "Recursos Humanos / People Analytics", "Ventas / Comercial"];
+const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
 const RADAR_RADII = [2, 5, 10] as const;
 type RadarTool = "districts" | "radar" | "filters" | "skills";
 
@@ -113,6 +113,47 @@ function sourceLabel(url: string | null) {
   return "Ver oferta original";
 }
 
+function sourceName(url: string | null) {
+  if (!url) return "Fuente n/i";
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    if (host.includes("linkedin")) return "LinkedIn";
+    if (host.includes("indeed")) return "Indeed";
+    if (host.includes("computrabajo")) return "Computrabajo";
+    if (host.includes("glassdoor")) return "Glassdoor";
+    return host.split(".")[0] || "Fuente";
+  } catch {
+    return "Fuente n/i";
+  }
+}
+
+function companyMapsUrl(job: Pick<Job, "company" | "district" | "location">) {
+  if (!job.company?.trim()) return null;
+  const query = [job.company.trim(), job.district || job.location || "Lima", "Perú"]
+    .filter(Boolean)
+    .join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function CompanyMapsLink({ job }: { job: Pick<Job, "company" | "district" | "location"> }) {
+  const url = companyMapsUrl(job);
+  if (!url) return null;
+  return (
+    <a
+      className="company-map-link"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Buscar ${job.company} en Google Maps`}
+      title="Buscar empresa en Google Maps"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      ⌖
+    </a>
+  );
+}
+
 function distanceKm(from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) {
   const earthRadiusKm = 6371;
   const latDelta = ((to.latitude - from.latitude) * Math.PI) / 180;
@@ -121,6 +162,35 @@ function distanceKm(from: { latitude: number; longitude: number }, to: { latitud
   const latitudeB = (to.latitude * Math.PI) / 180;
   const a = Math.sin(latDelta / 2) ** 2 + Math.cos(latitudeA) * Math.cos(latitudeB) * Math.sin(lonDelta / 2) ** 2;
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function OfferSignalCard({ job, selected, onSelect }: { job: Job; selected: boolean; onSelect: (job: Job) => void }) {
+  return (
+    <article
+      className={`offer-scroll-card ${selected ? "selected" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Ver detalle de ${job.title}`}
+      onClick={() => onSelect(job)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(job);
+        }
+      }}
+    >
+      <span className="offer-scroll-meta">
+        <span className="offer-scroll-area-line"><span>{job.primary_area || "Sin área"}</span><span className="offer-scroll-source">· {sourceName(job.url)}</span></span>
+        <span>{formatDate(job.published_at)}</span>
+      </span>
+      {job.url ? <a className="offer-scroll-title" href={job.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>{job.title}</a> : <strong>{job.title}</strong>}
+      <span className="offer-scroll-company">
+        {job.company || "Empresa no indicada"}
+        <CompanyMapsLink job={job} />
+      </span>
+      <span className="offer-scroll-location">⌖ {job.district || job.location || "Ubicación pendiente"}</span>
+    </article>
+  );
 }
 
 export default function RadarClient() {
@@ -161,7 +231,9 @@ export default function RadarClient() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    fetchJobs(selectedSkill ? { ...filters, skill: selectedSkill } : filters, controller.signal)
+    const queryFilters = { ...filters };
+    delete queryFilters.source;
+    fetchJobs(selectedSkill ? { ...queryFilters, skill: selectedSkill } : queryFilters, controller.signal)
       .then((result) => setJobs(result))
       .catch((reason: Error) => {
         if (reason.name !== "AbortError") setError("No se pudo conectar con Radar API. Inicia `radar-api` y vuelve a cargar.");
@@ -171,7 +243,7 @@ export default function RadarClient() {
   }, [filters, selectedSkill]);
 
   useEffect(() => {
-    if (mode !== "skills" && activeTool !== "skills") return;
+    if (mode !== "skills" && activeTool !== "skills" && activeTool !== "filters") return;
     const controller = new AbortController();
     setSkillsLoading(true);
     setSkillsError(null);
@@ -184,10 +256,23 @@ export default function RadarClient() {
     return () => controller.abort();
   }, [activeTool, filters, mode]);
 
-  const mappedCount = jobs.filter((job) => job.latitude !== null && job.longitude !== null).length;
+  const portalJobs = useMemo(() => {
+    const requestedPortal = filters.source?.toLowerCase();
+    if (!requestedPortal) return jobs;
+    return jobs.filter((job) => sourceName(job.url).toLowerCase().includes(requestedPortal));
+  }, [filters.source, jobs]);
+  const portalCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const job of jobs) {
+      const portal = sourceName(job.url).toLowerCase();
+      counts[portal] = (counts[portal] || 0) + 1;
+    }
+    return counts;
+  }, [jobs]);
+  const mappedCount = portalJobs.filter((job) => job.latitude !== null && job.longitude !== null).length;
   const districtStats = useMemo<DistrictSummary[]>(() => {
     const groups = new Map<string, DistrictSummary>();
-    for (const job of jobs) {
+    for (const job of portalJobs) {
       const key = districtKey(job.district);
       if (!key || job.latitude === null || job.longitude === null) continue;
       const current = groups.get(key);
@@ -200,22 +285,22 @@ export default function RadarClient() {
       }
     }
     return [...groups.values()].sort((a, b) => b.count - a.count || a.district.localeCompare(b.district));
-  }, [jobs]);
+  }, [portalJobs]);
   const visibleJobs = useMemo(
     () => {
       if (mode === "radar") {
         if (!radarDistrictKey) return [];
-        return jobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radarRadiusKm);
+        return portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radarRadiusKm);
       }
-      return selectedDistrictKey ? jobs.filter((job) => districtKey(job.district) === selectedDistrictKey) : jobs;
+      return selectedDistrictKey ? portalJobs.filter((job) => districtKey(job.district) === selectedDistrictKey) : portalJobs;
     },
-    [jobs, mode, radarCenter, radarRadiusKm, selectedDistrictKey],
+    [mode, portalJobs, radarCenter, radarRadiusKm, selectedDistrictKey],
   );
   const selectedDistrict = districtStats.find((district) => district.key === selectedDistrictKey) || null;
   const radarDistrict = districtStats.find((district) => district.key === radarDistrictKey) || null;
   const radarRadiusCounts = useMemo(
-    () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? jobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
-    [jobs, radarCenter, radarDistrictKey],
+    () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
+    [portalJobs, radarCenter, radarDistrictKey],
   );
   const countValues = (read: (job: Job) => string | null) => {
     const counts = new Map<string, number>();
@@ -229,6 +314,7 @@ export default function RadarClient() {
   const seniorityCounts = useMemo(() => countValues((job) => ({ intern: "Practicante", junior: "Junior", mid: "Intermedio", senior: "Senior" } as Record<string, string>)[job.seniority || ""] || job.seniority), [visibleJobs]);
   const modalityCounts = useMemo(() => countValues((job) => ({ onsite: "Presencial", hybrid: "Híbrido", remote: "Remoto" } as Record<string, string>)[job.work_mode || ""] || job.work_mode), [visibleJobs]);
   const listedJobs = showHidden ? hiddenJobs : showFavorites ? favoriteJobs : visibleJobs;
+  const signalJobs = showHidden ? hiddenJobs : showFavorites ? favoriteJobs : visibleJobs;
 
   useEffect(() => {
     if (selectedDistrictKey && !districtStats.some((district) => district.key === selectedDistrictKey)) {
@@ -254,6 +340,8 @@ export default function RadarClient() {
   function selectJob(job: Job) {
     setSelectedId(job.id);
     setExpandedDescriptionId(null);
+    setHideReasonFor(null);
+    setHideReason("");
     if (mode === "heatmap") setSelectedDistrictKey(districtKey(job.district));
   }
 
@@ -429,10 +517,12 @@ export default function RadarClient() {
           </div>
           <form className="search-box" onSubmit={submitSearch}><span>⌕</span><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="..." /><button type="submit" aria-label="Buscar">↵</button></form>
 
-          <div className="filter-section"><div className="section-label">Filtros activos <span>{Object.values(filters).filter(Boolean).length}</span></div>
+          <div className="filter-section"><div className="section-label">Filtros activos <span>{Object.values(filters).filter(Boolean).length + (selectedSkill ? 1 : 0)}</span></div>
+            <label>Relevancia<select value={filters.relevance_tier || ""} onChange={(event) => updateFilter("relevance_tier", event.target.value)}><option value="core">Core · foco industrial</option><option value="adjacent">Adyacente · BI, PMO, SST</option><option value="out_of_focus">Fuera de foco</option><option value="">Todas</option></select></label>
             <label>Área profesional<select value={filters.area} onChange={(event) => updateFilter("area", event.target.value)}>{AREAS.map((area) => <option key={area} value={area}>{area || `Todas las áreas · ${visibleJobs.length || 0}`}{area && ` · ${areaCounts[area] || 0}`}</option>)}</select></label>
             <div className="two-columns"><label>Seniority<select value={filters.seniority} onChange={(event) => updateFilter("seniority", event.target.value)}><option value="">Todos{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="intern">Practicante · {seniorityCounts.Practicante || 0}</option><option value="junior">Junior · {seniorityCounts.Junior || 0}</option><option value="mid">Intermedio · {seniorityCounts.Intermedio || 0}</option><option value="senior">Senior · {seniorityCounts.Senior || 0}</option></select></label><label>Modalidad<select value={filters.work_mode} onChange={(event) => updateFilter("work_mode", event.target.value)}><option value="">Todas{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="onsite">Presencial · {modalityCounts.Presencial || 0}</option><option value="hybrid">Híbrido · {modalityCounts.Híbrido || 0}</option><option value="remote">Remoto · {modalityCounts.Remoto || 0}</option></select></label></div>
             <div className="two-columns"><label>Salario mínimo<input type="number" min="0" placeholder="S/" value={filters.min_salary} onChange={(event) => updateFilter("min_salary", event.target.value)} /></label><label>Antigüedad<select value={filters.max_age_days} onChange={(event) => updateFilter("max_age_days", event.target.value)}><option value="7">7 días</option><option value="14">14 días</option><option value="30">30 días</option><option value="90">90 días</option></select></label></div>
+            <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos los portales · {jobs.length}</option><option value="indeed">Indeed · {portalCounts.indeed || 0}</option><option value="computrabajo">Computrabajo · {portalCounts.computrabajo || 0}</option><option value="linkedin">LinkedIn · {portalCounts.linkedin || 0}</option><option value="bumeran">Bumeran · {portalCounts.bumeran || 0}</option><option value="laborum">Laborum · {portalCounts.laborum || 0}</option><option value="empleos">Empleos Perú · {portalCounts.empleos || 0}</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas las competencias</option>{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{skill.name} · {skill.job_count}</option>)}</select></label></div>
           </div>
 
           <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"], ["skills", "Competencias"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><span className="radar-readout">CENTER // {radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
@@ -456,7 +546,10 @@ export default function RadarClient() {
                       </button>
                     </div>
                     <h2 className="reading-title">{selectedJob.title}</h2>
-                    <p className="reading-company">{selectedJob.company || "Empresa no indicada"}</p>
+                    <p className="reading-company">
+                      {selectedJob.company || "Empresa no indicada"}
+                      <CompanyMapsLink job={selectedJob} />
+                    </p>
                   </header>
 
                   <div className="reading-meta-grid">
@@ -519,15 +612,19 @@ export default function RadarClient() {
               </div>
               <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
                 <MapView jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><strong>{visibleJobs.length.toString().padStart(3, "0")}</strong></div><div className="offer-scroll-list">{visibleJobs.map((job) => <button key={job.id} className={`offer-scroll-card ${selectedId === job.id ? "selected" : ""}`} type="button" onClick={() => selectJob(job)}><span className="offer-scroll-meta"><span>{job.primary_area || "Sin área"}</span><span>{formatDate(job.published_at)}</span></span><strong>{job.title}</strong><span className="offer-scroll-company">{job.company || "Empresa no indicada"}</span><span className="offer-scroll-location">⌖ {job.district || job.location || "Ubicación pendiente"}</span></button>)}{!loading && visibleJobs.length === 0 && <span className="offer-scroll-empty">Selecciona un distrito para cargar señales</span>}</div></aside>}
-                <div className="map-scan-label map-scan-label-top"><span className="scan-live-dot" />{mode === "radar" ? "RADAR LOCK" : mode === "heatmap" ? "DATA ANALYSIS" : "COLLECTING DATA"}<small>/// LIMA METROPOLITANA</small></div>
-                <div className="map-scan-label map-scan-label-bottom"><span>COORD // 12°02'46.0&quot;S 77°02'35.0&quot;W</span><span>TRACKING // {visibleJobs.length.toString().padStart(3, "0")} SIGNALS</span></div>
+                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><div className="offer-scroll-tools"><strong>{signalJobs.length.toString().padStart(3, "0")}</strong><button className={`favorites-toggle ${showFavorites ? "active" : ""}`} type="button" onClick={() => void toggleFavoriteJobs()} aria-label={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"} title={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"}>{favoriteJobs.length > 0 ? "★" : "☆"}</button><button className={`hidden-toggle ${showHidden ? "active" : ""}`} type="button" onClick={() => void toggleHiddenJobs()} aria-label={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"} title={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>{hiddenJobs.length > 0 && <b>{hiddenJobs.length}</b>}</button></div></div><div className="offer-scroll-list">{signalJobs.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} onSelect={selectJob} />)}{!loading && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "No tienes ofertas ocultas" : showFavorites ? "No tienes favoritos guardados" : "Selecciona un distrito para cargar señales"}</span>}</div></aside>}
+                <div className="map-scan-label map-scan-label-top"><span className="scan-live-dot" />{mode === "radar" ? "RADAR LOCK" : mode === "heatmap" ? "DATA ANALYSIS" : "COLLECTING DATA"}<small>{"/// LIMA METROPOLITANA"}</small></div>
+                <div className="map-scan-label map-scan-label-bottom"><span>COORD // 12°02&apos;46.0&quot;S 77°02&apos;35.0&quot;W</span><span>TRACKING // {visibleJobs.length.toString().padStart(3, "0")} SIGNALS</span></div>
                 {mode === "heatmap" && districtStats.length > 0 && <aside className="district-map-overlay" aria-label="Distritos con ofertas"><div className="district-overlay-list"><button className={`district-row district-row-all ${selectedDistrictKey === null ? "selected" : ""}`} onClick={() => { setSelectedDistrictKey(null); setSelectedId(null); }} type="button"><span className="district-row-top"><strong>Todos</strong><span>{mappedCount}</span></span><span className="district-bar"><i style={{ width: "100%" }} /></span></button>{districtStats.map((district) => <button key={district.key} className={`district-row ${selectedDistrictKey === district.key ? "selected" : ""}`} onClick={() => selectDistrict(district.key)} type="button"><span className="district-row-top"><strong>{district.district}</strong><span>{district.count}</span></span><span className="district-bar"><i style={{ width: `${Math.max(10, (district.count / districtStats[0].count) * 100)}%` }} /></span></button>)}</div></aside>}
                 {selectedJob && <article className={`job-popover ${expandedDescriptionId === selectedJob.id ? "is-description-expanded" : ""}`}>
-                  <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); }} aria-label="Cerrar detalle" type="button">×</button>
-                  <span className="job-area">{selectedJob.primary_area || "Sin área"}</span>
-                  <h3>{selectedJob.title}</h3>
-                  <p className="popover-company">{selectedJob.company || "Empresa no indicada"}</p>
+                  {selectedJob.user_status !== "hidden" && <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg></button>}
+                  <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }} aria-label="Cerrar detalle" type="button">×</button>
+                  <span className="job-area">{selectedJob.primary_area || "Sin área"}<span className="job-source"> · {sourceName(selectedJob.url)}</span></span>
+                  <h3>{selectedJob.url ? <a className="job-popover-title" href={selectedJob.url} target="_blank" rel="noreferrer">{selectedJob.title}</a> : selectedJob.title}</h3>
+                  <p className="popover-company">
+                    {selectedJob.company || "Empresa no indicada"}
+                    <CompanyMapsLink job={selectedJob} />
+                  </p>
                   <div className="popover-divider" />
                   <div className="popover-grid">
                     <div><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div>
@@ -536,11 +633,11 @@ export default function RadarClient() {
                     <div><span>Publicado</span><strong>{formatDate(selectedJob.published_at)}</strong></div>
                   </div>
                   {selectedJob.description && <div className="popover-description-wrap"><div className="description-toggle" role="button" tabIndex={0} aria-label="Ver descripción completa" title="Ver descripción completa" aria-expanded={expandedDescriptionId === selectedJob.id} onClick={() => setExpandedDescriptionId((current) => current === selectedJob.id ? null : selectedJob.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedDescriptionId((current) => current === selectedJob.id ? null : selectedJob.id); } }}><div className="popover-description">{renderMarkdown(selectedJob.description)}</div></div></div>}
-                  <div className={`popover-actions ${hideReasonFor === selectedJob.id ? "is-hiding" : ""}`}>
-                    {selectedJob.url && <a className="popover-link" href={selectedJob.url} target="_blank" rel="noreferrer">{sourceLabel(selectedJob.url)} ↗</a>}
-                    {selectedJob.user_status === "hidden" ? <button className="restore-button" type="button" disabled={statusBusy} onClick={() => restoreJob(selectedJob)}>{statusBusy ? "Restaurando…" : "Restaurar oferta"}</button> : <div className="hide-controls">{hideReasonFor === selectedJob.id ? <><label>Motivo de ocultar<select value={hideReason} onChange={(event) => setHideReason(event.target.value)}><option value="" disabled>Selecciona un motivo</option><option value="closed">Ya cerró</option><option value="not_interested">No me interesa</option><option value="applied">Ya postulé</option><option value="duplicate">Oferta duplicada</option><option value="other">Otro</option></select></label><button className="restore-button" type="button" disabled={statusBusy || !hideReason} onClick={() => hideSelectedJob()}>{statusBusy ? "Guardando…" : "Confirmar ocultar"}</button><button className="cancel-hide" type="button" onClick={() => { setHideReasonFor(null); setHideReason(""); }}>Cancelar</button></> : <button className="hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg><span>Ocultar</span></button>}</div>}
+                  <div className="popover-actions">
+                    {selectedJob.user_status === "hidden" && <button className="restore-button" type="button" disabled={statusBusy} onClick={() => restoreJob(selectedJob)}>{statusBusy ? "Restaurando…" : "Restaurar oferta"}</button>}
                   </div>
                 </article>}
+                {selectedJob && hideReasonFor === selectedJob.id && selectedJob.user_status !== "hidden" && <aside className="hide-reason-popover" aria-label="Motivo para ocultar oferta"><button className="hide-reason-close" type="button" aria-label="Cerrar ocultar oferta" onClick={() => { setHideReasonFor(null); setHideReason(""); }}>×</button><span className="job-area">Ocultar oferta</span><strong>¿Por qué no quieres verla?</strong><label>Motivo<select value={hideReason} onChange={(event) => setHideReason(event.target.value)}><option value="" disabled>Selecciona un motivo</option><option value="closed">Ya cerró</option><option value="not_interested">No me interesa</option><option value="applied">Ya postulé</option><option value="duplicate">Oferta duplicada</option><option value="other">Otro</option></select></label><button className="restore-button" type="button" disabled={statusBusy || !hideReason} onClick={() => hideSelectedJob()}>{statusBusy ? "Guardando…" : "Confirmar ocultar"}</button><button className="cancel-hide" type="button" onClick={() => { setHideReasonFor(null); setHideReason(""); }}>Cancelar</button></aside>}
               </div>
             </>
           )}

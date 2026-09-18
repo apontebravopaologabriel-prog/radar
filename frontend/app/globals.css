@@ -113,6 +113,8 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .reading-fav-btn:hover { border-color: var(--teal); }
 .reading-title { font-size: 24px; color: var(--ink); margin: 0 0 6px; letter-spacing: -.03em; line-height: 1.25; }
 .reading-company { font-size: 14px; color: var(--muted); margin: 0; }
+.company-map-link { display: inline-flex; width: 16px; height: 16px; margin-left: 5px; align-items: center; justify-content: center; color: #999999; text-decoration: none; opacity: 0; transition: opacity .15s ease, color .15s ease; vertical-align: middle; }
+.reading-company:hover .company-map-link, .reading-company:focus-within .company-map-link { opacity: 1; }
 .reading-meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .meta-box { background: #252525; border: 1px solid #333; border-radius: 6px; padding: 10px 12px; }
 .meta-label { display: block; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
@@ -201,6 +203,7 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .close-button:hover { color: var(--ink); border-color: var(--teal); }
 .job-popover h3 { margin: 7px 28px 3px 0; font-size: 14px; line-height: 1.2; }
 .popover-company { margin: 0; color: var(--muted); font-size: 10px; }
+.popover-company:hover .company-map-link, .popover-company:focus-within .company-map-link { opacity: 1; }
 .popover-divider { height: 1px; margin: 11px 0; background: #405049; }
 .popover-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .popover-grid span { display: block; margin-bottom: 3px; color: #8fa49e; font-size: 8px; text-transform: uppercase; }
@@ -277,37 +280,7 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
   .statusbar span:last-child { display: none; }
 }
 
-/* Radar console skin: dark, quiet and data-first. */
-:root {
-  --ink: #e8f0e8;
-  --muted: #78857d;
-  --line: #26332c;
-  --soft: #101713;
-  --paper: #070b09;
-  --teal: #b8ff72;
-  --indigo: #8ee8c4;
-  --pink: #f2c45e;
-}
-
-body { background: #030504; color: var(--ink); }
-.radar-shell { position: relative; overflow: hidden; background: #030504; }
-.radar-shell::before { position: fixed; z-index: 20; inset: 0; pointer-events: none; opacity: .14; background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, #b8ff7208 4px); content: ""; mix-blend-mode: screen; }
-.topbar { height: 58px; padding: 0 22px; border-bottom-color: #26332c; background: #070b09eF; box-shadow: 0 1px 0 #b8ff7210; }
-.brand-lockup { gap: 11px; }
-.brand-mark { width: 28px; height: 28px; border: 1px solid #b8ff72; border-radius: 0; color: #b8ff72; background: transparent; font-size: 23px; box-shadow: 0 0 16px #b8ff7226; }
-.brand-lockup strong { color: #e8f0e8; font-size: 13px; letter-spacing: .22em; }
-.brand-lockup span:not(.brand-mark) { color: #748177; font-size: 8px; letter-spacing: .13em; }
-.brand-lockup .status-dot { width: 5px; height: 5px; margin-right: 6px; background: #b8ff72; box-shadow: 0 0 0 2px #b8ff7228; }
-.topbar-readout, .topbar-actions { display: flex; align-items: center; gap: 18px; color: #718077; font-size: 8px; letter-spacing: .12em; }
-.topbar-readout span:first-child { color: #b8ff72; }
-.topbar-actions { margin-left: auto; }
-.topbar-clock { color: #718077; }
-.topbar-signal { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
-.topbar-signal i { display: block; width: 3px; background: #b8ff72; }
-.topbar-signal i:nth-child(1) { height: 4px; opacity: .45; }
-.topbar-signal i:nth-child(2) { height: 8px; opacity: .7; }
-.topbar-signal i:nth-child(3) { height: 12px; }
-.workspace { position: relative; z-index: 1; }
+/*
 .sidebar { width: 342px; min-width: 342px; padding: 20px 17px 13px; border-right-color: #26332c; background: #070b09; }
 .sidebar-heading { margin-bottom: 18px; }
 .sidebar-heading h1 { color: #e8f0e8; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; }
@@ -401,6 +374,8 @@ select:focus, label input:focus { border-color: #b8ff72; box-shadow: 0 0 0 2px #
   .topbar-clock { display: none; }
   .map-scan-label-bottom { right: 12px; bottom: 11px; gap: 8px; flex-direction: column; align-items: flex-end; }
 }
+
+*/
 
 /* Monochrome intelligence map: the map is the canvas and controls become edge popups. */
 :root {
@@ -594,6 +569,8 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .radar-center-select > button.open { border-color: #eeeeee; box-shadow: 0 0 0 2px #ffffff18; }
 .radar-radius button.active { border-color: #eeeeee; color: #ffffff; background: #2b2b2b; }
 .sidebar.is-open + .map-panel .job-popover { right: 376px; }
+.sidebar.is-open + .map-panel .hide-reason-popover { right: 786px; }
+.sidebar.tool-radar.is-open + .map-panel .hide-reason-popover, .sidebar.tool-skills.is-open + .map-panel .hide-reason-popover { right: 428px; }
 
 @media (max-width: 900px) {
   .sidebar.is-open + .map-panel .job-popover { right: 18px; top: auto; bottom: 18px; }
@@ -713,20 +690,33 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .offer-resize-handle::after { position: absolute; top: 4px; right: 0; left: 0; height: 1px; background: #777777; opacity: .35; content: ""; transition: opacity .15s ease; }
 .offer-resize-handle:hover::after { opacity: .9; }
 .offer-scroll-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid #333333; color: #a8a8a8; font-size: 8px; letter-spacing: .16em; text-transform: uppercase; }
+.offer-scroll-tools { display: flex; align-items: center; gap: 3px; }
+.offer-scroll-tools .favorites-toggle, .offer-scroll-tools .hidden-toggle { width: 22px; height: 22px; }
 .offer-scroll-heading strong { color: #eeeeee; font-size: 10px; font-weight: 500; letter-spacing: .08em; }
 .offer-scroll-list { display: grid; align-content: start; grid-auto-rows: max-content; flex: 1; min-height: 0; gap: 4px; padding-top: 8px; overflow-y: auto; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
-.offer-scroll-card { display: grid; gap: 3px; width: 100%; padding: 7px; border: 1px solid #2e2e2e; border-radius: 0; color: #c9c9c9; background: #101010cc; text-align: left; cursor: pointer; }
+.offer-scroll-card { display: grid; gap: 3px; width: 100%; padding: 7px; border: 1px solid #2e2e2e; border-radius: 0; color: #c9c9c9; background: #101010cc; font: inherit; text-align: left; cursor: pointer; }
 .offer-scroll-card:hover, .offer-scroll-card.selected { border-color: #a0a0a0; background: #262626; }
 .offer-scroll-meta { display: flex; justify-content: space-between; gap: 10px; color: #858585; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
-.offer-scroll-card strong { overflow: hidden; color: #eeeeee; font-size: 12px; font-weight: 600; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-area-line { display: flex; min-width: 0; gap: 4px; }
+.offer-scroll-source { overflow: hidden; color: #bdbdbd; opacity: 0; text-overflow: ellipsis; white-space: nowrap; transition: opacity .15s ease; }
+.offer-scroll-card:hover .offer-scroll-source, .offer-scroll-card:focus-visible .offer-scroll-source, .offer-scroll-card.selected .offer-scroll-source { opacity: 1; }
+.offer-scroll-card strong, .offer-scroll-title { overflow: hidden; color: #eeeeee; font-size: 12px; font-weight: 600; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-title { text-decoration: none; }
+.offer-scroll-title:hover { text-decoration: underline; text-decoration-color: #a8a8a8; text-underline-offset: 3px; }
 .offer-scroll-company, .offer-scroll-location { overflow: hidden; color: #888888; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-card:hover .company-map-link, .offer-scroll-card:focus-visible .company-map-link { opacity: 1; }
+.company-map-link:hover, .company-map-link:focus-visible { color: #ffffff; opacity: 1; }
 .offer-scroll-location { color: #aaaaaa; }
 .offer-scroll-empty { padding: 16px 8px 12px; color: #8c8c8c; font-size: 11px; line-height: 1.4; }
 
 /* Keep selected job details readable without losing the quiet monochrome treatment. */
 .job-popover { width: min(390px, calc(100% - 36px)); padding: 17px; }
 .job-popover .job-area { font-size: 10px; }
+.job-source { color: #777777; opacity: 0; transition: opacity .15s ease; }
+.job-area:hover .job-source, .job-popover:focus-within .job-source { opacity: 1; }
 .job-popover h3 { font-size: 17px; line-height: 1.25; }
+.job-popover-title { color: inherit; text-decoration: none; }
+.job-popover-title:hover { text-decoration: underline; text-decoration-color: #8c8c8c; text-underline-offset: 3px; }
 .job-popover .popover-company { font-size: 11px; }
 .job-popover .popover-grid span { font-size: 9px; }
 .job-popover .popover-grid strong { font-size: 11px; }
@@ -735,7 +725,20 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .job-popover.is-description-expanded .popover-description { max-height: none; }
 .district-tooltip { border: 0; border-radius: 0; color: #bdbdbd; background: transparent; box-shadow: none; font-size: 10px; font-weight: 500; }
 .district-tooltip::before { display: none; }
-.job-popover .popover-link, .job-popover .hide-button, .job-popover .restore-button { font-size: 10px; }
+.job-popover .hide-button, .job-popover .restore-button { font-size: 10px; }
+.popover-actions { justify-content: flex-end; }
+.popover-hide-button { position: absolute; top: 7px; right: 38px; width: 22px; min-width: 22px; height: 22px; margin: 0; padding: 0; }
+.hide-button span { display: none; }
+.hide-reason-popover { position: absolute; z-index: 7; top: 96px; right: 428px; display: flex; width: min(260px, calc(100% - 36px)); flex-direction: column; gap: 9px; padding: 14px; border: 1px solid #646464; color: #dddddd; background: #090909f2; box-shadow: 0 18px 36px #0000009c, inset 0 0 28px #ffffff08; backdrop-filter: blur(18px) grayscale(1); }
+.hide-reason-close { position: absolute; top: 7px; right: 8px; width: 22px; height: 22px; border: 1px solid #666666; color: #aaaaaa; background: transparent; font-size: 15px; line-height: 1; cursor: pointer; }
+.hide-reason-close:hover { color: #ffffff; border-color: #d0d0d0; }
+.hide-reason-popover .job-area { padding-right: 28px; color: #aaaaaa; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+.hide-reason-popover > strong { font-size: 13px; font-weight: 500; }
+.hide-reason-popover label { display: grid; gap: 5px; color: #888888; font-size: 9px; text-transform: uppercase; }
+.hide-reason-popover select { margin-top: 0; border-color: #666666; background: #151515; }
+.hide-reason-popover .restore-button, .hide-reason-popover .cancel-hide { width: 100%; margin-top: 0; padding: 7px 8px; }
+.hide-reason-popover .cancel-hide { border: 1px solid #444444; color: #aaaaaa; background: transparent; font-size: 10px; cursor: pointer; }
+.hide-reason-popover .cancel-hide:hover { border-color: #aaaaaa; color: #ffffff; }
 
 @media (max-width: 900px) {
   .district-map-overlay { right: 14px; left: auto; }
@@ -743,6 +746,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
   .sidebar.tool-radar { right: 14px; bottom: 14px; max-height: calc(100% - 28px); }
   .sidebar.tool-skills { right: 14px; bottom: 14px; max-height: calc(100% - 28px); }
   .sidebar.tool-skills.is-open + .map-panel .job-popover { right: 18px; left: auto; top: auto; bottom: 18px; }
+  .hide-reason-popover { top: auto; right: auto; bottom: 18px; left: 18px; }
 }
 
 @media (max-width: 680px) {
@@ -752,6 +756,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
   .sidebar.tool-skills { right: 12px; bottom: 12px; max-height: calc(100% - 24px); }
   .sidebar.tool-skills.is-open + .map-panel .job-popover { right: 12px; left: auto; bottom: 12px; }
   .skill-float-panel { min-width: 0; max-width: none; }
+  .hide-reason-popover { right: 12px; bottom: 12px; left: 12px; width: auto; }
   .job-popover { width: min(350px, calc(100% - 24px)); padding: 14px; }
   .job-popover h3 { font-size: 15px; }
   .job-popover .popover-description { font-size: 10px; }

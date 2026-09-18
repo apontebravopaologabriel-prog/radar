@@ -16,6 +16,9 @@ export type Job = {
   description: string | null;
   primary_area: string | null;
   sector: string | null;
+  relevance_tier: "core" | "adjacent" | "out_of_focus";
+  relevance_score: number;
+  relevance_evidence: string | null;
   hours_per_week: number | null;
   schedule_text: string | null;
   application_status: string;
@@ -35,7 +38,9 @@ export type Filters = {
   work_mode: string;
   min_salary: string;
   max_age_days: string;
+  source?: string;
   skill?: string;
+  relevance_tier?: string;
 };
 
 export type MapMode = "jobs" | "heatmap" | "radar" | "skills";

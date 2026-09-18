@@ -8,6 +8,7 @@ STATE_DIR="/home/paolo/.local/state/radar"
 # The scheduled view favors freshness; override with RADAR_MAX_AGE_DAYS when
 # a wider market snapshot is intentionally needed.
 MAX_AGE_DAYS="${RADAR_MAX_AGE_DAYS:-7}"
+COMPUTRABAJO_ENABLED="${RADAR_COMPUTRABAJO_ENABLED:-1}"
 
 mkdir -p "$STATE_DIR"
 cd "$PROJECT_DIR"
@@ -37,10 +38,22 @@ cd "$PROJECT_DIR"
         "proyectos PMO industrial"
     )
     for query in "${queries[@]}"; do
-        echo "[jobspy] $query"
+        echo "[jobspy/indeed] $query"
         timeout 180 "$JOBSPY_BIN" ingest --source jobspy --query "$query" \
             --location Lima --limit 50 --max-age-days "$MAX_AGE_DAYS" || true
     done
+
+    # Detail extractor validated 2026-09-18 against real offers (100% full
+    # descriptions on backfill); scheduled cycle is active by default.
+    if [[ "$COMPUTRABAJO_ENABLED" == "1" ]]; then
+        for query in "${queries[@]}"; do
+            echo "[computrabajo] $query"
+            timeout 180 "$RADAR_BIN" ingest --source computrabajo --query "$query" \
+                --location Lima --limit 50 --max-age-days "$MAX_AGE_DAYS" || true
+        done
+    else
+        echo "[computrabajo] scheduled cycle paused; set RADAR_COMPUTRABAJO_ENABLED=1 after detail validation"
+    fi
 
     echo "[quality] repair-data"
     "$RADAR_BIN" repair-data || true

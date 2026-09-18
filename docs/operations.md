@@ -5,12 +5,14 @@
 ```bash
 cd /home/paolo/Projects/Radar
 cp .env.example .env
-docker compose up -d postgres
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 ```
+
+No se necesita ningún servicio externo: SQLite se crea automáticamente en
+`~/.local/share/radar/radar.db` (o en `RADAR_DB_PATH`) la primera vez que corre `radar` o `radar-api`.
 
 ## Ingesta
 
@@ -19,6 +21,12 @@ Computrabajo:
 ```bash
 .venv/bin/radar ingest --source computrabajo --query "practicante de procesos" --location Lima --limit 10
 ```
+
+La búsqueda consulta primero las tarjetas y luego `get-job-detail` para enriquecer cada oferta con descripción, salario, contrato y jornada. El enriquecimiento se puede desactivar para una prueba rápida con `RADAR_COMPUTRABAJO_DETAILS=0`; un fallo en el detalle conserva la tarjeta resumida y no interrumpe el lote.
+
+El adaptador acepta las fechas ISO y las etiquetas relativas que entrega el portal, como
+`Hace 1 hora`, `Hace 2 días`, `Hoy` y `Ayer`, para que la ventana de frescura no descarte
+ofertas recientes por falta de fecha interpretable.
 
 JobSpy requiere Python 3.12:
 
@@ -68,7 +76,7 @@ Las búsquedas automáticas usan por defecto un máximo de 14 días desde `publi
 .venv/bin/radar ingest --source computrabajo --query "automatización procesos" --location Lima --max-age-days 14
 ```
 
-Para una revisión diaria más estricta, usa `--max-age-days 7`. Las ofertas sin fecha, futuras o fuera del rango no se muestran como recomendación. No se eliminan de PostgreSQL: permanecen disponibles para historial y análisis de mercado.
+Para una revisión diaria más estricta, usa `--max-age-days 7`. Las ofertas sin fecha, futuras o fuera del rango no se muestran como recomendación. No se eliminan de SQLite: permanecen disponibles para historial y análisis de mercado.
 
 Para reparar ofertas capturadas antes de la inferencia de modalidad y sector:
 
@@ -78,7 +86,7 @@ Para reparar ofertas capturadas antes de la inferencia de modalidad y sector:
 
 ## Refresco continuo
 
-El refresco persistente se ejecuta como servicio de usuario cada seis horas. Consulta dieciséis búsquedas amplias de datos/BI, procesos, automatización, transformación digital, ERP, planeamiento, supply chain, logística, compras, producción, calidad, mantenimiento, control de gestión y PMO. La ingesta no filtra por salario: captura el mercado y deja el sueldo para análisis posterior. El servicio usa 7 días por defecto para mantener la vista accionable; puedes ampliar el rango temporalmente con `RADAR_MAX_AGE_DAYS=14`.
+El refresco persistente se ejecuta como servicio de usuario una vez al día. Consulta dieciséis búsquedas amplias de datos/BI, procesos, automatización, transformación digital, ERP, planeamiento, supply chain, logística, compras, producción, calidad, mantenimiento, control de gestión y PMO en Indeed. Computrabajo queda pausado en el ciclo programado mientras se valida su extractor de detalle; puede activarse temporalmente con `RADAR_COMPUTRABAJO_ENABLED=1`. Cada portal corre de forma aislada y un fallo no bloquea el otro. La ingesta no filtra por salario: captura el mercado y deja el sueldo para análisis posterior. El servicio usa 7 días por defecto para mantener la vista accionable; puedes ampliar el rango temporalmente con `RADAR_MAX_AGE_DAYS=14`.
 
 ```bash
 systemctl --user status radar-refresh.timer
@@ -86,7 +94,7 @@ systemctl --user list-timers radar-refresh.timer
 tail -f /home/paolo/.local/state/radar/refresh.log
 ```
 
-El servicio es tolerante a fallos por consulta, usa un máximo de 7 días por defecto y guarda snapshots del mercado. No borra el histórico: una oferta pasada desaparece de la vista accionable por el filtro de fecha, pero permanece en PostgreSQL para análisis. Para detenerlo temporalmente: `systemctl --user disable --now radar-refresh.timer`; para reactivarlo: `systemctl --user enable --now radar-refresh.timer`.
+El servicio es tolerante a fallos por consulta, usa un máximo de 7 días por defecto y guarda snapshots del mercado. No borra el histórico: una oferta pasada desaparece de la vista accionable por el filtro de fecha, pero permanece en SQLite para análisis. Para detenerlo temporalmente: `systemctl --user disable --now radar-refresh.timer`; para reactivarlo: `systemctl --user enable --now radar-refresh.timer`.
 
 Las ofertas incorporadas incluyen `sector`, `work_mode`, `hours_per_week`, `schedule_text` y el estado de solicitud cuando la fuente entrega evidencia suficiente. Los campos ausentes permanecen como `NULL` o `unknown`; en LinkedIn un estado `unknown` no se muestra como oferta accionable.
 
@@ -119,4 +127,13 @@ de Radar y no hay separación por cuentas de usuario.
 
 ## Verificación y respaldo
 
-Ejecuta `ruff check`, `pytest`, `python -m compileall` y `docker compose ps`. Para respaldo lógico usa `docker exec radar-postgres pg_dump -U radar -d radar > radar-backup.sql`. No borres el volumen para actualizar tablas; crea migraciones incrementales.
+Ejecuta `ruff check`, `pytest` y `python -m compileall`. Para respaldo lógico, copia el archivo SQLite
+con la base cerrada o usa el comando `.backup` de `sqlite3`:
+
+```bash
+sqlite3 ~/.local/share/radar/radar.db ".backup '/home/paolo/Projects/Radar/backups/radar-$(date +%F).db'"
+```
+
+No edites el esquema SQLite a mano; los cambios van en
+[`src/radar/db/schema_sqlite.sql`](../src/radar/db/schema_sqlite.sql), ver
+[`docs/database.md`](database.md).

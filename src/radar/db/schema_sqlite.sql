@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     updated_at TEXT NOT NULL DEFAULT (now()),
     sector TEXT,
     sector_confidence REAL,
+    relevance_tier TEXT NOT NULL DEFAULT 'out_of_focus' CHECK (relevance_tier IN ('core', 'adjacent', 'out_of_focus')),
+    relevance_score REAL NOT NULL DEFAULT 0,
+    relevance_evidence TEXT,
     hours_per_week REAL,
     schedule_text TEXT,
     application_status TEXT NOT NULL DEFAULT 'unknown' CHECK (application_status IN ('unknown', 'open', 'closed', 'expired')),
@@ -59,7 +62,9 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS jobs_market_idx ON jobs (country, city, seniority, is_active);
 CREATE INDEX IF NOT EXISTS jobs_published_idx ON jobs (published_at DESC);
 CREATE INDEX IF NOT EXISTS jobs_fingerprint_idx ON jobs (canonical_fingerprint);
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_fingerprint_unique_idx ON jobs (canonical_fingerprint);
 CREATE INDEX IF NOT EXISTS jobs_sector_idx ON jobs (sector, is_active);
+CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active);
 CREATE INDEX IF NOT EXISTS jobs_application_status_idx ON jobs (application_status, published_at DESC);
 
 CREATE TABLE IF NOT EXISTS job_sources (
@@ -90,6 +95,7 @@ CREATE TABLE IF NOT EXISTS job_areas (
     evidence TEXT,
     PRIMARY KEY (job_id, area_id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = 1;
 
 CREATE TABLE IF NOT EXISTS skills (
     id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
@@ -254,3 +260,71 @@ CREATE TABLE IF NOT EXISTS job_requirements (
     confidence REAL,
     evidence TEXT
 );
+
+INSERT INTO industrial_areas(name, slug) VALUES
+    ('Operaciones', 'operaciones'),
+    ('Producción', 'produccion'),
+    ('Mejora continua', 'mejora-continua'),
+    ('Procesos', 'procesos'),
+    ('Supply Chain', 'supply-chain'),
+    ('Logística', 'logistica'),
+    ('Compras', 'compras'),
+    ('Planeamiento', 'planeamiento'),
+    ('Demand Planning', 'demand-planning'),
+    ('Calidad', 'calidad'),
+    ('Data / BI', 'data-bi'),
+    ('Analytics', 'analytics'),
+    ('Automatización', 'automatizacion'),
+    ('Mantenimiento', 'mantenimiento'),
+    ('Proyectos / PMO', 'proyectos-pmo'),
+    ('Finanzas / Control de gestión', 'finanzas-control'),
+    ('Seguridad y Salud en el Trabajo', 'sst'),
+    ('Recursos Humanos / People Analytics', 'rrhh-people-analytics'),
+    ('Otras', 'otras'),
+    ('Ventas / Comercial', 'ventas-comercial')
+ON CONFLICT(name) DO NOTHING;
+
+INSERT INTO skills(name, normalized_name, category, skill_type) VALUES
+    ('Excel', 'excel', 'herramienta', 'technical'),
+    ('Power BI', 'power-bi', 'bi', 'technical'),
+    ('SQL', 'sql', 'datos', 'technical'),
+    ('Python', 'python', 'datos', 'technical'),
+    ('PostgreSQL', 'postgresql', 'datos', 'technical'),
+    ('SAP', 'sap', 'erp', 'technical'),
+    ('RPA', 'rpa', 'automatizacion', 'technical'),
+    ('Power Automate', 'power-automate', 'automatizacion', 'technical'),
+    ('Tableau', 'tableau', 'bi', 'technical'),
+    ('OR-Tools', 'or-tools', 'analitica', 'technical'),
+    ('S&OP', 's-op', 'planeamiento', 'technical'),
+    ('English', 'english', 'idioma', 'language'),
+    ('Lean', 'lean', 'mejora', 'methodology'),
+    ('Six Sigma', 'six-sigma', 'calidad', 'methodology'),
+    ('Kaizen', 'kaizen', 'mejora', 'methodology'),
+    ('VSM', 'vsm', 'mejora', 'methodology'),
+    ('5S', '5s', 'mejora', 'methodology'),
+    ('BPMN', 'bpmn', 'procesos', 'methodology'),
+    ('Project Management', 'project-management', 'proyectos', 'methodology'),
+    ('Scrum', 'scrum', 'proyectos', 'methodology'),
+    ('Forecasting', 'forecasting', 'planeamiento', 'domain'),
+    ('Optimization', 'optimization', 'analitica', 'domain'),
+    ('Supply Chain', 'supply-chain', 'supply-chain', 'domain'),
+    ('Inventory Management', 'inventory-management', 'supply-chain', 'domain'),
+    ('Demand Planning', 'demand-planning', 'planeamiento', 'domain'),
+    ('Comunicación', 'comunicacion', 'habilidad', 'soft'),
+    ('Trabajo en equipo', 'trabajo-en-equipo', 'habilidad', 'soft'),
+    ('Pensamiento analítico', 'pensamiento-analitico', 'habilidad', 'soft'),
+    ('Resolución de problemas', 'resolucion-de-problemas', 'habilidad', 'soft'),
+    ('Liderazgo', 'liderazgo', 'habilidad', 'soft'),
+    ('Adaptabilidad', 'adaptabilidad', 'habilidad', 'soft'),
+    ('Negociación', 'negociacion', 'habilidad', 'soft'),
+    ('Proactividad', 'proactividad', 'habilidad', 'soft'),
+    ('Atención al detalle', 'atencion-al-detalle', 'habilidad', 'soft'),
+    ('Orientación al cliente', 'orientacion-al-cliente', 'habilidad', 'soft'),
+    ('Toma de decisiones', 'toma-de-decisiones', 'habilidad', 'soft'),
+    ('Colaboración', 'colaboracion', 'habilidad', 'soft')
+ON CONFLICT(name) DO NOTHING;
+
+INSERT INTO sources(name, source_type, base_url) VALUES
+    ('Computrabajo', 'mcp', 'https://www.computrabajo.com.pe'),
+    ('JobSpy/Indeed', 'library', 'https://www.indeed.com')
+ON CONFLICT(name) DO NOTHING;

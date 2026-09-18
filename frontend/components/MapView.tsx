@@ -204,7 +204,9 @@ export default function MapView(props: MapViewProps) {
         id: "district-labels",
         type: "symbol",
         source: "district-counts",
-        layout: { "text-field": ["concat", ["get", "district"], " · ", ["to-string", ["get", "job_count"]]], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": false },
+        // Every counted district must remain discoverable; MapLibre's default
+        // collision handling could silently hide labels such as La Victoria.
+        layout: { "text-field": ["concat", ["get", "district"], " · ", ["to-string", ["get", "job_count"]]], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": true, "text-ignore-placement": true },
         paint: { "text-color": "#bdbdbd", "text-halo-color": "#050505", "text-halo-width": 1.2 },
       });
       fetch(DISTRICT_GEOJSON_URL)

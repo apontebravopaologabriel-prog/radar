@@ -5,21 +5,25 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
     "leaflet": "^1.9.4",
-    "maplibre-gl": "^5.8.0",
+    "maplibre-gl": "^5.24.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.0",
     "typescript": "^5.8.0"
   }
 }

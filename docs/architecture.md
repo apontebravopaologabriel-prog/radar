@@ -21,31 +21,35 @@ Radar MCP (FastMCP)
 Pipeline Python
   ├─ Computrabajo MCP por stdio
   ├─ JobSpy directo desde Python
-  ├─ refresco systemd de ocho familias de búsqueda cada 6 horas
+  ├─ refresco systemd de dieciséis búsquedas en Indeed y Computrabajo cada 6 horas
   ├─ normalización
   ├─ clasificación heurística
   ├─ deduplicación por fingerprint
   └─ scoring determinístico
   ↓
-PostgreSQL
+SQLite
 ```
 
 La interfaz web usa una API HTTP, sin acceder directamente al
-MCP ni a PostgreSQL:
+MCP ni a SQLite:
 
 ```text
 Browser
   ↓ HTTP GET / PATCH
 Radar API (FastAPI, puerto 8100)
   ↓ reutiliza consultas
-PostgreSQL
+SQLite
 ```
 
-Hermes es la interfaz conversacional. Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. PostgreSQL es la fuente de verdad.
+Hermes es la interfaz conversacional. Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. SQLite es la fuente de verdad.
 
-La clasificación actual es heurística y usa alias definidos en `src/radar/classify.py`; el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Todavía no depende de un LLM.
+La clasificación actual es heurística y usa alias definidos en `src/radar/classify.py` y la taxonomía de `src/radar/taxonomy.py`; el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Cada oferta recibe además una relevancia trazable (`core`, `adjacent` u `out_of_focus`) para priorizar el mercado de Ingeniería Industrial sin borrar ofertas. Todavía no depende de un LLM.
 
-Las consultas de la vista web aplican frescura por `published_at` y excluyen únicamente las ofertas ocultadas por el usuario. No aplican una exclusión especial por `is_active`, estado de aplicación o fuente LinkedIn. Las recomendaciones MCP mantienen sus propias reglas de calidad y verificación de fuente. Las ofertas no accionables permanecen en PostgreSQL para historial. `job_areas` permite consultar y agrupar la vista por área industrial.
+Las consultas de la vista web aplican frescura por `published_at`, muestran ofertas activas y
+canónicas, y excluyen las ocultadas por el usuario. `job_sources` conserva todas las URLs de una
+misma oferta, mientras `canonical_fingerprint` evita crear otra fila para el mismo identificador
+normalizado. Las ofertas no accionables permanecen en la base para historial. `job_areas` permite
+consultar y agrupar la vista por área profesional, incluida `Ventas / Comercial`.
 
 ## Estructura
 
@@ -118,4 +122,4 @@ Radar conserva tres líneas temporales relacionadas:
 - `profile_versions`: cada actualización explícita del perfil, con sus skills, objetivos y preferencias de ese momento.
 - `career_events` y `application_events`: empleo, formación, proyectos, entrevistas, logros y cambios de estado.
 
-Una oferta antigua se marca inactiva o expirada; no se elimina. Así se pueden comparar meses y años, detectar ofertas nuevas o modificadas y evaluar si una skill aprendida mejora el encaje posterior. PostgreSQL sigue siendo suficiente como fuente de verdad; la búsqueda vectorial queda para una etapa posterior, si el volumen y las consultas semánticas lo justifican.
+Una oferta antigua se marca inactiva o expirada; no se elimina. Así se pueden comparar meses y años, detectar ofertas nuevas o modificadas y evaluar si una skill aprendida mejora el encaje posterior. SQLite sigue siendo suficiente como fuente de verdad; la búsqueda vectorial queda para una etapa posterior, si el volumen y las consultas semánticas lo justifican.

@@ -1,15 +1,18 @@
-from datetime import UTC
+from datetime import UTC, datetime
 
 from radar.classify import classify, infer_seniority
 from radar.db.repository import _json_safe
 from radar.domain.models import RawJob
 from radar.enrichment import extract_schedule, infer_sector, infer_work_mode, normalize_salary
 from radar.freshness import filter_recent_jobs, is_recent
+from radar.geolocation import infer_location
 from radar.importers import load_job_file
 from radar.normalize import fingerprint, normalize_text
 from radar.salary import extract_salary
 from radar.scoring import score_job
+from radar.sources.computrabajo import ComputrabajoSource
 from radar.sources.jobspy import JobSpySource
+from radar.taxonomy import infer_relevance
 
 
 def test_normalization_and_fingerprint_are_stable():
@@ -32,6 +35,52 @@ def test_classification_keeps_evidence():
     assert {name for name, _ in result.skills} >= {"Excel", "Power BI", "Lean"}
     assert all(item.evidence for _, item in result.skills)
     assert infer_seniority(job) == "intern"
+
+
+def test_commercial_title_is_not_classified_as_industrial():
+    result = classify(RawJob(
+        "x",
+        "Ejecutivo Comercial",
+        "ACME",
+        "https://example.com",
+        description="Coordinar con operaciones y procesos internos.",
+    ))
+    assert result.primary_area.value == "Ventas / Comercial"
+    assert result.primary_area.confidence >= 0.9
+
+
+def test_industrial_title_can_keep_commercial_context_as_secondary():
+    result = classify(RawJob(
+        "x",
+        "Coordinador de Operaciones",
+        "ACME",
+        "https://example.com",
+        description="Relación comercial con clientes industriales.",
+    ))
+    assert result.primary_area.value == "Operaciones"
+
+
+def test_relevance_prioritizes_industrial_core_and_excludes_generic_sales():
+    core = infer_relevance(
+        RawJob("x", "Analista de Procesos", "ACME", "https://example.com", description="Automatización y mejora continua."),
+        "Procesos",
+    )
+    commercial = infer_relevance(
+        RawJob("x", "Ejecutivo Comercial", "ACME", "https://example.com", description="Ingeniería Industrial como requisito."),
+        "Ventas / Comercial",
+    )
+    assert core.tier == "core"
+    assert core.score >= 0.8
+    assert commercial.tier == "out_of_focus"
+    assert "excluido" in commercial.evidence
+
+
+def test_relevance_does_not_treat_education_only_as_core():
+    result = infer_relevance(
+        RawJob("x", "Asistente administrativo", "ACME", "https://example.com", description="Se requiere Ingeniería Industrial."),
+        "Procesos",
+    )
+    assert result.tier == "adjacent"
 
 
 def test_classification_does_not_match_sop_inside_soporte():
@@ -87,6 +136,42 @@ def test_job_file_import_maps_publication_date(tmp_path):
     assert jobs[0].published_at is not None
 
 
+def test_computrabajo_parses_relative_publication_date():
+    parsed = ComputrabajoSource._parse_published_at("Hace 2 días")
+    assert parsed is not None
+    assert (datetime.now(UTC).date() - parsed.date()).days == 2
+    recent = ComputrabajoSource._parse_published_at("Hace 41 minutos")
+    assert recent is not None
+    assert 0 <= (datetime.now(UTC) - recent).total_seconds() < 3600
+    job = ComputrabajoSource()._to_job({
+        "title": "Analista",
+        "company": "ACME",
+        "url": "https://computrabajo.com/oferta",
+        "publishedDate": "Hace 1 hora",
+    })
+    assert job.published_at is not None
+
+
+def test_computrabajo_detail_is_extracted_without_replacing_public_url():
+    source = ComputrabajoSource()
+    detail = source._extract_detail({"structuredContent": {"job": {
+        "offerId": "ABC123",
+        "description": "Funciones de procesos y mejora continua.",
+        "salary": "S/ 1,650 mensuales",
+        "workday": "Presencial",
+        "contractType": "Planilla",
+    }}})
+    merged = source._merge_detail(
+        {"offerId": "ABC123", "url": "https://pe.computrabajo.com/oferta-publica", "publishedDate": "Ayer"},
+        detail,
+    )
+    job = source._to_job(merged)
+    assert job.url == "https://pe.computrabajo.com/oferta-publica"
+    assert "mejora continua" in (job.description or "")
+    assert "Jornada: Presencial" in (job.description or "")
+    assert job.employment_type == "Planilla"
+
+
 def test_freshness_excludes_old_undated_and_future_jobs():
     from datetime import datetime
 
@@ -129,6 +214,17 @@ def test_explicit_onsite_wins_over_ambiguous_remote_mention():
 
 def test_salary_normalization_rejects_malformed_pen_value():
     assert normalize_salary(4, None, "PEN", "mensual") == (None, None, None)
+    assert normalize_salary(100, None, "PEN", "mensual") == (None, None, None)
+
+
+def test_geolocation_resolves_common_lima_aliases():
+    assert infer_location("Lurin, LIM, PE").label == "Lurín"
+    assert infer_location("Vitarte, LIM, PE").label == "Ate"
+    assert infer_location("Ventanilla, CAL, PE").label == "Ventanilla"
+    assert infer_location("Campoy, LIM, PE").label == "San Juan de Lurigancho"
+    assert infer_location("Santa Clara, LIM, PE").label == "Ate"
+    assert infer_location("Chaclacayo, LIM, PE").label == "Chaclacayo"
+    assert infer_location("Barranco, LIM, PE").label == "Barranco"
 
 
 def test_jobspy_cleans_nan_optional_fields():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -44,10 +45,14 @@ if FRONTEND_OUT.exists():
     @app.get("/radar", include_in_schema=False)
     @app.get("/radar/", include_in_schema=False)
     def serve_radar_ui():
+        # The HTML shell must always revalidate: it references content-hashed
+        # /_next/static assets that are replaced (not versioned) on every build,
+        # so a cached stale shell can point at files that no longer exist.
+        headers = {"Cache-Control": "no-cache"}
         radar_html = FRONTEND_OUT / "radar.html"
         if radar_html.exists():
-            return FileResponse(str(radar_html))
-        return FileResponse(str(FRONTEND_OUT / "index.html"))
+            return FileResponse(str(radar_html), headers=headers)
+        return FileResponse(str(FRONTEND_OUT / "index.html"), headers=headers)
 
     @app.get("/", include_in_schema=False)
     def root():
@@ -77,7 +82,9 @@ def jobs(
     seniority: str | None = None,
     area: str | None = None,
     work_mode: str | None = None,
+    source: str | None = None,
     skill: str | None = None,
+    relevance_tier: str | None = None,
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
     include_hidden: bool = False,
@@ -91,7 +98,9 @@ def jobs(
         work_mode=work_mode,
         min_salary=min_salary,
         include_hidden=include_hidden,
+        source=source,
         skill=skill,
+        relevance_tier=relevance_tier,
     )
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
 
@@ -102,6 +111,8 @@ def map_jobs(
     seniority: str | None = None,
     area: str | None = None,
     work_mode: str | None = None,
+    source: str | None = None,
+    relevance_tier: str | None = None,
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
 ) -> dict[str, Any]:
@@ -113,6 +124,8 @@ def map_jobs(
         search=search,
         work_mode=work_mode,
         min_salary=min_salary,
+        source=source,
+        relevance_tier=relevance_tier,
     )
     features = []
     for row in rows:
@@ -181,10 +194,8 @@ def favorite_jobs() -> dict[str, Any]:
 def add_favorite(job_id: str) -> dict[str, bool]:
     try:
         set_job_favorite(job_id)
-    except Exception as exc:
-        if "violates foreign key" in str(exc):
-            raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
-        raise
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
     return {"is_favorite": True}
 
 
@@ -200,10 +211,8 @@ def update_job_status(job_id: str, payload: JobStatusUpdate) -> dict[str, str]:
         raise HTTPException(status_code=422, detail="El motivo es obligatorio al ocultar una oferta")
     try:
         set_job_user_status(job_id, payload.status, payload.reason, payload.note)
-    except Exception as exc:
-        if "violates foreign key" in str(exc):
-            raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
-        raise
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
     return {"status": payload.status}
 
 

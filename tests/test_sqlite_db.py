@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+
+import pytest
+
 from radar.db.queries import (
     get_profile,
     list_jobs,
@@ -5,6 +9,25 @@ from radar.db.queries import (
     recommendations,
     skill_overview,
 )
+from radar.db.repository import ingest_jobs, save_profile
+from radar.domain.models import RawJob
+
+
+@pytest.fixture(autouse=True)
+def seeded_db(tmp_path, monkeypatch):
+    """Isolated SQLite database seeded with one job and a matching profile."""
+    monkeypatch.setenv("RADAR_DB_PATH", str(tmp_path / "radar.db"))
+    job = RawJob(
+        source="test",
+        title="Practicante de Mejora Continua",
+        company="ACME",
+        url="https://example.com/1",
+        location="Lima",
+        description="Requiere Excel, Power BI y Lean",
+        published_at=datetime.now(UTC),
+    )
+    ingest_jobs([job])
+    save_profile("Test", None, ["Mejora continua"], ["Lima"], ["hybrid"], {"Excel": "advanced"})
 
 
 def test_sqlite_queries_work():

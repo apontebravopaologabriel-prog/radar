@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from radar.db.repository import (
     add_career_event,
+    audit_data_quality,
     capture_market_snapshot,
     ingest_jobs,
     repair_data_quality,
@@ -55,6 +56,7 @@ def main() -> None:
     importer.add_argument("--file", required=True)
     importer.add_argument("--source", required=True, help="linkedin, bumeran, laborum, empleos-peru o ATS")
     sub.add_parser("repair-data", help="Repara modalidad, sector, salario y horario incompletos")
+    sub.add_parser("audit-data", help="Audita duplicados, clasificación comercial y consistencia SQL")
     profile.add_argument(
         "--skill",
         action="append",
@@ -90,6 +92,8 @@ def main() -> None:
         print(ingest_jobs(load_job_file(args.file, args.source)))
     elif args.command == "repair-data":
         print(repair_data_quality())
+    elif args.command == "audit-data":
+        print(audit_data_quality())
 
 
 if __name__ == "__main__":

@@ -18,11 +18,21 @@ AREA_RULES: dict[str, tuple[str, ...]] = {
     "Automatización": ("automatizacion", "rpa", "power automate"),
     "Procesos": ("procesos", "process improvement", "bpmn"),
     "Producción": ("produccion", "manufactura", "planta"),
+    "Mantenimiento": ("mantenimiento", "confiabilidad", "reliability", "mantenimiento industrial"),
     "Operaciones": ("operaciones", "operations"),
     "Proyectos / PMO": ("proyectos", "pmo", "project management"),
     "Seguridad y Salud en el Trabajo": ("sst", "seguridad y salud", "sso", "osha"),
     "Finanzas / Control de gestión": ("costos", "control de gestion", "finanzas"),
 }
+
+# Commercial roles get their own category instead of being forced into an
+# industrial area by generic words found in their descriptions.
+COMMERCIAL_RULES: tuple[str, ...] = (
+    "ventas", "venta", "vendedor", "comercial", "asesor comercial", "ejecutivo comercial",
+    "coordinador comercial", "jefe de ventas", "supervisor de ventas",
+    "responsable comercial", "account executive", "key account", "sales engineer",
+    "sales", "sales manager", "promotor", "business development",
+)
 
 SKILL_ALIASES: dict[str, tuple[str, ...]] = {
     "Excel": ("excel", "microsoft 365"),
@@ -97,10 +107,17 @@ def classify(job: RawJob) -> ClassifiedJob:
     description = normalize_text(job.description)
     text = f"{title} {description}"
     matched: list[tuple[float, int, Evidence]] = []
+    commercial_title = next((phrase for phrase in sorted(COMMERCIAL_RULES, key=len, reverse=True) if _contains(title, phrase)), None)
+    commercial_text = commercial_title or next((phrase for phrase in sorted(COMMERCIAL_RULES, key=len, reverse=True) if _contains(description, phrase)), None)
+    if commercial_text:
+        weight = 4.0 if commercial_title else 0.5
+        matched.append((weight + len(commercial_text) / 100, -1, Evidence("Ventas / Comercial", 0.94 if commercial_title else 0.55, _evidence(text, commercial_text))))
     for order, (area, phrases) in enumerate(AREA_RULES.items()):
         phrase = next((p for p in sorted(phrases, key=len, reverse=True) if _contains(text, p)), None)
         if phrase:
             weight = 2.0 if _contains(title, phrase) else 1.0
+            if commercial_title and not _contains(title, phrase):
+                weight -= 0.75
             matched.append((weight + len(phrase) / 100, order, Evidence(area, 0.82, _evidence(text, phrase))))
     if not matched:
         evidence = Evidence("Otras", 0.35, "No se encontró una señal suficiente en el texto")

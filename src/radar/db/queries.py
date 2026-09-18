@@ -16,9 +16,13 @@ def list_jobs(
     work_mode: str | None = None,
     min_salary: float | None = None,
     include_hidden: bool = False,
+    source: str | None = None,
     skill: str | None = None,
+    relevance_tier: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses = [
+        "j.is_active = 1",
+        "j.duplicate_status = 'canonical'",
         "j.published_at IS NOT NULL",
         "date(j.published_at) >= date('now', '-' || %s || ' days')",
         "date(j.published_at) < date('now', '+1 day')",
@@ -40,9 +44,17 @@ def list_jobs(
     if min_salary is not None:
         clauses.append("COALESCE(j.salary_max, j.salary_min, 0) >= %s")
         params.append(min_salary)
+    if source:
+        clauses.append("EXISTS (SELECT 1 FROM job_sources jsource JOIN sources src ON src.id=jsource.source_id WHERE jsource.job_id=j.id AND lower(src.name) LIKE lower(%s))")
+        params.append(f"%{source}%")
     if skill:
         clauses.append("EXISTS (SELECT 1 FROM job_skills jskill JOIN skills skill ON skill.id=jskill.skill_id WHERE jskill.job_id=j.id AND skill.name=%s)")
         params.append(skill)
+    if relevance_tier:
+        if relevance_tier not in {"core", "adjacent", "out_of_focus"}:
+            raise ValueError("relevance_tier inválido")
+        clauses.append("j.relevance_tier = %s")
+        params.append(relevance_tier)
     if not include_hidden:
         clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
     limit_clause = ""
@@ -52,7 +64,8 @@ def list_jobs(
     sql = f"""SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency,
         (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
-        j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
+        j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
+        j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
         EXISTS (SELECT 1 FROM job_user_favorites juf WHERE juf.job_id=j.id) AS is_favorite
@@ -71,7 +84,8 @@ def list_hidden_jobs() -> list[dict[str, Any]]:
     sql = """SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency,
         (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
-        j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
+        j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
+        j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         jus.status AS user_status, jus.reason AS user_reason, 1 AS is_favorite
         FROM jobs j
@@ -103,7 +117,8 @@ def list_favorite_jobs() -> list[dict[str, Any]]:
     sql = """SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency,
         (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
-        j.published_at, ia.name AS primary_area, j.sector, j.description_clean,
+        j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
+        j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
         1 AS is_favorite
@@ -127,6 +142,8 @@ def skill_overview(
 ) -> dict[str, Any]:
     """Resume demanda de skills y la cruza con el último perfil local."""
     clauses = [
+        "j.is_active = 1",
+        "j.duplicate_status = 'canonical'",
         "j.published_at IS NOT NULL",
         "date(j.published_at) >= date('now', '-' || %s || ' days')",
         "date(j.published_at) < date('now', '+1 day')",
@@ -206,12 +223,12 @@ def market_summary() -> dict[str, Any]:
     with connection() as conn:
         areas = conn.execute("""SELECT ia.name, count(*) AS job_count
             FROM job_areas ja JOIN industrial_areas ia ON ia.id=ja.area_id
-            JOIN jobs j ON j.id=ja.job_id WHERE j.is_active=1 AND ja.is_primary=1
+            JOIN jobs j ON j.id=ja.job_id WHERE j.is_active=1 AND j.duplicate_status='canonical' AND ja.is_primary=1
             GROUP BY ia.name ORDER BY job_count DESC, ia.name""").fetchall()
         skills = conn.execute("""SELECT s.name, count(*) AS job_count
             FROM job_skills js JOIN skills s ON s.id=js.skill_id JOIN jobs j ON j.id=js.job_id
-            WHERE j.is_active=1 GROUP BY s.name ORDER BY job_count DESC, s.name LIMIT 30""").fetchall()
-        total = conn.execute("SELECT count(*) FROM jobs WHERE is_active=1").fetchone()[0]
+            WHERE j.is_active=1 AND j.duplicate_status='canonical' GROUP BY s.name ORDER BY job_count DESC, s.name LIMIT 30""").fetchall()
+        total = conn.execute("SELECT count(*) FROM jobs WHERE is_active=1 AND duplicate_status='canonical'").fetchone()[0]
     return {
         "total_active_jobs": total,
         "by_area": [{"area": x[0], "job_count": int(x[1])} for x in areas],
@@ -269,7 +286,7 @@ def recommendations(
             j.application_status, j.application_checked_at,
             js.total_score, js.strong_matches, js.missing_skills, js.reason
             FROM job_scores js JOIN jobs j ON j.id=js.job_id LEFT JOIN companies c ON c.id=j.company_id
-            WHERE js.profile_id=%s AND j.is_active=1
+            WHERE js.profile_id=%s AND j.is_active=1 AND j.duplicate_status='canonical'
             AND COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')
             AND NOT EXISTS (SELECT 1 FROM job_sources jsl JOIN sources sl ON sl.id=jsl.source_id WHERE jsl.job_id=j.id AND lower(sl.name)='linkedin' AND (COALESCE(j.application_status, 'unknown') <> 'open' OR j.application_checked_at IS NULL OR date(j.application_checked_at) < date('now', '-' || %s || ' days')))
             AND j.published_at IS NOT NULL
@@ -394,6 +411,9 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "published_at",
         "primary_area",
         "sector",
+        "relevance_tier",
+        "relevance_score",
+        "relevance_evidence",
         "description",
         "hours_per_week",
         "schedule_text",

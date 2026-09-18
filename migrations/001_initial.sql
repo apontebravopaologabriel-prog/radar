@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS jobs_market_idx ON jobs (country, city, seniority, is_active);
 CREATE INDEX IF NOT EXISTS jobs_published_idx ON jobs (published_at DESC);
 CREATE INDEX IF NOT EXISTS jobs_fingerprint_idx ON jobs (canonical_fingerprint);
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_fingerprint_unique_idx ON jobs (canonical_fingerprint);
 
 CREATE TABLE IF NOT EXISTS job_sources (
     job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
@@ -81,6 +82,7 @@ CREATE TABLE IF NOT EXISTS job_areas (
     evidence TEXT,
     PRIMARY KEY (job_id, area_id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = TRUE;
 
 CREATE TABLE IF NOT EXISTS skills (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -186,6 +188,8 @@ INSERT INTO sources (name, source_type, base_url) VALUES
     ('JobSpy/Indeed', 'library', 'https://www.indeed.com')
 ON CONFLICT (name) DO NOTHING;
 
+CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = TRUE;
+
 INSERT INTO industrial_areas (name, slug) VALUES
     ('Operaciones', 'operaciones'), ('Producción', 'produccion'),
     ('Mejora continua', 'mejora-continua'), ('Procesos', 'procesos'),
@@ -197,6 +201,7 @@ INSERT INTO industrial_areas (name, slug) VALUES
     ('Finanzas / Control de gestión', 'finanzas-control'),
     ('Seguridad y Salud en el Trabajo', 'sst'), ('Recursos Humanos / People Analytics', 'rrhh-people-analytics'),
     ('Otras', 'otras')
+    ,('Ventas / Comercial', 'ventas-comercial')
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO skills (name, normalized_name, category) VALUES
@@ -212,4 +217,3 @@ INSERT INTO skills (name, normalized_name, category) VALUES
     ('Project Management', 'project-management', 'proyectos'), ('Scrum', 'scrum', 'proyectos'),
     ('English', 'english', 'idioma')
 ON CONFLICT (name) DO NOTHING;
-

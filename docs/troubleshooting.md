@@ -1,12 +1,12 @@
 # Troubleshooting
 
-## PostgreSQL no responde
+## La base de datos no aparece o está vacía
 
-Revisa `docker compose ps` y `docker compose logs postgres --tail 100`. La URL por defecto es `postgresql://radar:radar_local_only@localhost:5433/radar`.
-
-## Las tablas no aparecen
-
-Los SQL de `/docker-entrypoint-initdb.d` se ejecutan solo cuando se crea el volumen. Para cambios posteriores usa una migración nueva.
+Radar usa SQLite; se crea automáticamente en `~/.local/share/radar/radar.db` (o en `RADAR_DB_PATH`)
+en la primera conexión, con el esquema completo de `src/radar/db/schema_sqlite.sql` ya poblado
+(catálogo de áreas y skills incluido). Si el archivo existe pero faltan tablas o catálogo nuevos,
+basta con volver a conectar: `_ensure_runtime_schema()` reaplica de forma aditiva lo que falte. Ver
+[`docs/database.md`](database.md).
 
 ## Computrabajo no devuelve resultados
 

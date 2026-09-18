@@ -10,17 +10,17 @@ La V1 implementa la columna vertebral y V2 añade memoria profesional:
 buscar → normalizar → clasificar → deduplicar → observar → guardar → puntuar → evolucionar
 ```
 
-La fuente de verdad es PostgreSQL. Hermes se conecta mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
+La fuente de verdad es SQLite (archivo local, sin servidor). Hermes se conecta mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
 
 El frontend incluye las vistas `Distritos`, `Radar` y `Skills`. `Skills` resume la
 demanda de habilidades de las ofertas recientes y la compara con el perfil local,
-sin reemplazar la fuente de verdad PostgreSQL.
+sin reemplazar la fuente de verdad SQLite.
 
 ## Documentación
 
 - [Guía para agentes](AGENTS.md)
 - [Arquitectura y flujo](docs/architecture.md)
-- [Modelo PostgreSQL](docs/database.md)
+- [Modelo de datos](docs/database.md)
 - [MCP para Hermes](docs/mcp.md)
 - [Operación diaria](docs/operations.md)
 - [Troubleshooting](docs/troubleshooting.md)
@@ -32,12 +32,14 @@ sin reemplazar la fuente de verdad PostgreSQL.
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres
 python -m venv .venv
 . .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 ```
+
+No se necesita ningún servicio externo: SQLite se crea automáticamente en
+`~/.local/share/radar/radar.db` (o en `RADAR_DB_PATH`).
 
 Para Computrabajo, el adaptador usa `npx mcp-computrabajo@latest` en modo stdio. La búsqueda no requiere cookie según el servidor; no se configuran cookies ni herramientas de perfil/postulación en Radar.
 
@@ -117,9 +119,11 @@ Para sumar LinkedIn, Bumeran, Laborum o Empleos Perú sin automatizar cuentas pe
 
 El CSV puede incluir `published_at`, `work_mode`, `hours_per_week`, `schedule_text`, `salary_min`, `salary_max`, `salary_currency`, `salary_period`, `application_status` y `application_checked_at`. La vista de Radar se puede consultar por área (`area`) y ordena por fecha y actualización; el agrupamiento por área se obtiene desde `job_areas`.
 
-Las búsquedas automáticas y la vista web usan por defecto ofertas publicadas en los últimos 7 días; puedes cambiar la antigüedad a 14, 30 o 90 días desde la interfaz. Las ofertas antiguas no se borran: quedan en PostgreSQL como historial, pero no aparecen cuando están fuera de la ventana elegida.
+Las búsquedas automáticas y la vista web usan por defecto ofertas publicadas en los últimos 7 días; puedes cambiar la antigüedad a 14, 30 o 90 días desde la interfaz. Las ofertas antiguas no se borran: quedan en SQLite como historial, pero no aparecen cuando están fuera de la ventana elegida.
 
 La vista web se basa en la antigüedad de `published_at` y no excluye ofertas por `is_active`, estado de aplicación ni una regla especial de LinkedIn. Las ofertas ocultadas manualmente se excluyen de la vista normal y pueden consultarse/restaurarse desde el ícono de ojo. La URL original se conserva y el popup identifica la plataforma por su dominio cuando es posible. El detalle usa una tarjeta compacta: la descripción se resume inicialmente y se puede expandir con `Ver descripción completa`, evitando scrollbars anidados tanto en ofertas como en señales del Radar.
+
+La ingesta conserva el mercado capturado aunque una oferta no publique salario. La taxonomía de `src/radar/taxonomy.py` asigna una relevancia trazable: `core` para áreas centrales de Ingeniería Industrial, `adjacent` para áreas útiles relacionadas y `out_of_focus` para señales comerciales o no pertinentes. El salario se usa como métrica y filtro posterior, no para descartar ofertas durante la captura.
 
 La interfaz mantiene una composición sin barra superior: `Radar` funciona como título principal
 del explorador, dejando todo el alto disponible para filtros, ofertas y mapa.
@@ -130,14 +134,14 @@ canónica. Actualmente aplica a la instalación local completa; todavía no exis
 Las ofertas favoritas se guardan en `job_user_favorites` y se consultan desde la vista Favoritos
 mediante la estrella `☆`/`★`.
 
-Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta dieciséis consultas amplias de áreas industriales cada seis horas y usa una ventana de 7 días por defecto. La ingesta no filtra por salario; el sueldo se utiliza después como dato de análisis y filtro opcional:
+Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta dieciséis consultas amplias de áreas industriales en Indeed una vez al día y usa una ventana de 7 días por defecto. Computrabajo queda pausado automáticamente mientras se valida su extracción de detalle; se puede activar con `RADAR_COMPUTRABAJO_ENABLED=1` después de esa validación. La ingesta no filtra por salario; el sueldo se utiliza después como dato de análisis y filtro opcional:
 
 ```bash
 systemctl --user status radar-refresh.timer
 tail -f /home/paolo/.local/state/radar/refresh.log
 ```
 
-El refresco usa JobSpy/Indeed; LinkedIn, Bumeran, Laborum y Empleos Perú continúan entrando mediante importación asistida para no automatizar cuentas personales.
+El refresco usa JobSpy/Indeed y el adaptador MCP de Computrabajo; LinkedIn, Bumeran, Laborum y Empleos Perú continúan entrando mediante importación asistida para no automatizar cuentas personales.
 
 ## Límites deliberados
 

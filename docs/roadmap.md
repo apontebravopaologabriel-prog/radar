@@ -2,7 +2,7 @@
 
 ## V1 — implementada
 
-- PostgreSQL y migraciones.
+- PostgreSQL y migraciones (migrado posteriormente a SQLite nativo; ver `docs/database.md`).
 - Computrabajo MCP.
 - JobSpy/Indeed opcional.
 - Normalización y deduplicación.
@@ -42,12 +42,12 @@
 - Launcher `.desktop` que inicia servicios y abre Radar como web app independiente
   de Chromium.
 - Ocultar/restaurar ofertas desde la interfaz, con motivo persistido en `job_user_status`.
-- Vista `Skills` con demanda de mercado desde PostgreSQL, cruce contra el perfil y
+- Vista `Skills` con demanda de mercado desde SQLite, cruce contra el perfil y
   ruta visual de aprendizaje por etapas.
 
 ## Frontend geográfico — siguiente etapa
 
-- Persistir latitud, longitud, distrito y precisión en PostgreSQL.
+- Persistir latitud, longitud, distrito y precisión en SQLite.
 - Geocodificación controlada durante la ingesta.
 - Persistencia de coordenadas precisas y geocodificación controlada para que el radio de distancia
   deje de depender de centroides aproximados por distrito/ciudad.

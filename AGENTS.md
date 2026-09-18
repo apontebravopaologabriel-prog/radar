@@ -3,8 +3,8 @@
 ## Contexto
 
 Radar es una aplicación local de Career Intelligence para explorar ofertas de empleo en Lima.
-La fuente de verdad es PostgreSQL; FastAPI expone la API y Next.js genera el frontend estático
-que FastAPI sirve en `/radar`.
+La fuente de verdad es SQLite (archivo local, sin servidor); FastAPI expone la API y Next.js genera
+el frontend estático que FastAPI sirve en `/radar`.
 
 Antes de cambiar comportamiento, leer en este orden:
 
@@ -16,7 +16,7 @@ Antes de cambiar comportamiento, leer en este orden:
 ## Mapa del código
 
 - `src/radar/api.py`: endpoints HTTP y montaje del frontend estático.
-- `src/radar/db/`: conexión, repositorio y consultas PostgreSQL.
+- `src/radar/db/`: conexión, repositorio y consultas SQLite.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
 - `frontend/components/RadarClient.tsx`: estado, filtros, ofertas, popups y herramientas del mapa.
 - `frontend/components/MapView.tsx`: mapa MapLibre, distritos, etiquetas y radar.
@@ -32,6 +32,8 @@ Antes de cambiar comportamiento, leer en este orden:
   Competencias. No reintroducir barra superior, barra inferior ni controles de zoom del mapa.
 - El diseño es monocromático: negro, grafito y grises. No añadir acentos verdes salvo una decisión
   explícita de producto.
+- El refresco automático consulta Indeed mediante JobSpy y Computrabajo mediante su adaptador MCP;
+  cada portal debe ejecutarse de forma aislada para que un fallo no detenga la actualización.
 - Distritos muestra etiquetas compactas `Distrito · cantidad`; evita círculos superpuestos.
 - Radar requiere seleccionar un distrito y ofrece radios de 2, 5 y 10 km. Su selector puede abrirse
   hacia arriba y el panel queda flotante en la zona inferior derecha.
@@ -40,6 +42,18 @@ Antes de cambiar comportamiento, leer en este orden:
   derecha cuando se abre desde esa herramienta.
 - Las ofertas se presentan en una bandeja flotante redimensionable desde el tirador superior y
   con scroll interno. Las tarjetas deben conservar una altura compacta aunque haya pocas ofertas.
+  La bandeja también expone iconos compactos para alternar favoritos y ofertas ocultas.
+- En cada señal, la fuente (`Indeed`, `LinkedIn`, etc.) aparece junto al área al pasar el mouse o
+  enfocar la tarjeta; el título es el enlace directo a la oferta original y no debe abrir el detalle
+  accidentalmente.
+- La empresa puede mostrar un icono `⌖` discreto que abre una búsqueda externa de Google Maps con
+  empresa + ubicación; no convertirlo en una integración de API ni dibujar sedes automáticamente
+  en el mapa.
+- El panel de filtros incluye selectores de portal (`Indeed`, `Computrabajo`, etc.) y competencia;
+  ambos deben reutilizar los filtros de la API y mantener la selección sincronizada con el mapa.
+- En el detalle, el botón de ocultar es únicamente un icono de ojo junto a la `X` de cierre. Al
+  activarlo, el motivo aparece en un popup independiente a la izquierda del detalle; no volver a
+  convertirlo en un formulario inline dentro de la tarjeta.
 - Las descripciones se renderizan con el renderer Markdown local y no deben usar `dangerouslySetInnerHTML`
   con contenido de una fuente externa.
 
@@ -74,5 +88,7 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
   de estado/favoritos y sus endpoints.
 - Mantener la inferencia de coordenadas como aproximada y no presentarla como ubicación exacta.
 - No usar un LLM para decidir silenciosamente scores, niveles de competencia o vigencia.
-- Las migraciones de base de datos son incrementales; no borrar el volumen PostgreSQL para aplicar
-  cambios.
+- El esquema SQLite vive en `src/radar/db/schema_sqlite.sql`; un cambio de esquema se hace ahí (y en
+  `_ensure_runtime_schema()` si debe aplicarse a bases ya creadas), no borrando el archivo `.db` ni
+  añadiendo un `.sql` a `migrations/` (ese directorio es un artefacto histórico de PostgreSQL, ya no
+  se ejecuta). Ver `docs/database.md`.
