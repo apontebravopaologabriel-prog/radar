@@ -27,6 +27,7 @@ class JobSpySource:
             results_wanted=limit,
             country_indeed="Peru",
             description_format="markdown",
+            linkedin_fetch_description="linkedin" in self.sites,
             verbose=0,
         )
         return [self._row_to_job(row) for row in frame.to_dict(orient="records")]

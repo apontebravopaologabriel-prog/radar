@@ -9,6 +9,8 @@ STATE_DIR="/home/paolo/.local/state/radar"
 # a wider market snapshot is intentionally needed.
 MAX_AGE_DAYS="${RADAR_MAX_AGE_DAYS:-7}"
 COMPUTRABAJO_ENABLED="${RADAR_COMPUTRABAJO_ENABLED:-1}"
+# LinkedIn via jobspy validated 2026-09-18 (public search results, no login).
+export RADAR_JOBSPY_SITES="${RADAR_JOBSPY_SITES:-indeed,linkedin}"
 
 mkdir -p "$STATE_DIR"
 cd "$PROJECT_DIR"
