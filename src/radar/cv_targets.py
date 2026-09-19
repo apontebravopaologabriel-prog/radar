@@ -35,11 +35,19 @@ def photo_path() -> Path | None:
     return None
 
 
-def load_profile() -> dict[str, Any] | None:
-    path = data_dir() / "cv_master.json"
-    if not path.is_file():
+def _read_json(path: Path) -> dict[str, Any] | None:
+    """JSON de un archivo local editable a mano; uno dañado se ignora en lugar de romper la API."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return None
-    profile = json.loads(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else None
+
+
+def load_profile() -> dict[str, Any] | None:
+    profile = _read_json(data_dir() / "cv_master.json")
+    if profile is None:
+        return None
     # La ruta original de la foto es un dato de configuración local; no se expone.
     profile.pop("photo_path", None)
     profile["has_photo"] = photo_path() is not None
@@ -52,7 +60,10 @@ def load_targets() -> list[dict[str, Any]]:
         return []
     targets = []
     for path in sorted(directory.glob("*.json")):
-        target = json.loads(path.read_text(encoding="utf-8"))
+        target = _read_json(path)
+        if target is None or not isinstance(target.get("sections"), dict):
+            continue
+        target.setdefault("gaps", [])
         # Un CV objetivo es siempre hipotético, sin importar lo que diga el archivo.
         target["hypothetical"] = True
         target.pop("photo_path", None)
@@ -70,10 +81,13 @@ def build_matrix(targets: list[dict[str, Any]]) -> dict[str, Any]:
     for target in targets:
         for section in ("experience", "tools"):
             for item in target.get("sections", {}).get(section, []):
+                if not isinstance(item, dict):
+                    continue
                 key, status = item.get("key"), item.get("status")
                 if not key or status not in _STATUS_RANK:
                     continue
-                row = rows.setdefault(key, {"key": key, "label": item["text"], "cells": {}})
+                label = item.get("label") or item.get("text") or key
+                row = rows.setdefault(key, {"key": key, "label": label, "cells": {}})
                 current = row["cells"].get(target["id"])
                 if current is None or _STATUS_RANK[status] > _STATUS_RANK[current]:
                     row["cells"][target["id"]] = status
@@ -166,9 +180,15 @@ def validate_target(profile: dict[str, Any]) -> list[str]:
         if name not in _SECTIONS:
             errors.append(f"sección desconocida: {name}")
             continue
-        for index, item in enumerate(items if isinstance(items, list) else []):
+        if not isinstance(items, list):
+            errors.append(f"{name} debe ser una lista")
+            continue
+        for index, item in enumerate(items):
             where = f"{name}[{index}]"
-            if not item.get("text"):
+            if not isinstance(item, dict):
+                errors.append(f"{where}: debe ser un objeto")
+                continue
+            if not isinstance(item.get("text"), str) or not item["text"].strip():
                 errors.append(f"{where}: falta text")
             origin = item.get("origin")
             if origin not in _ORIGINS:
@@ -182,7 +202,13 @@ def validate_target(profile: dict[str, Any]) -> list[str]:
                 errors.append(f"{where}: status debe ser cubierto, parcial o falta")
             if status == "cubierto" and not item.get("reason"):
                 errors.append(f"{where}: 'cubierto' debe citar en reason la evidencia del perfil real")
-    for index, gap in enumerate(profile.get("gaps", [])):
+    gaps = profile.get("gaps", [])
+    if not isinstance(gaps, list):
+        return [*errors, "gaps debe ser una lista"]
+    for index, gap in enumerate(gaps):
+        if not isinstance(gap, dict):
+            errors.append(f"gaps[{index}]: debe ser un objeto")
+            continue
         if gap.get("kind") not in _GAP_KINDS:
             errors.append(f"gaps[{index}]: kind debe ser dias, semanas o no_cerrable_rapido")
         if not gap.get("action"):
@@ -192,6 +218,8 @@ def validate_target(profile: dict[str, Any]) -> list[str]:
 
 def save_target(job_id: str, profile: dict[str, Any]) -> dict[str, Any]:
     """Valida y guarda un CV objetivo. Los datos de la oferta y la distancia los pone el código."""
+    if not isinstance(profile, dict):
+        return {"saved": False, "errors": ["profile debe ser un objeto"]}
     errors = validate_target(profile)
     if errors:
         return {"saved": False, "errors": errors}
@@ -216,6 +244,8 @@ def save_target(job_id: str, profile: dict[str, Any]) -> dict[str, Any]:
     }
     directory = data_dir() / "targets"
     directory.mkdir(parents=True, exist_ok=True)
-    name = _slug(f"{job['company'] or 'sin_empresa'}_{job['title']}")
+    # El sufijo del id evita que dos ofertas con misma empresa y título se sobrescriban.
+    base = _slug(f"{job['company'] or 'sin_empresa'}_{job['title']}")
+    name = f"{base}_{job_id[:8]}"
     (directory / f"{name}.json").write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"saved": True, "id": name}

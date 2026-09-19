@@ -79,17 +79,19 @@ Deterministas; el LLM del agente hace la redacción.
 - `aggregate_targets(job_ids)`: brechas repetidas entre puestos, ordenadas por cuántos desbloquean.
 - `resolve_nearest_district(reference)`: distrito más cercano a una zona mencionada en la oferta.
 
-Almacenamiento: tabla SQLite `target_profiles` (`job_id`, JSON, fecha, versión del perfil real
-usado) siguiendo la regla de `AGENTS.md` sobre el esquema. Sin escritura sobre `jobs`.
+Almacenamiento: archivos JSON locales junto a la base de datos (`targets/<empresa>_<puesto>.json`), no
+tablas SQLite. Es una decisión deliberada para el V0: no cambia el esquema, se puede editar a mano y
+no toca `jobs`. Guardar de nuevo la misma oferta sobrescribe el archivo. Migrar a una tabla
+`target_profiles` con versiones solo tiene sentido si se necesita historial de cambios.
 
 ## Interfaz prevista
 
-Nueva herramienta flotante **CVs**, junto a Filtros, Radar y Competencias. Abre un panel grande
+Nueva herramienta flotante **CVs**, junto a Filtros, Radar y Análisis. Abre un panel grande
 sobre el mapa (sin barras ni páginas nuevas, según los contratos de `AGENTS.md`):
 
 1. **Matriz de brechas** (primera): filas = requisitos, columnas = puestos objetivo. Muestra qué se
    repite en todos y qué es específico de uno.
-2. **Comparar**: de 2 a 4 CVs ideales junto al perfil real, con scroll sincronizado por sección y
+2. **Comparar**: hasta 3 CVs ideales junto al perfil real, con las secciones alineadas por fila y
    estado cubierto/parcial/falta.
 3. **Render con foto**: plantilla visual del CV ideal, siempre con la marca hipotética.
 4. **Plan de cierre agregado**: acciones fusionadas y ordenadas por cuántos puestos desbloquean;
@@ -101,12 +103,12 @@ El contenido se renderiza con el renderer Markdown local; no se usa `dangerously
 
 ## Prototipo mínimo (V0)
 
-Solo lectura, sin herramientas MCP nuevas todavía. Los datos de prueba están como archivos locales
-(fuera de Git):
+Vista de solo lectura; el agente escribe los datos con las herramientas MCP. Los datos son archivos
+locales (fuera de Git):
 
 - `~/.local/share/radar/cv_master.json`: perfil real.
-- `~/.local/share/radar/targets/*.json`: un CV objetivo por oferta (3 de prueba: EXPERTIS, AUNA,
-  Core Capital).
+- `~/.local/share/radar/targets/*.json`: un CV objetivo por oferta (prueba inicial: EXPERTIS,
+  AUNA, Core Capital).
 
 Implementado: los pasos 1 y 2 (`src/radar/cv_targets.py`, endpoints `/api/cv/*`, `frontend/components/CvView.tsx`). La vista incluye cabecera con foto, Matriz de brechas y el CV ideal de cada puesto; `Comparar` pone tu perfil real junto a hasta 3 puestos, con las secciones alineadas por fila (sin scroll sincronizado: una sola cuadrícula). La matriz cruza solo ítems con `key` en `experience` y `tools`.
 
@@ -123,18 +125,19 @@ Pasos:
 ## Perfil real
 
 Las brechas requieren un perfil real estructurado (experiencia, formación, cursos, herramientas).
-Hoy el perfil solo guarda skills y eventos. Se puede empezar generando los CVs objetivo sin él y
-añadir el cálculo de brechas cuando el perfil esté cargado. La fuente puede ser un texto redactado
+La tabla `user_profile` de SQLite solo guarda skills, objetivos y eventos. El perfil real completo
+(experiencia, formación, certificados) vive en `cv_master.json`, cargado a partir del texto del usuario. La fuente puede ser un texto redactado
 por el usuario o el PDF exportado desde LinkedIn (`Más > Guardar como PDF`); Radar no automatiza
 sesiones ni lee perfiles de LinkedIn.
 
 ## Fases
 
-1. Perfil real estructurado y esquema JSON del CV objetivo.
-2. Herramientas MCP y tabla `target_profiles`.
-3. Prototipo con 3 ofertas reales generadas por el agente.
-4. Matriz de brechas.
-5. Vista Comparar.
-6. Render con foto y plan de cierre agregado.
-7. (Posterior, mínima) Ayuda para destacar en el CV real lo que el usuario ya cerró como brecha.
+1. Perfil real estructurado y esquema JSON del CV objetivo. **Hecho.**
+2. Herramientas MCP con validación de evidencia. **Hecho** (archivos JSON, no tabla).
+3. Prototipo con 3 ofertas reales. **Hecho** (generado a mano; falta probar la generación por el agente).
+4. Matriz de brechas. **Hecho.**
+5. Vista Comparar. **Hecho.**
+6. Render con foto y marca hipotética. **Hecho.** Plan de cierre agregado entre puestos: pendiente.
+7. Vínculo con el mapa (resaltar la oferta del CV abierto): pendiente.
+8. (Posterior, mínima) Ayuda para destacar en el CV real lo que el usuario ya cerró como brecha.
    Solo reordena y resalta; no inventa.

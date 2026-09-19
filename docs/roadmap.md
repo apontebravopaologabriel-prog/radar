@@ -43,7 +43,8 @@
   de Chromium.
 - Ocultar/restaurar ofertas desde la interfaz, con motivo persistido en `job_user_status`.
 - Vista `Skills` con demanda de mercado desde SQLite, cruce contra el perfil y
-  ruta visual de aprendizaje por etapas.
+  ruta visual de aprendizaje por etapas (reemplazada después por `Análisis`; el endpoint
+  `/api/skills/overview` se conserva).
 
 ## Frontend geográfico — siguiente etapa
 
@@ -57,7 +58,7 @@
 - Snapshots automáticos por semana/mes/año y reportes comparativos.
 - Métricas por área, empresa y skill.
 - Skill Gap priorizado con evidencias de proyectos, cursos y eventos de carrera.
-- Evolucionar `Skills` hacia `Competencias`: separar skill de mercado, capacidad humana,
+- Competencias (la vista `Skills` fue retirada; su rol lo cubren `Análisis` y `CVs`): separar skill de mercado, capacidad humana,
   asistencia de IA y evidencia verificable.
 - Añadir career tracks y roles adyacentes sin ampliar inicialmente el foco más allá de
   Ingeniería Industrial y sus áreas cercanas.

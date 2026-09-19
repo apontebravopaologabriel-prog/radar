@@ -134,9 +134,9 @@ def get_target_context(job_ids: list[str]) -> dict:
 def save_target_profile(job_id: str, profile: dict) -> dict:
     """Guarda un CV objetivo HIPOTÉTICO (nunca el CV real ni enviable). `profile` lleva `sections`
     (summary, experience, tools, education, certifications) con ítems {text, origin, quote?, reason?,
-    key?, status?} y `gaps` [{item, kind, action, estimate_days?, evidence_to_produce?}].
+    key?, label?, status?} y `gaps` [{item, kind, action, estimate_days?, evidence_to_produce?}].
     origin: explicito (cita), inferido (con reason) o tipico. status: cubierto (con reason citando el
-    perfil real), parcial o falta. kind: dias, semanas o no_cerrable_rapido. Devuelve errores si el
+    perfil real), parcial o falta. kind: dias, semanas o no_cerrable_rapido. `key` agrupa el mismo requisito entre puestos en la matriz y `label` es su nombre corto. Devuelve errores si el
     esquema no valida; la empresa, el título y la distancia los calcula Radar."""
     return cv_targets.save_target(job_id, profile)
 

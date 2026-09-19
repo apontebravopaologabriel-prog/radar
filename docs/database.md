@@ -30,7 +30,7 @@ directamente en `schema_sqlite.sql` (y, si aplica a bases existentes, también e
 | `user_skills` | Nivel, evidencia e interés |
 | `job_scores` | Resultado del Match Engine |
 | `market_snapshots` | Base para histórico |
-| `applications` | Estados de seguimiento; sin herramientas MCP en V1 |
+| `applications` | Estados de seguimiento (`track_job_application` y `list_job_applications` en el MCP) |
 | `job_observations` | Fotografías temporales de cada oferta por fuente |
 | `profile_versions` | Versiones inmutables del perfil profesional |
 | `career_events` | Empleo, estudios, proyectos, cursos, logros y metas |
@@ -85,10 +85,13 @@ La tabla representa actualmente una sola instalación local y no contiene `user_
 `job_user_favorites` registra la estrella de cada oferta y es independiente de `job_user_status`.
 Una oferta puede estar guardada y ocultada sin perderse de Favoritos.
 
-La vista `Skills` calcula la demanda desde las ofertas filtradas por antigüedad,
+El endpoint `/api/skills/overview` (la vista `Skills` fue reemplazada por `Análisis`) calcula la demanda desde las ofertas filtradas por antigüedad,
 área, seniority y modalidad, agrupando `job_skills`. El perfil se cruza desde
 `user_skills` y la evidencia disponible; no se altera el mercado ni se inventa un
 nivel cuando el usuario no lo declaró. La API expone este agregado mediante
 `GET /api/skills/overview`.
+
+Los CVs objetivo hipotéticos, el perfil real completo y la foto **no** están en SQLite: son archivos
+JSON/imagen junto a la base (`cv_master.json`, `targets/`, `photo.jpg`). Ver `docs/target-profiles.md`.
 
 Ver la sección inicial de este documento para cómo se aplica y actualiza el esquema SQLite.

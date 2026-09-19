@@ -67,11 +67,12 @@ Las coordenadas aproximadas deben mostrar su nivel de precisión.
 ### Competencias
 
 Cruce entre demanda, nivel declarado, brecha, evidencia y siguiente acción.
-Esta vista evoluciona la actual vista `Skills`.
+Esta vista evolucionaba la antigua vista `Skills`, ya retirada; hoy la demanda de skills se
+consulta desde `Análisis` y la brecha contra el perfil desde `CVs`.
 
 ### CVs objetivo
 
-Candidato ideal hipotético por oferta, comparable de 2 a 4 a la vez contra el perfil real,
+Candidato ideal hipotético por oferta, comparable hasta 3 a la vez contra el perfil real,
 con matriz de brechas y plan de cierre. No es un CV enviable. Ver
 [CVs objetivo](target-profiles.md).
 

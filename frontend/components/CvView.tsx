@@ -60,7 +60,7 @@ export default function CvView() {
         <div className="cv-profile-text">
           <p className="eyebrow">CVs objetivo / hipotéticos</p>
           <h2>{profile?.name ?? "Perfil real no cargado"}</h2>
-          {profile && <p className="cv-profile-meta">{profile.home_district} · {profile.education[0]?.program} {profile.education[0] ? `(${profile.education[0].status})` : ""}</p>}
+          {profile && <p className="cv-profile-meta">{[profile.home_district, profile.education?.[0] ? `${profile.education[0].program} (${profile.education[0].status})` : null].filter(Boolean).join(" · ")}</p>}
         </div>
         <nav className="cv-tabs" role="tablist" aria-label="Vista de CVs">
           <button type="button" role="tab" aria-selected={!open && !comparing} className={!open && !comparing ? "active" : ""} onClick={showMatrix}>Matriz</button>
@@ -131,12 +131,12 @@ function TargetCv({ target }: { target: CvTarget }) {
           </ul>
         </section>
       ))}
-      {target.gaps.length > 0 && (
+      {target.gaps?.length > 0 && (
         <section>
           <h4>Cómo acercarte</h4>
           <ul className="cv-gaps">
-            {target.gaps.map((gap) => (
-              <li key={gap.item}>
+            {target.gaps.map((gap, index) => (
+              <li key={`${gap.item}-${index}`}>
                 <span>{gap.item}</span>
                 <small className={`cv-kind ${gap.kind}`}>{KIND_LABEL[gap.kind]}{gap.estimate_days ? ` · ~${gap.estimate_days} d` : ""}</small>
                 <em>{gap.action}{gap.evidence_to_produce ? ` Evidencia: ${gap.evidence_to_produce}.` : ""}</em>
@@ -155,7 +155,7 @@ function realColumn(profile: CvProfile | null): Record<string, string[]> {
     summary: profile.summary ? [profile.summary] : [],
     experience: (profile.experience ?? []).map((job) => `${job.role} · ${job.company} (${job.from} – ${job.to})`),
     tools: Object.entries(profile.tools_declared_in_db ?? {}).filter(([name]) => !name.startsWith("_")).map(([name, level]) => `${name} (${level}, autodeclarado)`),
-    education: profile.education.map((school) => `${school.program} · ${school.institution} (${school.status})`),
+    education: (profile.education ?? []).map((school) => `${school.program} · ${school.institution} (${school.status})`),
     certifications: (profile.certifications ?? []).map((cert) => `${cert.name} · ${cert.date}`),
   };
 }

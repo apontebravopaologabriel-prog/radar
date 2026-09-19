@@ -60,6 +60,19 @@ if ! build_frontend_if_needed; then
     exit 1
 fi
 
+# Una API que sigue corriendo con código anterior responde a /api/health pero devuelve 404 en las
+# rutas nuevas. Si algún módulo de src/radar es más nuevo que el proceso, se reinicia.
+restart_api_if_stale() {
+    api_pid=$(/usr/bin/pgrep -f "$PROJECT_DIR/.venv/bin/radar-api" | head -n 1)
+    [ -n "$api_pid" ] || return 0
+    stale_source=$(find "$PROJECT_DIR/src/radar" -name '*.py' -newer "/proc/$api_pid" -print -quit)
+    if [ -n "$stale_source" ]; then
+        pkill -f "$PROJECT_DIR/.venv/bin/radar-api" 2>/dev/null || true
+        sleep 1
+    fi
+}
+restart_api_if_stale
+
 # Mantener la API viva al cerrar Chromium evita dejar una ventana estática sin
 # backend. El siguiente lanzamiento solo la inicia si realmente no responde.
 if ! /usr/bin/curl -fsS --max-time 2 "$API_URL" >/dev/null 2>&1; then

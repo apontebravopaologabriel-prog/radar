@@ -58,3 +58,14 @@ sirve la interfaz junto con la API en el puerto 8100. Si la interfaz no carga, r
 El sidebar tiene scroll propio. Si parece no actualizarse durante `npm run dev`, recarga la
 página sin caché. En pantallas pequeñas, la lista de ofertas también tiene un scroll interno
 independiente para conservar accesibles el ranking y el resto del explorador.
+
+## La vista CVs muestra "La API respondió 404" o "Perfil real no cargado"
+
+- **404 en `/api/cv/*`:** la API en el puerto 8100 corre código anterior. El launcher la reinicia solo si
+  el código cambió; si la iniciaste por otro medio, reiníciala como indica `docs/operations.md`.
+- **"Perfil real no cargado":** falta `cv_master.json` junto a la base de datos
+  (`~/.local/share/radar/`, o el directorio de `RADAR_DB_PATH`). Sin `targets/*.json` la vista dice
+  que no hay CVs objetivo.
+- **Sin foto:** se espera `photo.jpg` o `photo.png` en ese mismo directorio.
+- **`save_target_profile` devuelve `errors`:** el esquema exige `quote` o `reason` en ítems explícitos,
+  `reason` en inferidos y en `cubierto`, y valores válidos de `origin`, `status` y `kind`.

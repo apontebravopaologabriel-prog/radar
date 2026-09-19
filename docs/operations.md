@@ -154,8 +154,9 @@ No edites el esquema SQLite a mano; los cambios van en
 
 ## Reiniciar la API tras cambios de backend
 
-`scripts/radar-launch.sh` solo inicia la API si no responde; no reinicia una instancia que ya corre
-con código anterior. Tras cambiar `src/radar/`, las rutas nuevas devuelven 404 hasta reiniciarla:
+`scripts/radar-launch.sh` reinicia la API automáticamente si algún `.py` de `src/radar/` es más nuevo
+que el proceso en marcha, así que abrir Radar desde el launcher basta. Si la API se inició por otro
+medio, o para reiniciarla a mano, las rutas nuevas devuelven 404 hasta hacerlo:
 
 ```bash
 pkill -f ".venv/bin/radar-api"

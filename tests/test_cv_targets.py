@@ -85,3 +85,33 @@ def test_districts_near_orders_by_distance():
     near = cv_targets.districts_near("cerca de Miraflores", 3)
     assert near[0] == {"district": "Miraflores", "km": 0.0}
     assert near[1]["km"] <= near[2]["km"]
+
+
+def test_damaged_and_malformed_files_are_ignored(data):
+    (data / "cv_master.json").write_text("{no es json", encoding="utf-8")
+    (data / "targets" / "roto.json").write_text("[1, 2]", encoding="utf-8")
+    (data / "targets" / "sin_secciones.json").write_text("{}", encoding="utf-8")
+    _target(data, "ok", [{"text": "SQL", "key": "sql", "status": "cubierto"}, "no soy un objeto"])
+    assert cv_targets.load_profile() is None
+    [target] = cv_targets.load_targets()
+    assert target["id"] == "ok" and target["gaps"] == []
+    assert cv_targets.build_matrix([target])["rows"][0]["key"] == "sql"
+
+
+def test_validate_target_rejects_wrong_types_without_crashing():
+    assert cv_targets.validate_target({"sections": {"tools": "texto"}, "gaps": 3})
+    assert cv_targets.validate_target({"sections": {"tools": ["x"]}, "gaps": ["y"]})
+    assert cv_targets.validate_target({"sections": {"tools": [{"text": 5, "origin": "tipico"}]}})
+
+
+def test_same_company_and_title_do_not_overwrite(seeded_job):
+    profile = {"sections": {"tools": [{"text": "SQL", "origin": "tipico"}]}, "gaps": []}
+    first = cv_targets.save_target(seeded_job, profile)
+    second = cv_targets.save_target("otro-id-inexistente", profile)
+    assert first["saved"] is True and second["saved"] is False
+    assert first["id"].endswith(seeded_job[:8])
+
+
+def test_matrix_prefers_short_label(data):
+    _target(data, "a", [{"text": "Una frase larguísima del requisito", "label": "SQL", "key": "sql", "status": "falta"}])
+    assert cv_targets.build_matrix(cv_targets.load_targets())["rows"][0]["label"] == "SQL"

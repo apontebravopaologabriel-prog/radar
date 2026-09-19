@@ -1,5 +1,8 @@
 # Auditoría de competencias del mercado
 
+> Nota: las vistas de grafo y `Competencias` descritas abajo fueron retiradas del frontend. La
+> clasificación (`skill_overview`, `/api/skills/overview`) sigue vigente y hoy se explora con `Análisis`.
+
 ## Alcance
 
 La auditoría revisa las competencias persistidas en `skills` y su evidencia en `job_skills`. La demanda se cuenta por ofertas distintas y respeta la ventana de antigüedad elegida en Radar. La clasificación visible se normaliza en `skill_overview` para no alterar los datos históricos.
