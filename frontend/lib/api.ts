@@ -1,4 +1,4 @@
-import type { AnalyticsQueryResult, AnalyticsSchema, Filters, Job, SkillOverview } from "../types";
+import type { AnalyticsQueryResult, AnalyticsSchema, CvMatrix, CvProfile, CvTarget, Filters, Job, SkillOverview } from "../types";
 
 const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL
   || (typeof window !== "undefined" && window.location.port !== "3000" ? window.location.origin : "http://127.0.0.1:8100");
@@ -75,4 +75,18 @@ export async function fetchAnalyticsSchema(signal?: AbortSignal): Promise<Analyt
   const response = await fetch(`${API_URL}/api/analytics/schema`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as AnalyticsSchema;
+}
+
+export const CV_PHOTO_URL = `${API_URL}/api/cv/photo`;
+
+export async function fetchCvProfile(signal?: AbortSignal): Promise<CvProfile | null> {
+  const response = await fetch(`${API_URL}/api/cv/profile`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { profile: CvProfile | null }).profile;
+}
+
+export async function fetchCvTargets(signal?: AbortSignal): Promise<{ targets: CvTarget[]; matrix: CvMatrix }> {
+  const response = await fetch(`${API_URL}/api/cv/targets`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return (await response.json()) as { targets: CvTarget[]; matrix: CvMatrix };
 }

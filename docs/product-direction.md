@@ -69,6 +69,12 @@ Las coordenadas aproximadas deben mostrar su nivel de precisión.
 Cruce entre demanda, nivel declarado, brecha, evidencia y siguiente acción.
 Esta vista evoluciona la actual vista `Skills`.
 
+### CVs objetivo
+
+Candidato ideal hipotético por oferta, comparable de 2 a 4 a la vez contra el perfil real,
+con matriz de brechas y plan de cierre. No es un CV enviable. Ver
+[CVs objetivo](target-profiles.md).
+
 ### Favoritos y postulaciones
 
 Seguimiento de ofertas guardadas, ocultas, postuladas, entrevistadas,
@@ -102,13 +108,15 @@ debe intentar cubrir todas las carreras desde el inicio.
 4. Registrar evidencias y vincularlas con proyectos.
 5. Comparar demanda, perfil y brechas.
 6. Integrar T y Plane mediante consultas de solo lectura.
-7. Añadir nuevos career tracks cuando el modelo inicial esté validado.
+7. CVs objetivo hipotéticos y comparación de brechas entre puestos (`target-profiles.md`).
+8. Añadir nuevos career tracks cuando el modelo inicial esté validado.
 
 ## No objetivos
 
 - Postular automáticamente.
 - Enviar mensajes a empresas.
-- Automatizar cuentas personales de LinkedIn.
+- Automatizar cuentas personales de LinkedIn ni leer perfiles de LinkedIn.
+- Exportar o enviar un CV hipotético como si fuera real; los CVs objetivo llevan marca fija y no se exportan.
 - Reemplazar Plane, Obsidian, T o IAI.
 - Inventar niveles de competencia sin evidencia.
 - Crear un grafo visual sin una acción útil detrás.

@@ -61,13 +61,15 @@ src/radar/
 ├── pipeline.py             # selección de fuente y ejecución
 ├── sources/                # adaptadores externos
 ├── db/                     # conexión, escritura y consultas
+├── cv_targets.py           # CVs objetivo hipotéticos: lectura, validación, matriz y distancias
 └── mcp/server.py           # interfaz para Hermes
 frontend/
 ├── app/radar/              # pantalla principal del explorador
 ├── components/RadarClient.tsx # filtros, lista, selección y estado de la vista
 ├── components/MapView.tsx  # MapLibre, distritos, coropleta, clusters y radios
 ├── components/LeafletMapView.tsx # fallback sin WebGL2
-├── components/SkillsView.tsx # demanda de skills, perfil y ruta sugerida
+├── components/AnalysisView.tsx # consultas SQL de solo lectura y sus resultados
+├── components/CvView.tsx   # CVs objetivo: foto, matriz de brechas, comparación y CV por puesto
 ├── app/globals.css         # tema grafito, layout y scroll del explorador
 └── lib/api.ts              # cliente HTTP de Radar API
 ```
@@ -96,10 +98,12 @@ frontend/
 - Las ofertas pueden ocultarse desde el detalle con un motivo y restaurarse desde la vista de ocultas; el estado vive en `job_user_status` y no altera `jobs`.
 - Las ofertas pueden guardarse con una estrella; Favoritos consulta `job_user_favorites` y es independiente de las ofertas ocultas.
 - La barra superior fue eliminada; `Radar` queda como encabezado principal del explorador y el mapa usa todo el alto disponible.
-- La vista `Skills` consulta `/api/skills/overview` y cruza la demanda reciente de
-  `job_skills` con el nivel, interés y evidencia declarados en `user_skills`.
-  Muestra una constelación de skills y una ruta sugerida; el progreso es orientativo
-  hasta que se registren evidencias verificables como proyectos o eventos de carrera.
+- La vista `Análisis` envía SQL a `/api/analytics/query`, que solo admite consultas de lectura, y
+  `/api/analytics/schema` describe las tablas disponibles.
+- La vista `CVs` lee `/api/cv/profile`, `/api/cv/targets` y `/api/cv/photo`. Los datos son archivos
+  locales junto a la base de datos (`cv_master.json`, `targets/*.json`, `photo.jpg`), fuera de Git y
+  fuera de SQLite; la API solo sirve la foto de esa ruta fija. Diseño y reglas en
+  `docs/target-profiles.md`.
 
 ## Frontera con T
 

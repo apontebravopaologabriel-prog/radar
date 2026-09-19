@@ -43,6 +43,22 @@ La entrada usa `/home/paolo/Projects/Radar/.venv/bin/radar-mcp`, define el direc
 
 LinkedIn, Bumeran, Laborum y Empleos Perú se incorporan inicialmente mediante archivos CSV/JSON preparados por el usuario; Radar no automatiza sesiones ni cuentas personales.
 
+## CVs objetivo (hipotéticos)
+
+Detalle y principios en `docs/target-profiles.md`. Los archivos viven junto a la base de datos
+(`cv_master.json`, `targets/*.json`, `photo.jpg`), fuera de Git.
+
+- `get_target_context(job_ids)`: ofertas (requisitos, skills, descripción, distancia desde el distrito
+  real) y perfil real. Máximo 10 ofertas.
+- `save_target_profile(job_id, profile)`: valida y guarda un CV objetivo hipotético. Exige `quote` o
+  `reason` en ítems explícitos, `reason` en inferidos y en `cubierto`, y valida `origin`, `status` y
+  `kind`. Empresa, título, marca hipotética y distancia los fija Radar. Devuelve `errors` si no valida.
+- `get_target_matrix()`: matriz de brechas entre los CVs guardados.
+- `resolve_nearest_districts(reference, limit=3)`: distritos más cercanos a una zona (km aproximados).
+
+El estado `cubierto/parcial/falta` lo asigna el agente citando el perfil real; solo la validación de
+esquema, las distancias y la matriz son deterministas.
+
 ## Política de Hermes
 
 Hermes debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de futuras escrituras del perfil. V1 no tiene herramientas de postulación.

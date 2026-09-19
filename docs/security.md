@@ -21,3 +21,7 @@ Reglas de calidad:
 - Cantidad de ofertas no equivale a competencia.
 - Revisa manualmente recomendaciones antes de actuar.
 
+
+Los CVs objetivo (`docs/target-profiles.md`) son hipotéticos: llevan marca fija, no se exportan y su
+API es de solo lectura. `cv_master.json` y `photo.jpg` contienen datos personales; viven en
+`~/.local/share/radar/`, fuera de Git, y la API nunca acepta una ruta de archivo del cliente.

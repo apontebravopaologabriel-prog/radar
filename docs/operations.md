@@ -151,3 +151,22 @@ sqlite3 ~/.local/share/radar/radar.db ".backup '/home/paolo/Projects/Radar/backu
 No edites el esquema SQLite a mano; los cambios van en
 [`src/radar/db/schema_sqlite.sql`](../src/radar/db/schema_sqlite.sql), ver
 [`docs/database.md`](database.md).
+
+## Reiniciar la API tras cambios de backend
+
+`scripts/radar-launch.sh` solo inicia la API si no responde; no reinicia una instancia que ya corre
+con código anterior. Tras cambiar `src/radar/`, las rutas nuevas devuelven 404 hasta reiniciarla:
+
+```bash
+pkill -f ".venv/bin/radar-api"
+nohup .venv/bin/radar-api >>~/.local/state/radar/api.log 2>&1 &
+```
+
+Los servidores MCP (Antigravity, Hermes) también deben recargarse para ver herramientas nuevas.
+
+## CVs objetivo: datos locales
+
+Los archivos de la vista `CVs` están en `~/.local/share/radar/` (o junto a `RADAR_DB_PATH`):
+`cv_master.json` (perfil real), `targets/*.json` (un candidato ideal por oferta) y `photo.jpg`. No están
+en Git. Las herramientas MCP `save_target_profile` y `get_target_context` los crean y leen; incluir
+la carpeta en los respaldos junto a `radar.db`.

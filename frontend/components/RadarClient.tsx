@@ -6,6 +6,7 @@ import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobs, fetchSkillOverview, upda
 import { districtKey } from "../lib/districts";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
 import AnalysisView from "./AnalysisView";
+import CvView from "./CvView";
 import BootScreen from "./BootScreen";
 
 function LoadingDots() {
@@ -21,7 +22,7 @@ const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => 
 const AREAS = ["", "Operaciones", "Producción", "Mejora continua", "Procesos", "Supply Chain", "Logística", "Compras", "Planeamiento", "Demand Planning", "Calidad", "Data / BI", "Analytics", "Automatización", "Proyectos / PMO", "Finanzas / Control de gestión", "Seguridad y Salud en el Trabajo", "Recursos Humanos / People Analytics", "Ventas / Comercial"];
 const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
 const RADAR_RADII = [2, 5, 10] as const;
-type RadarTool = "districts" | "radar" | "filters" | "analysis";
+type RadarTool = "districts" | "radar" | "filters" | "analysis" | "cvs";
 
 function formatDate(value: string | null) {
   if (!value) return "Fecha no indicada";
@@ -583,10 +584,10 @@ export default function RadarClient() {
       changeMode("heatmap");
       return;
     }
-    if (tool === "analysis") {
+    if (tool === "analysis" || tool === "cvs") {
       setSelectedDistrictKey(null);
       setFiltersOpen(false);
-      changeMode("analysis");
+      changeMode(tool);
       return;
     }
     setFiltersOpen(true);
@@ -652,6 +653,7 @@ export default function RadarClient() {
           <button className={activeTool === "filters" ? "active" : ""} type="button" aria-label="Filtros" title="Filtros" onClick={() => selectTool("filters")}><span aria-hidden="true">≡</span></button>
           <button className={activeTool === "radar" ? "active" : ""} type="button" aria-label="Radar" title="Radar" onClick={() => selectTool("radar")}><span aria-hidden="true">◎</span></button>
           <button className={activeTool === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectTool("analysis")}><span aria-hidden="true">▦</span></button>
+          <button className={activeTool === "cvs" ? "active" : ""} type="button" aria-label="CVs objetivo" title="CVs objetivo" onClick={() => selectTool("cvs")}><span aria-hidden="true">☰</span></button>
         </nav>
         <aside id="radar-controls-panel" className={`sidebar tool-${activeTool} ${filtersOpen ? "is-open" : ""}`}>
           <div className="sidebar-heading">
@@ -676,7 +678,7 @@ export default function RadarClient() {
           <div className="job-list">{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros."}</div>}{listedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
         </aside>
 
-        <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" ? "analysis-mode-panel" : ""}`}>
+        <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" || mode === "cvs" ? "analysis-mode-panel" : ""}`}>
           {mode === "jobs" ? (
             <div className="job-reading-view">
               {selectedJob ? (
@@ -742,6 +744,8 @@ export default function RadarClient() {
             </div>
           ) : mode === "analysis" ? (
             <AnalysisView />
+          ) : mode === "cvs" ? (
+            <CvView />
           ) : (
             <>
               <div className="map-header">

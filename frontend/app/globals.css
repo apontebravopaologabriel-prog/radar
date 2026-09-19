@@ -583,7 +583,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .sidebar.tool-jobs .job-list-header { display: flex; margin-top: 15px; }
 .sidebar.tool-jobs .job-list { display: block; max-height: calc(100vh - 145px); }
 .sidebar.tool-jobs { padding-bottom: 14px; }
-.sidebar.tool-analysis { display: none; }
+.sidebar.tool-analysis, .sidebar.tool-cvs { display: none; }
 
 @media (max-width: 680px) {
   .mode-rail { top: 59px; left: 12px; gap: 5px; }
@@ -954,3 +954,59 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 .radar-locate svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.7; }
 .radar-locate:hover { border-color: #d0d0d0; color: #ffffff; background: #1e1e1e; }
 .radar-active .map-canvas { cursor: crosshair; }
+
+/* Vista CVs objetivo */
+.cv-view { display: flex; height: 100%; flex-direction: column; background: #030303; }
+.cv-profile { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 18px 14px 84px; border-bottom: 1px solid #3a3a3a; background: #0a0a0a; }
+.cv-photo { width: 56px; height: 56px; flex: none; border: 1px solid #5a5a5a; border-radius: 0; object-fit: cover; filter: grayscale(1) contrast(1.05); }
+.cv-photo-empty { display: grid; place-items: center; color: #6f6f6f; background: #141414; }
+.cv-profile-text { min-width: 0; }
+.cv-profile-text .eyebrow { margin: 0 0 2px; color: #6f6f6f; font-size: 10px; }
+.cv-profile-text h2 { margin: 0; color: #f0f0f0; font-size: 16px; font-weight: 600; }
+.cv-profile-meta { margin: 2px 0 0; color: #8c8c8c; font-size: 10px; }
+.cv-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.cv-tabs button { padding: 6px 11px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font-size: 10px; letter-spacing: .02em; cursor: pointer; }
+.cv-tabs button:hover { border-color: #d0d0d0; color: #ffffff; }
+.cv-tabs button.active { border-color: #e0e0e0; color: #0a0a0a; background: #e0e0e0; }
+.cv-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 18px 18px 84px; scrollbar-color: #666666 transparent; scrollbar-width: thin; }
+.cv-note { margin: 0 0 12px; color: #8c8c8c; font-size: 11px; }
+.cv-matrix table { width: 100%; max-width: 860px; border-collapse: collapse; font-size: 11px; }
+.cv-matrix th, .cv-matrix td { padding: 9px 10px; border-bottom: 1px solid #262626; text-align: center; }
+.cv-matrix thead th { color: #8c8c8c; font-size: 9px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.cv-matrix thead th button { padding: 0; border: 0; border-bottom: 1px dotted #8c8c8c; color: #d0d0d0; background: transparent; font: inherit; text-transform: inherit; cursor: pointer; }
+.cv-matrix thead th button:hover { color: #ffffff; }
+.cv-matrix th:first-child { text-align: left; }
+.cv-matrix tbody th { color: #d0d0d0; font-weight: 400; }
+.cv-cell { font-size: 14px; }
+.cv-cell.cubierto { color: #f0f0f0; }
+.cv-cell.parcial { color: #a8a8a8; }
+.cv-cell.falta { color: #f0f0f0; background: #ffffff14; }
+.cv-cell.none { color: #4a4a4a; }
+.cv-open-count { color: #8c8c8c; font-size: 10px; }
+.cv-legend { display: flex; gap: 14px; margin: 12px 0 0; color: #6f6f6f; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+.cv-doc { max-width: 780px; }
+.cv-banner { display: inline-block; margin-bottom: 12px; padding: 4px 10px; border: 1px dashed #d0d0d0; color: #d0d0d0; font-size: 10px; letter-spacing: .12em; }
+.cv-doc h3 { margin: 0; color: #f0f0f0; font-size: 18px; font-weight: 600; }
+.cv-doc-meta { margin: 3px 0 14px; color: #8c8c8c; font-size: 11px; }
+.cv-doc h4 { margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #3a3a3a; color: #8c8c8c; font-size: 9px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.cv-doc ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cv-doc li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: #dedede; font-size: 12px; }
+.cv-doc li em { flex-basis: 100%; padding-left: 22px; color: #7a7a7a; font-size: 10px; font-style: normal; }
+.cv-mark { width: 14px; flex: none; text-align: center; }
+.cv-mark.parcial { color: #a8a8a8; }
+.cv-origin, .cv-kind { padding: 1px 6px; border: 1px solid #4a4a4a; color: #8c8c8c; font-size: 9px; letter-spacing: .04em; }
+.cv-kind.no_cerrable_rapido { border-style: dashed; color: #d0d0d0; }
+.cv-gaps li em { padding-left: 0; }
+.cv-compare-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+.cv-compare-picker button { padding: 5px 10px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font-size: 10px; cursor: pointer; }
+.cv-compare-picker button.active { border-color: #e0e0e0; color: #0a0a0a; background: #e0e0e0; }
+.cv-compare-grid { display: grid; min-width: 720px; align-items: start; column-gap: 16px; }
+.cv-compare-head { position: sticky; top: -18px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid #5a5a5a; color: #f0f0f0; background: #030303; font-size: 12px; font-weight: 600; }
+.cv-compare-head small { color: #8c8c8c; font-size: 10px; font-weight: 400; }
+.cv-compare-head.real { color: #c8c8c8; }
+.cv-banner-inline { align-self: flex-start; padding: 0 5px; border: 1px dashed #8c8c8c; color: #8c8c8c; font-size: 8px; letter-spacing: .12em; }
+.cv-compare-row { display: contents; }
+.cv-compare-section { grid-column: 1 / -1; margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #3a3a3a; color: #8c8c8c; font-size: 9px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.cv-compare-cell { display: grid; align-content: start; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cv-compare-cell li { display: flex; gap: 6px; color: #dedede; font-size: 11px; line-height: 1.35; }
+.cv-compare-cell.real li { color: #a8a8a8; }

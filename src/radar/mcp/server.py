@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from radar import cv_targets
 from radar.db.queries import (
     applications,
     career_timeline,
@@ -120,6 +121,36 @@ def track_job_application(job_id: str, status: str = "saved", notes: str | None 
 def list_job_applications(limit: int = 50) -> dict:
     """Lista postulaciones registradas con su estado y enlace original."""
     return {"applications": applications(limit)}
+
+
+@mcp.tool()
+def get_target_context(job_ids: list[str]) -> dict:
+    """Contexto para redactar CVs objetivo hipotéticos: ofertas (requisitos, skills, descripción,
+    distancia desde el distrito real) y el perfil real. Máximo 10 ofertas."""
+    return cv_targets.get_target_context(job_ids)
+
+
+@mcp.tool()
+def save_target_profile(job_id: str, profile: dict) -> dict:
+    """Guarda un CV objetivo HIPOTÉTICO (nunca el CV real ni enviable). `profile` lleva `sections`
+    (summary, experience, tools, education, certifications) con ítems {text, origin, quote?, reason?,
+    key?, status?} y `gaps` [{item, kind, action, estimate_days?, evidence_to_produce?}].
+    origin: explicito (cita), inferido (con reason) o tipico. status: cubierto (con reason citando el
+    perfil real), parcial o falta. kind: dias, semanas o no_cerrable_rapido. Devuelve errores si el
+    esquema no valida; la empresa, el título y la distancia los calcula Radar."""
+    return cv_targets.save_target(job_id, profile)
+
+
+@mcp.tool()
+def get_target_matrix() -> dict:
+    """Matriz de brechas entre los CVs objetivo guardados (requisitos con `key` por puesto)."""
+    return cv_targets.build_matrix(cv_targets.load_targets())
+
+
+@mcp.tool()
+def resolve_nearest_districts(reference: str, limit: int = 3) -> dict:
+    """Distritos más cercanos a una zona mencionada en una oferta, con km aproximados."""
+    return {"districts": cv_targets.districts_near(reference, limit)}
 
 
 def main() -> None:

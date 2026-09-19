@@ -17,6 +17,8 @@ Antes de cambiar comportamiento, leer en este orden:
 
 - `src/radar/api.py`: endpoints HTTP y montaje del frontend estático.
 - `src/radar/db/`: conexión, repositorio y consultas SQLite.
+- `src/radar/cv_targets.py`: lectura de CVs objetivo hipotéticos (`docs/target-profiles.md`).
+- `frontend/components/CvView.tsx`: vista `CVs` (foto, matriz de brechas, CV ideal por puesto).
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
 - `frontend/components/RadarClient.tsx`: estado, filtros, ofertas, popups y herramientas del mapa.
 - `frontend/components/MapView.tsx`: mapa MapLibre, distritos, etiquetas y radar.
@@ -28,8 +30,8 @@ Antes de cambiar comportamiento, leer en este orden:
 ## Contratos de interfaz actuales
 
 - La pantalla principal es `/radar`, centrada por defecto en Lima/Callao y en la vista Distritos.
-- El mapa ocupa el fondo completo; los controles son herramientas flotantes: Filtros, Radar y
-  Competencias. No reintroducir barra superior, barra inferior ni controles de zoom del mapa.
+- El mapa ocupa el fondo completo; los controles son herramientas flotantes: Filtros, Radar,
+  Análisis y CVs. No reintroducir barra superior, barra inferior ni controles de zoom del mapa.
 - El diseño es monocromático: negro, grafito y grises. No añadir acentos verdes salvo una decisión
   explícita de producto.
 - El refresco automático consulta Indeed mediante JobSpy y Computrabajo mediante su adaptador MCP;
@@ -37,9 +39,9 @@ Antes de cambiar comportamiento, leer en este orden:
 - Distritos muestra etiquetas compactas `Distrito · cantidad`; evita círculos superpuestos.
 - Radar requiere seleccionar un distrito y ofrece radios de 2, 5 y 10 km. Su selector puede abrirse
   hacia arriba y el panel queda flotante en la zona inferior derecha.
-- Competencias conserva el mapa de ofertas: el popup lista skills demandadas y al seleccionar una
-  filtra las ofertas y sus señales en el mapa. El detalle de una oferta permanece alineado a la
-  derecha cuando se abre desde esa herramienta.
+- Análisis y CVs reemplazan el mapa por su propia vista a pantalla completa (sin panel lateral). CVs
+  deja libre el margen izquierdo para la barra de herramientas, marca todo CV objetivo como
+  `HIPOTÉTICO — no enviar` y no ofrece exportarlo.
 - Las ofertas se presentan en una bandeja flotante redimensionable desde el tirador superior y
   con scroll interno. Las tarjetas deben conservar una altura compacta aunque haya pocas ofertas.
   La bandeja también expone iconos compactos para alternar favoritos y ofertas ocultas.
@@ -87,6 +89,8 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
 - No borrar ofertas históricas ni modificar `jobs` para ocultar el estado personal; usar las tablas
   de estado/favoritos y sus endpoints.
 - Mantener la inferencia de coordenadas como aproximada y no presentarla como ubicación exacta.
+- Los CVs objetivo son hipotéticos: no presentarlos ni exportarlos como CV real. El perfil real, los
+  CVs objetivo y la foto viven fuera del repositorio (`~/.local/share/radar/`); no versionarlos.
 - No usar un LLM para decidir silenciosamente scores, niveles de competencia o vigencia.
 - El esquema SQLite vive en `src/radar/db/schema_sqlite.sql`; un cambio de esquema se hace ahí (y en
   `_ensure_runtime_schema()` si debe aplicarse a bases ya creadas), no borrando el archivo `.db` ni

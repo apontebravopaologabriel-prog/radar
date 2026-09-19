@@ -44,7 +44,7 @@ export type Filters = {
   relevance_tier?: string;
 };
 
-export type MapMode = "jobs" | "heatmap" | "radar" | "analysis";
+export type MapMode = "jobs" | "heatmap" | "radar" | "analysis" | "cvs";
 
 export type SkillDemand = {
   name: string;
@@ -83,4 +83,51 @@ export type AnalyticsQueryResult = {
 
 export type AnalyticsSchema = {
   tables: { table: string; columns: { name: string; type: string }[] }[];
+};
+
+export type CvStatus = "cubierto" | "parcial" | "falta";
+
+export type CvItem = {
+  text: string;
+  origin: "explicito" | "inferido" | "tipico";
+  key?: string;
+  status?: CvStatus;
+  quote?: string;
+  reason?: string;
+};
+
+export type CvGap = {
+  item: string;
+  kind: "dias" | "semanas" | "no_cerrable_rapido";
+  action: string;
+  estimate_days?: number;
+  evidence_to_produce?: string;
+};
+
+export type CvTarget = {
+  id: string;
+  job_id: string;
+  title: string;
+  company: string;
+  aviso?: string;
+  location?: { job: string; km_from_home: number; home: string; method: string };
+  sections: Record<string, CvItem[]>;
+  gaps: CvGap[];
+};
+
+export type CvMatrix = {
+  columns: { id: string; title: string; company: string }[];
+  rows: { key: string; label: string; cells: Record<string, CvStatus>; open_count: number }[];
+};
+
+export type CvProfile = {
+  name: string;
+  headline: string;
+  home_district: string;
+  has_photo: boolean;
+  summary?: string;
+  education: { institution: string; program: string; status: string }[];
+  experience?: { role: string; company: string; from: string; to: string }[];
+  certifications?: { name: string; issuer: string; date: string }[];
+  tools_declared_in_db?: Record<string, string>;
 };

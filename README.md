@@ -12,9 +12,11 @@ buscar → normalizar → clasificar → deduplicar → observar → guardar →
 
 La fuente de verdad es SQLite (archivo local, sin servidor). Hermes se conecta mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
 
-El frontend incluye las vistas `Distritos`, `Radar` y `Skills`. `Skills` resume la
-demanda de habilidades de las ofertas recientes y la compara con el perfil local,
-sin reemplazar la fuente de verdad SQLite.
+El frontend incluye las vistas `Distritos`, `Radar`, `Análisis` y `CVs`. `Análisis` ejecuta consultas
+SQL de solo lectura sobre SQLite (con consultas predefinidas) y muestra el resultado como
+cifra, barras, serie o tabla. `CVs` muestra candidatos ideales hipotéticos por oferta, su matriz de
+brechas contra el perfil real y una comparación en columnas; no son CVs enviables (ver
+[CVs objetivo](docs/target-profiles.md)).
 
 ## Documentación
 
@@ -27,6 +29,7 @@ sin reemplazar la fuente de verdad SQLite.
 - [Seguridad y cumplimiento](docs/security.md)
 - [Roadmap V2/V3](docs/roadmap.md)
 - [Dirección de producto](docs/product-direction.md)
+- [CVs objetivo](docs/target-profiles.md)
 
 ## Arranque
 
@@ -85,7 +88,7 @@ Para abrir el frontend geográfico manualmente en desarrollo, inicia la API y lu
 cd frontend && npm run dev
 ```
 
-Visita `http://localhost:3000/radar`. La API HTTP escucha en `http://127.0.0.1:8100`; además de consultas de lectura permite actualizar el estado personal visible/oculta de una oferta y consultar `/api/skills/overview`. El MCP para Hermes mantiene su transporte stdio independiente.
+Visita `http://localhost:3000/radar`. La API HTTP escucha en `http://127.0.0.1:8100`; además de consultas de lectura permite actualizar el estado personal visible/oculta de una oferta consultar `/api/skills/overview`, ejecutar consultas de solo lectura en `/api/analytics/query` y leer los CVs objetivo en `/api/cv/*`. El MCP para Hermes mantiene su transporte stdio independiente.
 
 También puedes abrir Radar desde el launcher de aplicaciones del sistema. El acceso ejecuta
 `scripts/radar-launch.sh`, compila `frontend/out` si hace falta, inicia la API si no está activa y abre
@@ -109,7 +112,7 @@ limitación en la interfaz. MapLibre es el motor principal; si el navegador no s
 WebGL2, se activa automáticamente un fallback con Leaflet. La interfaz usa un tema grafito
 oscuro y el explorador tiene scroll propio para ventanas pequeñas.
 
-Herramientas MCP disponibles: `ingest_jobs`, `search_saved_jobs`, `get_market_summary`, `get_user_profile`, `list_recommended_jobs`, `get_job_history`, `get_career_timeline`, `record_career_event`, `capture_market_history`, `get_market_history`, `track_job_application`, `list_job_applications` y `health`. El detalle está en [MCP para Hermes](docs/mcp.md).
+Herramientas MCP disponibles: `ingest_jobs`, `search_saved_jobs`, `get_market_summary`, `get_user_profile`, `list_recommended_jobs`, `get_job_history`, `get_career_timeline`, `record_career_event`, `capture_market_history`, `get_market_history`, `track_job_application`, `list_job_applications`, `get_target_context`, `save_target_profile`, `get_target_matrix`, `resolve_nearest_districts` y `health`. El detalle está en [MCP para Hermes](docs/mcp.md).
 
 Para sumar LinkedIn, Bumeran, Laborum o Empleos Perú sin automatizar cuentas personales, importa un CSV/JSON preparado por ti:
 

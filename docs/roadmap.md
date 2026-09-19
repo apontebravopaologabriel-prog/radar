@@ -64,6 +64,13 @@
 - Mejorar el flujo de estados de aplicaciones y su auditoría desde CLI/MCP seguro.
 - Pruebas de contrato por fuente.
 
+## CVs objetivo — V0 de solo lectura implementada
+
+- Perfil real estructurado y esquema JSON del CV ideal por oferta.
+- Herramientas MCP: contexto, guardado, brechas, agregación y distrito más cercano.
+- Vista `CVs`: matriz de brechas, comparación de 2 a 4 puestos, render con foto y plan de cierre.
+- Detalle en `docs/target-profiles.md`.
+
 ## V3 — opcional
 
 - Dashboard Power BI.
