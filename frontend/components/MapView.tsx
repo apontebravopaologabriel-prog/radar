@@ -17,6 +17,8 @@ export type MapViewProps = {
   selectedDistrictKey: string | null;
   onSelectJob: (jobId: string) => void;
   onSelectDistrict: (districtKey: string) => void;
+  radarCounts?: Record<number, number>;
+  onPickRadarCenter?: (center: RadarCenter) => void;
 };
 
 const INITIAL_CENTER: [number, number] = [-77.043, -12.046];
@@ -70,6 +72,17 @@ function radarFeatures(center: RadarCenter, activeRadius: number): FeatureCollec
   return { type: "FeatureCollection", features: [2, 5, 10].map((radius) => ({ ...circlePolygon(center, radius), properties: { radiusKm: radius, active: radius === activeRadius } })) };
 }
 
+function radarLabelFeatures(center: RadarCenter, counts: Record<number, number> | undefined, activeRadius: number): FeatureCollection<Point> {
+  return {
+    type: "FeatureCollection",
+    features: [2, 5, 10].map((radius) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [center.longitude, center.latitude + radius / 111.32] },
+      properties: { label: `${radius} km · ${counts?.[radius] ?? 0}`, active: radius === activeRadius },
+    })),
+  };
+}
+
 type DistrictCount = { district: string; districtKey: string; job_count: number };
 
 function districtCountFeatures(jobs: Job[]): FeatureCollection<Point, DistrictCount> {
@@ -112,13 +125,16 @@ function normalizeDistrictGeoJson(payload: FeatureCollection<Polygon | MultiPoly
 }
 
 export default function MapView(props: MapViewProps) {
-  const { jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict } = props;
+  const { jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict, radarCounts, onPickRadarCenter } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const modeRef = useRef(mode);
   const jobsRef = useRef(jobs);
   const radarDistrictKeyRef = useRef(radarDistrictKey);
   const selectedDistrictRef = useRef(selectedDistrictKey);
+  const selectJobRef = useRef(onSelectJob);
+  const selectDistrictRef = useRef(onSelectDistrict);
+  const pickCenterRef = useRef(onPickRadarCenter);
   const districtsReadyRef = useRef(false);
   const districtStateKeysRef = useRef(new Set<string>());
   const [webglAvailable, setWebglAvailable] = useState<boolean | null>(null);
@@ -127,6 +143,7 @@ export default function MapView(props: MapViewProps) {
   useEffect(() => { setWebglAvailable(supportsWebGL2()); }, []);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { selectJobRef.current = onSelectJob; selectDistrictRef.current = onSelectDistrict; pickCenterRef.current = onPickRadarCenter; });
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
   useEffect(() => { radarDistrictKeyRef.current = radarDistrictKey; }, [radarDistrictKey]);
   useEffect(() => { selectedDistrictRef.current = selectedDistrictKey; }, [selectedDistrictKey]);
@@ -167,7 +184,7 @@ export default function MapView(props: MapViewProps) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", showJobLayers ? "visible" : "none");
     }
     if (map.getLayer("jobs-heat")) map.setLayoutProperty("jobs-heat", "visibility", "none");
-    for (const layer of ["radar-fill", "radar-lines"]) {
+    for (const layer of ["radar-fill", "radar-lines", "radar-labels"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "radar" && radarActive ? "visible" : "none");
     }
   }
@@ -227,6 +244,8 @@ export default function MapView(props: MapViewProps) {
       map.addSource("radar-rings", { type: "geojson", data: radarFeatures(radarCenter, radarRadiusKm) });
       map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#d5d5d5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.08, 0.008] } });
       map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#ffffff", "#858585"], "line-width": ["case", ["boolean", ["get", "active"], false], 2.4, 1], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72], "line-dasharray": [2, 2] } });
+      map.addSource("radar-labels", { type: "geojson", data: radarLabelFeatures(radarCenter, radarCounts, radarRadiusKm) });
+      map.addLayer({ id: "radar-labels", type: "symbol", source: "radar-labels", layout: { "text-field": ["get", "label"], "text-size": 11, "text-font": ["Noto Sans Regular"], "text-anchor": "bottom", "text-offset": [0, -0.3], "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": ["case", ["boolean", ["get", "active"], false], "#ffffff", "#9a9a9a"], "text-halo-color": "#050505", "text-halo-width": 1.4 } });
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
       setMapReady(true);
       map.once("idle", () => setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current)));
@@ -241,15 +260,22 @@ export default function MapView(props: MapViewProps) {
     });
     map.on("click", "job-points", (event) => {
       const feature = map.queryRenderedFeatures(event.point, { layers: ["job-points"] })[0];
-      if (feature?.properties?.id) onSelectJob(String(feature.properties.id));
+      if (feature?.properties?.id) selectJobRef.current(String(feature.properties.id));
     });
     map.on("click", "district-fill", (event) => {
+      if (modeRef.current === "radar" && pickCenterRef.current) return;
       const feature = map.queryRenderedFeatures(event.point, { layers: ["district-fill"] })[0];
-      if (feature?.properties?.district_key) onSelectDistrict(String(feature.properties.district_key));
+      if (feature?.properties?.district_key) selectDistrictRef.current(String(feature.properties.district_key));
     });
     map.on("click", "district-labels", (event) => {
+      if (modeRef.current === "radar" && pickCenterRef.current) return;
       const feature = map.queryRenderedFeatures(event.point, { layers: ["district-labels"] })[0];
-      if (feature?.properties?.districtKey) onSelectDistrict(String(feature.properties.districtKey));
+      if (feature?.properties?.districtKey) selectDistrictRef.current(String(feature.properties.districtKey));
+    });
+    map.on("click", (event: MapMouseEvent) => {
+      if (modeRef.current !== "radar" || !pickCenterRef.current) return;
+      if (map.queryRenderedFeatures(event.point, { layers: ["clusters", "job-points"] }).length) return;
+      pickCenterRef.current({ longitude: event.lngLat.lng, latitude: event.lngLat.lat });
     });
     for (const layer of ["clusters", "job-points", "district-fill", "district-labels"]) {
       map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
@@ -303,6 +329,7 @@ export default function MapView(props: MapViewProps) {
       const source = map.getSource("radar-rings") as maplibregl.GeoJSONSource | undefined;
       if (!source) return;
       source.setData(radarFeatures(radarCenter, radarRadiusKm));
+      (map.getSource("radar-labels") as maplibregl.GeoJSONSource | undefined)?.setData(radarLabelFeatures(radarCenter, radarCounts, radarRadiusKm));
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
       map.triggerRepaint();
     };
@@ -316,7 +343,7 @@ export default function MapView(props: MapViewProps) {
       map.off("load", syncRadarState);
       map.off("idle", syncRadarState);
     };
-  }, [mode, radarCenter, radarRadiusKm, radarDistrictKey, mapReady]);
+  }, [mode, radarCenter, radarRadiusKm, radarDistrictKey, radarCounts, mapReady]);
 
   if (webglAvailable === false) return <LeafletMapView {...props} />;
   if (webglAvailable === null) return <div className="map-loading">Preparando mapa…</div>;
