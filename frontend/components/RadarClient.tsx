@@ -22,7 +22,11 @@ const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => 
 const AREAS = ["", "Operaciones", "Producción", "Mejora continua", "Procesos", "Supply Chain", "Logística", "Compras", "Planeamiento", "Demand Planning", "Calidad", "Data / BI", "Analytics", "Automatización", "Proyectos / PMO", "Finanzas / Control de gestión", "Seguridad y Salud en el Trabajo", "Recursos Humanos / People Analytics", "Ventas / Comercial"];
 const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
 const RADAR_RADII = [2, 5, 10] as const;
-type RadarTool = "districts" | "radar" | "filters" | "analysis" | "cvs";
+type RadarView = "map" | "analysis" | "cvs";
+type AnalysisFilterColumn = "area" | "skill" | "seniority" | "work_mode" | "district";
+
+const SENIORITY_VALUES: Record<string, string> = { practicante: "intern", intern: "intern", junior: "junior", intermedio: "mid", mid: "mid", senior: "senior" };
+const WORK_MODE_VALUES: Record<string, string> = { presencial: "onsite", onsite: "onsite", híbrido: "hybrid", hibrido: "hybrid", hybrid: "hybrid", remoto: "remote", remote: "remote" };
 
 function formatDate(value: string | null) {
   if (!value) return "Fecha no indicada";
@@ -279,7 +283,8 @@ export default function RadarClient() {
   const [showHidden, setShowHidden] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [activeTool, setActiveTool] = useState<RadarTool>("districts");
+  const [activeView, setActiveView] = useState<RadarView>("map");
+  const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
   const [hideReasonFor, setHideReasonFor] = useState<string | null>(null);
   const [hideReason, setHideReason] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
@@ -311,7 +316,7 @@ export default function RadarClient() {
   }, [filters, selectedSkill]);
 
   useEffect(() => {
-    if (activeTool !== "filters") return;
+    if (!filtersOpen) return;
     const controller = new AbortController();
     setSkillsLoading(true);
     fetchSkillOverview(filters, controller.signal)
@@ -319,7 +324,7 @@ export default function RadarClient() {
       .catch(() => {})
       .finally(() => setSkillsLoading(false));
     return () => controller.abort();
-  }, [activeTool, filters, mode]);
+  }, [filtersOpen, filters, mode]);
 
   const portalJobs = useMemo(() => {
     const requestedPortal = filters.source?.toLowerCase();
@@ -567,8 +572,8 @@ export default function RadarClient() {
     setMode(nextMode);
     setRadarCenterOpen(false);
     setSelectedId(null);
-    setSelectedSkill(null);
     if (nextMode !== "heatmap") setSelectedDistrictKey(null);
+    if (nextMode === "heatmap" || nextMode === "radar") lastMapMode.current = nextMode;
     if (nextMode === "radar") {
       setRadarDistrictKey(null);
       setRadarLabel(null);
@@ -576,22 +581,35 @@ export default function RadarClient() {
     }
   }
 
-  function selectTool(tool: RadarTool) {
-    setActiveTool(tool);
+  function selectView(view: RadarView) {
+    setActiveView(view);
     setRadarCenterOpen(false);
-    if (tool === "districts") {
-      setFiltersOpen(false);
-      changeMode("heatmap");
+    setSelectedId(null);
+    if (view === "map") {
+      changeMode(lastMapMode.current);
       return;
     }
-    if (tool === "analysis" || tool === "cvs") {
-      setSelectedDistrictKey(null);
-      setFiltersOpen(false);
-      changeMode(tool);
-      return;
-    }
-    setFiltersOpen(true);
-    changeMode(tool === "radar" ? "radar" : "heatmap");
+    setSelectedDistrictKey(null);
+    setFiltersOpen(false);
+    changeMode(view);
+  }
+
+  // Filtros es una capa global: abrirla o cerrarla no cambia de vista ni pierde estado.
+  const filtersAvailable = activeView === "map";
+
+  function applyAnalysisFilter(column: AnalysisFilterColumn, value: string): boolean {
+    const normalized = value.trim().toLowerCase();
+    if (column === "area" && AREAS.includes(value)) updateFilter("area", value);
+    else if (column === "skill") setSelectedSkill(value);
+    else if (column === "seniority" && SENIORITY_VALUES[normalized]) updateFilter("seniority", SENIORITY_VALUES[normalized]);
+    else if (column === "work_mode" && WORK_MODE_VALUES[normalized]) updateFilter("work_mode", WORK_MODE_VALUES[normalized]);
+    else if (column === "district" && districtKey(value)) { setActiveView("map"); setFiltersOpen(false); changeMode("heatmap"); setSelectedDistrictKey(districtKey(value)); notify(`[ok] filtro ${column}=${value} · mostrando en el mapa`); return true; }
+    else return false;
+    setActiveView("map");
+    setFiltersOpen(false);
+    changeMode(lastMapMode.current);
+    notify(`[ok] filtro ${column}=${value} · mostrando en el mapa`);
+    return true;
   }
 
   useEffect(() => {
@@ -645,17 +663,16 @@ export default function RadarClient() {
       {booting && <BootScreen ready={!loading} onDone={() => setBooting(false)} />}
       <div className="crt-scanlines" aria-hidden="true" />
       <section className="workspace">
-        <button className={`edge-menu-toggle ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => filtersOpen ? setFiltersOpen(false) : selectTool("filters")}>
+        {filtersAvailable && <button className={`edge-menu-toggle ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => setFiltersOpen((current) => !current)}>
           <span aria-hidden="true">{filtersOpen ? "×" : "☷"}</span>
-          <small>{filtersOpen ? "Cerrar" : "Menu"}</small>
-        </button>
-        <nav className="mode-rail" aria-label="Herramientas del mapa">
-          <button className={activeTool === "filters" ? "active" : ""} type="button" aria-label="Filtros" title="Filtros" onClick={() => selectTool("filters")}><span aria-hidden="true">≡</span></button>
-          <button className={activeTool === "radar" ? "active" : ""} type="button" aria-label="Radar" title="Radar" onClick={() => selectTool("radar")}><span aria-hidden="true">◎</span></button>
-          <button className={activeTool === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectTool("analysis")}><span aria-hidden="true">▦</span></button>
-          <button className={activeTool === "cvs" ? "active" : ""} type="button" aria-label="CVs objetivo" title="CVs objetivo" onClick={() => selectTool("cvs")}><span aria-hidden="true">☰</span></button>
+          <small>{filtersOpen ? "Cerrar" : "Filtros"}</small>
+        </button>}
+        <nav className={`mode-rail ${activeView === "analysis" ? "is-autohide" : ""}`} aria-label="Vistas">
+          <button className={activeView === "map" ? "active" : ""} type="button" aria-label="Mapa" title="Mapa" onClick={() => selectView("map")}><span aria-hidden="true">◎</span></button>
+          <button className={activeView === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectView("analysis")}><span aria-hidden="true">▦</span></button>
+          <button className={activeView === "cvs" ? "active" : ""} type="button" aria-label="CVs objetivo" title="CVs objetivo" onClick={() => selectView("cvs")}><span aria-hidden="true">☰</span></button>
         </nav>
-        <aside id="radar-controls-panel" className={`sidebar tool-${activeTool} ${filtersOpen ? "is-open" : ""}`}>
+        <aside id="radar-controls-panel" className={`sidebar tool-${activeView !== "map" ? "analysis" : filtersOpen ? "filters" : mode === "radar" ? "radar" : "districts"} ${activeView === "map" && (filtersOpen || mode === "radar") ? "is-open" : ""}`}>
           <div className="sidebar-heading">
             <div><p className="eyebrow">Control room / 01</p><h1>Market scan</h1></div>
             <span className="result-count" key={loading ? "loading" : mappedCount}>{loading ? "---" : `${mappedCount}`}</span>
@@ -743,7 +760,7 @@ export default function RadarClient() {
               )}
             </div>
           ) : mode === "analysis" ? (
-            <AnalysisView />
+            <AnalysisView onApplyFilter={applyAnalysisFilter} />
           ) : mode === "cvs" ? (
             <CvView />
           ) : (
@@ -753,6 +770,7 @@ export default function RadarClient() {
                   <p className="eyebrow">Geospatial intelligence / Lima</p>
                   <h2>{mode === "heatmap" && selectedDistrict ? selectedDistrict.district : mode === "heatmap" ? "Data analysis" : mode === "radar" ? `Signal lock${radarDistrict ? ` · ${radarDistrict.district}` : ""}` : "Lima Metropolitana"}</h2>
                 </div>
+                <div className="view-tabs map-view-toggle" role="tablist" aria-label="Tipo de mapa">{([["heatmap", "distritos"], ["radar", "radar"]] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={mode === value} className={`view-tab ${mode === value ? "active" : ""}`} onClick={() => changeMode(value)}>{label}</button>)}</div>
                 <div className="map-legend">
                   {mode === "heatmap" ? <><span><i className="legend-scale low" /> Pocas ofertas</span><span><i className="legend-scale high" /> Más ofertas</span></> : <><span><i className="legend-dot" /> Oferta cercana</span><span><i className="legend-cluster" /> Concentración</span></>}
                   {mode === "radar" && <span><i className="legend-ring" /> Radio activo</span>}

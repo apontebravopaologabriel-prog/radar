@@ -68,7 +68,20 @@ function formatCell(value: string | number | null): string {
   return value;
 }
 
-function ResultView({ result }: { result: AnalyticsQueryResult }) {
+type FilterColumn = "area" | "skill" | "seniority" | "work_mode" | "district";
+type ApplyFilter = (column: FilterColumn, value: string) => boolean;
+
+const FILTER_COLUMNS: Record<string, FilterColumn> = { area: "area", skill: "skill", seniority: "seniority", work_mode: "work_mode", modalidad: "work_mode", distrito: "district", district: "district" };
+
+// Si la columna es filtrable, el valor se vuelve un botón que lleva al mapa con ese filtro.
+function FilterValue({ column, value, onApply }: { column: string; value: string | number | null; onApply?: ApplyFilter }) {
+  const kind = FILTER_COLUMNS[column.trim().toLowerCase()];
+  const text = formatCell(value);
+  if (!onApply || !kind || typeof value !== "string" || !value) return <>{text}</>;
+  return <button type="button" className="analysis-filter-link" title="Ver estas ofertas en el mapa" onClick={() => onApply(kind, value)}>{text}</button>;
+}
+
+function ResultView({ result, onApply }: { result: AnalyticsQueryResult; onApply?: ApplyFilter }) {
   const shape = classifyResult(result);
   if (shape === "empty") return <p className="analysis-empty-result">La consulta no devolvió filas.</p>;
   if (shape === "stat") {
@@ -85,7 +98,7 @@ function ResultView({ result }: { result: AnalyticsQueryResult }) {
       <div className="analysis-bars">
         {result.rows.map((row, index) => (
           <div className="analysis-bar-row" key={index}>
-            <span className="analysis-bar-label">{formatCell(row[0])}</span>
+            <span className="analysis-bar-label"><FilterValue column={result.columns[0]} value={row[0]} onApply={onApply} /></span>
             <span className="analysis-bar-track"><i style={{ width: `${Math.max(4, (Number(row[1]) / max) * 100)}%` }} /></span>
             <span className="analysis-bar-value">{formatCell(row[1])}</span>
           </div>
@@ -100,7 +113,7 @@ function ResultView({ result }: { result: AnalyticsQueryResult }) {
         <div className="analysis-grouped-legend"><span className="a">{result.columns[1]}</span><span className="b">{result.columns[2]}</span></div>
         {result.rows.map((row, index) => (
           <div className="analysis-grouped-row" key={index}>
-            <span className="analysis-bar-label">{formatCell(row[0])}</span>
+            <span className="analysis-bar-label"><FilterValue column={result.columns[0]} value={row[0]} onApply={onApply} /></span>
             <div className="analysis-grouped-tracks">
               <span className="analysis-bar-track a"><i style={{ width: `${Math.max(4, (Number(row[1]) / max) * 100)}%` }} /></span>
               <span className="analysis-bar-track b"><i style={{ width: `${Math.max(4, (Number(row[2]) / max) * 100)}%` }} /></span>
@@ -128,26 +141,79 @@ function ResultView({ result }: { result: AnalyticsQueryResult }) {
     <div className="analysis-table-wrap">
       <table className="analysis-table">
         <thead><tr>{result.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-        <tbody>{result.rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{formatCell(cell)}</td>)}</tr>)}</tbody>
+        <tbody>{result.rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}><FilterValue column={result.columns[cellIndex]} value={cell} onApply={onApply} /></td>)}</tr>)}</tbody>
       </table>
     </div>
   );
 }
 
+type Box = { x: number; y: number; w: number; h: number };
+
+const STORAGE_KEY = "radar.analysis.desktop.v1";
+const GRAVITY = 2600;
+const DEFAULT_WINDOW_WIDTH = 360;
+const DEFAULT_WINDOW_HEIGHT = 260;
+
+// Colocación estilo tetris: prueba varias columnas y elige donde la pieza cae más abajo.
+function placeSkyline(existing: Box[], w: number, h: number, desktopWidth: number, floor: number): { x: number; restY: number } {
+  const candidates = new Set<number>([16]);
+  for (const box of existing) { candidates.add(box.x); candidates.add(box.x + box.w + 12); }
+  let best = { x: 16, restY: -Infinity };
+  for (const x of [...candidates].sort((a, b) => a - b)) {
+    if (x < 0 || x + w > desktopWidth) continue;
+    let top = floor;
+    for (const box of existing) if (x < box.x + box.w && x + w > box.x) top = Math.min(top, box.y);
+    if (top - h > best.restY) best = { x, restY: top - h };
+  }
+  return best;
+}
+
+function downloadCsv(result: AnalyticsQueryResult, name: string) {
+  const quote = (value: string | number | null) => {
+    const text = value === null ? "" : String(value);
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const csv = [result.columns.map(quote).join(","), ...result.rows.map((row) => row.map(quote).join(","))].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${name.replace(/[^\w-]+/g, "_").slice(0, 40) || "consulta"}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+type ResizeEdge = "e" | "s" | "se";
+type ResizeState = { id: string; edge: ResizeEdge; startX: number; startY: number; startWidth: number; startHeight: number; width: number; height: number; el: HTMLDivElement };
+const MIN_WINDOW_WIDTH = 220;
+const MIN_WINDOW_HEIGHT = 120;
+
 type DragState = { id: string; startClientX: number; startClientY: number; originX: number; originY: number; lastClientX: number; lastClientY: number; el: HTMLDivElement; frame: number | null };
 
-export default function AnalysisView() {
+export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyFilter }) {
   const [windows, setWindows] = useState<AnalysisWindow[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
-  const [presetsOpen, setPresetsOpen] = useState(false);
+  const [sqlOpen, setSqlOpen] = useState(true);
+  const [logOpen, setLogOpen] = useState(false);
+  const gutterRef = useRef<HTMLDivElement | null>(null);
   const zCounterRef = useRef(1);
   const cascadeRef = useRef(0);
   const dragRef = useRef<DragState | null>(null);
+  const resizeRef = useRef<ResizeState | null>(null);
+  const [gravity, setGravity] = useState(false);
+  const [kick, setKick] = useState(0);
+  const windowsRef = useRef<AnalysisWindow[]>([]);
+  const elsRef = useRef(new Map<string, HTMLDivElement>());
+  const posRef = useRef(new Map<string, { x: number; y: number }>());
+  const velocityRef = useRef(new Map<string, number>());
+  const simFrameRef = useRef<number | null>(null);
+  const hydratedRef = useRef(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const desktopRef = useRef<HTMLDivElement | null>(null);
+
+  windowsRef.current = windows;
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -196,12 +262,58 @@ export default function AnalysisView() {
   }, []);
 
   function startDrag(event: ReactPointerEvent<HTMLDivElement>, win: AnalysisWindow) {
+    // Los botones de la cabecera (editar, cerrar) no inician arrastre: el arrastre
+    // desactiva los eventos de puntero y el clic nunca llegaría al botón.
+    if ((event.target as HTMLElement).closest("button")) return;
     const el = event.currentTarget.closest(".analysis-window") as HTMLDivElement | null;
     if (!el) return;
     event.preventDefault();
     bringToFront(win.id);
     document.body.classList.add("is-resizing");
-    dragRef.current = { id: win.id, startClientX: event.clientX, startClientY: event.clientY, originX: win.x, originY: win.y, lastClientX: event.clientX, lastClientY: event.clientY, el, frame: null };
+    dragRef.current = { id: win.id, startClientX: event.clientX, startClientY: event.clientY, originX: Number(el.dataset.x ?? win.x), originY: Number(el.dataset.y ?? win.y), lastClientX: event.clientX, lastClientY: event.clientY, el, frame: null };
+  }
+
+  // Estirar usa captura de puntero en el asa: sigue funcionando aunque el cursor salga de la ventana.
+  function startResize(event: ReactPointerEvent<HTMLDivElement>, win: AnalysisWindow, edge: ResizeEdge) {
+    const el = event.currentTarget.closest(".analysis-window") as HTMLDivElement | null;
+    if (!el) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    bringToFront(win.id);
+    const rect = el.getBoundingClientRect();
+    resizeRef.current = { id: win.id, edge, startX: event.clientX, startY: event.clientY, startWidth: rect.width, startHeight: rect.height, width: rect.width, height: rect.height, el };
+  }
+
+  function moveResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const resize = resizeRef.current;
+    if (!resize) return;
+    const desktop = desktopRef.current?.getBoundingClientRect();
+    const maxWidth = desktop ? desktop.width : Infinity;
+    const maxHeight = desktop ? desktop.height : Infinity;
+    if (resize.edge !== "s") resize.width = Math.min(maxWidth, Math.max(MIN_WINDOW_WIDTH, resize.startWidth + event.clientX - resize.startX));
+    if (resize.edge !== "e") resize.height = Math.min(maxHeight, Math.max(MIN_WINDOW_HEIGHT, resize.startHeight + event.clientY - resize.startY));
+    resize.el.style.width = `${resize.width}px`;
+    resize.el.style.height = `${resize.height}px`;
+    resize.el.style.maxHeight = "none";
+  }
+
+  function endResize() {
+    const resize = resizeRef.current;
+    if (!resize) return;
+    resizeRef.current = null;
+    setWindows((current) => current.map((win) => (win.id === resize.id ? { ...win, width: resize.width, height: resize.height } : win)));
+  }
+
+  async function refreshWindow(id: string) {
+    const target = windowsRef.current.find((win) => win.id === id);
+    if (!target) return;
+    try {
+      const result = await runAnalyticsQuery(target.sql);
+      setWindows((current) => current.map((win) => (win.id === id ? { ...win, result } : win)));
+    } catch {
+      /* se conserva el resultado anterior */
+    }
   }
 
   function closeWindow(id: string) {
@@ -212,22 +324,169 @@ export default function AnalysisView() {
     setWindows([]);
   }
 
-  function arrangeWindows() {
+  // Física: cada ventana es un rectángulo sin rotación que cae hasta el suelo o hasta apoyarse en otra.
+  const stepPhysics = useCallback((dt: number): boolean => {
     const desktop = desktopRef.current;
+    if (!desktop) return false;
+    const floor = desktop.clientHeight;
+    const busyId = dragRef.current?.id ?? resizeRef.current?.id;
+    const bodies = windowsRef.current.flatMap((win) => {
+      const el = elsRef.current.get(win.id);
+      if (!el) return [];
+      const fixed = win.id === busyId;
+      const pos = fixed ? { x: Number(el.dataset.x ?? win.x), y: Number(el.dataset.y ?? win.y) } : posRef.current.get(win.id) ?? { x: win.x, y: win.y };
+      return [{ id: win.id, el, fixed, pos, w: el.offsetWidth, h: el.offsetHeight }];
+    }).sort((a, b) => b.pos.y + b.h - (a.pos.y + a.h));
+    const placed: typeof bodies = [];
+    let moving = false;
+    for (const body of bodies) {
+      if (body.fixed) {
+        posRef.current.set(body.id, body.pos);
+        velocityRef.current.set(body.id, 0);
+        placed.push(body);
+        continue;
+      }
+      let vy = (velocityRef.current.get(body.id) ?? 0) + GRAVITY * dt;
+      let y = body.pos.y + vy * dt;
+      let rest = floor - body.h;
+      for (const other of placed) {
+        if (body.pos.x < other.pos.x + other.w && body.pos.x + body.w > other.pos.x) rest = Math.min(rest, other.pos.y - body.h);
+      }
+      if (y >= rest) {
+        y = rest;
+        vy = Math.abs(vy) > 320 ? -vy * 0.25 : 0;
+      }
+      if (Math.abs(y - body.pos.y) > 0.05 || vy !== 0) moving = true;
+      body.pos = { x: body.pos.x, y };
+      posRef.current.set(body.id, body.pos);
+      velocityRef.current.set(body.id, vy);
+      body.el.style.transform = `translate(${body.pos.x}px, ${y}px)`;
+      body.el.dataset.x = String(body.pos.x);
+      body.el.dataset.y = String(y);
+      placed.push(body);
+    }
+    return moving;
+  }, []);
+
+  const commitPositions = useCallback(() => {
     setWindows((current) => {
-      if (!desktop || current.length === 0) return current;
-      const rect = desktop.getBoundingClientRect();
-      const margin = 16;
-      const cols = Math.max(1, Math.ceil(Math.sqrt(current.length)));
-      const rows = Math.max(1, Math.ceil(current.length / cols));
-      const cellW = Math.max(240, (rect.width - margin * (cols + 1)) / cols);
-      const cellH = Math.max(180, (rect.height - margin * (rows + 1)) / rows);
-      return current.map((win, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        return { ...win, x: margin + col * (cellW + margin), y: margin + row * (cellH + margin), width: cellW, height: cellH };
+      let changed = false;
+      const next = current.map((win) => {
+        const pos = posRef.current.get(win.id);
+        if (!pos || (Math.abs(pos.x - win.x) <= 0.5 && Math.abs(pos.y - win.y) <= 0.5)) return win;
+        changed = true;
+        return { ...win, x: pos.x, y: pos.y };
       });
+      // Sin cambios se devuelve el mismo arreglo: así el efecto de gravedad no se vuelve a disparar.
+      return changed ? next : current;
     });
+  }, []);
+
+  const runPhysics = useCallback(() => {
+    if (simFrameRef.current !== null) return;
+    for (const win of windowsRef.current) {
+      const pos = posRef.current.get(win.id);
+      if (!pos || Math.abs(pos.x - win.x) > 0.5 || Math.abs(pos.y - win.y) > 0.5) {
+        posRef.current.set(win.id, { x: win.x, y: win.y });
+        velocityRef.current.set(win.id, 0);
+      }
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      for (let index = 0; index < 900 && stepPhysics(1 / 30); index += 1);
+      commitPositions();
+      return;
+    }
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      if (stepPhysics(dt)) {
+        simFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        simFrameRef.current = null;
+        commitPositions();
+      }
+    };
+    simFrameRef.current = requestAnimationFrame(tick);
+  }, [commitPositions, stepPhysics]);
+
+  useEffect(() => {
+    if (gravity) runPhysics();
+  }, [gravity, runPhysics, windows]);
+
+  useEffect(() => {
+    if (kick > 0) runPhysics();
+  }, [kick, runPhysics]);
+
+  useEffect(() => () => { if (simFrameRef.current !== null) cancelAnimationFrame(simFrameRef.current); }, []);
+
+  // Escritorio persistente: se guardan las consultas y su disposición; los datos se piden de nuevo al abrir.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "null") as { gravity?: boolean; windows?: Array<Omit<AnalysisWindow, "result">> } | null;
+        if (saved?.gravity) setGravity(true);
+        const restored = await Promise.all((saved?.windows || []).map(async (item) => {
+          try { return { ...item, result: await runAnalyticsQuery(item.sql) } as AnalysisWindow; } catch { return null; }
+        }));
+        if (cancelled) return;
+        const list = restored.filter((item): item is AnalysisWindow => item !== null);
+        if (list.length > 0) {
+          zCounterRef.current = Math.max(1, ...list.map((item) => item.z));
+          setWindows(list);
+        }
+      } catch {
+        /* sin almacenamiento disponible: el escritorio arranca vacío */
+      } finally {
+        if (!cancelled) hydratedRef.current = true;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ gravity, windows: windows.map(({ result: _result, ...rest }) => rest) }));
+      } catch {
+        /* almacenamiento lleno o bloqueado */
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [gravity, windows]);
+
+  function boxesOf(exclude?: string): Box[] {
+    return windowsRef.current.filter((win) => win.id !== exclude).map((win) => {
+      const el = elsRef.current.get(win.id);
+      const pos = posRef.current.get(win.id) ?? { x: win.x, y: win.y };
+      return { x: pos.x, y: pos.y, w: el?.offsetWidth ?? win.width ?? DEFAULT_WINDOW_WIDTH, h: el?.offsetHeight ?? win.height ?? DEFAULT_WINDOW_HEIGHT };
+    });
+  }
+
+  // Organizar: las ventanas caen escalonadas desde arriba y se compactan como piezas de tetris.
+  function organizeWindows() {
+    const desktop = desktopRef.current;
+    if (!desktop || windowsRef.current.length === 0) return;
+    const placed: Box[] = [];
+    const targets = new Map<string, { x: number; y: number }>();
+    windowsRef.current.forEach((win, index) => {
+      const el = elsRef.current.get(win.id);
+      const w = el?.offsetWidth ?? DEFAULT_WINDOW_WIDTH;
+      const h = el?.offsetHeight ?? DEFAULT_WINDOW_HEIGHT;
+      const spot = placeSkyline(placed, w, h, desktop.clientWidth, desktop.clientHeight);
+      placed.push({ x: spot.x, y: spot.restY, w, h });
+      targets.set(win.id, { x: spot.x, y: -h - index * (h * 0.6 + 40) });
+    });
+    for (const [id, pos] of targets) {
+      posRef.current.set(id, pos);
+      velocityRef.current.set(id, 0);
+      const el = elsRef.current.get(id);
+      if (el) { el.style.transform = `translate(${pos.x}px, ${pos.y}px)`; el.dataset.x = String(pos.x); el.dataset.y = String(pos.y); }
+    }
+    setWindows((current) => current.map((win) => ({ ...win, ...(targets.get(win.id) ?? {}) })));
+    setKick((current) => current + 1);
   }
 
   async function runQuery(sql: string) {
@@ -239,13 +498,19 @@ export default function AnalysisView() {
       cascadeRef.current += 1;
       const offset = (cascadeRef.current % 6) * 26;
       zCounterRef.current += 1;
+      const desktop = desktopRef.current;
+      const spawnWidth = Math.min(DEFAULT_WINDOW_WIDTH, (desktop?.clientWidth ?? DEFAULT_WINDOW_WIDTH) - 24);
+      // Con gravedad la ventana aparece sobre el escritorio y cae en la columna más baja.
+      const spawn = gravity && desktop
+        ? { x: placeSkyline(boxesOf(), spawnWidth, DEFAULT_WINDOW_HEIGHT, desktop.clientWidth, desktop.clientHeight).x, y: -DEFAULT_WINDOW_HEIGHT - 40 }
+        : { x: 24 + offset, y: 24 + offset };
       setWindows((current) => [...current, {
         id: `win-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         title: trimmed.replace(/\s+/g, " ").slice(0, 56),
         sql: trimmed,
         result,
-        x: 24 + offset,
-        y: 24 + offset,
+        x: spawn.x,
+        y: spawn.y,
         z: zCounterRef.current,
       }]);
       setLog((current) => [...current.slice(-40), { id: `log-${Date.now()}`, sql: trimmed, status: "ok", message: `${result.row_count} fila${result.row_count === 1 ? "" : "s"} · ${result.elapsed_ms}ms${result.truncated ? " · truncado a 500" : ""}` }]);
@@ -274,82 +539,106 @@ export default function AnalysisView() {
   return (
     <div className="analysis-view">
       <div className="analysis-desktop" ref={desktopRef}>
-        {windows.length > 0 && (
-          <div className="analysis-desktop-toolbar">
-            <span>{windows.length} dashboard{windows.length === 1 ? "" : "s"}</span>
-            <button type="button" onClick={arrangeWindows} title="Organizar ventanas en cuadrícula">⊞ Organizar</button>
-            <button type="button" onClick={closeAllWindows} title="Cerrar todos los dashboards">Cerrar todo</button>
-          </div>
-        )}
+        <div className="analysis-desktop-toolbar">
+          <button type="button" className={gravity ? "active" : ""} onClick={() => setGravity((current) => !current)} aria-pressed={gravity} aria-label="Gravedad" title={gravity ? "Gravedad activa: desactivar" : "Activar gravedad (modo tetris)"}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="14" width="7" height="6" /><rect x="13" y="14" width="7" height="6" /><rect x="8" y="5" width="8" height="6" /></svg>
+          </button>
+          {windows.length > 0 && (
+            <>
+              <button type="button" onClick={organizeWindows} aria-label="Organizar" title="Organizar: las ventanas caen y se compactan">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" /><rect x="13" y="4" width="7" height="7" /><rect x="4" y="13" width="7" height="7" /><rect x="13" y="13" width="7" height="7" /></svg>
+              </button>
+              <button type="button" onClick={closeAllWindows} aria-label="Cerrar todo" title={`Cerrar todo (${windows.length})`}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </button>
+            </>
+          )}
+        </div>
         {windows.length === 0 && <div className="analysis-empty-desktop"><span className="eyebrow">Análisis</span></div>}
         {windows.map((win) => (
           <div
             key={win.id}
             className="analysis-window"
-            style={{ transform: `translate(${win.x}px, ${win.y}px)`, zIndex: win.z, width: win.width ? `${win.width}px` : undefined, height: win.height ? `${win.height}px` : undefined }}
+            ref={(el) => { if (el) elsRef.current.set(win.id, el); else elsRef.current.delete(win.id); }}
+            style={{ transform: `translate(${win.x}px, ${win.y}px)`, zIndex: win.z, width: win.width ? `${win.width}px` : undefined, height: win.height ? `${win.height}px` : undefined, maxHeight: win.height ? "none" : undefined }}
             onPointerDown={() => bringToFront(win.id)}
           >
             <div className="analysis-window-header" onPointerDown={(event) => startDrag(event, win)}>
               <strong title={win.sql}>{win.title}</strong>
               <div className="analysis-window-tools">
-                <button type="button" title="Editar consulta" aria-label="Editar consulta" onClick={(event) => { event.stopPropagation(); setInput(win.sql); }}>✎</button>
+                <button type="button" title="Actualizar datos" aria-label="Actualizar datos" onClick={(event) => { event.stopPropagation(); void refreshWindow(win.id); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4" /></svg></button>
+                <button type="button" title="Descargar CSV" aria-label="Descargar CSV" onClick={(event) => { event.stopPropagation(); downloadCsv(win.result, win.title); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14" /></svg></button>
+                <button type="button" title="Editar consulta" aria-label="Editar consulta" onClick={(event) => { event.stopPropagation(); setInput(win.sql); setSqlOpen(true); }}>✎</button>
                 <button type="button" title="Cerrar" aria-label="Cerrar dashboard" onClick={(event) => { event.stopPropagation(); closeWindow(win.id); }}>×</button>
               </div>
             </div>
             <div className="analysis-window-body">
-              <ResultView result={win.result} />
+              <ResultView result={win.result} onApply={onApplyFilter} />
             </div>
+            {(["e", "s", "se"] as const).map((edge) => (
+              <div key={edge} className={`analysis-resize ${edge}`} onPointerDown={(event) => startResize(event, win, edge)} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} />
+            ))}
           </div>
         ))}
       </div>
 
-      <div className="analysis-terminal">
-        <div className={`analysis-presets-drawer ${presetsOpen ? "is-open" : ""}`}>
-          <button type="button" className="analysis-presets-toggle" onClick={() => setPresetsOpen((current) => !current)} aria-expanded={presetsOpen}>
-            <span>{presetsOpen ? "▾" : "▸"}</span> Presets
-          </button>
-          {presetsOpen && (
-            <div className="analysis-presets-list">
-              {PRESETS.map((preset) => (
-                <button key={preset.label} type="button" className="analysis-preset-chip" onClick={() => { setInput(preset.sql); setPresetsOpen(false); }}>{preset.label}</button>
-              ))}
-            </div>
-          )}
+      <form className={`analysis-sql ${sqlOpen ? "" : "is-collapsed"}`} onSubmit={submit}>
+        <div className="analysis-sql-bar">
+          <span className="analysis-sql-title">SQL</span>
+          <select className="analysis-sql-presets" value="" aria-label="Presets de consulta" onChange={(event) => { const preset = PRESETS.find((item) => item.label === event.target.value); if (preset) { setInput(preset.sql); setSqlOpen(true); } }}>
+            <option value="">presets…</option>
+            {PRESETS.map((preset) => <option key={preset.label} value={preset.label}>{preset.label}</option>)}
+          </select>
+          <button type="submit" className="analysis-sql-run" disabled={busy || !input.trim()} title="Ejecutar (Enter)">{busy ? "…" : "▶ run"}</button>
+          <button type="button" className="analysis-sql-collapse" aria-label={sqlOpen ? "Minimizar editor SQL" : "Abrir editor SQL"} title={sqlOpen ? "Minimizar" : "Abrir"} onClick={() => setSqlOpen((current) => !current)}>{sqlOpen ? "–" : "+"}</button>
         </div>
-        <div className="analysis-terminal-main">
-          <div className="analysis-terminal-log" ref={logRef}>
-            {log.map((entry) => (
-              <div key={entry.id} className={`analysis-log-line ${entry.status}`}>
-                <span className="analysis-log-prompt">&gt;</span> <span className="analysis-log-sql">{entry.sql.replace(/\s+/g, " ")}</span>
-                <div className="analysis-log-status">{entry.status === "error" ? `ERROR: ${entry.message}` : entry.message}</div>
+        {sqlOpen && (
+          <>
+            <div className="analysis-sql-editor">
+              <div className="analysis-sql-gutter" ref={gutterRef} aria-hidden="true">
+                {Array.from({ length: Math.max(input.split("\n").length, 1) }, (_, index) => <span key={index}>{index + 1}</span>)}
               </div>
-            ))}
-          </div>
-          <form className="analysis-terminal-input-row" onSubmit={submit}>
-            <span className="analysis-prompt">&gt;</span>
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void runQuery(input);
-                } else if (event.key === "ArrowUp" && !input.includes("\n")) {
-                  event.preventDefault();
-                  navigateHistory(-1);
-                } else if (event.key === "ArrowDown" && !input.includes("\n")) {
-                  event.preventDefault();
-                  navigateHistory(1);
-                }
-              }}
-              placeholder="SQL…"
-              rows={4}
-              spellCheck={false}
-            />
-            <button type="submit" disabled={busy || !input.trim()}>{busy ? "…" : "RUN"}</button>
-          </form>
-        </div>
-      </div>
+              <textarea
+                value={input}
+                wrap="off"
+                onChange={(event) => setInput(event.target.value)}
+                onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop; }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void runQuery(input);
+                  } else if (event.key === "ArrowUp" && !input.includes("\n")) {
+                    event.preventDefault();
+                    navigateHistory(-1);
+                  } else if (event.key === "ArrowDown" && !input.includes("\n")) {
+                    event.preventDefault();
+                    navigateHistory(1);
+                  }
+                }}
+                placeholder="SELECT …"
+                rows={6}
+                spellCheck={false}
+              />
+            </div>
+            <div className="analysis-sql-status">
+              <button type="button" className="analysis-sql-log-toggle" onClick={() => setLogOpen((current) => !current)} aria-expanded={logOpen}>
+                {log.length === 0 ? "sin consultas" : `${logOpen ? "▾" : "▸"} ${log[log.length - 1].status === "error" ? `error: ${log[log.length - 1].message}` : log[log.length - 1].message}`}
+              </button>
+              <span>↑↓ historial · ⇧↵ salto</span>
+            </div>
+            {logOpen && (
+              <div className="analysis-terminal-log" ref={logRef}>
+                {log.map((entry) => (
+                  <div key={entry.id} className={`analysis-log-line ${entry.status}`}>
+                    <span className="analysis-log-prompt">&gt;</span> <span className="analysis-log-sql">{entry.sql.replace(/\s+/g, " ")}</span>
+                    <div className="analysis-log-status">{entry.status === "error" ? `ERROR: ${entry.message}` : entry.message}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </form>
     </div>
   );
 }
