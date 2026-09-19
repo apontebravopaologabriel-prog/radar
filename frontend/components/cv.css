@@ -1,0 +1,23 @@
+/* Vista CVs: lista de objetivos y marcas de origen. Las reglas base están en globals.css. */
+.cv-rank { display: grid; max-width: 900px; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cv-rank-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 150px auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #2c2c2c; background: #0a0a0a; }
+.cv-rank-row.picked { border-color: #8c8c8c; }
+.cv-rank-row input { accent-color: #d0d0d0; }
+.cv-rank-title { min-width: 0; }
+.cv-rank-title strong { display: block; overflow: hidden; color: #f0f0f0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.cv-rank-title small { color: #8c8c8c; font-size: 10px; }
+.cv-rank-meter { display: grid; gap: 4px; font-size: 10px; color: #c8c8c8; }
+.cv-bar { display: block; height: 5px; background: #262626; }
+.cv-bar i { display: block; height: 100%; background: #d0d0d0; }
+.cv-lowdata { color: #8c8c8c; font-style: italic; }
+.cv-rank-actions { display: flex; gap: 4px; }
+.cv-rank-actions button { padding: 4px 9px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font-size: 10px; cursor: pointer; }
+.cv-rank-actions button:hover { border-color: #d0d0d0; color: #ffffff; }
+.cv-chip { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid #4a4a4a; color: #8c8c8c; font-size: 9px; letter-spacing: .04em; }
+.cv-chip.block { border-style: dashed; color: #d0d0d0; }
+.cv-agent-mark { margin-left: 1px; color: #8c8c8c; font-size: 9px; vertical-align: super; }
+.cv-baseline { width: 100%; max-width: 860px; margin: 0 0 8px; border-collapse: collapse; font-size: 11px; }
+.cv-baseline th, .cv-baseline td { padding: 7px 8px; border-bottom: 1px solid #262626; text-align: left; vertical-align: top; color: #dedede; }
+.cv-baseline th { color: #8c8c8c; font-size: 9px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.cv-baseline td.reason { color: #8c8c8c; font-size: 10px; }
+@media (max-width: 720px) { .cv-rank-row { grid-template-columns: auto minmax(0, 1fr); } .cv-rank-meter, .cv-rank-actions { grid-column: 2; } }

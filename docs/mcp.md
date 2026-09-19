@@ -69,16 +69,20 @@ LinkedIn, Bumeran, Laborum y Empleos Perú se incorporan inicialmente mediante a
 Detalle y principios en `docs/target-profiles.md`. Los archivos viven junto a la base de datos
 (`cv_master.json`, `targets/*.json`, `photo.jpg`), fuera de Git.
 
+- `list_targets()`: los objetivos actuales (ofertas con ★ elegidas por el usuario en la interfaz),
+  ordenados por cercanía al perfil real, con su brecha base calculada por código.
 - `get_target_context(job_ids)`: ofertas (requisitos, skills, descripción, distancia desde el distrito
-  real) y perfil real. Máximo 10 ofertas.
+  real), su brecha base (`baseline`, con `key` y estado) y el perfil real. Máximo 10 ofertas.
 - `save_target_profile(job_id, profile)`: valida y guarda un CV objetivo hipotético. Exige `quote` o
   `reason` en ítems explícitos, `reason` en inferidos y en `cubierto`, y valida `origin`, `status` y
-  `kind`. Empresa, título, marca hipotética y distancia los fija Radar. Devuelve `errors` si no valida.
+  `kind`. Empresa, título, marca hipotética y distancia los fija Radar; si un ítem comparte `key` con la brecha
+  base, el estado del código prevalece sobre el del agente. Devuelve `errors` si no valida.
 - `get_target_matrix()`: matriz de brechas entre los CVs guardados.
 - `resolve_nearest_districts(reference, limit=3)`: distritos más cercanos a una zona (km aproximados).
 
-El estado `cubierto/parcial/falta` lo asigna el agente citando el perfil real; solo la validación de
-esquema, las distancias y la matriz son deterministas.
+El estado de los requisitos detectados por Radar (skills, años de experiencia, estudios) lo calcula
+el código. El agente solo asigna estado a lo demás, citando el perfil real, y esos ítems se marcan
+como asignados por el agente en la matriz.
 
 ## Política para el agente
 

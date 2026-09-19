@@ -79,18 +79,23 @@ def build_matrix(targets: list[dict[str, Any]]) -> dict[str, Any]:
     ]
     rows: dict[str, dict[str, Any]] = {}
     for target in targets:
+        # La brecha base (código) va primero; el enriquecimiento del agente solo añade lo que falta.
+        items = [*target.get("baseline", [])]
         for section in ("experience", "tools"):
-            for item in target.get("sections", {}).get(section, []):
-                if not isinstance(item, dict):
-                    continue
-                key, status = item.get("key"), item.get("status")
-                if not key or status not in _STATUS_RANK:
-                    continue
-                label = item.get("label") or item.get("text") or key
-                row = rows.setdefault(key, {"key": key, "label": label, "cells": {}})
-                current = row["cells"].get(target["id"])
-                if current is None or _STATUS_RANK[status] > _STATUS_RANK[current]:
-                    row["cells"][target["id"]] = status
+            items.extend(target.get("sections", {}).get(section, []))
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key, status = item.get("key"), item.get("status")
+            if not key or status not in _STATUS_RANK:
+                continue
+            label = item.get("label") or item.get("text") or key
+            row = rows.setdefault(key, {"key": key, "label": label, "cells": {}, "agent_cells": []})
+            current = row["cells"].get(target["id"])
+            if current is None or _STATUS_RANK[status] > _STATUS_RANK[current]:
+                row["cells"][target["id"]] = status
+            if item.get("status_source") == "agente" and target["id"] not in row["agent_cells"]:
+                row["agent_cells"].append(target["id"])
     ordered = []
     for row in rows.values():
         open_count = sum(1 for status in row["cells"].values() if status != "cubierto")

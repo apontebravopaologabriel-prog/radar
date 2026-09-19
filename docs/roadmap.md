@@ -69,6 +69,7 @@
 
 - Perfil real estructurado y esquema JSON del CV ideal por oferta.
 - Herramientas MCP: contexto, guardado, brechas, agregación y distrito más cercano.
+- Objetivos = favoritos, con brecha base por código y ranking de cercanía (implementado).
 - Vista `CVs`: matriz de brechas, comparación de 2 a 4 puestos, render con foto y plan de cierre.
 - Detalle en `docs/target-profiles.md`.
 
@@ -86,3 +87,5 @@
 - Envío automático de mensajes.
 - Bypass de CAPTCHA o controles de acceso.
 - Geocodificación exacta persistida antes de incorporar coordenadas confiables en SQL.
+
+El CV real en Word (plantillas, verificación y edición) está diseñado en `docs/cv-word-plan.md`.

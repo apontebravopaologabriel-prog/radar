@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from radar import cv_targets
+from radar.api_cv import router as cv_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
 from radar.db.queries import (
     get_profile,
@@ -38,6 +38,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+app.include_router(cv_router)
 
 if FRONTEND_OUT.exists():
     next_dir = FRONTEND_OUT / "_next"
@@ -157,26 +159,6 @@ def history(limit: int = Query(default=90, ge=1, le=500)) -> dict[str, Any]:
 @app.get("/api/profile")
 def profile() -> dict[str, Any]:
     return {"profile": get_profile()}
-
-
-@app.get("/api/cv/profile")
-def cv_profile() -> dict[str, Any]:
-    return {"profile": cv_targets.load_profile()}
-
-
-@app.get("/api/cv/targets")
-def cv_target_profiles() -> dict[str, Any]:
-    targets = cv_targets.load_targets()
-    return {"targets": targets, "matrix": cv_targets.build_matrix(targets)}
-
-
-@app.get("/api/cv/photo")
-def cv_photo() -> FileResponse:
-    # Ruta fija bajo el directorio de datos: nunca se acepta una ruta del cliente.
-    path = cv_targets.photo_path()
-    if path is None:
-        raise HTTPException(status_code=404, detail="Sin foto configurada")
-    return FileResponse(str(path), headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/skills/overview")

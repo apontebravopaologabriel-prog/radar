@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
-from radar import cv_targets
+from radar import cv_baseline, cv_targets
 from radar.db.queries import (
     applications,
     career_timeline,
@@ -127,7 +127,21 @@ def list_job_applications(limit: int = 50) -> dict:
 def get_target_context(job_ids: list[str]) -> dict:
     """Contexto para redactar CVs objetivo hipotéticos: ofertas (requisitos, skills, descripción,
     distancia desde el distrito real) y el perfil real. Máximo 10 ofertas."""
-    return cv_targets.get_target_context(job_ids)
+    context = cv_targets.get_target_context(job_ids)
+    profile = context.get("real_profile") or {}
+    for job in context["jobs"]:
+        if "error" not in job:
+            base = cv_baseline.baseline(job["job_id"], profile)
+            job["baseline"] = base
+            job["readiness"] = cv_baseline.readiness(base, job.get("description") or "")
+    return context
+
+
+@mcp.tool()
+def list_targets() -> dict:
+    """Objetivos actuales (ofertas con estrella) ordenados por cercanía al perfil real, con su brecha
+    base calculada por código. La selección la hace el usuario desde la interfaz."""
+    return {"targets": cv_baseline.ranked_selection()}
 
 
 @mcp.tool()
@@ -137,7 +151,8 @@ def save_target_profile(job_id: str, profile: dict) -> dict:
     key?, label?, status?} y `gaps` [{item, kind, action, estimate_days?, evidence_to_produce?}].
     origin: explicito (cita), inferido (con reason) o tipico. status: cubierto (con reason citando el
     perfil real), parcial o falta. kind: dias, semanas o no_cerrable_rapido. `key` agrupa el mismo requisito entre puestos en la matriz y `label` es su nombre corto. Devuelve errores si el
-    esquema no valida; la empresa, el título y la distancia los calcula Radar."""
+    esquema no valida; el estado de los requisitos que Radar ya calculó (`baseline`, con su `key`) no
+    se puede reasignar: prevalece el del código; la empresa, el título y la distancia los calcula Radar."""
     return cv_targets.save_target(job_id, profile)
 
 

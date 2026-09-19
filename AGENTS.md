@@ -18,7 +18,9 @@ Antes de cambiar comportamiento, leer en este orden:
 - `src/radar/api.py`: endpoints HTTP y montaje del frontend estático.
 - `src/radar/db/`: conexión, repositorio y consultas SQLite.
 - `src/radar/cv_targets.py`: lectura de CVs objetivo hipotéticos (`docs/target-profiles.md`).
-- `frontend/components/CvView.tsx`: vista `CVs` (foto, matriz de brechas, CV ideal por puesto).
+- `src/radar/cv_baseline.py`: brecha base determinista, ranking y combinación con el enriquecimiento.
+- `src/radar/api_cv.py`: endpoints `/api/cv/*` (solo lectura).
+- `frontend/components/CvView.tsx`: vista `CVs` (objetivos = favoritos ★, ranking, matriz, comparación, detalle); sus tipos y cliente están en `frontend/lib/cv-types.ts` y `cv-api.ts`, y sus estilos en `components/cv.css`.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
 - `frontend/components/RadarClient.tsx`: estado, filtros, ofertas, popups y herramientas del mapa.
 - `frontend/components/MapView.tsx`: mapa MapLibre, distritos, etiquetas y radar.
@@ -41,7 +43,7 @@ Antes de cambiar comportamiento, leer en este orden:
   hacia arriba y el panel queda flotante en la zona inferior derecha.
 - Análisis y CVs reemplazan el mapa por su propia vista a pantalla completa (sin panel lateral). CVs
   deja libre el margen izquierdo para la barra de herramientas, marca todo CV objetivo como
-  `HIPOTÉTICO — no enviar` y no ofrece exportarlo.
+  `HIPOTÉTICO — no enviar` y no ofrece exportarlo. Los objetivos son las ofertas con ★: no crear otro mecanismo de selección.
 - Las ofertas se presentan en una bandeja flotante redimensionable desde el tirador superior y
   con scroll interno. Las tarjetas deben conservar una altura compacta aunque haya pocas ofertas.
   La bandeja también expone iconos compactos para alternar favoritos y ofertas ocultas.

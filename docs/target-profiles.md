@@ -1,6 +1,6 @@
 # CVs objetivo (perfiles hipotéticos)
 
-Estado: **V0 de solo lectura implementada** (API + vista `CVs`); herramientas MCP y comparación en columnas implementadas.
+Estado: **implementado** (selección por favoritos, brecha base por código, vista `CVs`, herramientas MCP). Pendiente: el CV real en Word, ver [cv-word-plan.md](cv-word-plan.md).
 
 ## Propósito
 
@@ -24,8 +24,16 @@ reordena lo que ya existe; esa adaptación queda como fase posterior y mínima (
    - `explicito`: la oferta lo dice; se guarda la cita textual.
    - `inferido`: no se dice, pero el puesto lo implica; se guarda la razón.
    - `tipico`: relleno probable del rubro; menor confianza.
-3. **La brecha la calcula código, no el LLM.** El LLM redacta el ideal y propone acciones; la
-   comparación oferta/perfil real se hace por reglas trazables.
+3. **La brecha la calcula código, no el LLM.** `src/radar/cv_baseline.py` cruza los requisitos que
+   Radar ya detectó en la oferta contra el perfil real, con evidencia: `cubierto` (certificado o
+   experiencia), `parcial` (aptitud o autodeclaración sin respaldo) o `falta`; más años de experiencia
+   y nivel de estudios extraídos de la descripción. El LLM solo redacta el ideal y propone acciones, y
+   **no puede reasignar el estado** de lo que el código ya calculó: si un ítem del agente comparte
+   `key` con la brecha base, prevalece el del código. Lo que el código no cubre queda marcado
+   `estado: agente` (`ᵃ` en la matriz). Las habilidades blandas se listan pero no puntúan. La
+   cercanía es ponderada y, con pocas señales, se muestra "datos insuficientes" en lugar de un
+   porcentaje. Límite conocido: los años de experiencia suman cualquier rol; no se verifica que
+   sean del área.
 4. **El plan de cierre es honesto.** Cada brecha se clasifica por lo que cuesta cerrarla:
 
    | Tipo | Ejemplo | Cierre |
@@ -69,11 +77,19 @@ genera desde el JSON.
 
 `status` (`cubierto`, `parcial`, `falta`) lo asigna el código al comparar contra el perfil real.
 
-## Herramientas MCP previstas
+## Selección de objetivos
+
+Los objetivos son las **ofertas con ★ (favoritos)**. No hay un mecanismo aparte: la estrella del mapa
+añade el objetivo y la `✕` de la vista `CVs` la quita. Así el usuario decide qué ofertas analizar sin
+depender del agente, y la brecha base aparece de inmediato para cualquiera de ellas. El agente
+enriquece solo las que importan.
+
+## Herramientas MCP
 
 Deterministas; el LLM del agente hace la redacción.
 
-- `get_target_context(job_ids)`: requisitos con evidencia por oferta y perfil real.
+- `list_targets()`: objetivos (favoritos) ordenados por cercanía, con su brecha base.
+- `get_target_context(job_ids)`: requisitos con evidencia por oferta, brecha base y perfil real.
 - `save_target_profile(job_id, profile)`: valida el esquema (orígenes, marca hipotética) y lo guarda.
 - `get_target_gaps(job_ids)`: brecha por reglas contra el perfil real.
 - `aggregate_targets(job_ids)`: brechas repetidas entre puestos, ordenadas por cuántos desbloquean.

@@ -14,9 +14,10 @@ La fuente de verdad es SQLite (archivo local, sin servidor). los agentes (Antigr
 
 El frontend incluye las vistas `Distritos`, `Radar`, `Análisis` y `CVs`. `Análisis` ejecuta consultas
 SQL de solo lectura sobre SQLite (con consultas predefinidas) y muestra el resultado como
-cifra, barras, serie o tabla. `CVs` muestra candidatos ideales hipotéticos por oferta, su matriz de
-brechas contra el perfil real y una comparación en columnas; no son CVs enviables (ver
-[CVs objetivo](docs/target-profiles.md)).
+cifra, barras, serie o tabla. `CVs` toma como objetivos las ofertas con ★, ordena por cercanía a tu perfil real
+(calculada por reglas), y ofrece matriz de brechas, comparación en columnas y candidatos ideales
+hipotéticos redactados por el agente; no son CVs enviables (ver
+[CVs objetivo](docs/target-profiles.md) y [CV en Word (plan)](docs/cv-word-plan.md)).
 
 ## Documentación
 
@@ -30,6 +31,7 @@ brechas contra el perfil real y una comparación en columnas; no son CVs enviabl
 - [Roadmap V2/V3](docs/roadmap.md)
 - [Dirección de producto](docs/product-direction.md)
 - [CVs objetivo](docs/target-profiles.md)
+- [CV en Word: viabilidad y plan](docs/cv-word-plan.md)
 
 ## Arranque
 

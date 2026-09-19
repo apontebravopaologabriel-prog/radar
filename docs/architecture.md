@@ -100,7 +100,8 @@ frontend/
 - La barra superior fue eliminada; `Radar` queda como encabezado principal del explorador y el mapa usa todo el alto disponible.
 - La vista `Análisis` envía SQL a `/api/analytics/query`, que solo admite consultas de lectura, y
   `/api/analytics/schema` describe las tablas disponibles.
-- La vista `CVs` lee `/api/cv/profile`, `/api/cv/targets` y `/api/cv/photo`. Los datos son archivos
+- La vista `CVs` lee `/api/cv/profile`, `/api/cv/selection`, `/api/cv/targets` y `/api/cv/photo`. Los objetivos son los
+  favoritos (`job_user_favorites`); `cv_baseline.py` calcula su brecha base contra el perfil real. Los datos son archivos
   locales junto a la base de datos (`cv_master.json`, `targets/*.json`, `photo.jpg`), fuera de Git y
   fuera de SQLite; la API solo sirve la foto de esa ruta fija. Diseño y reglas en
   `docs/target-profiles.md`.
