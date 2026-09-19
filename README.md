@@ -10,7 +10,7 @@ La V1 implementa la columna vertebral y V2 añade memoria profesional:
 buscar → normalizar → clasificar → deduplicar → observar → guardar → puntuar → evolucionar
 ```
 
-La fuente de verdad es SQLite (archivo local, sin servidor). Hermes se conecta mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
+La fuente de verdad es SQLite (archivo local, sin servidor). los agentes (Antigravity por defecto, o cualquier cliente MCP) se conectan mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
 
 El frontend incluye las vistas `Distritos`, `Radar`, `Análisis` y `CVs`. `Análisis` ejecuta consultas
 SQL de solo lectura sobre SQLite (con consultas predefinidas) y muestra el resultado como
@@ -23,7 +23,7 @@ brechas contra el perfil real y una comparación en columnas; no son CVs enviabl
 - [Guía para agentes](AGENTS.md)
 - [Arquitectura y flujo](docs/architecture.md)
 - [Modelo de datos](docs/database.md)
-- [MCP para Hermes](docs/mcp.md)
+- [MCP de Radar (Antigravity y otros clientes)](docs/mcp.md)
 - [Operación diaria](docs/operations.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Seguridad y cumplimiento](docs/security.md)
@@ -69,7 +69,7 @@ uv pip install --python .venv-jobspy/bin/python -e '.[jobspy]'
 .venv-jobspy/bin/radar ingest --source jobspy --query "practicante ingeniería industrial" --location Lima --limit 10
 ```
 
-Para conectar Hermes:
+Para conectar un agente (Antigravity, Claude Code, Hermes u otro cliente MCP; ver [docs/mcp.md](docs/mcp.md)):
 
 ```json
 {
@@ -88,7 +88,7 @@ Para abrir el frontend geográfico manualmente en desarrollo, inicia la API y lu
 cd frontend && npm run dev
 ```
 
-Visita `http://localhost:3000/radar`. La API HTTP escucha en `http://127.0.0.1:8100`; además de consultas de lectura permite actualizar el estado personal visible/oculta de una oferta consultar `/api/skills/overview`, ejecutar consultas de solo lectura en `/api/analytics/query` y leer los CVs objetivo en `/api/cv/*`. El MCP para Hermes mantiene su transporte stdio independiente.
+Visita `http://localhost:3000/radar`. La API HTTP escucha en `http://127.0.0.1:8100`; además de consultas de lectura permite actualizar el estado personal visible/oculta de una oferta consultar `/api/skills/overview`, ejecutar consultas de solo lectura en `/api/analytics/query` y leer los CVs objetivo en `/api/cv/*`. El MCP mantiene su transporte stdio independiente.
 
 También puedes abrir Radar desde el launcher de aplicaciones del sistema. El acceso ejecuta
 `scripts/radar-launch.sh`, compila `frontend/out` si hace falta, inicia la API si no está activa y abre
@@ -112,7 +112,7 @@ limitación en la interfaz. MapLibre es el motor principal; si el navegador no s
 WebGL2, se activa automáticamente un fallback con Leaflet. La interfaz usa un tema grafito
 oscuro y el explorador tiene scroll propio para ventanas pequeñas.
 
-Herramientas MCP disponibles: `ingest_jobs`, `search_saved_jobs`, `get_market_summary`, `get_user_profile`, `list_recommended_jobs`, `get_job_history`, `get_career_timeline`, `record_career_event`, `capture_market_history`, `get_market_history`, `track_job_application`, `list_job_applications`, `get_target_context`, `save_target_profile`, `get_target_matrix`, `resolve_nearest_districts` y `health`. El detalle está en [MCP para Hermes](docs/mcp.md).
+Herramientas MCP disponibles: `ingest_jobs`, `search_saved_jobs`, `get_market_summary`, `get_user_profile`, `list_recommended_jobs`, `get_job_history`, `get_career_timeline`, `record_career_event`, `capture_market_history`, `get_market_history`, `track_job_application`, `list_job_applications`, `get_target_context`, `save_target_profile`, `get_target_matrix`, `resolve_nearest_districts` y `health`. El detalle está en [MCP de Radar](docs/mcp.md).
 
 Para sumar LinkedIn, Bumeran, Laborum o Empleos Perú sin automatizar cuentas personales, importa un CSV/JSON preparado por ti:
 

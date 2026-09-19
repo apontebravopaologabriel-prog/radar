@@ -1,27 +1,48 @@
-# MCP de Radar para Hermes
+# MCP de Radar
+
+Radar expone un servidor MCP estándar por stdio (`radar-mcp`, FastMCP). No depende de un cliente
+concreto: sirve con cualquier agente compatible con MCP. El cliente predeterminado es **Antigravity**;
+también funciona con Claude Code, Hermes o cualquier otro cliente con la misma configuración.
 
 ## Configuración
+
+Comando del servidor, igual para todos los clientes:
+
+```text
+/home/paolo/Projects/Radar/.venv/bin/radar-mcp
+```
+
+Bloque JSON estándar (`mcpServers`), que acepta la mayoría de clientes:
 
 ```json
 {
   "mcpServers": {
     "radar": {
-      "command": "/home/paolo/Projects/Radar/.venv/bin/radar-mcp"
+      "command": "/home/paolo/Projects/Radar/.venv/bin/radar-mcp",
+      "cwd": "/home/paolo/Projects/Radar"
     }
   }
 }
 ```
 
 El proceso necesita acceso de lectura/escritura al archivo SQLite local (por defecto
-`~/.local/share/radar/radar.db`, configurable con `RADAR_DB_PATH`).
+`~/.local/share/radar/radar.db`, configurable con `RADAR_DB_PATH`) y, para los CVs objetivo, al mismo
+directorio de datos.
 
-## Antigravity
+### Antigravity (predeterminado)
 
-Radar también está registrado en la configuración global de Antigravity:
+Radar está registrado en la configuración global de Antigravity, `~/.gemini/config/mcp_config.json`,
+con el bloque anterior (`disabled: false`) junto a los demás servidores. Después de cambiar esta
+configuración, reinicia Antigravity o recarga sus servidores MCP desde
+`Additional Options (...) > MCP Servers`.
 
-`~/.gemini/config/mcp_config.json`
+### Otros clientes
 
-La entrada usa `/home/paolo/Projects/Radar/.venv/bin/radar-mcp`, define el directorio de trabajo del proyecto y mantiene habilitados los demás servidores. Después de cambiar esta configuración, reinicia Antigravity o recarga sus servidores MCP desde `Additional Options (...) > MCP Servers`.
+- **Claude Code:** `claude mcp add radar -- /home/paolo/Projects/Radar/.venv/bin/radar-mcp`.
+- **Hermes u otro cliente MCP:** pega el bloque JSON en su configuración de servidores.
+
+Un cliente nuevo no requiere cambios en Radar. Tras añadir herramientas al servidor, hay que recargar
+el servidor MCP del cliente para que las vea.
 
 ## Herramientas
 
@@ -59,6 +80,6 @@ Detalle y principios en `docs/target-profiles.md`. Los archivos viven junto a la
 El estado `cubierto/parcial/falta` lo asigna el agente citando el perfil real; solo la validación de
 esquema, las distancias y la matriz son deterministas.
 
-## Política de Hermes
+## Política para el agente
 
-Hermes debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de futuras escrituras del perfil. V1 no tiene herramientas de postulación.
+Cualquier agente conectado (Antigravity, Claude Code, Hermes u otro) debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de futuras escrituras del perfil. V1 no tiene herramientas de postulación.

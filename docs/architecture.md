@@ -14,7 +14,7 @@ automatizan postulaciones.
 ## Componentes
 
 ```text
-Hermes
+Agente (Antigravity, Claude Code, Hermes…)
   ↓ MCP stdio
 Radar MCP (FastMCP)
   ↓
@@ -41,7 +41,7 @@ Radar API (FastAPI, puerto 8100)
 SQLite
 ```
 
-Hermes es la interfaz conversacional. Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. SQLite es la fuente de verdad.
+El agente conectado por MCP (Antigravity por defecto; el servidor es independiente del cliente) es la interfaz conversacional. Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. SQLite es la fuente de verdad.
 
 La clasificación actual es heurística y usa alias definidos en `src/radar/classify.py` y la taxonomía de `src/radar/taxonomy.py`; el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Cada oferta recibe además una relevancia trazable (`core`, `adjacent` u `out_of_focus`) para priorizar el mercado de Ingeniería Industrial sin borrar ofertas. Todavía no depende de un LLM.
 
@@ -62,7 +62,7 @@ src/radar/
 ├── sources/                # adaptadores externos
 ├── db/                     # conexión, escritura y consultas
 ├── cv_targets.py           # CVs objetivo hipotéticos: lectura, validación, matriz y distancias
-└── mcp/server.py           # interfaz para Hermes
+└── mcp/server.py           # servidor MCP para cualquier agente
 frontend/
 ├── app/radar/              # pantalla principal del explorador
 ├── components/RadarClient.tsx # filtros, lista, selección y estado de la vista

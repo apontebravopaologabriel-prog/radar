@@ -9,7 +9,7 @@
 - Clasificación heurística.
 - Perfil separado.
 - Score trazable.
-- Consultas MCP para Hermes.
+- Consultas MCP para agentes (Antigravity y otros clientes).
 - Sin postulaciones automáticas; el frontend geográfico se documenta en la sección correspondiente.
 
 ## V2 — implementada en esta iteración
