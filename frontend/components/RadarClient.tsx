@@ -1,18 +1,27 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FormEvent, PointerEvent as ReactPointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobs, fetchSkillHistory, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { FormEvent, memo, PointerEvent as ReactPointerEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobs, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
 import { districtKey } from "../lib/districts";
-import type { DistrictSummary, Filters, Job, MapMode, SkillOverview, SkillSnapshot } from "../types";
-import SkillsView from "./SkillsView";
+import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
+import AnalysisView from "./AnalysisView";
+import BootScreen from "./BootScreen";
 
-const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima…</div> });
+function LoadingDots() {
+  return (
+    <span className="loading-dots" aria-hidden="true">
+      <i /><i /><i />
+    </span>
+  );
+}
+
+const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima<LoadingDots /></div> });
 
 const AREAS = ["", "Operaciones", "Producción", "Mejora continua", "Procesos", "Supply Chain", "Logística", "Compras", "Planeamiento", "Demand Planning", "Calidad", "Data / BI", "Analytics", "Automatización", "Proyectos / PMO", "Finanzas / Control de gestión", "Seguridad y Salud en el Trabajo", "Recursos Humanos / People Analytics", "Ventas / Comercial"];
 const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
 const RADAR_RADII = [2, 5, 10] as const;
-type RadarTool = "districts" | "radar" | "filters" | "skills";
+type RadarTool = "districts" | "radar" | "filters" | "skills" | "analysis";
 
 function formatDate(value: string | null) {
   if (!value) return "Fecha no indicada";
@@ -164,7 +173,7 @@ function distanceKm(from: { latitude: number; longitude: number }, to: { latitud
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function OfferSignalCard({ job, selected, onSelect }: { job: Job; selected: boolean; onSelect: (job: Job) => void }) {
+const OfferSignalCard = memo(function OfferSignalCard({ job, selected, onSelect }: { job: Job; selected: boolean; onSelect: (job: Job) => void }) {
   return (
     <article
       className={`offer-scroll-card ${selected ? "selected" : ""}`}
@@ -191,7 +200,36 @@ function OfferSignalCard({ job, selected, onSelect }: { job: Job; selected: bool
       <span className="offer-scroll-location">⌖ {job.district || job.location || "Ubicación pendiente"}</span>
     </article>
   );
-}
+});
+
+const JobCard = memo(function JobCard({ job, selected, showHidden, onSelect, onToggleFavorite }: { job: Job; selected: boolean; showHidden: boolean; onSelect: (job: Job) => void; onToggleFavorite: (job: Job) => void }) {
+  return (
+    <button className={`job-card ${selected ? "selected" : ""}`} onClick={() => onSelect(job)}>
+      <div className="job-card-top">
+        <span className="job-area">{job.primary_area || "Sin área"}</span>
+        <span className="job-date">{formatDate(job.published_at)}</span>
+        <span
+          className="favorite-toggle"
+          role="button"
+          tabIndex={0}
+          aria-label={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+          title={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+          onClick={(event) => { event.stopPropagation(); onToggleFavorite(job); }}
+          onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); onToggleFavorite(job); } }}
+        >
+          {job.is_favorite ? "★" : "☆"}
+        </span>
+      </div>
+      <strong>{job.title}</strong>
+      <span className="job-company">{job.company || "Empresa no indicada"}</span>
+      <div className="job-meta">
+        <span>⌖ {job.district || job.location || "Ubicación pendiente"}</span>
+        <span>{job.work_mode === "hybrid" ? "Híbrido" : job.work_mode === "remote" ? "Remoto" : job.work_mode === "onsite" ? "Presencial" : "Modalidad n/i"}</span>
+      </div>
+      {showHidden && <span className="hidden-reason">{job.user_reason || "Oculta"} · Restaurar desde el detalle</span>}
+    </button>
+  );
+});
 
 export default function RadarClient() {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
@@ -206,7 +244,6 @@ export default function RadarClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [skillOverview, setSkillOverview] = useState<SkillOverview | null>(null);
-  const [skillHistory, setSkillHistory] = useState<SkillSnapshot[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [radarCenter, setRadarCenter] = useState({ longitude: -77.043, latitude: -12.046 });
@@ -223,8 +260,10 @@ export default function RadarClient() {
   const [favoriteBusy, setFavoriteBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [offerPanelHeight, setOfferPanelHeight] = useState<number | null>(null);
-  const offerResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const offerPanelRef = useRef<HTMLDivElement | null>(null);
+  const offerResizeRef = useRef<{ startY: number; startHeight: number; lastY: number; frame: number | null } | null>(null);
   const [expandedDescriptionId, setExpandedDescriptionId] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
   const selectedJob = useMemo(() => [...jobs, ...hiddenJobs, ...favoriteJobs].find((job) => job.id === selectedId) || null, [favoriteJobs, hiddenJobs, jobs, selectedId]);
 
   useEffect(() => {
@@ -243,12 +282,12 @@ export default function RadarClient() {
   }, [filters, selectedSkill]);
 
   useEffect(() => {
-    if (mode !== "skills" && activeTool !== "skills" && activeTool !== "filters") return;
+    if (activeTool !== "skills" && activeTool !== "filters") return;
     const controller = new AbortController();
     setSkillsLoading(true);
     setSkillsError(null);
-    Promise.all([fetchSkillOverview(filters, controller.signal), fetchSkillHistory(controller.signal)])
-      .then(([result, snapshots]) => { setSkillOverview(result); setSkillHistory(snapshots); })
+    fetchSkillOverview(filters, controller.signal)
+      .then((result) => setSkillOverview(result))
       .catch((reason: Error) => {
         if (reason.name !== "AbortError") setSkillsError("No se pudo cargar el mapa de habilidades.");
       })
@@ -337,13 +376,13 @@ export default function RadarClient() {
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
-  function selectJob(job: Job) {
+  const selectJob = useCallback((job: Job) => {
     setSelectedId(job.id);
     setExpandedDescriptionId(null);
     setHideReasonFor(null);
     setHideReason("");
     if (mode === "heatmap") setSelectedDistrictKey(districtKey(job.district));
-  }
+  }, [mode]);
 
   function selectDistrict(key: string) {
     setSelectedDistrictKey((current) => current === key ? null : key);
@@ -380,7 +419,7 @@ export default function RadarClient() {
     setSelectedId(null);
   }
 
-  async function toggleFavorite(job: Job) {
+  const toggleFavorite = useCallback(async (job: Job) => {
     const nextValue = !job.is_favorite;
     setFavoriteBusy(true);
     setStatusError(null);
@@ -398,7 +437,7 @@ export default function RadarClient() {
     } finally {
       setFavoriteBusy(false);
     }
-  }
+  }, [showFavorites]);
 
   async function hideSelectedJob() {
     if (!selectedJob || !hideReasonFor || !hideReason) return;
@@ -447,7 +486,7 @@ export default function RadarClient() {
     setMode(nextMode);
     setRadarCenterOpen(false);
     setSelectedId(null);
-    if (nextMode !== "skills") setSelectedSkill(null);
+    setSelectedSkill(null);
     if (nextMode !== "heatmap") setSelectedDistrictKey(null);
     if (nextMode === "radar") {
       setRadarDistrictKey(null);
@@ -469,22 +508,46 @@ export default function RadarClient() {
       changeMode("heatmap");
       return;
     }
+    if (tool === "analysis") {
+      setSelectedDistrictKey(null);
+      setFiltersOpen(false);
+      changeMode("analysis");
+      return;
+    }
     setFiltersOpen(true);
     changeMode(tool === "radar" ? "radar" : "heatmap");
   }
 
   useEffect(() => {
+    function applyResize() {
+      const resize = offerResizeRef.current;
+      const panel = offerPanelRef.current;
+      if (resize) resize.frame = null;
+      if (!resize || !panel) return;
+      const maxHeight = Math.max(180, window.innerHeight - 36);
+      const next = Math.max(180, Math.min(maxHeight, resize.startHeight + resize.startY - resize.lastY));
+      panel.style.height = `${next}px`;
+    }
     function resizeOffers(event: PointerEvent) {
       const resize = offerResizeRef.current;
       if (!resize) return;
-      const maxHeight = Math.max(180, window.innerHeight - 36);
-      setOfferPanelHeight(Math.max(180, Math.min(maxHeight, resize.startHeight + resize.startY - event.clientY)));
+      resize.lastY = event.clientY;
+      if (resize.frame !== null) return;
+      resize.frame = requestAnimationFrame(applyResize);
     }
     function stopResizingOffers() {
+      const resize = offerResizeRef.current;
+      const panel = offerPanelRef.current;
+      if (resize && resize.frame !== null) cancelAnimationFrame(resize.frame);
+      if (panel) {
+        panel.classList.remove("is-resizing");
+        setOfferPanelHeight(panel.getBoundingClientRect().height);
+      }
+      document.body.classList.remove("is-resizing");
       offerResizeRef.current = null;
     }
-    window.addEventListener("pointermove", resizeOffers);
-    window.addEventListener("pointerup", stopResizingOffers);
+    window.addEventListener("pointermove", resizeOffers, { passive: true });
+    window.addEventListener("pointerup", stopResizingOffers, { passive: true });
     return () => {
       window.removeEventListener("pointermove", resizeOffers);
       window.removeEventListener("pointerup", stopResizingOffers);
@@ -492,14 +555,19 @@ export default function RadarClient() {
   }, []);
 
   function startOfferResize(event: ReactPointerEvent<HTMLDivElement>) {
-    const panel = event.currentTarget.parentElement;
+    const panel = event.currentTarget.parentElement as HTMLDivElement | null;
     if (!panel) return;
     event.preventDefault();
-    offerResizeRef.current = { startY: event.clientY, startHeight: panel.getBoundingClientRect().height };
+    offerPanelRef.current = panel;
+    panel.classList.add("is-resizing");
+    document.body.classList.add("is-resizing");
+    offerResizeRef.current = { startY: event.clientY, startHeight: panel.getBoundingClientRect().height, lastY: event.clientY, frame: null };
   }
 
   return (
     <main className="radar-shell">
+      {booting && <BootScreen ready={!loading} onDone={() => setBooting(false)} />}
+      <div className="crt-scanlines" aria-hidden="true" />
       <section className="workspace">
         <button className={`edge-menu-toggle ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => filtersOpen ? setFiltersOpen(false) : selectTool("filters")}>
           <span aria-hidden="true">{filtersOpen ? "×" : "☷"}</span>
@@ -509,11 +577,12 @@ export default function RadarClient() {
           <button className={activeTool === "filters" ? "active" : ""} type="button" aria-label="Filtros" title="Filtros" onClick={() => selectTool("filters")}><span aria-hidden="true">≡</span></button>
           <button className={activeTool === "radar" ? "active" : ""} type="button" aria-label="Radar" title="Radar" onClick={() => selectTool("radar")}><span aria-hidden="true">◎</span></button>
           <button className={activeTool === "skills" ? "active" : ""} type="button" aria-label="Competencias" title="Competencias" onClick={() => selectTool("skills")}><span aria-hidden="true">◇</span></button>
+          <button className={activeTool === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectTool("analysis")}><span aria-hidden="true">▦</span></button>
         </nav>
         <aside id="radar-controls-panel" className={`sidebar tool-${activeTool} ${filtersOpen ? "is-open" : ""}`}>
           <div className="sidebar-heading">
             <div><p className="eyebrow">Control room / 01</p><h1>Market scan</h1></div>
-            <span className="result-count">{loading ? "---" : `${mappedCount}`}</span>
+            <span className="result-count" key={loading ? "loading" : mappedCount}>{loading ? "---" : `${mappedCount}`}</span>
           </div>
           <form className="search-box" onSubmit={submitSearch}><span>⌕</span><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="..." /><button type="submit" aria-label="Buscar">↵</button></form>
 
@@ -525,14 +594,14 @@ export default function RadarClient() {
             <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos los portales · {jobs.length}</option><option value="indeed">Indeed · {portalCounts.indeed || 0}</option><option value="computrabajo">Computrabajo · {portalCounts.computrabajo || 0}</option><option value="linkedin">LinkedIn · {portalCounts.linkedin || 0}</option><option value="bumeran">Bumeran · {portalCounts.bumeran || 0}</option><option value="laborum">Laborum · {portalCounts.laborum || 0}</option><option value="empleos">Empleos Perú · {portalCounts.empleos || 0}</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas las competencias</option>{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{skill.name} · {skill.job_count}</option>)}</select></label></div>
           </div>
 
-          <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"], ["skills", "Competencias"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><span className="radar-readout">CENTER // {radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
+          <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><span className="radar-readout">CENTER // {radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
           <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : selectedSkill ? `Ofertas con ${selectedSkill}` : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && !showHidden && !showFavorites ? "…" : `${showHidden ? hiddenJobs.length : showFavorites ? favoriteJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "ocultas" : showFavorites ? "guardadas" : "en mapa"}`}</span>{selectedSkill && !showHidden && !showFavorites && <button className="clear-skill-filter" type="button" onClick={() => setSelectedSkill(null)} aria-label="Quitar filtro de competencia" title="Quitar filtro de competencia">×</button>}<button className={`favorites-toggle ${showFavorites ? "active" : ""}`} type="button" onClick={toggleFavoriteJobs} aria-label={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"} title={showFavorites ? "Volver a ofertas visibles" : "Ver favoritos"}>{favoriteJobs.length > 0 ? "★" : "☆"}</button><button className={`hidden-toggle ${showHidden ? "active" : ""}`} type="button" onClick={toggleHiddenJobs} aria-label={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"} title={showHidden ? "Volver a ofertas visibles" : "Ver ofertas ocultas"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>{hiddenJobs.length > 0 && <b>{hiddenJobs.length}</b>}</button></div></div>
           {statusError && <div className="status-error">{statusError}</div>}
-          <div className="job-list">{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas…</div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "No tienes ofertas ocultas." : showFavorites ? "No tienes favoritos guardados." : "No hay ofertas con estos filtros."}</div>}{listedJobs.map((job) => <button key={job.id} className={`job-card ${selectedId === job.id ? "selected" : ""}`} onClick={() => selectJob(job)}><div className="job-card-top"><span className="job-area">{job.primary_area || "Sin área"}</span><span className="job-date">{formatDate(job.published_at)}</span><span className="favorite-toggle" role="button" tabIndex={0} aria-label={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"} title={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"} onClick={(event) => { event.stopPropagation(); void toggleFavorite(job); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); void toggleFavorite(job); } }}>{job.is_favorite ? "★" : "☆"}</span></div><strong>{job.title}</strong><span className="job-company">{job.company || "Empresa no indicada"}</span><div className="job-meta"><span>⌖ {job.district || job.location || "Ubicación pendiente"}</span><span>{job.work_mode === "hybrid" ? "Híbrido" : job.work_mode === "remote" ? "Remoto" : job.work_mode === "onsite" ? "Presencial" : "Modalidad n/i"}</span></div>{showHidden && <span className="hidden-reason">{job.user_reason || "Oculta"} · Restaurar desde el detalle</span>}</button>)}</div>
-          {activeTool === "skills" && <div className="skill-float-panel"><div className="skill-float-heading"><span>COMPETENCIAS // OFERTAS</span><strong>{skillOverview?.skills.length || 0}</strong></div>{skillsLoading && <div className="skill-float-status">Analizando competencias…</div>}{!skillsLoading && skillsError && <div className="skill-float-status error-state">{skillsError}</div>}{!skillsLoading && !skillsError && <div className="skill-float-list">{(skillOverview?.skills || []).map((skill) => <button key={skill.name} className={`skill-float-row ${selectedSkill === skill.name ? "selected" : ""}`} type="button" onClick={() => { setSelectedSkill((current) => current === skill.name ? null : skill.name); setSelectedId(null); setSelectedDistrictKey(null); }}><span><i />{skill.name}<small>{skill.category || skill.skill_type}</small></span><strong>{skill.job_count}</strong></button>)}</div>}{selectedSkill && <button className="skill-float-clear" type="button" onClick={() => setSelectedSkill(null)}>Quitar filtro · {selectedSkill}</button>}</div>}
+          <div className="job-list">{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "No tienes ofertas ocultas." : showFavorites ? "No tienes favoritos guardados." : "No hay ofertas con estos filtros."}</div>}{listedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} />)}</div>
+          {activeTool === "skills" && <div className="skill-float-panel"><div className="skill-float-heading"><span>COMPETENCIAS // OFERTAS</span><strong>{skillOverview?.skills.length || 0}</strong></div>{skillsLoading && <div className="skill-float-status">Analizando competencias<LoadingDots /></div>}{!skillsLoading && skillsError && <div className="skill-float-status error-state">{skillsError}</div>}{!skillsLoading && !skillsError && <div className="skill-float-list">{(skillOverview?.skills || []).map((skill) => <button key={skill.name} className={`skill-float-row ${selectedSkill === skill.name ? "selected" : ""}`} type="button" onClick={() => { setSelectedSkill((current) => current === skill.name ? null : skill.name); setSelectedId(null); setSelectedDistrictKey(null); }}><span><i />{skill.name}<small>{skill.category || skill.skill_type}</small></span><strong>{skill.job_count}</strong></button>)}</div>}{selectedSkill && <button className="skill-float-clear" type="button" onClick={() => setSelectedSkill(null)}>Quitar filtro · {selectedSkill}</button>}</div>}
         </aside>
 
-        <section className={`map-panel ${mode === "skills" ? "skills-panel" : mode === "jobs" ? "reading-panel" : ""}`}>
+        <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" ? "analysis-mode-panel" : ""}`}>
           {mode === "jobs" ? (
             <div className="job-reading-view">
               {selectedJob ? (
@@ -596,8 +665,8 @@ export default function RadarClient() {
                 </div>
               )}
             </div>
-          ) : mode === "skills" ? (
-            <SkillsView data={skillOverview} history={skillHistory} loading={skillsLoading} error={skillsError} selectedName={selectedSkill} onSelectSkill={setSelectedSkill} />
+          ) : mode === "analysis" ? (
+            <AnalysisView />
           ) : (
             <>
               <div className="map-header">

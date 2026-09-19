@@ -1,4 +1,4 @@
-import type { Filters, Job, SkillOverview, SkillSnapshot } from "../types";
+import type { AnalyticsQueryResult, AnalyticsSchema, Filters, Job, SkillOverview } from "../types";
 
 const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL
   || (typeof window !== "undefined" && window.location.port !== "3000" ? window.location.origin : "http://127.0.0.1:8100");
@@ -41,12 +41,6 @@ export async function fetchSkillOverview(filters: Pick<Filters, "area" | "senior
   return (await response.json()) as SkillOverview;
 }
 
-export async function fetchSkillHistory(signal?: AbortSignal): Promise<SkillSnapshot[]> {
-  const response = await fetch(`${API_URL}/api/skills/history`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { snapshots: SkillSnapshot[] }).snapshots;
-}
-
 export async function fetchJobsForSkill(skill: string, signal?: AbortSignal): Promise<Job[]> {
   const params = new URLSearchParams({ skill, max_age_days: "365" });
   const response = await fetch(`${API_URL}/api/jobs?${params.toString()}`, { signal });
@@ -61,4 +55,24 @@ export async function updateJobStatus(id: string, status: "visible" | "hidden", 
     body: JSON.stringify({ status, reason }),
   });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+}
+
+export async function runAnalyticsQuery(sql: string, signal?: AbortSignal): Promise<AnalyticsQueryResult> {
+  const response = await fetch(`${API_URL}/api/analytics/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql }),
+    signal,
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { detail?: string } | null;
+    throw new Error(payload?.detail || `La API respondió ${response.status}`);
+  }
+  return (await response.json()) as AnalyticsQueryResult;
+}
+
+export async function fetchAnalyticsSchema(signal?: AbortSignal): Promise<AnalyticsSchema> {
+  const response = await fetch(`${API_URL}/api/analytics/schema`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return (await response.json()) as AnalyticsSchema;
 }

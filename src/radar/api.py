@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
 from radar.db.queries import (
     get_profile,
     list_favorite_jobs,
@@ -33,7 +34,7 @@ app = FastAPI(title="Radar Career Intelligence API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("RADAR_API_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8100").split(","),
-    allow_methods=["GET", "PATCH", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -214,6 +215,25 @@ def update_job_status(job_id: str, payload: JobStatusUpdate) -> dict[str, str]:
     except sqlite3.IntegrityError as exc:
         raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
     return {"status": payload.status}
+
+
+class AnalyticsQueryRequest(BaseModel):
+    sql: str = Field(min_length=1, max_length=4000)
+
+
+@app.post("/api/analytics/query")
+def analytics_query(payload: AnalyticsQueryRequest) -> dict[str, Any]:
+    try:
+        return run_readonly_query(payload.sql)
+    except QueryTimeout as exc:
+        raise HTTPException(status_code=408, detail=str(exc)) from exc
+    except QueryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/analytics/schema")
+def analytics_schema() -> dict[str, Any]:
+    return describe_schema()
 
 
 def main() -> None:

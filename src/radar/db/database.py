@@ -160,3 +160,18 @@ def connection() -> Iterator[RadarConnection]:
         conn.commit()
     finally:
         conn.close()
+
+
+@contextmanager
+def readonly_connection() -> Iterator[sqlite3.Connection]:
+    """Open the database strictly read-only, for ad-hoc analytics queries.
+
+    Uses SQLite's URI mode=ro so the connection itself refuses writes at the
+    OS level, independent of any SQL-text validation the caller has done.
+    """
+    db_file = database_path()
+    conn = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True, timeout=5.0)
+    try:
+        yield conn
+    finally:
+        conn.close()

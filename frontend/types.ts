@@ -43,7 +43,7 @@ export type Filters = {
   relevance_tier?: string;
 };
 
-export type MapMode = "jobs" | "heatmap" | "radar" | "skills";
+export type MapMode = "jobs" | "heatmap" | "radar" | "analysis";
 
 export type SkillDemand = {
   name: string;
@@ -64,12 +64,22 @@ export type SkillOverview = {
   skills: SkillDemand[];
 };
 
-export type SkillSnapshot = { date: string; skill: string; value: number };
-
 export type DistrictSummary = {
   key: string;
   district: string;
   count: number;
   latitude: number;
   longitude: number;
+};
+
+export type AnalyticsQueryResult = {
+  columns: string[];
+  rows: (string | number | null)[][];
+  row_count: number;
+  truncated: boolean;
+  elapsed_ms: number;
+};
+
+export type AnalyticsSchema = {
+  tables: { table: string; columns: { name: string; type: string }[] }[];
 };
