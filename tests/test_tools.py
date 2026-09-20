@@ -264,3 +264,10 @@ def test_place_profile_counts_only_that_place_and_prompt_does_not_autorun_setup(
     assert "get_place_profile" in {t.name for t in tools.chat_tools()}
     assert "llama primero a get_setup_status" not in loop.SYSTEM_PROMPT
     assert "SIN llamar herramientas" in loop.SYSTEM_PROMPT
+
+
+def test_classification_audit_is_read_only_and_reclassify_needs_confirmation():
+    assert tools.REGISTRY["audit_classification"].write is False
+    assert tools.REGISTRY["reclassify_jobs"].write is True
+    report = tools.audit_classification(3)
+    assert {"jobs", "drifted", "drift_pct", "top_transitions", "sample"} <= set(report)

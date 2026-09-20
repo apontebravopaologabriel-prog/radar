@@ -33,6 +33,30 @@ def _requirement_type(text: str, start: int) -> str:
     return "unknown"
 
 
+MIN_AREA_SCORE = 1.5  # un solo término débil o una mención suelta en la descripción no basta para asignar un área
+
+
+def _title_contains(title: str, phrase: str) -> bool:
+    """En el título se admiten derivados cortos («almacenero», «almacenes») para no depender de cada variante."""
+    return re.search(rf"(?<!\w){re.escape(phrase)}\w{{0,5}}(?!\w)", title) is not None
+
+
+def _area_score(title: str, description: str, phrases: tuple[str, ...], weak: frozenset[str]) -> tuple[float, str | None, bool]:
+    """Puntaje acumulado de un área: título 3, menciones fuertes en la descripción 0.8 (máx. 3) y
+    débiles 0.25 (máx. 2). Devuelve (puntaje, mejor frase, ¿hubo coincidencia en el título?)."""
+    score, best, in_title = 0.0, None, False
+    for phrase in sorted(phrases, key=len, reverse=True):
+        if _title_contains(title, phrase):
+            score += 3.0 + len(phrase) / 100
+            best, in_title = best or phrase, True
+            continue
+        hits = len(re.findall(rf"(?<!\w){re.escape(phrase)}(?!\w)", description))
+        if hits:
+            score += (0.25 * min(hits, 2)) if phrase in weak else (0.8 * min(hits, 3))
+            best = best or phrase
+    return score, best, in_title
+
+
 def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     pack = pack or default_pack()
     commercial_rules = tuple(p for rules in pack.out_of_focus_rules.values() for p in rules)
@@ -43,16 +67,23 @@ def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     matched: list[tuple[float, int, Evidence]] = []
     commercial_title = next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(title, phrase)), None)
     commercial_text = commercial_title or next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(description, phrase)), None)
+    if commercial_text and not commercial_title and len(re.findall(rf"(?<!\w){re.escape(commercial_text)}(?!\w)", description)) < 3:
+        commercial_text = None  # una mención suelta en la descripción no vuelve comercial a una oferta
     if commercial_text and commercial_area:
         weight = 4.0 if commercial_title else 0.5
         matched.append((weight + len(commercial_text) / 100, -1, Evidence(commercial_area, 0.94 if commercial_title else 0.55, _evidence(text, commercial_text))))
+    excluded_title = next((p for p in pack.excluded_title_signals if _contains(title, p)), None)
+    any_title_hit = False
     for order, (area, phrases) in enumerate(pack.area_rules.items()):
-        phrase = next((p for p in sorted(phrases, key=len, reverse=True) if _contains(text, p)), None)
-        if phrase:
-            weight = 2.0 if _contains(title, phrase) else 1.0
-            if commercial_title and not _contains(title, phrase):
-                weight -= 0.75
-            matched.append((weight + len(phrase) / 100, order, Evidence(area, 0.82, _evidence(text, phrase))))
+        score, phrase, in_title = _area_score(title, description, phrases, pack.weak_terms)
+        if not phrase or score < MIN_AREA_SCORE:
+            continue
+        if commercial_title and not in_title:
+            score -= 0.75
+        any_title_hit = any_title_hit or in_title
+        matched.append((score, order, Evidence(area, min(0.92, 0.5 + score / 10), _evidence(text, phrase))))
+    if excluded_title and not any_title_hit and not commercial_title:
+        matched = [(0, 0, Evidence("Otras", 0.6, f"Título fuera del foco: {excluded_title}"))]
     if not matched:
         evidence = Evidence("Otras", 0.35, "No se encontró una señal suficiente en el texto")
         matched = [(0, 0, evidence)]

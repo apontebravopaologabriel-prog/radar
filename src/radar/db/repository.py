@@ -86,6 +86,18 @@ def get_source_id(conn, source_name: str):
     return row[0]
 
 
+def _write_areas(conn, job_id: str, classified) -> None:
+    """Reemplaza las áreas de una oferta por la clasificación vigente (primaria + hasta dos secundarias)."""
+    conn.execute("DELETE FROM job_areas WHERE job_id=%s", (job_id,))
+    for idx, area in enumerate([classified.primary_area, *classified.secondary_areas]):
+        area_id = conn.execute("SELECT id FROM industrial_areas WHERE name=%s", (area.value,)).fetchone()
+        if area_id:
+            conn.execute(
+                "INSERT INTO job_areas(job_id,area_id,is_primary,confidence,evidence) VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                (job_id, area_id[0], idx == 0, area.confidence, area.evidence),
+            )
+
+
 def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str, int]:
     pack = pack or active_pack()
     stats = {"found": len(jobs), "created": 0, "updated": 0, "duplicates": 0}
@@ -157,6 +169,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                          application_status, raw.application_checked_at, application_source,
                          raw.published_at, job_id),
                     )
+                    _write_areas(conn, job_id, classified)
                     stats["updated"] += 1
                 else:
                     row = conn.execute(
@@ -196,16 +209,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                     ).fetchone()
                     job_id = row[0]
                     stats["created"] += 1
-                    areas = [classified.primary_area, *classified.secondary_areas]
-                    for idx, area in enumerate(areas):
-                        area_id = conn.execute(
-                            "SELECT id FROM industrial_areas WHERE name=%s", (area.value,)
-                        ).fetchone()
-                        if area_id:
-                            conn.execute(
-                                "INSERT INTO job_areas(job_id,area_id,is_primary,confidence,evidence) VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                                (job_id, area_id[0], idx == 0, area.confidence, area.evidence),
-                            )
+                    _write_areas(conn, job_id, classified)
                     for skill, evidence in classified.skills:
                         skill_id = conn.execute(
                             "SELECT id FROM skills WHERE name=%s", (skill,)

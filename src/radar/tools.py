@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_targets, insights
+from radar import cv_baseline, cv_targets, insights, maintenance
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
@@ -440,3 +440,21 @@ def get_target_matrix() -> dict:
 def resolve_nearest_districts(reference: str, limit: int = 3) -> dict:
     """Distritos más cercanos a una zona mencionada en una oferta, con km aproximados."""
     return {"districts": cv_targets.districts_near(reference, limit)}
+
+
+# --- Mantenimiento de datos -------------------------------------------------------------------------
+
+
+@tool()
+def audit_classification(sample: int = 12) -> dict:
+    """Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes.
+    Devuelve el % de desfase, las transiciones más comunes y ejemplos. Úsala cuando los conteos por área
+    o distrito parezcan raros o la persona pida revisar la calidad de los datos."""
+    return maintenance.classification_audit(sample)
+
+
+@tool(write=True)
+def reclassify_jobs() -> dict:
+    """Reclasifica todas las ofertas guardadas con las reglas vigentes (áreas y relevancia). No borra
+    ofertas y guarda una copia reversible. Proponla solo tras audit_classification si hay desfase."""
+    return maintenance.reclassify_jobs()

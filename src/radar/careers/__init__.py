@@ -51,6 +51,7 @@ class CareerPack:
     context_terms: tuple[str, ...]
     weights: dict[str, float]
     queries: tuple[str, ...] = field(default_factory=tuple)
+    weak_terms: frozenset[str] = frozenset()  # genéricas: solo puntúan fuertes en el título
 
     @property
     def skill_aliases(self) -> dict[str, tuple[str, ...]]:
@@ -101,6 +102,7 @@ def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
         context_terms=tuple(raw.get("context_terms", [])),
         weights=dict(raw["scoring"]),
         queries=tuple(raw.get("queries", [])),
+        weak_terms=frozenset(normalize_text(t) for t in raw.get("weak_terms", [])),
     )
 
 

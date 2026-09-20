@@ -244,3 +244,14 @@ def test_import_maps_linkedin_application_status():
 
     job = _row_to_job({"title": "Analista", "url": "https://example.com", "application_status": "No se aceptan solicitudes"}, "linkedin")
     assert job.application_status == "closed"
+
+
+def _job(title, description=""):
+    return RawJob("x", title, "ACME", "https://example.com", description=description)
+
+
+def test_classifier_uses_title_stems_and_ignores_generic_description_terms():
+    assert classify(_job("Almacenero", "Atender requerimientos de las áreas y proyectos internos.")).primary_area.value == "Supply Chain, logística y compras"
+    assert classify(_job("Analista de compras", "Elaborar requerimientos, SQL y ERP.")).primary_area.value == "Supply Chain, logística y compras"
+    assert classify(_job("Asistente administrativo", "Atender requerimientos y proyectos.")).primary_area.value == "Otras"
+    assert classify(_job("Practicante de Marketing", "Mejora de procesos")).primary_area.value == "Otras"
