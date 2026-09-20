@@ -195,7 +195,10 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
-  const [sqlOpen, setSqlOpen] = useState(true);
+  const [sqlPinned, setSqlPinned] = useState(false);
+  const [sqlHover, setSqlHover] = useState(false);
+  const [sqlFocus, setSqlFocus] = useState(false);
+  const sqlHoverRef = useRef(false);
   const [logOpen, setLogOpen] = useState(false);
   const gutterRef = useRef<HTMLDivElement | null>(null);
   const zCounterRef = useRef(1);
@@ -214,6 +217,36 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
   const desktopRef = useRef<HTMLDivElement | null>(null);
 
   windowsRef.current = windows;
+
+  // El editor se colapsa a su barra cuando está ocioso. Sigue abierto si está fijado, tiene el foco,
+  // tiene texto sin ejecutar, hay una consulta en curso o el mouse está cerca de la esquina.
+  const sqlOpen = sqlPinned || sqlHover || sqlFocus || busy || input.trim().length > 0;
+  const sqlOpenRef = useRef(sqlOpen);
+  sqlOpenRef.current = sqlOpen;
+
+  useEffect(() => {
+    let timer: number | undefined;
+    const setHover = (value: boolean) => {
+      if (sqlHoverRef.current === value) return;
+      sqlHoverRef.current = value;
+      setSqlHover(value);
+    };
+    function onMove(event: MouseEvent) {
+      const rect = desktopRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const reachX = event.clientX >= rect.left && event.clientX <= rect.left + (sqlOpenRef.current ? 520 : 480);
+      const reachY = event.clientY >= rect.bottom - (sqlOpenRef.current ? 300 : 110) && event.clientY <= rect.bottom;
+      if (reachX && reachY) {
+        window.clearTimeout(timer);
+        timer = undefined;
+        setHover(true);
+      } else if (sqlHoverRef.current && timer === undefined) {
+        timer = window.setTimeout(() => { timer = undefined; setHover(false); }, 600);
+      }
+    }
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => { window.removeEventListener("mousemove", onMove); window.clearTimeout(timer); };
+  }, []);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -465,7 +498,40 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
     });
   }
 
-  // Organizar: las ventanas caen escalonadas desde arriba y se compactan como piezas de tetris.
+  // Cuadrícula: reparte las ventanas en el aire, sin física. Apaga la gravedad para que no vuelvan a caer.
+  function gridWindows() {
+    const desktop = desktopRef.current;
+    if (!desktop || windowsRef.current.length === 0) return;
+    setGravity(false);
+    const rect = desktop.getBoundingClientRect();
+    const margin = 16;
+    const count = windowsRef.current.length;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+    const rows = Math.max(1, Math.ceil(count / cols));
+    const cellW = Math.max(240, (rect.width - margin * (cols + 1)) / cols);
+    const cellH = Math.max(180, (rect.height - margin * (rows + 1)) / rows);
+    const layout = new Map<string, { x: number; y: number; width: number; height: number }>();
+    windowsRef.current.forEach((win, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      layout.set(win.id, { x: margin + col * (cellW + margin), y: margin + row * (cellH + margin), width: cellW, height: cellH });
+    });
+    for (const [id, box] of layout) {
+      posRef.current.set(id, { x: box.x, y: box.y });
+      velocityRef.current.set(id, 0);
+      const el = elsRef.current.get(id);
+      if (el) { el.style.transform = `translate(${box.x}px, ${box.y}px)`; el.dataset.x = String(box.x); el.dataset.y = String(box.y); }
+    }
+    setWindows((current) => current.map((win) => ({ ...win, ...(layout.get(win.id) ?? {}) })));
+  }
+
+  function toggleGravity() {
+    const next = !gravity;
+    setGravity(next);
+    if (next) organizeWindows();
+  }
+
+  // Tetris: las ventanas caen escalonadas desde arriba y se compactan como piezas de tetris.
   function organizeWindows() {
     const desktop = desktopRef.current;
     if (!desktop || windowsRef.current.length === 0) return;
@@ -540,12 +606,12 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
     <div className="analysis-view">
       <div className="analysis-desktop" ref={desktopRef}>
         <div className="analysis-desktop-toolbar">
-          <button type="button" className={gravity ? "active" : ""} onClick={() => setGravity((current) => !current)} aria-pressed={gravity} aria-label="Gravedad" title={gravity ? "Gravedad activa: desactivar" : "Activar gravedad (modo tetris)"}>
+          <button type="button" className={gravity ? "active" : ""} onClick={toggleGravity} aria-pressed={gravity} aria-label="Modo tetris" title={gravity ? "Modo tetris activo: desactivar" : "Modo tetris: las ventanas caen y se apilan con física"}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="14" width="7" height="6" /><rect x="13" y="14" width="7" height="6" /><rect x="8" y="5" width="8" height="6" /></svg>
           </button>
           {windows.length > 0 && (
             <>
-              <button type="button" onClick={organizeWindows} aria-label="Organizar" title="Organizar: las ventanas caen y se compactan">
+              <button type="button" onClick={gridWindows} aria-label="Ordenar en cuadrícula" title="Ordenar en cuadrícula (en el aire, sin física)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" /><rect x="13" y="4" width="7" height="7" /><rect x="4" y="13" width="7" height="7" /><rect x="13" y="13" width="7" height="7" /></svg>
               </button>
               <button type="button" onClick={closeAllWindows} aria-label="Cerrar todo" title={`Cerrar todo (${windows.length})`}>
@@ -568,7 +634,7 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
               <div className="analysis-window-tools">
                 <button type="button" title="Actualizar datos" aria-label="Actualizar datos" onClick={(event) => { event.stopPropagation(); void refreshWindow(win.id); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4" /></svg></button>
                 <button type="button" title="Descargar CSV" aria-label="Descargar CSV" onClick={(event) => { event.stopPropagation(); downloadCsv(win.result, win.title); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14" /></svg></button>
-                <button type="button" title="Editar consulta" aria-label="Editar consulta" onClick={(event) => { event.stopPropagation(); setInput(win.sql); setSqlOpen(true); }}>✎</button>
+                <button type="button" title="Editar consulta" aria-label="Editar consulta" onClick={(event) => { event.stopPropagation(); setInput(win.sql); }}>✎</button>
                 <button type="button" title="Cerrar" aria-label="Cerrar dashboard" onClick={(event) => { event.stopPropagation(); closeWindow(win.id); }}>×</button>
               </div>
             </div>
@@ -582,15 +648,15 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
         ))}
       </div>
 
-      <form className={`analysis-sql ${sqlOpen ? "" : "is-collapsed"}`} onSubmit={submit}>
+      <form className={`analysis-sql ${sqlOpen ? "" : "is-collapsed"}`} onSubmit={submit} onFocus={() => setSqlFocus(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSqlFocus(false); }}>
         <div className="analysis-sql-bar">
           <span className="analysis-sql-title">SQL</span>
-          <select className="analysis-sql-presets" value="" aria-label="Presets de consulta" onChange={(event) => { const preset = PRESETS.find((item) => item.label === event.target.value); if (preset) { setInput(preset.sql); setSqlOpen(true); } }}>
+          <select className="analysis-sql-presets" value="" aria-label="Presets de consulta" onChange={(event) => { const preset = PRESETS.find((item) => item.label === event.target.value); if (preset) setInput(preset.sql); }}>
             <option value="">presets…</option>
             {PRESETS.map((preset) => <option key={preset.label} value={preset.label}>{preset.label}</option>)}
           </select>
           <button type="submit" className="analysis-sql-run" disabled={busy || !input.trim()} title="Ejecutar (Enter)">{busy ? "…" : "▶ run"}</button>
-          <button type="button" className="analysis-sql-collapse" aria-label={sqlOpen ? "Minimizar editor SQL" : "Abrir editor SQL"} title={sqlOpen ? "Minimizar" : "Abrir"} onClick={() => setSqlOpen((current) => !current)}>{sqlOpen ? "–" : "+"}</button>
+          <button type="button" className={`analysis-sql-collapse ${sqlPinned ? "active" : ""}`} aria-pressed={sqlPinned} aria-label="Fijar editor abierto" title={sqlPinned ? "Fijado abierto: pulsa para autoocultar" : "Fijar abierto (si no, se oculta solo)"} onClick={() => setSqlPinned((current) => !current)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6l-1 6 3 3H7l3-3-1-6zM12 13v7" /></svg></button>
         </div>
         {sqlOpen && (
           <>

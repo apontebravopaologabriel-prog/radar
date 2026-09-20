@@ -286,6 +286,8 @@ export default function RadarClient() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
+  const [railPeek, setRailPeek] = useState(false);
+  const railPeekRef = useRef(false);
   const [hideReasonFor, setHideReasonFor] = useState<string | null>(null);
   const [hideReason, setHideReason] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
@@ -597,6 +599,29 @@ export default function RadarClient() {
     }
   }
 
+  // En todas las vistas el riel (y el botón de Filtros) se asoma al acercar el mouse a una franja amplia del borde izquierdo
+  // y se queda visible mientras el cursor siga cerca; se oculta con un pequeño retraso.
+  useEffect(() => {
+    let timer: number | undefined;
+    const setPeek = (value: boolean) => {
+      if (railPeekRef.current === value) return;
+      railPeekRef.current = value;
+      setRailPeek(value);
+    };
+    function onMove(event: MouseEvent) {
+      const inside = event.clientX <= (railPeekRef.current ? 180 : 120) && event.clientY >= 0 && event.clientY <= 330;
+      if (inside) {
+        window.clearTimeout(timer);
+        timer = undefined;
+        setPeek(true);
+      } else if (railPeekRef.current && timer === undefined) {
+        timer = window.setTimeout(() => { timer = undefined; setPeek(false); }, 500);
+      }
+    }
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => { window.removeEventListener("mousemove", onMove); window.clearTimeout(timer); };
+  }, []);
+
   function selectView(view: RadarView) {
     setActiveView(view);
     setRadarCenterOpen(false);
@@ -679,11 +704,11 @@ export default function RadarClient() {
       {booting && <BootScreen ready={!loading} onDone={() => setBooting(false)} />}
       <div className="crt-scanlines" aria-hidden="true" />
       <section className="workspace">
-        {filtersAvailable && <button className={`edge-menu-toggle ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => setFiltersOpen((current) => !current)}>
+        {filtersAvailable && <button className={`edge-menu-toggle is-autohide ${railPeek ? "is-peek" : ""} ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => setFiltersOpen((current) => !current)}>
           <span aria-hidden="true">{filtersOpen ? "×" : "☷"}</span>
           <small>{filtersOpen ? "Cerrar" : "Filtros"}</small>
         </button>}
-        <nav className={`mode-rail ${activeView === "analysis" ? "is-autohide" : ""}`} aria-label="Vistas">
+        <nav className={`mode-rail is-autohide ${railPeek ? "is-peek" : ""}`} aria-label="Vistas">
           <button className={activeView === "map" ? "active" : ""} type="button" aria-label="Mapa" title="Mapa" onClick={() => selectView("map")}><span aria-hidden="true">◎</span></button>
           <button className={activeView === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectView("analysis")}><span aria-hidden="true">▦</span></button>
           <button className={activeView === "cvs" ? "active" : ""} type="button" aria-label="CVs objetivo" title="CVs objetivo" onClick={() => selectView("cvs")}><span aria-hidden="true">☰</span></button>

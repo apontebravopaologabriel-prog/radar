@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
-import { DISTRICT_GEOJSON_URL, districtKey } from "../lib/districts";
+import { loadDistrictGeoJson, districtKey } from "../lib/districts";
 import type { Job } from "../types";
 import type { MapViewProps } from "./MapView";
 
@@ -32,12 +32,11 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17, zoomControl: false }).setView(INITIAL_CENTER, 10.7);
+    const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17, zoomControl: false, preferCanvas: true }).setView(INITIAL_CENTER, 10.7);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 19 }).addTo(map);
     mapRef.current = map;
-    fetch(DISTRICT_GEOJSON_URL)
-      .then((response) => response.json())
-      .then((payload: FeatureCollection<Polygon | MultiPolygon, Record<string, unknown>>) => {
+    loadDistrictGeoJson()
+        .then((payload) => {
         districtsRef.current = payload;
         setDistrictVersion((version) => version + 1);
       })
@@ -66,7 +65,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
           const raw = String(feature.properties?.distrito2 || feature.properties?.distrito || "");
           const key = districtKey(raw);
           const count = key ? counts.get(key) || 0 : 0;
-          if (count) layer.bindTooltip(`${raw} · ${count}`, { permanent: true, direction: "center", className: "district-tooltip" });
+          if (count) layer.bindTooltip(`${raw} · ${count}`, { sticky: true, className: "district-tooltip" });
           if (key) layer.on("click", () => onSelectDistrict(key));
         },
       }).addTo(map);

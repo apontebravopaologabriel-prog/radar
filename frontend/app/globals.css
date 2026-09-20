@@ -390,7 +390,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .job-list-header { margin: 10px 0 7px; padding: 9px 12px; border: 1px solid #383838; color: #949494; background: #0a0a0ac9; box-shadow: 0 10px 24px #00000038; backdrop-filter: blur(16px); }
 .job-list-tools > span { color: #c8c8c8; }
 .job-list { max-height: min(290px, calc(100% - 500px)); padding: 0 7px 0 0; overflow-y: auto; scrollbar-color: #606060 transparent; }
-.job-card { margin-bottom: 5px; padding: 10px; border: 1px solid #242424; border-radius: 0; background: #0a0a0acc; box-shadow: 0 7px 18px #0000002b; backdrop-filter: blur(12px); }
+.job-card { margin-bottom: 5px; padding: 10px; border: 1px solid #242424; border-radius: 0; background: #0a0a0af2; box-shadow: 0 7px 18px #0000002b; }
 .job-card:hover, .job-card.selected { border-color: #898989; background: #1b1b1bd9; transform: translateX(2px); }
 .job-card strong { color: #ededed; }
 .job-company, .job-meta, .job-date { color: #8c8c8c; }
@@ -412,7 +412,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .legend-scale.low { background: #292929; }
 .legend-scale.high { background: #c5c5c5; }
 .map-wrap { position: absolute; inset: 0; flex: none; border: 0; border-radius: 0; background: #020202; box-shadow: inset 0 0 130px #000000, 0 0 0 1px #111111; }
-.map-wrap::before { background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 58px 58px; mix-blend-mode: screen; }
+.map-wrap::before { background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 58px 58px; }
 .map-wrap::after { height: 1px; background: linear-gradient(90deg, transparent, #d7d7d7, transparent); box-shadow: 0 0 20px 2px #ffffff44; animation-duration: 10s; }
 .map-wrap.radar-active::after { background: linear-gradient(90deg, transparent, #ffffff, transparent); box-shadow: 0 0 24px 3px #ffffff55; }
 .map-canvas::after { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, #00000018 66%, #000000b3 100%); content: ""; }
@@ -718,10 +718,10 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 
 @keyframes scanline-drift { 0% { background-position: 0 0; } 100% { background-position: 0 120px; } }
 @keyframes crt-flicker { 0%, 100% { opacity: .55; } 50% { opacity: .8; } }
-.crt-scanlines { position: fixed; inset: 0; z-index: 45; pointer-events: none; opacity: .35; background: repeating-linear-gradient(0deg, #ffffff0d 0px, transparent 1px, transparent 3px); animation: scanline-drift 11s linear infinite, crt-flicker 5.5s ease-in-out infinite; mix-blend-mode: overlay; }
+.crt-scanlines { position: fixed; inset: 0; z-index: 45; pointer-events: none; opacity: .35; will-change: opacity; background: repeating-linear-gradient(0deg, #ffffff0a 0px, transparent 1px, transparent 3px); animation: scanline-drift 11s linear infinite, crt-flicker 5.5s ease-in-out infinite; }
 
-@keyframes shell-power-on { 0% { opacity: 0; filter: brightness(2.2) contrast(1.4); } 12% { opacity: 1; } 16% { opacity: .35; } 22% { opacity: 1; } 100% { opacity: 1; filter: brightness(1) contrast(1); } }
-.radar-shell { animation: shell-power-on .7s steps(3, end) both; }
+@keyframes shell-power-on { 0% { opacity: 0; } 16% { opacity: .35; } 22%, 100% { opacity: 1; } }
+.radar-shell { animation: shell-power-on .5s steps(3, end) both; }
 
 @keyframes glitch-shift { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-1px, 1px); } 40% { transform: translate(1px, -1px); } 60% { transform: translate(-1px, 0); } 80% { transform: translate(1px, 0); } }
 .brand-lockup:hover .brand-mark { animation: glitch-shift .3s steps(2, end) 2; }
@@ -741,8 +741,12 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 
 /* While the offer panel is being dragged, cut every bit of decorative motion
    and expensive backdrop compositing so the resize itself stays at 60fps. */
-body.is-resizing .crt-scanlines { display: none; }
-body.is-resizing .map-wrap::after { animation-play-state: paused; }
+body.is-resizing .crt-scanlines, body.is-map-moving .crt-scanlines { display: none; }
+body.is-resizing .map-wrap::after, body.is-map-moving .map-wrap::after { animation-play-state: paused; }
+/* Blurs re-sample the canvas every frame; drop them while the map moves. */
+body.is-map-moving .search-box, body.is-map-moving .filter-section, body.is-map-moving .map-mode,
+body.is-map-moving .job-list-header, body.is-map-moving .sidebar, body.is-map-moving .district-map-overlay,
+body.is-map-moving .job-popover, body.is-map-moving .maplibregl-ctrl-group, body.is-map-moving .mode-rail button { backdrop-filter: none; }
 body.is-resizing .job-card,
 body.is-resizing .offer-scroll-card,
 body.is-resizing .status-dot,
@@ -766,7 +770,8 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 .boot-screen { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; justify-content: center; padding: 8vh 9vw; background: #030303; color: #cfcfcf; font-family: "JetBrains Mono", "IBM Plex Mono", "Cascadia Code", Consolas, monospace; overflow: hidden; }
 .boot-screen::before { position: absolute; inset: 0; content: ""; pointer-events: none; background: repeating-linear-gradient(0deg, #ffffff08 0px, transparent 1px, transparent 3px); }
 @keyframes boot-exit { to { opacity: 0; visibility: hidden; } }
-.boot-screen.is-exiting { animation: boot-exit .35s ease forwards; }
+.boot-screen { will-change: opacity; }
+.boot-screen.is-exiting { animation: boot-exit .35s ease forwards; pointer-events: none; }
 .boot-lines { display: grid; gap: 8px; max-width: 640px; }
 @keyframes boot-type { from { width: 0; } to { width: var(--boot-w, 100%); } }
 .boot-line { position: relative; display: block; overflow: hidden; width: var(--boot-w, 0); white-space: nowrap; font-size: 12px; letter-spacing: .03em; color: #b0b0b0; animation: boot-type .4s steps(30, end) both; animation-delay: var(--boot-delay, 0s); }
@@ -775,14 +780,14 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 @keyframes cursor-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 .boot-progress { margin-top: 24px; max-width: 640px; }
 .boot-progress-track { height: 3px; overflow: hidden; background: #1a1a1a; }
-@keyframes boot-progress-grow { from { width: 0; } to { width: 100%; } }
-.boot-progress-fill { height: 100%; width: 0; background: #cfcfcf; box-shadow: 0 0 8px #ffffff55; animation: boot-progress-grow 1.3s linear forwards; }
+@keyframes boot-progress-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.boot-progress-fill { height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); will-change: transform; background: #cfcfcf; box-shadow: 0 0 8px #ffffff55; animation: boot-progress-grow 1.3s linear forwards; }
 .boot-percent { margin-top: 9px; font-size: 9px; color: #6f6f6f; letter-spacing: .14em; text-transform: uppercase; }
 
 @media (prefers-reduced-motion: reduce) {
   .boot-line { animation: none; width: var(--boot-w, 100%); }
   .boot-cursor { animation: none; }
-  .boot-progress-fill { animation: none; width: 100%; }
+  .boot-progress-fill { animation: none; transform: none; }
 }
 
 /* ============================================================
@@ -939,7 +944,7 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 
 /* Vista CVs objetivo */
 .cv-view { display: flex; height: 100%; flex-direction: column; background: #030303; }
-.cv-profile { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 18px 14px 84px; border-bottom: 1px solid #3a3a3a; background: #0a0a0a; }
+.cv-profile { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 18px 14px 24px; border-bottom: 1px solid #3a3a3a; background: #0a0a0a; }
 .cv-photo { width: 56px; height: 56px; flex: none; border: 1px solid #5a5a5a; border-radius: 0; object-fit: cover; filter: grayscale(1) contrast(1.05); }
 .cv-photo-empty { display: grid; place-items: center; color: #6f6f6f; background: #141414; }
 .cv-profile-text { min-width: 0; }
@@ -950,7 +955,7 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 .cv-tabs button { padding: 6px 11px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font-size: 10px; letter-spacing: .02em; cursor: pointer; }
 .cv-tabs button:hover { border-color: #d0d0d0; color: #ffffff; }
 .cv-tabs button.active { border-color: #e0e0e0; color: #0a0a0a; background: #e0e0e0; }
-.cv-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 18px 18px 84px; scrollbar-color: #666666 transparent; scrollbar-width: thin; }
+.cv-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 18px 18px 24px; scrollbar-color: #666666 transparent; scrollbar-width: thin; }
 .cv-note { margin: 0 0 12px; color: #8c8c8c; font-size: 11px; }
 .cv-matrix table { width: 100%; max-width: 860px; border-collapse: collapse; font-size: 11px; }
 .cv-matrix th, .cv-matrix td { padding: 9px 10px; border-bottom: 1px solid #262626; text-align: center; }
@@ -1021,11 +1026,15 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 .analysis-sql .analysis-terminal-log { max-height: 110px; padding: 6px 8px; border-top: 1px solid #262626; background: #060606; }
 .analysis-desktop-toolbar { z-index: 9998; }
 
-/* Rail de vistas en Análisis: se oculta y aparece al acercar el mouse al borde izquierdo */
-.mode-rail.is-autohide { top: 60px; left: 0; width: 14px; min-height: 130px; }
-.mode-rail.is-autohide::before { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; content: ""; background: #ffffff26; }
-.mode-rail.is-autohide button { transform: translateX(-56px); opacity: 0; pointer-events: none; transition: transform .16s ease, opacity .16s ease; }
-.mode-rail.is-autohide:hover button, .mode-rail.is-autohide:focus-within button { transform: translateX(16px); opacity: 1; pointer-events: auto; }
+/* Riel de vistas y botón de Filtros: se ocultan y aparecen al acercar el mouse al borde izquierdo.
+   Solo con puntero real; en pantallas táctiles se quedan visibles. */
+@media (hover: hover) {
+  .mode-rail.is-autohide { top: 60px; left: 0; width: 14px; min-height: 130px; pointer-events: none; }
+  .mode-rail.is-autohide::before { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; content: ""; background: #ffffff26; }
+  .mode-rail.is-autohide button, .edge-menu-toggle.is-autohide { transform: translateX(-56px); opacity: 0; pointer-events: none; transition: transform .16s ease, opacity .16s ease, border-color .12s, background .12s; }
+  .mode-rail.is-autohide.is-peek button, .mode-rail.is-autohide:focus-within button { transform: translateX(16px); opacity: 1; pointer-events: auto; }
+  .edge-menu-toggle.is-autohide.is-peek, .edge-menu-toggle.is-autohide.is-open, .edge-menu-toggle.is-autohide:focus-visible { transform: none; opacity: 1; pointer-events: auto; }
+}
 
 /* Ventanas de Análisis: se estiran desde el borde derecho, el inferior o la esquina */
 .analysis-window { min-width: 220px; min-height: 120px; }
@@ -1043,3 +1052,14 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 .analysis-desktop-toolbar svg, .analysis-window-tools svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .analysis-window-tools svg { width: 12px; height: 12px; }
 .analysis-window { will-change: transform; }
+.analysis-sql-collapse { display: grid; place-items: center; }
+.analysis-sql-collapse svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.analysis-sql-collapse.active { border-color: #ededed; color: #ffffff; background: #2a2a2a; }
+.analysis-sql-collapse.active svg { fill: currentColor; }
+
+/* Títulos pegados a la izquierda: el riel y el botón de Filtros ya no ocupan ese espacio.
+   El título del mapa solo se corre cuando el botón de Filtros está visible. */
+@media (hover: hover) {
+  .map-header { left: 24px; transition: left .16s ease; }
+  .edge-menu-toggle.is-peek ~ .map-panel .map-header, .edge-menu-toggle.is-open ~ .map-panel .map-header { left: 76px; }
+}

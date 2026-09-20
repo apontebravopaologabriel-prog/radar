@@ -1,5 +1,7 @@
-export const DISTRICT_GEOJSON_URL =
-  "https://raw.githubusercontent.com/joseluisq/peru-geojson-datasets/master/lima_callao_distritos_simple.geojson";
+/** Bundled as a lazy chunk: FastAPI only serves /_next and /radar, so a public/ file would 404. */
+export function loadDistrictGeoJson() {
+  return import("./lima_distritos.json").then((module) => module.default as unknown as GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, Record<string, unknown>>);
+}
 
 /** Stable key shared by job locations and district GeoJSON properties. */
 export function districtKey(value: string | null | undefined): string | null {

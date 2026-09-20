@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
 import type { Feature, FeatureCollection, MultiPolygon, Point, Polygon } from "geojson";
-import { DISTRICT_GEOJSON_URL, districtKey } from "../lib/districts";
+import { loadDistrictGeoJson, districtKey } from "../lib/districts";
 import type { Job, MapMode } from "../types";
 import LeafletMapView from "./LeafletMapView";
 
@@ -183,7 +183,6 @@ export default function MapView(props: MapViewProps) {
     for (const layer of ["clusters", "cluster-count", "job-points"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", showJobLayers ? "visible" : "none");
     }
-    if (map.getLayer("jobs-heat")) map.setLayoutProperty("jobs-heat", "visibility", "none");
     for (const layer of ["radar-fill", "radar-lines", "radar-labels"]) {
       if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", nextMode === "radar" && radarActive ? "visible" : "none");
     }
@@ -192,11 +191,14 @@ export default function MapView(props: MapViewProps) {
   useEffect(() => {
     if (webglAvailable !== true) return;
     if (!containerRef.current) return;
-    const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17 });
+    const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17, fadeDuration: 0, renderWorldCopies: false, maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2) });
     mapRef.current = map;
+    const setMoving = (moving: boolean) => document.body.classList.toggle("is-map-moving", moving);
+    map.on("movestart", () => setMoving(true));
+    map.on("moveend", () => setMoving(false));
 
     map.on("load", () => {
-      map.addSource("districts", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "district_key" });
+      map.addSource("districts", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "district_key", tolerance: 0.5, buffer: 32 });
       map.addLayer({
         id: "district-fill",
         type: "fill",
@@ -223,12 +225,12 @@ export default function MapView(props: MapViewProps) {
         source: "district-counts",
         // Every counted district must remain discoverable; MapLibre's default
         // collision handling could silently hide labels such as La Victoria.
+        minzoom: 10.5,
         layout: { "text-field": ["concat", ["get", "district"], " · ", ["to-string", ["get", "job_count"]]], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": true, "text-ignore-placement": true },
         paint: { "text-color": "#bdbdbd", "text-halo-color": "#050505", "text-halo-width": 1.2 },
       });
-      fetch(DISTRICT_GEOJSON_URL)
-        .then((response) => response.json())
-        .then((payload: FeatureCollection<Polygon | MultiPolygon, Record<string, unknown>>) => {
+      loadDistrictGeoJson()
+        .then((payload) => {
           const source = map.getSource("districts") as maplibregl.GeoJSONSource;
           source.setData(normalizeDistrictGeoJson(payload));
           districtsReadyRef.current = true;
@@ -237,7 +239,6 @@ export default function MapView(props: MapViewProps) {
         })
         .catch(() => undefined);
       map.addSource("jobs", { type: "geojson", data: pointFeatures(jobsRef.current), cluster: true, clusterMaxZoom: 13, clusterRadius: 48 });
-      map.addLayer({ id: "jobs-heat", type: "heatmap", source: "jobs", maxzoom: 14, paint: { "heatmap-weight": ["interpolate", ["linear"], ["get", "location_confidence"], 0, 0.4, 1, 1], "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 2.5], "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 9, 22, 14, 35], "heatmap-opacity": 0.82 } });
       map.addLayer({ id: "clusters", type: "circle", source: "jobs", filter: ["has", "point_count"], paint: { "circle-color": ["step", ["get", "point_count"], "#5d5d5d", 10, "#8c8c8c", 30, "#d7d7d7"], "circle-radius": ["step", ["get", "point_count"], 20, 10, 25, 30, 31], "circle-stroke-color": "#eeeeee", "circle-stroke-width": 1.5, "circle-opacity": 0.9 } });
       map.addLayer({ id: "cluster-count", type: "symbol", source: "jobs", filter: ["has", "point_count"], layout: { "text-field": "{point_count_abbreviated}", "text-size": 12 }, paint: { "text-color": "#ffffff" } });
       map.addLayer({ id: "job-points", type: "circle", source: "jobs", filter: ["!", ["has", "point_count"]], paint: { "circle-color": "#f0f0f0", "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5, "circle-opacity": 0.95 } });
@@ -282,6 +283,7 @@ export default function MapView(props: MapViewProps) {
       map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
     }
     return () => {
+      document.body.classList.remove("is-map-moving");
       map.remove();
       mapRef.current = null;
     };
