@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, streamChat, type AgentSettings, type ApiMessage, type PendingAction } from "../../lib/mobile-api";
 
-export type Line = { kind: "user" | "assistant" | "tool" | "error"; text: string };
+export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string };
 const STORE = "radar.chat.v1";
 
 function restore(): { history: ApiMessage[]; lines: Line[] } {
@@ -76,7 +76,8 @@ export function useAgentChat(onError: (e: unknown) => void) {
     } catch (error) { onError(error); }
   }, [history, pending, run, onError]);
 
+  const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   const reset = useCallback(() => { abort.current?.abort(); setHistory([]); setLines([]); setPending([]); }, []);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, send, decide, reset, stop };
+  return { lines, pending, busy, settings, needsSetup, send, decide, reset, stop, addLocal, refreshSettings };
 }

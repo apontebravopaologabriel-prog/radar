@@ -29,6 +29,8 @@ Antes de cambiar comportamiento, leer en este orden:
 - `src/radar/geolocation.py`: distritos de Lima/Callao, ciudades y departamentos del Perú. Orden de resolución: ciudad (palabra completa) → distrito de Lima → departamento → Lima; "Perú" a secas no ubica. Añade ciudades en `_CITIES`.
 - `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
 - `frontend/components/agent/`: chat compartido (`useAgentChat`, `AgentChatPanel`) y la ventana flotante de escritorio (`AgentDock`), montada en `app/radar/page.tsx`. Solo existe si el agente está activado; no reintroducir un botón permanente cuando está apagado (queda solo el acceso a `/ajustes`).
+- `src/radar/insights.py`: consultas de solo lectura que responden preguntas abiertas (ficha, encaje, demanda, desgloses, salarios, SQL). `skill_export.py` genera `docs/skills/radar/SKILL.md` (`radar skill export --out docs/skills`); regenerarlo al cambiar herramientas o `help.md`.
+- `frontend/components/agent/commands.ts`: comandos `/` del chat. Los `local` usan la API sin gastar tokens; añadir uno = una entrada en `COMMANDS`. `Markdown.tsx` es el renderizador seguro (sin HTML crudo, solo enlaces http/https/mailto) y `RadarMark.tsx` el símbolo del agente.
 - `src/radar/refresh.py`: actualización del mercado desde la app; `careers/` también carga carreras propias desde `<carpeta de la base>/careers/`.
 - `frontend/components/mobile/` y `app/m/`: PWA móvil (`/m`); `frontend/public/` guarda manifest y service worker.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.

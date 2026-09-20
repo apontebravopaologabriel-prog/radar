@@ -96,6 +96,10 @@ En Ajustes → "Qué pesa más en el encaje" ajustas la importancia de área, sk
 
 El agente es opcional y viene apagado: se activa en Ajustes (o en la ventana del agente en el escritorio) y Radar funciona completo sin él. Con el agente apagado el servidor no acepta el chat ni contacta a ningún proveedor. Hay un modo de solo lectura que le quita las acciones que modifican datos. El agente responde preguntas y hace consultas con las mismas herramientas del MCP. Usa tu propia clave de API (Ajustes → Agente); pagas al proveedor por lo que uses y hay un tope mensual de tokens. Consulta libremente, pero toda acción que modifica datos (favoritos, seguimiento, perfil, carrera) aparece como tarjeta y solo se ejecuta si la apruebas. No envía mensajes ni postula.
 
+### comandos
+
+En la ventana del agente escribe `/` para ver los comandos (Tab completa, ↑↓ navegan, Esc cierra). Los que consultan tus datos se resuelven en el equipo sin gastar tokens: /hoy, /mapa <lugar> [km], /proceso, /skills, /estado, /perfil, /costo, /actualizar, /solo-lectura, /apagar, /nueva y /ayuda. Otros piden al agente: /explicar, /plan y /resumen. Las respuestas del agente se muestran en Markdown. Cuando el agente propone guardar algo, `y` aprueba y `n` rechaza si el cuadro de texto está vacío.
+
 ### mapa
 
 La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Callao, y ciudades del resto del país) con la cantidad de ofertas. Toca un punto o elige un lugar de referencia y un radio (2, 5, 10, 25 o 100 km, o Todo Perú): abajo verás las ofertas de la más cercana a la más lejana. La distancia es entre centroides de distrito o ciudad, así que es aproximada; un punto punteado y "dpto." significan que la oferta solo indica el departamento y se ubica en su capital. El mapa carga los mosaicos de un servidor externo (OpenStreetMap), que ve qué zona miras. El mapa completo de escritorio (distritos y radar) está en Ajustes → modo avanzado, y ahí también Análisis (consultas SQL de solo lectura) y CVs (tus brechas contra los puestos con ★).

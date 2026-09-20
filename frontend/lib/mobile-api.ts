@@ -51,6 +51,7 @@ export const api = {
   logout: () => request<{ authenticated: boolean }>("/api/auth/logout", { method: "POST" }),
   today: () => request<Today>("/api/today?limit=8"),
   setupStatus: () => request<{ complete: boolean; steps: { id: string; done: boolean; detail: string }[] }>("/api/setup/status"),
+  profile: () => request<{ profile: { name: string; education: string | null; target_roles: string[]; locations: string[]; work_modes: string[]; skills: Record<string, string> } | null }>("/api/profile"),
   places: () => request<{ groups: { label: string; places: string[] }[]; default: string | null }>("/api/places"),
   mapPlaces: () => request<MapPlaces>("/api/map/places"),
   nearby: (place: string, radiusKm: number) =>
