@@ -24,7 +24,7 @@ from radar.careers import (
 )
 from radar.db.queries import applications, get_profile
 from radar.db.repository import recompute_scores, track_application
-from radar.feed import setup_status, skill_impact, today_feed
+from radar.feed import default_district, district_names, nearby, setup_status, skill_impact, today_feed
 from radar.settings import set_json_setting, set_setting, write_secret
 
 router = APIRouter(prefix="/api")
@@ -41,6 +41,23 @@ def today(limit: int = Query(default=5, ge=1, le=20)) -> dict[str, Any]:
 @router.get("/setup/status")
 def setup() -> dict[str, Any]:
     return setup_status()
+
+
+@router.get("/districts")
+def districts() -> dict[str, Any]:
+    return {"districts": district_names(), "default": default_district()}
+
+
+@router.get("/nearby")
+def nearby_jobs(
+    district: str = Query(min_length=1, max_length=80),
+    radius_km: float = Query(default=5.0, ge=0.5, le=60),
+    limit: int = Query(default=30, ge=1, le=60),
+) -> dict[str, Any]:
+    try:
+        return nearby(district, radius_km, limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/skills/impact")

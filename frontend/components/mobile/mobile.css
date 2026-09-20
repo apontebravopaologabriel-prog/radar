@@ -76,11 +76,12 @@
 .m-compose button:disabled { opacity: .5; }
 
 .m-tabs { display: flex; border-top: 1px solid var(--line); background: var(--card); padding-bottom: env(safe-area-inset-bottom); }
-.m-tabs button, .m-tabs a { flex: 1; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; background: transparent; color: var(--muted); font-size: 11px; text-decoration: none; cursor: pointer; }
+.m-tabs button, .m-tabs a { flex: 1; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; background: transparent; color: var(--muted); font-size: 10.5px; text-decoration: none; cursor: pointer; }
 .m-tabs [aria-current="page"] { color: var(--ink); font-weight: 700; }
 .m-tabs span { font-size: 18px; line-height: 1; }
 .m-toast { position: fixed; left: 16px; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom)); margin: 0; padding: 12px 14px; border-radius: 4px; background: var(--ink); color: var(--bg); font-size: 14px; }
 .m-login { display: flex; flex-direction: column; justify-content: center; }
 .m-login form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.m-km { flex: none; min-width: 52px; text-align: center; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .m-linkbtn { margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) { .m-app * { transition: none !important; animation: none !important; } }

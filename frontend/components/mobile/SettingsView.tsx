@@ -80,7 +80,7 @@ export default function SettingsView({ authRequired, onLogout, onError }: { auth
 
       <section className="m-card">
         <h2>Más herramientas</h2>
-        <p className="m-sub">Mapa de distritos y radios, análisis SQL y CVs objetivo.</p>
+        <p className="m-sub">Mapa completo, análisis SQL y CVs objetivo. Pensado para pantalla grande: en el celular puede ir lento.</p>
         <a className="m-primary m-linkbtn" href="/radar">Abrir modo avanzado</a>
         {authRequired && <button className="m-link" onClick={onLogout}>Cerrar sesión</button>}
       </section>

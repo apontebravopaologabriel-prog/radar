@@ -143,3 +143,57 @@ def setup_status() -> dict[str, Any]:
     ]
     pending = [s for s in steps if not s["done"]]
     return {"complete": not pending, "steps": steps, "next": pending[0] if pending else None}
+
+
+def district_names() -> list[str]:
+    from radar.geolocation import LIMA_DISTRICTS
+
+    return sorted({label for label, _, _ in LIMA_DISTRICTS.values()})
+
+
+def default_district() -> str | None:
+    """Primer lugar del perfil que se resuelve a un distrito conocido."""
+    from radar.geolocation import infer_location
+
+    for place in (get_profile() or {}).get("locations", []):
+        point = infer_location(place)
+        if point and point.precision == "district":
+            return point.label
+    return None
+
+
+def nearby(district: str, radius_km: float = 5.0, limit: int = 30) -> dict[str, Any]:
+    """Ofertas a `radius_km` de un distrito, ordenadas por cercanía (centroides, aproximado)."""
+    from radar.cv_targets import distance_km
+    from radar.geolocation import infer_location
+
+    origin = infer_location(district)
+    if origin is None or origin.precision != "district":
+        raise ValueError(f"Distrito desconocido: {district}")
+    radius_km = min(max(radius_km, 0.5), 60.0)
+    found: list[dict[str, Any]] = []
+    for row in list_jobs(limit=None, max_age_days=DEFAULT_MAX_AGE_DAYS):
+        if row["relevance_tier"] == "out_of_focus":
+            continue
+        point = infer_location(row["location"])
+        if point is None or point.precision != "district":
+            continue
+        km = distance_km(origin, point)
+        if km <= radius_km:
+            found.append({
+                "id": row["id"], "title": row["title"], "company": row["company"],
+                "location": row["location"], "district": point.label, "km": km,
+                "url": row["url"], "published_at": row["published_at"],
+                "work_mode": row["work_mode"], "area": row["primary_area"],
+                "is_favorite": row["is_favorite"],
+            })
+    found.sort(key=lambda j: (j["km"], j["published_at"] or ""), reverse=False)
+    by_district: dict[str, int] = {}
+    for job in found:
+        by_district[job["district"]] = by_district.get(job["district"], 0) + 1
+    return {
+        "origin": origin.label, "radius_km": radius_km, "total": len(found),
+        "jobs": found[: min(max(limit, 1), 60)],
+        "by_district": [{"district": d, "count": c} for d, c in sorted(by_district.items(), key=lambda x: -x[1])],
+        "precision": "centroides de distrito (aproximado)",
+    }

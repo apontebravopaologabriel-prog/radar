@@ -23,6 +23,10 @@ export type TodayJob = {
   published_at: string | null; work_mode: string | null; score: number | null;
   strong_matches: string[]; missing_skills: string[]; why: string; is_favorite: boolean;
 };
+export type NearbyJob = { id: string; title: string; company: string | null; location: string | null; district: string;
+  km: number; url: string | null; published_at: string | null; work_mode: string | null; area: string | null; is_favorite: boolean };
+export type Nearby = { origin: string; radius_km: number; total: number; jobs: NearbyJob[];
+  by_district: { district: string; count: number }[]; precision: string };
 export type Today = { profile_configured: boolean; jobs: TodayJob[] };
 export type SkillImpact = { profile_configured: boolean; threshold?: number; jobs_considered?: number;
   skills: { skill: string; jobs: number; avg_gain: number; crossing: number }[] };
@@ -43,6 +47,9 @@ export const api = {
   logout: () => request<{ authenticated: boolean }>("/api/auth/logout", { method: "POST" }),
   today: () => request<Today>("/api/today?limit=8"),
   setupStatus: () => request<{ complete: boolean; steps: { id: string; done: boolean; detail: string }[] }>("/api/setup/status"),
+  districts: () => request<{ districts: string[]; default: string | null }>("/api/districts"),
+  nearby: (district: string, radiusKm: number) =>
+    request<Nearby>(`/api/nearby?district=${encodeURIComponent(district)}&radius_km=${radiusKm}&limit=40`),
   impact: () => request<SkillImpact>("/api/skills/impact?limit=4"),
   applications: () => request<{ applications: Application[] }>("/api/applications"),
   setApplication: (jobId: string, status: string, notes?: string) =>

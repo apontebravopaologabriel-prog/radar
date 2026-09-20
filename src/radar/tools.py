@@ -34,7 +34,7 @@ from radar.db.repository import (
     save_profile,
     track_application,
 )
-from radar.feed import setup_status, skill_impact, today_feed
+from radar.feed import nearby, setup_status, skill_impact, today_feed
 from radar.freshness import DEFAULT_MAX_AGE_DAYS
 from radar.help import help_topics, read_help
 from radar.pipeline import run_ingestion
@@ -147,6 +147,13 @@ def get_today_feed(limit: int = 5) -> dict:
     """Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas
     o ya gestionadas."""
     return today_feed(limit)
+
+
+@tool()
+def find_jobs_near(district: str, radius_km: float = 5.0, limit: int = 15) -> dict:
+    """Ofertas recientes dentro de un radio (km) de un distrito de Lima/Callao, de la más cercana a la
+    más lejana. La distancia es entre centroides de distrito (aproximada)."""
+    return nearby(district, radius_km, limit)
 
 
 @tool()

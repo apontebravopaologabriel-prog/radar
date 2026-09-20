@@ -66,3 +66,26 @@ def test_setup_status_guides_and_help_is_grounded():
     with pytest.raises(ValueError):
         tools.get_help("no-existe")
     assert "get_help" in {t.name for t in tools.chat_tools()}
+
+
+def test_find_jobs_near_orders_by_distance_and_filters_radius():
+    from datetime import UTC, datetime
+
+    from radar.db.repository import ingest_jobs as store
+    from radar.domain.models import RawJob
+
+    now = datetime.now(UTC)
+    store([
+        RawJob("t", "Practicante de Procesos", "A", "https://e.com/a", location="Miraflores, Lima",
+               description="Excel", published_at=now),
+        RawJob("t", "Practicante de Logística", "B", "https://e.com/b", location="San Isidro, Lima",
+               description="Excel", published_at=now),
+        RawJob("t", "Practicante de Calidad", "C", "https://e.com/c", location="Ate, Lima",
+               description="Excel", published_at=now),
+    ])
+    result = tools.find_jobs_near("Miraflores", 5)
+    assert [j["district"] for j in result["jobs"]] == ["Miraflores", "San Isidro"]
+    assert result["jobs"][0]["km"] == 0
+    assert tools.find_jobs_near("Miraflores", 30)["total"] == 3
+    with pytest.raises(ValueError):
+        tools.find_jobs_near("Narnia")

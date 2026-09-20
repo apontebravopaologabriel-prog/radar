@@ -19,8 +19,11 @@ En Ajustes → "Qué pesa más en el encaje" ajustas la importancia de área, sk
 ## agente
 El agente responde preguntas y hace consultas con las mismas herramientas del MCP. Usa tu propia clave de API (Ajustes → Agente); pagas al proveedor por lo que uses y hay un tope mensual de tokens. Consulta libremente, pero toda acción que modifica datos (favoritos, seguimiento, perfil, carrera) aparece como tarjeta y solo se ejecuta si la apruebas. No envía mensajes ni postula.
 
+## cerca
+La pestaña Cerca lista las ofertas recientes dentro de un radio (2, 5, 10 o 20 km) de un distrito que eliges, de la más cercana a la más lejana, con los km. Es ligera y pensada para el celular. La distancia se calcula entre centroides de distrito, así que es aproximada.
+
 ## mapa
-El modo avanzado (/radar) muestra las ofertas en un mapa de Lima y Callao: vista Distritos (cantidad por distrito) y vista Radar (radio de 2, 5 o 10 km desde un distrito). Las ubicaciones son aproximadas por distrito. Análisis permite consultas SQL de solo lectura y CVs compara tus brechas contra puestos objetivo (las ofertas con ★).
+El mapa completo es un modo avanzado pensado para pantalla grande (en el celular puede ir lento). Se abre en /radar y muestra las ofertas en un mapa de Lima y Callao: vista Distritos (cantidad por distrito) y vista Radar (radio de 2, 5 o 10 km desde un distrito). Las ubicaciones son aproximadas por distrito. Análisis permite consultas SQL de solo lectura y CVs compara tus brechas contra puestos objetivo (las ofertas con ★).
 
 ## actualizar
 Las ofertas se actualizan desde tu PC (no desde el celular) con el refresco de Radar o el comando `radar ingest`. El agente no busca en portales por ti. Si "Hoy" está vacío, actualiza el mercado.
