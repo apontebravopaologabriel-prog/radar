@@ -231,3 +231,18 @@ def test_large_lists_are_gzipped_but_chat_stream_is_not():
     assert res.status_code == 200 and res.json()["total"] >= 1
     small = api.get("/api/health", headers={"Accept-Encoding": "gzip"})
     assert "content-encoding" not in small.headers  # bajo el umbral no se comprime
+
+
+def test_slim_lists_drop_descriptions_and_detail_endpoint_returns_them():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    _seed_market()
+    api = TestClient(app)
+    full = api.get("/api/jobs").json()["jobs"]
+    slim = api.get("/api/jobs?slim=true").json()["jobs"]
+    assert full[0]["description"] and "description" not in slim[0] and slim[0]["has_description"] is True
+    assert "description" not in api.get("/api/map/jobs?slim=true").json()["features"][0]["properties"]
+    detail = api.get(f"/api/jobs/{slim[0]['id']}/description").json()
+    assert detail["description"] and api.get("/api/jobs/no-existe/description").status_code == 404

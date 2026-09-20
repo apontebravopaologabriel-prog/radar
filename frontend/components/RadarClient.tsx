@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { FormEvent, memo, PointerEvent as ReactPointerEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobs, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobDescription, fetchJobs, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { useProgressiveList } from "./useProgressiveList";
 import { districtKey } from "../lib/districts";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
 import AnalysisView from "./AnalysisView";
@@ -298,7 +299,21 @@ export default function RadarClient() {
   const [archiveReason, setArchiveReason] = useState("");
   const [radarLabel, setRadarLabel] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string; undo?: () => void } | null>(null);
-  const selectedJob = useMemo(() => [...jobs, ...hiddenJobs, ...favoriteJobs].find((job) => job.id === selectedId) || null, [favoriteJobs, hiddenJobs, jobs, selectedId]);
+  const [descriptions, setDescriptions] = useState<Record<string, string | null>>({});
+  const baseJob = useMemo(() => [...jobs, ...hiddenJobs, ...favoriteJobs].find((job) => job.id === selectedId) || null, [favoriteJobs, hiddenJobs, jobs, selectedId]);
+  // Los listados llegan sin descripción (slim): se pide la de la oferta abierta y se guarda en memoria.
+  useEffect(() => {
+    if (!baseJob || baseJob.description !== undefined || descriptions[baseJob.id] !== undefined) return;
+    const controller = new AbortController();
+    fetchJobDescription(baseJob.id, controller.signal)
+      .then((text) => setDescriptions((current) => ({ ...current, [baseJob.id]: text })))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [baseJob, descriptions]);
+  const selectedJob = useMemo(
+    () => baseJob ? { ...baseJob, description: baseJob.description !== undefined ? baseJob.description : (descriptions[baseJob.id] === undefined ? "_Cargando descripción…_" : descriptions[baseJob.id]) } : null,
+    [baseJob, descriptions],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -391,6 +406,7 @@ export default function RadarClient() {
   const archivedJobs = useMemo(() => archiveReason ? hiddenJobs.filter((job) => job.user_reason === archiveReason) : hiddenJobs, [archiveReason, hiddenJobs]);
   const listedJobs = showHidden ? archivedJobs : showFavorites ? favoriteJobs : visibleJobs;
   const signalJobs = listedJobs;
+  const { items: pagedJobs, hasMore: moreJobs, sentinelRef } = useProgressiveList(listedJobs, selectedId);
 
   useEffect(() => {
     if (!toast) return;
@@ -692,7 +708,7 @@ export default function RadarClient() {
           <div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites], ["favorites", "★ fav", showFavorites], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}>{view === "hidden" && <IconEyeOff />}{label}</button>)}</div>
           {showHidden && <div className="archive-filters" aria-label="Filtrar archivo por motivo">{ARCHIVE_FILTERS.map(([value, label]) => <button key={value} type="button" className={archiveReason === value ? "active" : ""} onClick={() => setArchiveReason(value)}>{label}</button>)}</div>}
           {statusError && <div className="status-error">{statusError}</div>}
-          <div className="job-list">{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros."}</div>}{listedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
+          <div className="job-list">{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros."}</div>}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{moreJobs && <div ref={sentinelRef} className="list-sentinel" aria-hidden="true" />}</div>
         </aside>
 
         <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" || mode === "cvs" ? "analysis-mode-panel" : ""}`}>
@@ -778,7 +794,7 @@ export default function RadarClient() {
               </div>
               <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
                 <MapView radarCounts={radarCountsMap} onPickRadarCenter={(center) => pickRadarCenter(center, "PUNTO EN MAPA")} jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><div className="offer-scroll-tools"><strong>{signalJobs.length.toString().padStart(3, "0")}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites], ["favorites", "★ fav", showFavorites], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}>{view === "hidden" && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.2 3.7M6.6 7.6C4 9.3 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-.9M9.9 9.9a2.5 2.5 0 0 0 3.2 3.2" /></svg>}{label}</button>)}</div></div></div><div className="offer-scroll-list">{signalJobs.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{!loading && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "Selecciona un distrito para cargar señales"}</span>}</div></aside>}
+                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><div className="offer-scroll-tools"><strong>{signalJobs.length.toString().padStart(3, "0")}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites], ["favorites", "★ fav", showFavorites], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}>{view === "hidden" && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.2 3.7M6.6 7.6C4 9.3 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-.9M9.9 9.9a2.5 2.5 0 0 0 3.2 3.2" /></svg>}{label}</button>)}</div></div></div><div className="offer-scroll-list">{pagedJobs.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{moreJobs && <div ref={sentinelRef} className="list-sentinel" aria-hidden="true" />}{!loading && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "Selecciona un distrito para cargar señales"}</span>}</div></aside>}
                 <div className="map-scan-label map-scan-label-top"><span className="scan-live-dot" />{mode === "radar" ? "RADAR LOCK" : mode === "heatmap" ? "DATA ANALYSIS" : "COLLECTING DATA"}<small>{"/// LIMA METROPOLITANA"}</small></div>
                 <div className="map-scan-label map-scan-label-bottom"><span>COORD // 12°02&apos;46.0&quot;S 77°02&apos;35.0&quot;W</span><span>TRACKING // {visibleJobs.length.toString().padStart(3, "0")} SIGNALS</span></div>
                 {mode === "heatmap" && districtStats.length > 0 && <aside className="district-map-overlay" aria-label="Distritos con ofertas"><div className="district-overlay-list"><button className={`district-row district-row-all ${selectedDistrictKey === null ? "selected" : ""}`} onClick={() => { setSelectedDistrictKey(null); setSelectedId(null); }} type="button"><span className="district-row-top"><strong>Todos</strong><span>{mappedCount}</span></span><span className="district-bar"><i style={{ width: "100%" }} /></span></button>{districtStats.map((district) => <button key={district.key} className={`district-row ${selectedDistrictKey === district.key ? "selected" : ""}`} onClick={() => selectDistrict(district.key)} type="button"><span className="district-row-top"><strong>{district.district}</strong><span>{district.count}</span></span><span className="district-bar"><i style={{ width: `${Math.max(10, (district.count / districtStats[0].count) * 100)}%` }} /></span></button>)}</div></aside>}

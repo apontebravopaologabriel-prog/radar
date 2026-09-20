@@ -8,10 +8,17 @@ export async function fetchJobs(filters: Filters, signal?: AbortSignal): Promise
   for (const [key, value] of Object.entries(filters)) {
     if (value) params.set(key, value);
   }
+  params.set("slim", "1"); // sin descripciones: pesan ~80 % del listado; se piden al abrir una oferta
   const response = await fetch(`${API_URL}/api/jobs?${params.toString()}`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   const payload = (await response.json()) as { jobs: Job[] };
   return payload.jobs;
+}
+
+export async function fetchJobDescription(id: string, signal?: AbortSignal): Promise<string | null> {
+  const response = await fetch(`${API_URL}/api/jobs/${id}/description`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { description: string | null }).description;
 }
 
 export async function fetchHiddenJobs(signal?: AbortSignal): Promise<Job[]> {

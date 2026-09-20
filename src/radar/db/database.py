@@ -174,6 +174,9 @@ def _configure_connection(conn: RadarConnection) -> None:
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA synchronous = NORMAL;")
     conn.execute("PRAGMA busy_timeout = 5000;")
+    conn.execute("PRAGMA cache_size = -32768;")  # 32 MB de caché de páginas
+    conn.execute("PRAGMA temp_store = MEMORY;")
+    conn.execute("PRAGMA mmap_size = 268435456;")  # lecturas por memoria mapeada (256 MB)
     conn.create_function("gen_random_uuid", 0, lambda: str(uuid.uuid4()))
     conn.create_function("now", 0, lambda: datetime.datetime.now(datetime.UTC).isoformat())
 

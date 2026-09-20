@@ -107,6 +107,13 @@ if FRONTEND_OUT.exists():
         return RedirectResponse(url="/radar")
 
 
+def _slimmed(job: dict[str, Any], slim: bool) -> dict[str, Any]:
+    if slim:
+        job["has_description"] = bool(job.get("description"))
+        job.pop("description", None)
+    return job
+
+
 def _with_location(job: dict[str, Any]) -> dict[str, Any]:
     point = infer_location(job.get("location"))
     result = dict(job)
@@ -136,6 +143,7 @@ def jobs(
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
     include_hidden: bool = False,
+    slim: bool = False,
 ) -> dict[str, Any]:
     rows = list_jobs(
         limit=None,
@@ -150,7 +158,19 @@ def jobs(
         skill=skill,
         relevance_tier=relevance_tier,
     )
-    return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
+    return {"jobs": [_slimmed(_with_location(row), slim) for row in rows], "total": len(rows)}
+
+
+@app.get("/api/jobs/{job_id}/description")
+def job_description(job_id: str) -> dict[str, Any]:
+    """Descripción completa de una oferta; los listados con `slim=1` no la incluyen (pesa ~80 % del payload)."""
+    from radar.db.database import connection
+
+    with connection() as conn:
+        row = conn.execute("SELECT description_clean FROM jobs WHERE id=%s", (job_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada")
+    return {"id": job_id, "description": row[0]}
 
 
 @app.get("/api/map/jobs")
@@ -163,6 +183,7 @@ def map_jobs(
     relevance_tier: str | None = None,
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
+    slim: bool = False,
 ) -> dict[str, Any]:
     rows = list_jobs(
         limit=None,
@@ -177,7 +198,7 @@ def map_jobs(
     )
     features = []
     for row in rows:
-        item = _with_location(row)
+        item = _slimmed(_with_location(row), slim)
         if item["latitude"] is None or item["longitude"] is None:
             continue
         features.append(
