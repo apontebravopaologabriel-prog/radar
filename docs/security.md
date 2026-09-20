@@ -25,3 +25,17 @@ Reglas de calidad:
 Los CVs objetivo (`docs/target-profiles.md`) son hipotéticos: llevan marca fija, no se exportan y su
 API es de solo lectura. `cv_master.json` y `photo.jpg` contienen datos personales; viven en
 `~/.local/share/radar/`, fuera de Git, y la API nunca acepta una ruta de archivo del cliente.
+
+
+## Agente de chat y acceso remoto
+
+- Las descripciones de ofertas son texto de terceros. El agente las recibe marcadas como
+  `datos_externos_no_confiables` y su prompt las trata como información, nunca como instrucciones.
+- Las herramientas que escriben (favoritos, seguimiento, perfil, carrera) no se ejecutan dentro del
+  bucle del agente: el usuario las aprueba en `/api/chat/confirm`. No existen herramientas que envíen
+  mensajes ni postulen. `ingest_jobs` y `save_target_profile` no se exponen al chat.
+- El perfil y las ofertas consultadas viajan al proveedor de LLM elegido: usa un proveedor en el que
+  confíes o Ollama local para no enviar datos a terceros.
+- `RADAR_ACCESS_TOKEN` activa una clave de acceso para `/api/*` (cookie `HttpOnly`, `SameSite=Strict`,
+  5 intentos por minuto). Es protección para uso personal, no un sistema multiusuario.
+- Las claves de proveedores viven en `secrets.json` (`0600`), fuera de la base que consulta el editor SQL.

@@ -13,9 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from radar.api_agent import router as agent_router
+from radar.api_cv import router as cv_router
 from radar.auth import AccessMiddleware
 from radar.auth import router as auth_router
-from radar.api_cv import router as cv_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
 from radar.db.queries import (
     get_profile,
@@ -63,6 +63,27 @@ if FRONTEND_OUT.exists():
         if radar_html.exists():
             return FileResponse(str(radar_html), headers=headers)
         return FileResponse(str(FRONTEND_OUT / "index.html"), headers=headers)
+
+    @app.get("/m", include_in_schema=False)
+    @app.get("/m/", include_in_schema=False)
+    def serve_mobile_ui():
+        return FileResponse(str(FRONTEND_OUT / "m.html"), headers={"Cache-Control": "no-cache"})
+
+    _ROOT_ASSETS = {
+        "manifest.webmanifest": "application/manifest+json",
+        "sw.js": "text/javascript",
+        "icon-180.png": "image/png",
+        "icon-192.png": "image/png",
+        "icon-512.png": "image/png",
+    }
+
+    @app.get("/{asset_name}", include_in_schema=False)
+    def serve_root_asset(asset_name: str):
+        media_type = _ROOT_ASSETS.get(asset_name)
+        path = FRONTEND_OUT / asset_name
+        if media_type is None or not path.is_file():
+            raise HTTPException(status_code=404)
+        return FileResponse(str(path), media_type=media_type, headers={"Cache-Control": "no-cache"})
 
     @app.get("/", include_in_schema=False)
     def root():

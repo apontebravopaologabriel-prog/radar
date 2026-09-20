@@ -19,6 +19,21 @@ cifra, barras, serie o tabla. `CVs` toma como objetivos las ofertas con ★, ord
 hipotéticos redactados por el agente; no son CVs enviables (ver
 [CVs objetivo](docs/target-profiles.md) y [CV en Word (plan)](docs/cv-word-plan.md)).
 
+## Móvil, carreras y agente de chat
+
+- **App móvil (PWA):** `http://127.0.0.1:8100/m`. Pestañas Hoy (ofertas frescas con el motivo del
+  encaje y qué skill aprender primero), Seguimiento (guardada → postulé → entrevista → oferta),
+  Agente (chat) y Ajustes. Se instala desde el navegador y muestra el último feed sin conexión.
+- **Carreras:** la taxonomía, las competencias y los pesos del score viven en
+  `src/radar/careers/packs/*.json` (Ingeniería Industrial y Contabilidad). Añadir una carrera es
+  añadir un JSON; se elige en Ajustes o con `RADAR_CAREER`.
+- **Agente de chat:** usa tu propia clave de API (DeepSeek por defecto; también OpenAI, OpenRouter,
+  Ollama o un endpoint compatible). Comparte las herramientas del MCP (`src/radar/tools.py`); las que
+  escriben piden confirmación en pantalla. Tope mensual de tokens configurable.
+- **Acceso desde el celular:** ver [Acceso remoto](docs/operations.md#acceso-remoto-desde-el-celular).
+
+Plan y estado: [Radar multicarrera, móvil y agente](docs/plan-multicarrera-movil.md).
+
 ## Documentación
 
 - [Guía para agentes](AGENTS.md)
@@ -29,6 +44,7 @@ hipotéticos redactados por el agente; no son CVs enviables (ver
 - [Troubleshooting](docs/troubleshooting.md)
 - [Seguridad y cumplimiento](docs/security.md)
 - [Roadmap V2/V3](docs/roadmap.md)
+- [Plan multicarrera, móvil y agente](docs/plan-multicarrera-movil.md)
 - [Dirección de producto](docs/product-direction.md)
 - [CVs objetivo](docs/target-profiles.md)
 - [CV en Word: viabilidad y plan](docs/cv-word-plan.md)

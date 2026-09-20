@@ -1,7 +1,8 @@
 # Plan: Radar multicarrera, móvil y con agente integrado
 
-Estado: propuesta (2026-09-19). Nada de esto está implementado. Las estimaciones son de orden de
-magnitud para una persona trabajando con ayuda de agentes, no compromisos.
+Estado (2026-09-20): fases 0–3 implementadas en la rama `feat/multicarrera-movil`; ver
+[Estado de implementación](#14-estado-de-implementación). Las estimaciones son de orden de magnitud,
+no compromisos.
 
 ## 1. Objetivo
 
@@ -242,3 +243,21 @@ Las fases 4–7 son las que la convierten en producto para terceros.
 
 Al implementar, ajustar `product-direction.md` (hoy "sistema personal") y `security.md` (hoy "No expongas el MCP
 stdio…" y "API local") para reflejar el modo hospedado y el agente integrado.
+
+## 14. Estado de implementación
+
+| Fase | Estado | Detalle |
+|---|---|---|
+| 0. Cimientos | Parcial | Capa `tools.py` y MCP sobre ella: hecho. `user_id` en las tablas de usuario: **pendiente** (Radar sigue siendo de un solo usuario; se hará al hospedar). |
+| 1. Paquetes de carrera | Hecho | Industrial y Contabilidad; taxonomía, skills y pesos como datos; pesos editables; pruebas de paridad. |
+| 2. Móvil PWA | Hecho | `/m` con Hoy, Seguimiento, Agente y Ajustes; onboarding sin CLI (formulario); modo claro/oscuro; instalable; feed sin conexión. |
+| 3. Chat con BYOK | Hecho | Proveedor OpenAI-compatible (DeepSeek por defecto), streaming, confirmación de escrituras, tope de tokens. |
+| Acceso remoto | Hecho (básico) | `RADAR_ACCESS_TOKEN` + Tailscale; passkeys no implementadas. |
+| 4. Onboarding con CV | Pendiente | Hoy es un formulario; falta subir CV y extraer el perfil con confirmación. |
+| 5. Hospedaje multiusuario | Pendiente | Requiere `user_id`, autenticación por usuario y PostgreSQL. |
+| 6. Alertas y push | Pendiente | Requiere HTTPS y claves VAPID. |
+| 7. Expansión | Pendiente | Más carreras y ciudades (el mapa sigue siendo solo Lima). |
+
+Limitaciones conocidas: la geografía es solo Lima/Callao; el agente no se probó con un proveedor real
+(las pruebas usan un servidor simulado); la interfaz móvil se verificó con capturas y compilación, no
+con pruebas de interacción automatizadas.

@@ -171,3 +171,28 @@ Los archivos de la vista `CVs` están en `~/.local/share/radar/` (o junto a `RAD
 `cv_master.json` (perfil real), `targets/*.json` (un candidato ideal por oferta) y `photo.jpg`. No están
 en Git. Las herramientas MCP `save_target_profile` y `get_target_context` los crean y leen; incluir
 la carpeta en los respaldos junto a `radar.db`.
+
+
+## Acceso remoto desde el celular
+
+Radar es local: el celular necesita llegar a tu PC, que debe estar encendida.
+
+1. Instala Tailscale en la PC y en el teléfono (o usa un túnel de Cloudflare).
+2. Define una clave de acceso larga y publica la API solo en la interfaz privada:
+
+   ```bash
+   export RADAR_ACCESS_TOKEN='una-clave-larga-y-unica'
+   RADAR_API_HOST=<ip-tailscale-de-la-pc> .venv/bin/radar-api
+   ```
+
+3. Abre `http://<ip-tailscale>:8100/m` en el teléfono e instálala ("Añadir a pantalla de inicio").
+   La cookie de sesión solo se marca `Secure` bajo HTTPS; con `tailscale serve` obtienes HTTPS.
+
+Sin `RADAR_ACCESS_TOKEN` no hay autenticación: no expongas la API fuera de `127.0.0.1` así. Nunca
+uses `0.0.0.0` en una red que no controles.
+
+## Agente de chat
+
+Ajustes → Agente: elige proveedor, modelo y pega tu clave. La clave se guarda en
+`~/.local/share/radar/secrets.json` (permisos `0600`), nunca en la base de datos ni en el navegador.
+El consumo se cuenta en la tabla `agent_usage` y el chat se detiene al llegar al tope mensual.

@@ -39,7 +39,8 @@ def test_profile_feed_and_skill_impact_roundtrip():
 
     store([RawJob("t", "Practicante de Procesos", "ACME", "https://e.com/1", location="Lima",
                   description="Excel, Power BI y SQL", published_at=datetime.now(UTC))])
-    assert tools.get_today_feed()["profile_configured"] is False
+    fallback = tools.get_today_feed()
+    assert fallback["profile_configured"] is False and fallback["jobs"][0]["url"] == "https://e.com/1"
     tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "advanced"})
     feed = tools.get_today_feed()
     assert feed["profile_configured"] and feed["jobs"][0]["why"].startswith("Coincide en Excel")

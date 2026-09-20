@@ -62,7 +62,7 @@ def today_feed(limit: int = 5, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> dict
             "title": r["title"],
             "company": r.get("company"),
             "location": r.get("location"),
-            "url": r.get("source_url"),
+            "url": r.get("url"),
             "published_at": r.get("published_at"),
             "work_mode": r.get("work_mode"),
             "score": None,

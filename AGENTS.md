@@ -21,6 +21,12 @@ Antes de cambiar comportamiento, leer en este orden:
 - `src/radar/cv_baseline.py`: brecha base determinista, ranking y combinación con el enriquecimiento.
 - `src/radar/api_cv.py`: endpoints `/api/cv/*` (solo lectura).
 - `frontend/components/CvView.tsx`: vista `CVs` (objetivos = favoritos ★, ranking, matriz, comparación, detalle); sus tipos y cliente están en `frontend/lib/cv-types.ts` y `cv-api.ts`, y sus estilos en `components/cv.css`.
+- `src/radar/careers/`: paquetes de carrera (`packs/*.json`): áreas, competencias, señales y pesos del
+  score. `classify.py` y `taxonomy.py` son motores que los leen; no hay reglas de una carrera en Python.
+- `src/radar/tools.py`: registro único de herramientas (MCP y chat). Declara `write` y `chat` por herramienta.
+- `src/radar/agent/`: proveedor OpenAI-compatible y bucle del agente (escrituras siempre pendientes).
+- `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
+- `frontend/components/mobile/` y `app/m/`: PWA móvil (`/m`); `frontend/public/` guarda manifest y service worker.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
 - `frontend/components/RadarClient.tsx`: estado, filtros, ofertas, popups y herramientas del mapa.
 - `frontend/components/MapView.tsx`: mapa MapLibre, distritos, etiquetas y radar.
@@ -98,3 +104,12 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
   `_ensure_runtime_schema()` si debe aplicarse a bases ya creadas), no borrando el archivo `.db` ni
   añadiendo un `.sql` a `migrations/` (ese directorio es un artefacto histórico de PostgreSQL, ya no
   se ejecuta). Ver `docs/database.md`.
+
+
+## Contratos de la app móvil (`/m`)
+
+- Es una interfaz aparte del mapa: no aplican las reglas de barra flotante del explorador de escritorio.
+- Monocromática (sin acentos de color), oscura o clara según el sistema, objetivos táctiles de 44 px.
+- Toda herramienta nueva se registra en `tools.py`; si escribe, `write=True`. No exponer al chat
+  herramientas que envíen mensajes, postulen o ejecuten SQL libre.
+- El service worker no cachea `/api/chat`, `/api/agent` ni `/api/auth`.
