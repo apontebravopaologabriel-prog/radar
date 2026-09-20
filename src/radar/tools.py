@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_targets
+from radar import cv_baseline, cv_targets, insights
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
     applications,
@@ -155,6 +155,64 @@ def find_jobs_near(place: str, radius_km: float = 5.0, limit: int = 15) -> dict:
     Perú (Arequipa, Trujillo, Cusco...), de la más cercana a la más lejana. Distancia aproximada
     entre centroides."""
     return nearby(place, radius_km, limit)
+
+
+@tool()
+def get_job_details(job_id: str) -> dict:
+    """Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de
+    encaje y tu seguimiento. Los ids salen de search_saved_jobs, get_today_feed o find_jobs_near."""
+    return insights.job_details(job_id)
+
+
+@tool()
+def explain_job_fit(job_id: str) -> dict:
+    """Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y
+    las que faltan."""
+    return insights.explain_fit(job_id)
+
+
+@tool()
+def compare_jobs(job_ids: list[str]) -> dict:
+    """Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una."""
+    return insights.compare(job_ids)
+
+
+@tool()
+def get_skill_demand(area: str | None = None, max_age_days: int = 30, limit: int = 15) -> dict:
+    """Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una.
+    `area` filtra por área primaria."""
+    return insights.skill_demand(area, max_age_days, limit)
+
+
+@tool()
+def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10) -> dict:
+    """Cuenta ofertas vigentes agrupadas por `by`: area, place, company, work_mode, seniority o source."""
+    return insights.market_breakdown(by, max_age_days, limit)
+
+
+@tool()
+def get_salary_stats(area: str | None = None, place: str | None = None, max_age_days: int = 60) -> dict:
+    """Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran)."""
+    return insights.salary_stats(area, place, max_age_days)
+
+
+@tool()
+def plan_learning(limit: int = 5) -> dict:
+    """Skills que más suben tu encaje si las aprendes, con su demanda en el mercado. Base para un plan."""
+    return insights.learning_plan(limit)
+
+
+@tool()
+def get_data_schema() -> dict:
+    """Tablas y columnas consultables con run_readonly_sql."""
+    return insights.data_schema()
+
+
+@tool()
+def run_readonly_sql(sql: str) -> dict:
+    """Consulta SQL de solo lectura (SELECT/WITH, máx. 50 filas) para preguntas que las demás
+    herramientas no cubren. Llama antes a get_data_schema. Las fechas están en texto ISO."""
+    return insights.readonly_sql(sql)
 
 
 @tool()

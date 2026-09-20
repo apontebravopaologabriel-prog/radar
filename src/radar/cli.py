@@ -57,6 +57,9 @@ def main() -> None:
     importer = sub.add_parser("import-jobs", help="Importa ofertas desde CSV/JSON de un portal")
     importer.add_argument("--file", required=True)
     importer.add_argument("--source", required=True, help="linkedin, bumeran, laborum, empleos-peru o ATS")
+    skill = sub.add_parser("skill", help="Genera la skill de agente (SKILL.md) para clientes MCP")
+    skill.add_argument("action", choices=["export"])
+    skill.add_argument("--out", default="skills", help="Directorio de salida (por defecto: ./skills)")
     sub.add_parser("repair-data", help="Repara modalidad, sector, salario y horario incompletos")
     sub.add_parser("audit-data", help="Audita duplicados, clasificación comercial y consistencia SQL")
     expire = sub.add_parser("expire-stale", help="Desactiva ofertas que ninguna fuente volvió a ver")
@@ -97,6 +100,12 @@ def main() -> None:
         print({"application_id": track_application(args.job_id, args.status, args.notes)})
     elif args.command == "import-jobs":
         print(ingest_jobs(load_job_file(args.file, args.source)))
+    elif args.command == "skill":
+        from pathlib import Path
+
+        from radar.skill_export import export
+
+        print({"skill": str(export(Path(args.out)))})
     elif args.command == "repair-data":
         print(repair_data_quality())
     elif args.command == "audit-data":

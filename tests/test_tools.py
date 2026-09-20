@@ -101,3 +101,84 @@ def test_find_jobs_near_works_across_peru():
     assert places["Arequipa"]["precision"] == "city" and places["Áncash"]["precision"] == "department"
     with pytest.raises(ValueError):
         tools.find_jobs_near("Narnia")
+
+
+def _seed_market():
+    from datetime import UTC, datetime
+
+    from radar.db.repository import ingest_jobs as store
+    from radar.domain.models import RawJob
+
+    now = datetime.now(UTC)
+    store([
+        RawJob("t", "Practicante de Procesos", "ACME", "https://e.com/1", location="Miraflores, Lima",
+               description="Requisito: Excel y Power BI. Salario S/ 1500 mensual.", published_at=now),
+        RawJob("t", "Analista de Logística", "Beta", "https://e.com/2", location="Arequipa",
+               description="Excel, SAP y SQL.", published_at=now),
+        RawJob("t", "Practicante de Calidad", "ACME", "https://e.com/3", location="Ate, Lima",
+               description="Excel y Lean.", published_at=now),
+    ])
+    return tools.search_saved_jobs(limit=10)["jobs"]
+
+
+def test_agent_can_answer_open_questions_about_the_market():
+    jobs = _seed_market()
+    ids = {j["title"]: j["id"] for j in jobs}
+    tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "advanced"})
+
+    detail = tools.get_job_details(ids["Practicante de Procesos"])
+    assert detail["company"] == "ACME" and {s["name"] for s in detail["skills"]} >= {"Excel", "Power BI"}
+    assert detail["fit"]["strong_matches"] == ["Excel"] and "Power BI" in detail["fit"]["missing_skills"]
+    assert "Requisito" in detail["description"]
+
+    fit = tools.explain_job_fit(ids["Practicante de Procesos"])
+    assert abs(sum(d["contribution"] for d in fit["dimensions"]) - fit["total"]) < 1
+
+    demand = tools.get_skill_demand()
+    assert demand["skills"][0]["skill"] == "Excel" and demand["skills"][0]["jobs"] == 3
+
+    by_place = {r["value"]: r["jobs"] for r in tools.get_market_breakdown("place")["rows"]}
+    assert by_place["Arequipa"] == 1 and by_place["Miraflores"] == 1
+    assert tools.get_market_breakdown("company")["rows"][0] == {"value": "ACME", "jobs": 2}
+    with pytest.raises(ValueError):
+        tools.get_market_breakdown("color")
+
+    cmp = tools.compare_jobs([ids["Practicante de Procesos"], ids["Analista de Logística"]])
+    assert cmp["common_skills"] == ["Excel"]
+    assert "Power BI" in cmp["jobs"][0]["only_here"]
+    with pytest.raises(ValueError):
+        tools.compare_jobs([ids["Practicante de Procesos"]])
+
+    assert tools.plan_learning()["skills"][0]["skill"] in {"Power BI", "SQL", "SAP", "Lean"}
+    stats = tools.get_salary_stats()
+    assert stats["groups"] == [] or stats["groups"][0]["count"] >= 1
+
+
+def test_readonly_sql_is_bounded_and_rejects_writes():
+    _seed_market()
+    schema = tools.get_data_schema()
+    assert "jobs" in {t["table"] for t in schema["tables"]}
+    rows = tools.run_readonly_sql("SELECT count(*) AS n FROM jobs")
+    assert rows["rows"][0][0] == 3
+    with pytest.raises(ValueError):
+        tools.run_readonly_sql("DELETE FROM jobs")
+    with pytest.raises(ValueError):
+        tools.run_readonly_sql("SELECT 1; DROP TABLE jobs")
+    assert tools.REGISTRY["run_readonly_sql"].chat and not tools.REGISTRY["run_readonly_sql"].write
+
+
+def test_mcp_exposes_resources_prompts_and_skill_export(tmp_path):
+    import asyncio
+
+    from radar.mcp import server
+    from radar.skill_export import export, render
+
+    prompts = {p.name for p in asyncio.run(server.mcp.list_prompts())}
+    assert {"configurar_radar", "analizar_mercado", "plan_de_aprendizaje"} <= prompts
+    resources = {str(r.uri) for r in asyncio.run(server.mcp.list_resources())}
+    templates = {t.uriTemplate for t in asyncio.run(server.mcp.list_resource_templates())}
+    assert "radar://topics" in resources and "radar://help/{topic}" in templates
+    text = render()
+    assert text.startswith("---\nname: radar") and "`run_readonly_sql`" in text and "`favorite_job` | escribe" in text
+    assert "Radar nunca postula" in text
+    assert export(tmp_path).read_text(encoding="utf-8") == text

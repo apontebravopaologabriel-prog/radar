@@ -46,6 +46,17 @@ el servidor MCP del cliente para que las vea.
 
 ## Herramientas
 
+> La lista completa y siempre al día está en la **skill de agente** generada: `radar skill export --out docs/skills`
+> produce `docs/skills/radar/SKILL.md` (copiable a Antigravity o Claude Code) a partir del mismo registro que usa
+> el servidor y el chat de la app. Además del listado de abajo hay: `get_today_feed`, `find_jobs_near(place, radius_km)`
+> (distritos de Lima o ciudades del Perú), `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`,
+> `get_market_breakdown(by)`, `get_salary_stats`, `plan_learning`, `get_data_schema` y `run_readonly_sql` (solo SELECT/WITH,
+> máx. 50 filas), `get_setup_status`, `get_help`, `update_profile`, `favorite_job`, `list_career_tracks`,
+> `set_career_track` y `create_career_pack`. Las que escriben piden confirmación a la persona.
+>
+> El servidor también publica **recursos** (`radar://topics`, `radar://help/{topic}`, `radar://schema`) y **prompts**
+> (`configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`).
+
 - `health()`: comprueba disponibilidad; no cambia datos.
 - `ingest_jobs(source, query, location="Lima", limit=25, max_age_days=14)`: busca, clasifica, deduplica y guarda únicamente ofertas fechadas dentro del rango reciente. El límite operativo es 100. Usa `max_age_days=7` para una búsqueda de la última semana.
 - `search_saved_jobs(limit=20, seniority=null, area=null, max_age_days=14)`: consulta ofertas recientes guardadas y excluye las ocultadas en la instalación local; máximo 100. Devuelve modalidad, sector, horario y estado de postulación cuando están disponibles.
