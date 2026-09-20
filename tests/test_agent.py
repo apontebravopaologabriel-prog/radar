@@ -64,7 +64,7 @@ def test_provider_maps_auth_errors_without_leaking_key():
 def test_read_tool_runs_and_result_is_marked_untrusted():
     client, sent = _client(_call("get_market_summary", {}), _text("Listo"))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "resumen"}], client))
-    kinds = [e["type"] for e in events]
+    kinds = [e["type"] for e in events if e["type"] != "usage"]
     assert kinds == ["assistant_message", "tool_result", "text", "done"]
     tool_msg = next(e for e in events if e["type"] == "tool_result")["message"]
     assert "datos_externos_no_confiables" in tool_msg["content"]
@@ -194,3 +194,31 @@ def test_conversations_are_stored_locally_and_deletable_even_when_agent_is_off()
     assert api.delete("/api/conversations").json()["deleted"] == 1
     set_setting("agent_enabled", "1")
     assert api.get("/api/conversations").json()["conversations"] == []
+
+
+def test_usage_events_and_compaction_summarize_without_tools():
+    client, sent = _client(_text("Hola"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "hola"}], client))
+    assert {"type": "usage", "prompt_tokens": 10, "completion_tokens": 5} in events
+
+    history = [
+        {"role": "user", "content": "¿Qué hay en Arequipa?"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "1", "type": "function",
+         "function": {"name": "find_jobs_near", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "1", "content": "x" * 5000},
+        {"role": "assistant", "content": "Hay 83 ofertas."},
+    ]
+    client, sent = _client(_text("- Busca ofertas en Arequipa (83)."))
+    result = loop.compact(CONFIG, history, client)
+    assert result["summary"].startswith("- Busca ofertas") and result["prompt_tokens"] == 10
+    body = sent[0]
+    assert "tools" not in body and body["messages"][0]["role"] == "system"
+    transcript = body["messages"][1]["content"]
+    assert "find_jobs_near" in transcript and len(transcript) < 2000  # el resultado largo se recorta
+
+
+def test_compact_endpoint_and_context_window_setting():
+    api = TestClient(app)
+    assert api.put("/api/agent/settings", json={"provider": "deepseek", "context_window": 128000}).json()["context_window"] == 128000
+    set_setting("agent_enabled", "0")
+    assert api.post("/api/chat/compact", json={"messages": [{"role": "user", "content": "x"}]}).status_code == 403

@@ -123,6 +123,58 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
     return entry.call(arguments)
 
 
+DEFAULT_CONTEXT_WINDOW = 64_000
+COMPACT_PROMPT = """Resume esta conversación entre una persona y el agente de Radar para poder continuarla sin \
+perder el hilo. Conserva: qué busca la persona, datos y cifras ya obtenidos (con su fuente), decisiones tomadas, \
+ids de ofertas mencionadas y pendientes. Sin saludos, en español, en viñetas breves, máximo 350 palabras."""
+
+
+def context_window() -> int:
+    raw = get_setting("agent_context_window")
+    return int(raw) if raw and raw.isdigit() else DEFAULT_CONTEXT_WINDOW
+
+
+def _transcript(history: list[dict[str, Any]], tool_chars: int = 500) -> str:
+    lines = []
+    for message in history:
+        role, content = message.get("role"), message.get("content") or ""
+        if role == "user":
+            lines.append(f"PERSONA: {content}")
+        elif role == "assistant":
+            calls = ", ".join(c["function"]["name"] for c in message.get("tool_calls", []))
+            lines.append(f"AGENTE: {content}" + (f" [herramientas: {calls}]" if calls else ""))
+        elif role == "tool":
+            lines.append(f"RESULTADO: {content[:tool_chars]}")
+    return "\n".join(lines)
+
+
+def compact(config: LLMConfig, history: list[dict[str, Any]], client: httpx.Client | None = None) -> dict[str, Any]:
+    """Resume la conversación con el modelo (sin herramientas) para liberar contexto."""
+    if not agent_enabled():
+        raise ProviderError("El agente está desactivado.")
+    if not config.ready:
+        raise ProviderError("Configura el proveedor y la clave de API en Ajustes.")
+    if month_usage() >= monthly_cap():
+        raise ProviderError("Alcanzaste el tope mensual de tokens.")
+    messages = [
+        {"role": "system", "content": COMPACT_PROMPT},
+        {"role": "user", "content": _transcript(history)[:60_000]},
+    ]
+    parts: list[str] = []
+    usage: dict[str, Any] = {}
+    for event in stream_chat(config, messages, [], client):
+        if "text" in event:
+            parts.append(event["text"])
+        elif "usage" in event:
+            usage = event["usage"]
+            _record_usage(config, usage)
+    summary = "".join(parts).strip()
+    if not summary:
+        raise ProviderError("El modelo no devolvió un resumen.")
+    return {"summary": summary, "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+            "completion_tokens": int(usage.get("completion_tokens") or 0)}
+
+
 def run_turn(
     config: LLMConfig,
     history: list[dict[str, Any]],
@@ -152,6 +204,8 @@ def run_turn(
                     calls = event["tool_calls"]
                 elif "usage" in event:
                     _record_usage(config, event["usage"])
+                    yield {"type": "usage", "prompt_tokens": int(event["usage"].get("prompt_tokens") or 0),
+                           "completion_tokens": int(event["usage"].get("completion_tokens") or 0)}
         except ProviderError as exc:
             yield {"type": "error", "message": str(exc)}
             return

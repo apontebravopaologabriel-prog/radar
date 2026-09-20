@@ -14,13 +14,15 @@ from pydantic import BaseModel, Field, ValidationError
 from radar import tools
 from radar.agent.loop import (
     agent_enabled,
+    compact,
+    context_window,
     execute_tool,
     month_usage,
     monthly_cap,
     read_only,
     run_turn,
 )
-from radar.agent.provider import NO_KEY_PROVIDERS, PROVIDERS, load_config
+from radar.agent.provider import NO_KEY_PROVIDERS, PROVIDERS, ProviderError, load_config
 from radar.careers import (
     WEIGHT_KEYS,
     CareerPackError,
@@ -238,6 +240,7 @@ def _agent_settings() -> dict[str, Any]:
         "ready": config.ready,
         "enabled": agent_enabled(),
         "read_only": read_only(),
+        "context_window": context_window(),
         "monthly_token_cap": monthly_cap(),
         "tokens_used_this_month": month_usage(),
         "providers": {k: v for k, v in PROVIDERS.items()},
@@ -257,6 +260,7 @@ class AgentSettingsUpdate(BaseModel):
     monthly_token_cap: int | None = Field(default=None, ge=1000, le=100_000_000)
     enabled: bool | None = None
     read_only: bool | None = None
+    context_window: int | None = Field(default=None, ge=2000, le=2_000_000)
 
 
 @router.put("/agent/settings")
@@ -265,6 +269,8 @@ def update_agent_settings(payload: AgentSettingsUpdate) -> dict[str, Any]:
         set_setting("agent_enabled", "1" if payload.enabled else "0")
     if payload.read_only is not None:
         set_setting("agent_read_only", "1" if payload.read_only else "0")
+    if payload.context_window is not None:
+        set_setting("agent_context_window", str(payload.context_window))
     set_setting("llm_provider", payload.provider)
     set_setting("llm_model", payload.model or None)
     set_setting("llm_base_url", payload.base_url or None)
@@ -300,6 +306,19 @@ def chat(payload: ChatRequest) -> StreamingResponse:
     return StreamingResponse(
         events(), media_type="text/event-stream", headers={"Cache-Control": "no-store"}
     )
+
+
+@router.post("/chat/compact")
+def compact_chat(payload: ChatRequest) -> dict[str, Any]:
+    """Resume la conversación para liberar contexto (equivale a /compactar)."""
+    if not agent_enabled():
+        raise HTTPException(status_code=403, detail="agent_disabled")
+    if not _valid_history(payload.messages):
+        raise HTTPException(status_code=422, detail="Historial inválido")
+    try:
+        return compact(load_config(), payload.messages)
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 class ConfirmRequest(BaseModel):

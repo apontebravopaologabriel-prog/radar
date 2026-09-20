@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { COMMANDS, matchCommands } from "./commands";
+import { findCommand, matchCommands } from "./commands";
 import Markdown from "./Markdown";
 import RadarMark from "./RadarMark";
 import type { useAgentChat } from "./useAgentChat";
@@ -10,13 +10,13 @@ type Chat = ReturnType<typeof useAgentChat>;
 const SETUP_PROMPT = "Ayúdame a configurar Radar";
 
 /** Terminal minimal: líneas con prefijo, respuestas en Markdown, comandos con `/` y aprobación con teclado. */
-export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSettings: () => void }) {
+export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { chat: Chat; onSettings: () => void; dock?: { pinned: boolean; toggle: () => void }; onClose?: () => void }) {
   const [input, setInput] = useState("");
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(true);
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -28,11 +28,14 @@ export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSet
     setInput("");
     if (!text.startsWith("/")) { await send(text); return; }
     const [head, ...rest] = text.slice(1).split(/\s+/);
-    const command = COMMANDS.find((c) => c.name === head.toLowerCase());
+    const command = findCommand(head.toLowerCase());
     addLocal(text, "user");
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
-      const out = await command.run(rest.join(" "), { send, reset, refreshSettings, open, remove, list });
+      const out = await command.run(rest.join(" "), {
+        send, reset, refreshSettings, open, remove, list, compact, usage, dock, close: onClose,
+        lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
+      });
       if (out) addLocal(out);
     } catch (error) { addLocal(error instanceof Error ? error.message : "El comando falló.", "error"); }
   };
@@ -46,6 +49,7 @@ export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSet
         event.preventDefault(); const c = matches[menuIndex]; setInput(`/${c.name}${c.args ? " " : ""}`); return;
       }
     }
+    if (event.key === "Escape" && busy) { event.preventDefault(); stop(); return; }
     if (input === "" && pending.length && (event.key === "y" || event.key === "n")) {
       event.preventDefault(); void decide(pending[0], event.key === "y"); return;
     }
@@ -66,11 +70,11 @@ export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSet
       <div className="term-log" aria-live="polite">
         {lines.length === 0 && (
           <div className="term-welcome">
-            <div><RadarMark size={16} /> <b>Agente de Radar</b></div>
-            <p>Escribe una pregunta, o <code>/</code> para ver los comandos.</p>
+            <div><RadarMark size={16} /> <b>radar</b> <span className="term-dim">agente</span></div>
+            <p className="term-dim">Pregunta lo que quieras sobre tus ofertas, o escribe / para comandos.</p>
             <div className="term-suggest">
-              {needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/ {SETUP_PROMPT}</button>}
-              {["/hoy", "/mapa", "/skills", "/ayuda"].map((c) => <button key={c} onClick={() => submit(c)}>{c}</button>)}
+              {needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/configurar</button>}
+              {["/hoy", "/mapa", "/skills", "/contexto", "/ayuda"].map((c) => <button key={c} onClick={() => submit(c)}>{c}</button>)}
             </div>
           </div>
         )}
@@ -105,6 +109,10 @@ export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSet
         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
+      <div className="term-footer">
+        <span>{busy ? "esc detener" : "/ comandos · ↑ historial"}</span>
+        <span>{settings?.ready ? `${settings.model} · ctx ${usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes ${Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%` : "sin configurar"}{settings?.read_only ? " · lectura" : ""}</span>
+      </div>
     </div>
   );
 }

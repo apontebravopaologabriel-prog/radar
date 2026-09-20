@@ -39,7 +39,7 @@ export type Career = { active: string; name: string; areas: { core: string[]; ad
   skills: { name: string; type: string; category: string | null }[]; queries: string[];
   weights: Record<string, number>; tracks: { id: string; name: string }[] };
 export type AgentSettings = { provider: string; base_url: string; model: string; has_key: boolean; needs_key: boolean;
-  ready: boolean; enabled: boolean; read_only: boolean; monthly_token_cap: number; tokens_used_this_month: number;
+  ready: boolean; enabled: boolean; read_only: boolean; context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
   providers: Record<string, { base_url: string; model: string }> };
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
 export type ProfileInput = { name: string; education?: string; areas: string[]; locations: string[];
@@ -74,7 +74,7 @@ export const api = {
   refreshStatus: () => request<RefreshState>("/api/refresh/status"),
   saveProfile: (profile: ProfileInput) => request<{ profile_id: string }>("/api/profile", { method: "PUT", body: JSON.stringify(profile) }),
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
-  saveAgentSettings: (body: { provider: string; model?: string; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean }) =>
+  saveAgentSettings: (body: { provider: string; model?: string; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
     request<AgentSettings>("/api/agent/settings", { method: "PUT", body: JSON.stringify(body) }),
   conversations: () => request<{ conversations: ConversationInfo[] }>("/api/conversations?limit=20"),
   conversation: (id: string) => request<{ id: string; title: string; data: ConversationData }>(`/api/conversations/${id}`),
@@ -84,6 +84,8 @@ export const api = {
     request<{ id: string }>(`/api/conversations/${id}`, { method: "PUT", body: JSON.stringify({ title, data }) }),
   deleteConversation: (id: string) => request<{ deleted: boolean }>(`/api/conversations/${id}`, { method: "DELETE" }),
   deleteAllConversations: () => request<{ deleted: number }>("/api/conversations", { method: "DELETE" }),
+  compact: (messages: ApiMessage[]) =>
+    request<{ summary: string; prompt_tokens: number; completion_tokens: number }>("/api/chat/compact", { method: "POST", body: JSON.stringify({ messages }) }),
   confirm: (body: { tool_call_id: string; name: string; arguments: Record<string, unknown>; approve: boolean }) =>
     request<{ message: ApiMessage; result: unknown }>("/api/chat/confirm", { method: "POST", body: JSON.stringify(body) }),
 };
@@ -97,6 +99,7 @@ export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "assistant_message"; message: ApiMessage }
   | { type: "tool_result"; message: ApiMessage; name: string }
+  | { type: "usage"; prompt_tokens: number; completion_tokens: number }
   | { type: "pending"; actions: PendingAction[] }
   | { type: "error"; message: string }
   | { type: "done" };

@@ -18,6 +18,7 @@ opcional que consulta los mismos datos.
 | App móvil (`/m`): Hoy, Mapa, Proceso, Agente, Ajustes, primer inicio | Hecho |
 | Agente: apagado por defecto, ventana de escritorio, solo lectura, confirmación de escrituras | Hecho |
 | Agente: terminal con comandos `/`, Markdown, símbolo propio | Hecho |
+| Agente: `/contexto`, `/compactar`, `/modelo`, `/fijar` y panel fijado a la derecha | Hecho (ver [plan de diseño minimal](plan-agente-minimal.md)) |
 | Herramientas: consulta abierta (ficha, encaje, comparar, demanda, desgloses, salarios, SQL de solo lectura) | Hecho |
 | MCP: recursos, prompts y skill de agente generada (`SKILL.md`) | Hecho |
 | Prueba con proveedor real (DeepSeek) | Hecho: 17 preguntas con `scripts/agent_eval.py` (ver sección 6) |

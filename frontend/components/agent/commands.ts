@@ -1,4 +1,5 @@
 import { api, STATUS_LABELS, STATUS_ORDER, type ConversationInfo } from "../../lib/mobile-api";
+import { BASE_PROMPT_TOKENS } from "./useAgentChat";
 
 /** Comandos con `/` del agente. Los "local" se resuelven con la API de Radar (sin gastar tokens);
  *  los "prompt" envían una instrucción al modelo. */
@@ -9,16 +10,27 @@ export type CommandContext = {
   open: (id: string) => Promise<void>;
   remove: (id?: string) => Promise<void>;
   list: () => Promise<ConversationInfo[]>;
+  compact: () => Promise<string>;
+  usage: { context: number; session: number; estimated: boolean };
+  lastAnswer: () => string;
+  dock?: { pinned: boolean; toggle: () => void };
+  close?: () => void;
 };
 let lastList: ConversationInfo[] = [];
 export type Command = {
   name: string;
+  aliases?: string[];
   args?: string;
   hint: string;
   kind: "local" | "prompt";
   run: (args: string, ctx: CommandContext) => Promise<string | null>;
 };
 
+const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+const meter = (pct: number, width = 20) => {
+  const filled = Math.min(width, Math.round((pct / 100) * width));
+  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
+};
 const cut = (value: string | null | undefined, n = 44) => (value && value.length > n ? `${value.slice(0, n - 1)}…` : value ?? "—");
 const esc = (value: string | null | undefined) => (value ?? "—").replace(/\|/g, "\\|");
 
@@ -67,11 +79,45 @@ export const COMMANDS: Command[] = [
       return [`**${profile.name}** · ${profile.education ?? "sin formación"}`, `- Áreas: ${profile.target_roles.join(", ") || "—"}`,
         `- Dónde: ${profile.locations.join(", ") || "—"}`, `- Skills: ${skills}`].join("\n");
     } },
-  { name: "costo", hint: "Modelo y tokens usados este mes", kind: "local", run: async () => {
+  { name: "contexto", aliases: ["context"], hint: "Cuánto contexto ocupa esta conversación", kind: "local", run: async (_a, ctx) => {
+      const s = await api.agentSettings();
+      const window = s.context_window;
+      const used = ctx.usage.context;
+      if (!used) return "Aún no hay llamadas al modelo en esta conversación.";
+      const pct = Math.min(100, Math.round((used / window) * 100));
+      const base = Math.min(BASE_PROMPT_TOKENS, used);
+      return [`\`${meter(pct)}\` **${pct}%**${ctx.usage.estimated ? " _(estimado)_" : ""}`, "",
+        `${k(used)} de ${k(window)} tokens (ventana configurada; ajústala en Ajustes)`,
+        `- Sistema y herramientas: ~${k(base)}`, `- Conversación: ~${k(Math.max(used - base, 0))}`,
+        `- Sesión (todas las llamadas): ${k(ctx.usage.session)}`,
+        pct >= 70 ? "\n**Se está llenando: usa `/compactar`.**" : ""].join("\n");
+    } },
+  { name: "compactar", aliases: ["compact"], hint: "Resume la conversación para liberar contexto", kind: "local", run: async (_a, ctx) => ctx.compact() },
+  { name: "costo", aliases: ["tokens", "cost"], hint: "Modelo y tokens usados este mes", kind: "local", run: async () => {
       const s = await api.agentSettings();
       const pct = Math.round((s.tokens_used_this_month / Math.max(s.monthly_token_cap, 1)) * 100);
-      return `**${s.provider}** · \`${s.model}\`\n\n${s.tokens_used_this_month.toLocaleString("es-PE")} de ${s.monthly_token_cap.toLocaleString("es-PE")} tokens (${pct}%)${s.read_only ? " · solo lectura" : ""}`;
+      return `\`${meter(pct)}\` **${pct}%** del tope mensual\n\n**${s.provider}** · \`${s.model}\`\n${s.tokens_used_this_month.toLocaleString("es-PE")} de ${s.monthly_token_cap.toLocaleString("es-PE")} tokens${s.read_only ? " · solo lectura" : ""}`;
     } },
+  { name: "modelo", aliases: ["model"], args: "[nombre]", hint: "Ver o cambiar el modelo", kind: "local", run: async (args, ctx) => {
+      const s = await api.agentSettings();
+      const wanted = args.trim();
+      if (!wanted) return `**${s.provider}** · \`${s.model}\`\n\nCambia con \`/modelo <nombre>\` (ej. el nombre exacto de tu proveedor).`;
+      await api.saveAgentSettings({ provider: s.provider, model: wanted });
+      ctx.refreshSettings();
+      return `Modelo cambiado a \`${wanted}\`.`;
+    } },
+  { name: "fijar", aliases: ["pin"], hint: "Fija el agente a la derecha o lo vuelve ventana", kind: "local", run: async (_a, ctx) => {
+      if (!ctx.dock) return "Fijar solo está disponible en la versión de escritorio.";
+      ctx.dock.toggle();
+      return null;
+    } },
+  { name: "copiar", aliases: ["copy"], hint: "Copia la última respuesta", kind: "local", run: async (_a, ctx) => {
+      const text = ctx.lastAnswer();
+      if (!text) return "No hay respuesta que copiar.";
+      await navigator.clipboard.writeText(text);
+      return "Copiado al portapapeles.";
+    } },
+  { name: "salir", aliases: ["exit", "cerrar"], hint: "Cierra la ventana del agente", kind: "local", run: async (_a, ctx) => { ctx.close?.(); return null; } },
   { name: "actualizar", hint: "Traer ofertas nuevas de tu carrera", kind: "local", run: async () => {
       const state = await api.startRefresh([]);
       return `Actualizando el mercado: ${state.total} búsquedas. Puedes seguir usando Radar; revisa \`/hoy\` en unos minutos.`;
@@ -104,7 +150,7 @@ export const COMMANDS: Command[] = [
       await ctx.remove();
       return null;
     } },
-  { name: "nueva", hint: "Empieza una conversación nueva", kind: "local", run: async (_a, ctx) => { ctx.reset(); return null; } },
+  { name: "nueva", aliases: ["new", "clear", "nuevo"], hint: "Empieza una conversación nueva", kind: "local", run: async (_a, ctx) => { ctx.reset(); return null; } },
   { name: "explicar", args: "<oferta o tema>", hint: "El agente lo explica con datos", kind: "prompt", run: async (args, ctx) => {
       await ctx.send(args.trim() ? `Explícame con datos de Radar: ${args.trim()}` : "Explícame el estado actual de mi búsqueda con datos de Radar.");
       return null;
@@ -119,8 +165,11 @@ export const COMMANDS: Command[] = [
     } },
 ];
 
+export const findCommand = (name: string): Command | undefined =>
+  COMMANDS.find((c) => c.name === name || c.aliases?.includes(name));
+
 export function matchCommands(input: string): Command[] {
   if (!input.startsWith("/") || input.includes(" ")) return [];
   const query = input.slice(1).toLowerCase();
-  return COMMANDS.filter((c) => c.name.startsWith(query));
+  return COMMANDS.filter((c) => c.name.startsWith(query) || c.aliases?.some((a) => a.startsWith(query)));
 }

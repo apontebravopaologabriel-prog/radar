@@ -5,7 +5,9 @@ import RadarClient from "../../components/RadarClient";
 export default function RadarPage() {
   return (
     <>
-      <RadarClient />
+      <div className="radar-stage">
+        <RadarClient />
+      </div>
       <FirstRun />
       <AgentDock />
     </>

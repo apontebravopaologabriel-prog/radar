@@ -162,3 +162,10 @@
 .md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
 .md th { color: var(--muted); font-weight: 600; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .radar-mark.is-spinning .radar-mark-sweep { animation: none; } }
+
+.term-dim { color: var(--dim); }
+.term-footer { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 11px; }
+.term-footer span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.term-footer span:last-child { text-align: right; }
+.term-suggest button { border: 0; padding: 0 2px; min-height: 24px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.term-suggest button:hover { color: var(--ink); border: 0; }

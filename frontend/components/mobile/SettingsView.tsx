@@ -17,6 +17,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [model, setModel] = useState("");
   const [key, setKey] = useState("");
   const [cap, setCap] = useState(500000);
+  const [ctxWindow, setCtxWindow] = useState(64000);
   const [enabled, setEnabled] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -24,14 +25,14 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
 
   useEffect(() => {
     Promise.all([api.career(), api.agentSettings()]).then(([c, a]) => {
-      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setCap(a.monthly_token_cap); setEnabled(a.enabled); setReadOnly(a.read_only);
+      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setCap(a.monthly_token_cap); setCtxWindow(a.context_window); setEnabled(a.enabled); setReadOnly(a.read_only);
     }).catch(onError);
   }, [onError]);
 
   const flash = (text: string) => { setNote(text); setTimeout(() => setNote(""), 2500); };
   const saveAgent = async () => {
     try {
-      const next = await api.saveAgentSettings({ provider, model: model || undefined, api_key: key || undefined, monthly_token_cap: cap, enabled, read_only: readOnly });
+      const next = await api.saveAgentSettings({ provider, model: model || undefined, api_key: key || undefined, monthly_token_cap: cap, context_window: ctxWindow, enabled, read_only: readOnly });
       setAgent(next); setKey(""); flash("Guardado"); onAgentChange?.(next.enabled);
     } catch (error) { onError(error); }
   };
@@ -88,6 +89,9 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         </label>
         <label>Tope mensual de tokens
           <input type="number" min={1000} step={50000} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
+        </label>
+        <label>Ventana de contexto del modelo (tokens; solo para el medidor de /contexto)
+          <input type="number" min={2000} step={1000} value={ctxWindow} onChange={(e) => setCtxWindow(Number(e.target.value))} />
         </label>
         <p className="m-sub">Usado este mes: {agent.tokens_used_this_month.toLocaleString("es-PE")} de {agent.monthly_token_cap.toLocaleString("es-PE")}.</p>
         <button className="m-primary" onClick={saveAgent}>Guardar agente</button>

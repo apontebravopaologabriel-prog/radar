@@ -5,6 +5,8 @@ import { api, streamChat, type AgentSettings, type ApiMessage, type Conversation
 
 export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string };
 const SAVE_DELAY_MS = 900;
+/** Peso aproximado del prompt de sistema y las definiciones de herramientas (medido con DeepSeek). */
+export const BASE_PROMPT_TOKENS = 2800;
 
 /** Estado y acciones del chat del agente, compartidos por la app móvil y la ventana de escritorio.
  *  La conversación se guarda en la base local del usuario (no en el navegador). */
@@ -15,6 +17,7 @@ export function useAgentChat(onError: (e: unknown) => void) {
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
   const conversationId = useRef<string | null>(null);
   const loaded = useRef(false);
   const abort = useRef<AbortController | null>(null);
@@ -67,6 +70,7 @@ export function useAgentChat(onError: (e: unknown) => void) {
           setLines((prev) => first ? [...prev, { kind: "assistant", text }] : [...prev.slice(0, -1), { kind: "assistant", text }]);
         } else if (event.type === "assistant_message") { push(event.message); current = ""; }
         else if (event.type === "tool_result") { push(event.message); setLines((p) => [...p, { kind: "tool", text: `Consultó ${event.name}` }]); }
+        else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, estimated: false }));
         else if (event.type === "pending") setPending(event.actions);
         else if (event.type === "error") setLines((p) => [...p, { kind: "error", text: event.message }]);
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
@@ -98,7 +102,19 @@ export function useAgentChat(onError: (e: unknown) => void) {
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
-  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setHistory([]); setLines([]); setPending([]); }, []);
+  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
+  /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
+  const compact = useCallback(async (): Promise<string> => {
+    if (history.length < 2) return "Aún no hay nada que compactar.";
+    const before = usage.context;
+    const res = await api.compact(history);
+    setHistory([
+      { role: "user", content: `Resumen de la conversación hasta ahora (compactada):\n${res.summary}` },
+      { role: "assistant", content: "Entendido. Continúo desde ese resumen." },
+    ]);
+    setUsage((u) => ({ context: res.completion_tokens + BASE_PROMPT_TOKENS, session: u.session + res.prompt_tokens + res.completion_tokens, estimated: true }));
+    return `Conversación compactada${before ? `: ~${Math.round(before / 100) / 10}k → ~${Math.round((res.completion_tokens + BASE_PROMPT_TOKENS) / 100) / 10}k tokens de contexto` : ""}.\n\n${res.summary}`;
+  }, [history, usage.context]);
   const open = useCallback(async (id: string) => {
     abort.current?.abort();
     const saved = await api.conversation(id);
@@ -113,5 +129,5 @@ export function useAgentChat(onError: (e: unknown) => void) {
   }, [reset]);
   const list = useCallback(async (): Promise<ConversationInfo[]> => (await api.conversations()).conversations, []);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list };
+  return { lines, pending, busy, settings, needsSetup, usage, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }

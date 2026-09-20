@@ -98,7 +98,7 @@ El agente es opcional y viene apagado: se activa en Ajustes (o en la ventana del
 
 ### comandos
 
-En la ventana del agente escribe `/` para ver los comandos (Tab completa, ↑↓ navegan, Esc cierra). Los que consultan tus datos se resuelven en el equipo sin gastar tokens: /hoy, /mapa <lugar> [km], /proceso, /skills, /estado, /perfil, /costo, /actualizar, /solo-lectura, /apagar, /nueva y /ayuda. Otros piden al agente: /explicar, /plan y /resumen. Las respuestas del agente se muestran en Markdown. Cuando el agente propone guardar algo, `y` aprueba y `n` rechaza si el cuadro de texto está vacío.
+En la ventana del agente escribe `/` para ver los comandos (Tab completa, ↑↓ navegan, Esc cierra). Los que consultan tus datos se resuelven en el equipo sin gastar tokens: /hoy, /mapa <lugar> [km], /proceso, /skills, /estado, /perfil, /actualizar. Para el chat: /contexto (cuánto de la ventana del modelo ocupa la conversación), /compactar (resume la conversación para liberar contexto), /costo o /tokens (uso del mes), /modelo [nombre], /historial, /abrir <n>, /borrar [todo], /nueva (o /new, /clear), /copiar, /solo-lectura, /apagar, /fijar (o /pin: fija el agente a la derecha o lo vuelve ventana) y /salir. Otros piden algo al agente: /explicar, /plan y /resumen. Las conversaciones se guardan en tu base de datos local (nunca en el navegador) y `/borrar todo` elimina el historial. Las respuestas se muestran en Markdown. Cuando el agente propone guardar algo, `y` aprueba y `n` rechaza si el cuadro de texto está vacío.
 
 ### mapa
 
