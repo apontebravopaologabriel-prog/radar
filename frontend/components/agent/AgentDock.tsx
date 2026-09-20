@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, type AgentSettings } from "../../lib/mobile-api";
+import { api, type AgentContext, type AgentSettings } from "../../lib/mobile-api";
 import "../mobile/mobile.css";
 import "./agent-window.css";
 import RadarMark from "./RadarMark";
@@ -29,7 +29,7 @@ function clamp(g: Geometry): Geometry {
 }
 
 /** Lanzador del agente en escritorio: ventana flotante o panel fijado a la derecha. Apagado, solo queda el acceso a Ajustes. */
-export default function AgentDock() {
+export default function AgentDock({ context }: { context?: AgentContext }) {
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -167,14 +167,14 @@ export default function AgentDock() {
         <div ref={box} className={`agent-window m-app ${minimized ? "is-min" : ""}`} role="dialog" aria-label="Agente de Radar"
           style={{ left: geo.x, top: geo.y, width: geo.w, height: minimized ? undefined : geo.h }}>
           {titlebar}
-          {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} />}
+          {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} />}
         </div>
       )}
       {enabled && open && mode === "pinned" && (
         <aside ref={aside} className="agent-pinned m-app" style={{ width: pinWidth }} aria-label="Agente de Radar">
           <div className="agent-pinned-resize" onPointerDown={onResizeDown} role="separator" aria-orientation="vertical" aria-label="Ajustar ancho" />
           {titlebar}
-          <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} />
+          <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} />
         </aside>
       )}
     </>

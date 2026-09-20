@@ -1,16 +1,21 @@
+"use client";
+
 import "../perf.css";
 import AgentDock from "../../components/agent/AgentDock";
 import FirstRun from "../../components/mobile/FirstRun";
 import RadarClient from "../../components/RadarClient";
+import { useState } from "react";
+import type { AgentContext } from "../../lib/mobile-api";
 
 export default function RadarPage() {
+  const [agentContext, setAgentContext] = useState<AgentContext>({ screen: "map", mode: "districts" });
   return (
     <>
       <div className="radar-stage">
-        <RadarClient />
+        <RadarClient onAgentContextChange={setAgentContext} />
       </div>
       <FirstRun />
-      <AgentDock />
+      <AgentDock context={agentContext} />
     </>
   );
 }

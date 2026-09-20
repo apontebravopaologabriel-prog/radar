@@ -246,3 +246,11 @@ def test_slim_lists_drop_descriptions_and_detail_endpoint_returns_them():
     assert "description" not in api.get("/api/map/jobs?slim=true").json()["features"][0]["properties"]
     detail = api.get(f"/api/jobs/{slim[0]['id']}/description").json()
     assert detail["description"] and api.get("/api/jobs/no-existe/description").status_code == 404
+
+
+def test_compare_places_is_multidimensional_and_hidden_duplicates_stay_out_of_chat():
+    result = tools.compare_places("Ate", "Miraflores")
+    assert {"top_areas", "work_mode", "seniority", "salary_pen", "production"} <= set(result["places"][0])
+    assert "stronger_for_production" not in result
+    chat = {t.name for t in tools.chat_tools()}
+    assert not {"get_market_summary", "list_recommended_jobs", "get_skill_impact", "get_job_history"} & chat

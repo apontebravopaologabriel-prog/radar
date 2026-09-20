@@ -72,6 +72,16 @@ def test_read_tool_runs_and_result_is_marked_untrusted():
     assert loop.month_usage() == 15
 
 
+def test_ui_context_is_given_to_agent_as_navigation_data():
+    client, sent = _client(_text("Estoy en Análisis."))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "en qué vista estoy"}], client,
+                       context={"screen": "analysis", "analysis": {"ready": True, "windows": [{"title": "Ofertas por área"}], "recentQueries": []}}))
+    system = sent[0]["messages"][0]["content"]
+    assert "CONTEXTO ACTUAL DE LA INTERFAZ" in system
+    assert '"screen":"analysis"' in system
+    assert "Ofertas por área" in system
+
+
 def test_write_tool_is_never_executed_by_the_loop():
     client, _ = _client(_call("favorite_job", {"job_id": "x"}))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "guarda"}], client))

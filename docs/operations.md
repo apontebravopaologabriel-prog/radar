@@ -209,6 +209,20 @@ un alias legado y no se muestra en el selector normal; si se conserva en una bas
 solo como modelo actual para no cambiar silenciosamente la configuración existente. El modelo
 `deepseek-flash` corresponde actualmente a DeepSeek-V4.1-Flash.
 
+### Contexto de pantalla y comparaciones
+
+El agente recibe en cada mensaje el contexto de la interfaz actual. Incluye la vista abierta
+(`Mapa`, `Análisis` o `CVs`), el modo del mapa, distrito y radio seleccionados, filtros activos,
+oferta seleccionada, cantidad visible y, en `Análisis`, las ventanas restauradas o recién creadas.
+El contexto se actualiza al cambiar de vista o al generar un análisis; por eso una respuesta
+posterior puede reflejar una ventana nueva sin tratar el estado anterior como un error inventado.
+
+Para comparar el lugar seleccionado con otro, formula la petición directamente, por ejemplo:
+`compara lo que tengo seleccionado con Lurín, ¿cuál es más fuerte en producción?`. El agente usa
+`compare_places`, una consulta de solo lectura que compara volumen, proporción de ofertas con señales
+de producción/manufactura, áreas y títulos representativos. La ubicación se interpreta de forma
+aproximada según el texto y la geolocalización de Radar; no representa sedes exactas.
+
 ## Cobertura nacional
 
 `scripts/radar-refresh.sh` captura Lima por defecto. La cobertura adicional se habilita explícitamente

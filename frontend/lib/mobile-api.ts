@@ -42,6 +42,16 @@ export type AgentSettings = { provider: string; base_url: string; model: string;
   ready: boolean; enabled: boolean; read_only: boolean; reasoning_effort: "auto" | "none" | "low" | "high" | "max";
   context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
   providers: Record<string, { base_url: string; model: string; models?: string[]; model_names?: Record<string, string>; reasoning_efforts?: string[] }> };
+export type AgentContext = {
+  screen: "map" | "analysis" | "cvs";
+  mode?: "jobs" | "districts" | "radar";
+  district?: string;
+  radar?: { center: string; radiusKm: number };
+  filters?: Record<string, string>;
+  selectedJob?: { id: string; title: string; company?: string };
+  visibleCount?: number;
+  analysis?: { ready: boolean; updatedAt: string; windows: { title: string; sql: string; columns: string[]; rows: (string | number | null)[][]; rowCount: number }[]; recentQueries: string[] };
+};
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
 export type Doctor = { version: string; database: { path: string; size_mb: number }; jobs: { active: number; last_14_days: number; newest_published: string | null };
   career: string; agent: { enabled: boolean; provider: string; model: string; key: boolean; read_only: boolean; conversations: number }; refresh: RefreshState; tools: number };
@@ -112,11 +122,11 @@ export type ChatEvent =
   | { type: "done" };
 
 /** Lee el SSE de /api/chat y entrega cada evento; termina cuando el servidor cierra el stream. */
-export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
+export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext): Promise<void> {
   const response = await fetch(`${API_URL}/api/chat`, {
     method: "POST", credentials: "include", signal,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, context }),
   });
   if (response.status === 401) throw new AuthRequired();
   if (!response.ok || !response.body) throw new Error(`La API respondió ${response.status}`);

@@ -9,6 +9,7 @@ import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../t
 import AnalysisView from "./AnalysisView";
 import CvView from "./CvView";
 import BootScreen from "./BootScreen";
+import type { AgentContext } from "../lib/mobile-api";
 
 function LoadingDots() {
   return (
@@ -271,7 +272,7 @@ const JobCard = memo(function JobCard({ job, selected, showHidden, onSelect, onT
   );
 });
 
-export default function RadarClient() {
+export default function RadarClient({ onAgentContextChange }: { onAgentContextChange?: (context: AgentContext) => void }) {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
   const [draftSearch, setDraftSearch] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -293,6 +294,7 @@ export default function RadarClient() {
   const [showFavorites, setShowFavorites] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
+  const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
   const [railPeek, setRailPeek] = useState(false);
   const railPeekRef = useRef(false);
@@ -397,6 +399,17 @@ export default function RadarClient() {
   );
   const selectedDistrict = districtStats.find((district) => district.key === selectedDistrictKey) || null;
   const radarDistrict = districtStats.find((district) => district.key === radarDistrictKey) || null;
+  const agentContext = useMemo<AgentContext>(() => ({
+    screen: activeView,
+    mode: activeView === "map" ? (mode === "heatmap" ? "districts" : mode === "radar" ? "radar" : "jobs") : undefined,
+    district: (mode === "radar" ? radarDistrict?.district : selectedDistrict?.district) || undefined,
+    radar: mode === "radar" && radarDistrict ? { center: radarDistrict.district, radiusKm: radarRadiusKm } : undefined,
+    filters: Object.fromEntries(Object.entries(filters).filter(([, value]) => Boolean(value))),
+    selectedJob: selectedJob ? { id: selectedJob.id, title: selectedJob.title, company: selectedJob.company || undefined } : undefined,
+    visibleCount: visibleJobs.length,
+    analysis: activeView === "analysis" ? analysisContext : undefined,
+  }), [activeView, analysisContext, filters, mode, radarDistrict, radarRadiusKm, selectedDistrict, selectedJob, visibleJobs.length]);
+  useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
     [portalJobs, radarCenter, radarDistrictKey],
@@ -810,7 +823,7 @@ export default function RadarClient() {
               )}
             </div>
           ) : mode === "analysis" ? (
-            <AnalysisView onApplyFilter={applyAnalysisFilter} />
+            <AnalysisView onApplyFilter={applyAnalysisFilter} onContextChange={setAnalysisContext} />
           ) : mode === "cvs" ? (
             <CvView />
           ) : (

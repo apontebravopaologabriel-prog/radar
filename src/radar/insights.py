@@ -160,6 +160,55 @@ def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: i
             "rows": [{"value": k, "jobs": n} for k, n in counter.most_common(min(max(limit, 1), 30))]}
 
 
+PRODUCTION_TERMS = ("producción", "produccion", "manufactura", "planta", "operario", "operaria",
+                    "maquinista", "ensamble", "control de calidad")
+
+
+def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: str | None = None) -> dict[str, Any]:
+    """Compara dos distritos en varias dimensiones: volumen, áreas, modalidad, seniority, salario mediano y
+    señales de producción. `focus` (opcional, texto libre como «producción») solo resalta ese tramo."""
+    jobs = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="core")
+    jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="adjacent"))
+
+    def normalize(value: str) -> str:
+        return " ".join(value.lower().replace(",", " ").split())
+
+    def belongs(job: dict[str, Any], place: str) -> bool:
+        location = normalize(job.get("location") or "")
+        target = normalize(place)
+        point = infer_location(job.get("location"))
+        return target in location or bool(point and target == normalize(point.label))
+
+    def top(counter: Counter, n: int = 4) -> list[dict[str, Any]]:
+        return [{"name": name, "jobs": count} for name, count in counter.most_common(n)]
+
+    def mid(job: dict[str, Any]) -> float | None:
+        low, high = job.get("salary_min"), job.get("salary_max")
+        if low is None and high is None:
+            return None
+        return (low + high) / 2 if low is not None and high is not None else (low if low is not None else high)
+
+    def summarize(place: str) -> dict[str, Any]:
+        selected = [job for job in jobs if belongs(job, place)]
+        production = [job for job in selected if any(
+            term in " ".join(str(job.get(key) or "") for key in ("title", "primary_area", "location")).lower()
+            for term in PRODUCTION_TERMS)]
+        salaries = [m for job in selected if (job.get("salary_currency") or "PEN") == "PEN"
+                    and (m := mid(job)) is not None and m >= SALARY_FLOOR["PEN"]]
+        return {"place": place, "jobs": len(selected),
+                "top_areas": top(Counter(j.get("primary_area") or "sin área" for j in selected)),
+                "work_mode": top(Counter(j.get("work_mode") or "no indicado" for j in selected)),
+                "seniority": top(Counter(j.get("seniority") or "no indicado" for j in selected)),
+                "salary_pen": {"count": len(salaries), "median": round(statistics.median(salaries))} if salaries else None,
+                "production": {"jobs": len(production),
+                               "share_pct": round(len(production) / len(selected) * 100, 1) if selected else 0,
+                               "titles": [j.get("title") for j in production[:5]]}}
+
+    left, right = summarize(place_a), summarize(place_b)
+    return {"max_age_days": max_age_days, "focus": focus, "places": [left, right],
+            "note": "Compara todas las dimensiones; «production» es solo una señal por palabras clave en título, área y ubicación."}
+
+
 # Pisos de plausibilidad para un sueldo mensual: por debajo suele ser un dato mal cargado ("S/ 1").
 SALARY_FLOOR = {"PEN": 500.0, "USD": 150.0}
 

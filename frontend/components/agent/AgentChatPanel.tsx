@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { api } from "../../lib/mobile-api";
+import { api, type AgentContext } from "../../lib/mobile-api";
 import { findCommand, matchCommands } from "./commands";
 import Markdown from "./Markdown";
 import RadarMark from "./RadarMark";
@@ -23,7 +23,7 @@ const transcriptOf = (lines: { kind: string; text: string }[]) =>
   lines.map((l) => (l.kind === "user" ? `**❯ ${l.text}**` : l.kind === "tool" ? `> ${l.text}` : l.text)).join("\n\n");
 
 /** Terminal minimal: líneas con prefijo, respuestas en Markdown, comandos con `/` y aprobación con teclado. */
-export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { chat: Chat; onSettings: () => void; dock?: { pinned: boolean; toggle: () => void }; onClose?: () => void }) {
+export default function AgentChatPanel({ chat, context, onSettings, dock, onClose }: { chat: Chat; context?: AgentContext; onSettings: () => void; dock?: { pinned: boolean; toggle: () => void }; onClose?: () => void }) {
   const [input, setInput] = useState("");
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(true);
@@ -32,7 +32,7 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const configMenuRef = useRef<HTMLDivElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, contextMode, setContextMode } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   const provider = settings?.providers[settings.provider];
   const modelOptions = provider?.models?.length ? provider.models : settings?.model ? [settings.model] : [];
@@ -45,6 +45,7 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
   useEffect(() => { if (configMenu) configMenuRef.current?.focus(); }, [configMenu]);
 
   const effortLabel = (value: string) => value === "auto" ? "Auto" : value[0].toUpperCase() + value.slice(1);
+  const contextLabel = context?.screen === "analysis" ? "ANÁLISIS" : context?.screen === "cvs" ? "CVs" : context?.mode === "radar" ? `RADAR / ${context.district || "LIMA"} / ${context.radar?.radiusKm ?? 5} KM` : context?.mode === "districts" ? `DISTRITOS / ${context.district || "TODOS"}` : "MAPA / OFERTAS";
   const selectConfig = async (value: string) => {
     if (!settings || !configMenu || busy) return;
     try {
@@ -171,6 +172,12 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
           </button>)}
         </div>
       </div>}
+      <div className="term-context" title="Contexto de navegación enviado al agente. Pulsa para cambiar: apagado → selección → completo (incluye filas de análisis)">
+        <button type="button" className="term-context-toggle" onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
+          CONTEXTO · {contextMode === "off" ? "APAGADO" : contextMode === "selection" ? "SELECCIÓN" : "COMPLETO"}
+        </button>
+        {contextMode !== "off" && <> · {contextLabel}{context?.visibleCount !== undefined ? ` · ${context.visibleCount} ofertas` : ""}</>}
+      </div>
       <div className="term-footer">
         <span>{busy ? "esc detener" : "/ commands · # memory · ↑ history"}</span>
         {settings?.ready ? <span>{settings.model} · {effortLabel(settings.reasoning_effort)} · ctx {usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes {Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%{settings.read_only ? " · lectura" : ""}</span> : <span>sin configurar</span>}

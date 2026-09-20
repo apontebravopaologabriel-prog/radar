@@ -135,13 +135,13 @@ def search_saved_jobs(
     return {"jobs": jobs}
 
 
-@tool()
+@tool(chat=False)
 def get_market_summary() -> dict:
     """Devuelve métricas objetivas del mercado almacenado."""
     return market_summary()
 
 
-@tool()
+@tool(chat=False)
 def list_recommended_jobs(limit: int = 10, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> dict:
     """Devuelve recomendaciones recientes y verificables con enlace directo."""
     return recommendations(min(max(limit, 1), 20), max_age_days)
@@ -196,6 +196,13 @@ def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10) -> di
 
 
 @tool()
+def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: str | None = None) -> dict:
+    """Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción.
+    `focus` solo resalta un tramo si la persona lo pidió; sin él, la comparación es general."""
+    return insights.compare_places(place_a, place_b, max_age_days, focus)
+
+
+@tool()
 def get_salary_stats(area: str | None = None, place: str | None = None, max_age_days: int = 60) -> dict:
     """Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran)."""
     return insights.salary_stats(area, place, max_age_days)
@@ -220,13 +227,13 @@ def run_readonly_sql(sql: str) -> dict:
     return insights.readonly_sql(sql)
 
 
-@tool()
+@tool(chat=False)
 def get_skill_impact(limit: int = 8) -> dict:
     """Simula qué skill faltante sube más el encaje si se aprende (nivel básico)."""
     return skill_impact(limit)
 
 
-@tool()
+@tool(chat=False)
 def get_job_history(job_id: str, limit: int = 20) -> dict:
     """Devuelve observaciones históricas de una oferta sin borrar registros antiguos."""
     return {"job_id": job_id, "observations": job_history(job_id, limit)}

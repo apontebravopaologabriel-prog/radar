@@ -168,6 +168,8 @@
 .term-footer { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 11px; }
 .term-footer span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .term-footer span:last-child { text-align: right; }
+.term-context-toggle { all: unset; cursor: pointer; text-decoration: underline dotted; }
+.term-context { color: var(--muted); font-size: 10px; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid var(--line); padding-top: 5px; }
 .term-footer-config { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .term-config-trigger { max-width: 190px; overflow: hidden; text-overflow: ellipsis; border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .term-config-trigger:hover, .term-config-trigger[aria-expanded="true"] { color: var(--ink); }

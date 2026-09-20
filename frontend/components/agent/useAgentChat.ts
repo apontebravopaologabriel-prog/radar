@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, streamChat, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
+import { api, streamChat, type AgentContext, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
 
 export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string; durationMs?: number };
 const SAVE_DELAY_MS = 900;
@@ -10,7 +10,27 @@ export const BASE_PROMPT_TOKENS = 2800;
 
 /** Estado y acciones del chat del agente, compartidos por la app móvil y la ventana de escritorio.
  *  La conversación se guarda en la base local del usuario (no en el navegador). */
-export function useAgentChat(onError: (e: unknown) => void) {
+export type ContextMode = "off" | "selection" | "full";
+const CONTEXT_MODES: ContextMode[] = ["off", "selection", "full"];
+const CONTEXT_KEY = "radar.agent.contextMode";
+
+/** Recorta el contexto según el modo: «selección» omite las filas de los análisis (lo más caro en tokens). */
+export function scopeContext(context: AgentContext | undefined, mode: ContextMode): AgentContext | undefined {
+  if (!context || mode === "off") return undefined;
+  if (mode === "full") return context;
+  const { analysis, ...rest } = context;
+  return analysis ? { ...rest, analysis: { ...analysis, windows: analysis.windows.map((w) => ({ ...w, rows: [], sql: "" })), recentQueries: [] } } : rest;
+}
+
+export function useAgentChat(onError: (e: unknown) => void, context?: AgentContext) {
+  const [contextMode, setContextModeState] = useState<ContextMode>("selection");
+  useEffect(() => {
+    try { const saved = localStorage.getItem(CONTEXT_KEY) as ContextMode | null; if (saved && CONTEXT_MODES.includes(saved)) setContextModeState(saved); } catch { /* sin almacenamiento */ }
+  }, []);
+  const setContextMode = useCallback((mode: ContextMode) => {
+    setContextModeState(mode);
+    try { localStorage.setItem(CONTEXT_KEY, mode); } catch { /* sin almacenamiento */ }
+  }, []);
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
   const [pending, setPending] = useState<PendingAction[]>([]);
@@ -75,7 +95,7 @@ export function useAgentChat(onError: (e: unknown) => void) {
         else if (event.type === "pending") setPending(event.actions);
         else if (event.type === "error") setLines((p) => [...p, { kind: "error", text: event.message }]);
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
-      }, abort.current.signal);
+      }, abort.current.signal, scopeContext(context, contextMode));
     } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
     finally {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
@@ -86,7 +106,7 @@ export function useAgentChat(onError: (e: unknown) => void) {
       });
       setBusy(false); void refreshSettings();
     }
-  }, [onError, refreshSettings]);
+  }, [context, contextMode, onError, refreshSettings]);
 
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
@@ -138,5 +158,5 @@ export function useAgentChat(onError: (e: unknown) => void) {
   }, [reset]);
   const list = useCallback(async (): Promise<ConversationInfo[]> => (await api.conversations()).conversations, []);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, usage, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
+  return { lines, pending, busy, settings, needsSetup, usage, contextMode, setContextMode, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }

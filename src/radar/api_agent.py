@@ -290,6 +290,7 @@ def update_agent_settings(payload: AgentSettingsUpdate) -> dict[str, Any]:
 class ChatRequest(BaseModel):
     messages: list[dict[str, Any]] = Field(min_length=1, max_length=80)
     focus: str = Field(default="", max_length=200)
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 def _valid_history(messages: list[dict[str, Any]]) -> bool:
@@ -307,7 +308,7 @@ def chat(payload: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=422, detail="Historial inválido")
 
     def events() -> Iterator[str]:
-        for event in run_turn(load_config(), payload.messages):
+        for event in run_turn(load_config(), payload.messages, context=payload.context):
             yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
 
     return StreamingResponse(

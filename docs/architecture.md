@@ -81,6 +81,18 @@ persiste el identificador real enviado a la API. En DeepSeek, por ejemplo, `Deep
 corresponde a `deepseek-flash` y `DeepSeek V4 Pro` a `deepseek-v4-pro`. `/model` y `/models`
 abren el selector de modelo; `/effort` abre el selector de `auto`, `none`, `low`, `high` y `max`.
 
+El chat recibe un contexto explícito de la interfaz en cada turno, no una captura de pantalla ni
+el DOM: vista (`map`, `analysis` o `cvs`), modo del mapa, distrito y radio seleccionados, filtros,
+oferta activa y contador de resultados. Análisis también publica si terminó de restaurar sus
+ventanas, sus consultas recientes y un resumen seguro de cada ventana (título, SQL de solo lectura,
+columnas, filas iniciales y total). Así el agente puede responder sobre el estado actual y distinguir
+una ventana recién creada de la respuesta anterior.
+
+Para comparar el distrito seleccionado con otra ubicación existe la herramienta de solo lectura
+`compare_places`. Resume ofertas, peso de señales de producción y áreas principales para cada lugar,
+y determina el lugar más fuerte bajo un criterio explicable de producción/manufactura; evita que el
+agente tenga que encadenar consultas de esquema y SQL para una comparación sencilla.
+
 ## Decisiones deliberadas
 
 - Los conectores no son la fuente de verdad.

@@ -33,4 +33,4 @@ line-length = 100
 target-version = "py311"
 
 [tool.setuptools.package-data]
-radar = ["help.md", "careers/packs/*.json", "db/*.sql"]
+radar = ["help.md", "agent/soul.md", "careers/packs/*.json", "db/*.sql"]

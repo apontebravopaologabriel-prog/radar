@@ -3,6 +3,7 @@
 import { PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import { runAnalyticsQuery } from "../lib/api";
 import type { AnalyticsQueryResult } from "../types";
+import type { AgentContext } from "../lib/mobile-api";
 
 type AnalysisWindow = {
   id: string;
@@ -189,7 +190,7 @@ const MIN_WINDOW_HEIGHT = 120;
 
 type DragState = { id: string; startClientX: number; startClientY: number; originX: number; originY: number; lastClientX: number; lastClientY: number; el: HTMLDivElement; frame: number | null };
 
-export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyFilter }) {
+export default function AnalysisView({ onApplyFilter, onContextChange }: { onApplyFilter?: ApplyFilter; onContextChange?: (analysis: AgentContext["analysis"]) => void }) {
   const [windows, setWindows] = useState<AnalysisWindow[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [input, setInput] = useState("");
@@ -207,6 +208,7 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
   const resizeRef = useRef<ResizeState | null>(null);
   const [gravity, setGravity] = useState(false);
   const [kick, setKick] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
   const windowsRef = useRef<AnalysisWindow[]>([]);
   const elsRef = useRef(new Map<string, HTMLDivElement>());
   const posRef = useRef(new Map<string, { x: number; y: number }>());
@@ -217,6 +219,15 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
   const desktopRef = useRef<HTMLDivElement | null>(null);
 
   windowsRef.current = windows;
+
+  useEffect(() => {
+    onContextChange?.({
+      ready: hydrated,
+      updatedAt: new Date().toISOString(),
+      windows: windows.map(({ title, sql, result }) => ({ title, sql, columns: result.columns, rows: result.rows.slice(0, 12), rowCount: result.row_count })),
+      recentQueries: log.slice(-5).map((entry) => entry.sql),
+    });
+  }, [hydrated, log, onContextChange, windows]);
 
   // El editor se colapsa a su barra cuando está ocioso. Sigue abierto si está fijado, tiene el foco,
   // tiene texto sin ejecutar, hay una consulta en curso o el mouse está cerca de la esquina.
@@ -472,7 +483,7 @@ export default function AnalysisView({ onApplyFilter }: { onApplyFilter?: ApplyF
       } catch {
         /* sin almacenamiento disponible: el escritorio arranca vacío */
       } finally {
-        if (!cancelled) hydratedRef.current = true;
+        if (!cancelled) { hydratedRef.current = true; setHydrated(true); }
       }
     })();
     return () => { cancelled = true; };
