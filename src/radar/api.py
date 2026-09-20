@@ -12,6 +12,9 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from radar.api_agent import router as agent_router
+from radar.auth import AccessMiddleware
+from radar.auth import router as auth_router
 from radar.api_cv import router as cv_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
 from radar.db.queries import (
@@ -39,7 +42,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(AccessMiddleware)
+app.include_router(auth_router)
 app.include_router(cv_router)
+app.include_router(agent_router)
 
 if FRONTEND_OUT.exists():
     next_dir = FRONTEND_OUT / "_next"

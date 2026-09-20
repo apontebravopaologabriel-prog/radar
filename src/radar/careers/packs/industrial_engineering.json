@@ -1,0 +1,526 @@
+{
+ "id": "industrial_engineering",
+ "name": "Ingeniería Industrial",
+ "country": "PE",
+ "language": "es",
+ "areas": {
+  "core": [
+   "Automatización",
+   "Calidad",
+   "Compras",
+   "Demand Planning",
+   "Logística",
+   "Mantenimiento",
+   "Mejora continua",
+   "Operaciones",
+   "Planeamiento",
+   "Procesos",
+   "Producción",
+   "Supply Chain"
+  ],
+  "adjacent": [
+   "Analytics",
+   "Data / BI",
+   "Finanzas / Control de gestión",
+   "Proyectos / PMO",
+   "Recursos Humanos / People Analytics",
+   "Seguridad y Salud en el Trabajo"
+  ],
+  "out_of_focus": [
+   "Otras",
+   "Ventas / Comercial"
+  ]
+ },
+ "area_slugs": {
+  "Operaciones": "operaciones",
+  "Producción": "produccion",
+  "Mejora continua": "mejora-continua",
+  "Procesos": "procesos",
+  "Supply Chain": "supply-chain",
+  "Logística": "logistica",
+  "Compras": "compras",
+  "Planeamiento": "planeamiento",
+  "Demand Planning": "demand-planning",
+  "Calidad": "calidad",
+  "Data / BI": "data-bi",
+  "Analytics": "analytics",
+  "Automatización": "automatizacion",
+  "Mantenimiento": "mantenimiento",
+  "Proyectos / PMO": "proyectos-pmo",
+  "Finanzas / Control de gestión": "finanzas-control",
+  "Seguridad y Salud en el Trabajo": "sst",
+  "Recursos Humanos / People Analytics": "rrhh-people-analytics",
+  "Otras": "otras",
+  "Ventas / Comercial": "ventas-comercial"
+ },
+ "area_rules": {
+  "Supply Chain": [
+   "supply chain",
+   "cadena de suministro",
+   "abastecimiento"
+  ],
+  "Logística": [
+   "logistica",
+   "almacen",
+   "warehouse",
+   "distribucion"
+  ],
+  "Compras": [
+   "compras",
+   "procurement",
+   "buyer",
+   "adquisiciones"
+  ],
+  "Demand Planning": [
+   "demand planning",
+   "forecast",
+   "pronostico",
+   "s&op"
+  ],
+  "Planeamiento": [
+   "planeamiento",
+   "planificacion",
+   "planning"
+  ],
+  "Mejora continua": [
+   "mejora continua",
+   "lean",
+   "kaizen",
+   "six sigma"
+  ],
+  "Calidad": [
+   "calidad",
+   "quality",
+   "iso 9001"
+  ],
+  "Data / BI": [
+   "power bi",
+   "business intelligence",
+   "data analyst",
+   "analitica"
+  ],
+  "Analytics": [
+   "analytics",
+   "analisis de datos",
+   "machine learning"
+  ],
+  "Automatización": [
+   "automatizacion",
+   "rpa",
+   "power automate"
+  ],
+  "Procesos": [
+   "procesos",
+   "process improvement",
+   "bpmn"
+  ],
+  "Producción": [
+   "produccion",
+   "manufactura",
+   "planta"
+  ],
+  "Mantenimiento": [
+   "mantenimiento",
+   "confiabilidad",
+   "reliability",
+   "mantenimiento industrial"
+  ],
+  "Operaciones": [
+   "operaciones",
+   "operations"
+  ],
+  "Proyectos / PMO": [
+   "proyectos",
+   "pmo",
+   "project management"
+  ],
+  "Seguridad y Salud en el Trabajo": [
+   "sst",
+   "seguridad y salud",
+   "sso",
+   "osha"
+  ],
+  "Finanzas / Control de gestión": [
+   "costos",
+   "control de gestion",
+   "finanzas"
+  ]
+ },
+ "out_of_focus_rules": {
+  "Ventas / Comercial": [
+   "ventas",
+   "venta",
+   "vendedor",
+   "comercial",
+   "asesor comercial",
+   "ejecutivo comercial",
+   "coordinador comercial",
+   "jefe de ventas",
+   "supervisor de ventas",
+   "responsable comercial",
+   "account executive",
+   "key account",
+   "sales engineer",
+   "sales",
+   "sales manager",
+   "promotor",
+   "business development"
+  ]
+ },
+ "skills": {
+  "Excel": {
+   "aliases": [
+    "excel",
+    "microsoft 365"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Power BI": {
+   "aliases": [
+    "power bi"
+   ],
+   "category": "bi",
+   "type": "technical"
+  },
+  "SQL": {
+   "aliases": [
+    "sql"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Python": {
+   "aliases": [
+    "python"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "PostgreSQL": {
+   "aliases": [
+    "postgresql",
+    "postgres"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "SAP": {
+   "aliases": [
+    "sap"
+   ],
+   "category": "erp",
+   "type": "technical"
+  },
+  "Lean": {
+   "aliases": [
+    "lean"
+   ],
+   "category": "mejora",
+   "type": "methodology"
+  },
+  "Six Sigma": {
+   "aliases": [
+    "six sigma",
+    "six-sigma"
+   ],
+   "category": "calidad",
+   "type": "methodology"
+  },
+  "Kaizen": {
+   "aliases": [
+    "kaizen"
+   ],
+   "category": "mejora",
+   "type": "methodology"
+  },
+  "VSM": {
+   "aliases": [
+    "vsm",
+    "value stream mapping"
+   ],
+   "category": "mejora",
+   "type": "methodology"
+  },
+  "5S": {
+   "aliases": [
+    "5s"
+   ],
+   "category": "mejora",
+   "type": "methodology"
+  },
+  "BPMN": {
+   "aliases": [
+    "bpmn"
+   ],
+   "category": "procesos",
+   "type": "methodology"
+  },
+  "RPA": {
+   "aliases": [
+    "rpa"
+   ],
+   "category": "automatizacion",
+   "type": "technical"
+  },
+  "Power Automate": {
+   "aliases": [
+    "power automate"
+   ],
+   "category": "automatizacion",
+   "type": "technical"
+  },
+  "Tableau": {
+   "aliases": [
+    "tableau"
+   ],
+   "category": "bi",
+   "type": "technical"
+  },
+  "Forecasting": {
+   "aliases": [
+    "forecasting",
+    "forecast",
+    "pronostico"
+   ],
+   "category": "planeamiento",
+   "type": "domain"
+  },
+  "Optimization": {
+   "aliases": [
+    "optimization",
+    "optimizacion"
+   ],
+   "category": "analitica",
+   "type": "domain"
+  },
+  "OR-Tools": {
+   "aliases": [
+    "or-tools",
+    "ortools"
+   ],
+   "category": "analitica",
+   "type": "technical"
+  },
+  "Supply Chain": {
+   "aliases": [
+    "supply chain"
+   ],
+   "category": "supply-chain",
+   "type": "domain"
+  },
+  "Inventory Management": {
+   "aliases": [
+    "inventario",
+    "inventory management"
+   ],
+   "category": "supply-chain",
+   "type": "domain"
+  },
+  "S&OP": {
+   "aliases": [
+    "s&op",
+    "sop"
+   ],
+   "category": "planeamiento",
+   "type": "technical"
+  },
+  "Demand Planning": {
+   "aliases": [
+    "demand planning"
+   ],
+   "category": "planeamiento",
+   "type": "domain"
+  },
+  "Project Management": {
+   "aliases": [
+    "project management",
+    "gestion de proyectos"
+   ],
+   "category": "proyectos",
+   "type": "methodology"
+  },
+  "Scrum": {
+   "aliases": [
+    "scrum"
+   ],
+   "category": "proyectos",
+   "type": "methodology"
+  },
+  "English": {
+   "aliases": [
+    "ingles",
+    "english"
+   ],
+   "category": "idioma",
+   "type": "language"
+  },
+  "Comunicación": {
+   "aliases": [
+    "comunicacion efectiva",
+    "comunicacion asertiva",
+    "comunicacion escrita",
+    "comunicacion verbal",
+    "habilidades de comunicacion",
+    "comunicacion"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Trabajo en equipo": {
+   "aliases": [
+    "trabajo en equipo",
+    "trabajo colaborativo",
+    "teamwork"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Pensamiento analítico": {
+   "aliases": [
+    "pensamiento analitico",
+    "capacidad analitica",
+    "habilidad analitica"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Resolución de problemas": {
+   "aliases": [
+    "resolucion de problemas",
+    "solucion de problemas",
+    "problem solving"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Liderazgo": {
+   "aliases": [
+    "liderazgo",
+    "leadership",
+    "liderar equipos",
+    "gestion de equipos"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Adaptabilidad": {
+   "aliases": [
+    "adaptabilidad",
+    "capacidad de adaptacion",
+    "flexibilidad para adaptarse",
+    "flexible y adaptable"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Negociación": {
+   "aliases": [
+    "habilidades de negociacion",
+    "capacidad de negociacion",
+    "negociacion con proveedores",
+    "negociacion"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Proactividad": {
+   "aliases": [
+    "proactividad",
+    "proactivo",
+    "iniciativa"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Atención al detalle": {
+   "aliases": [
+    "atencion al detalle",
+    "orientacion al detalle",
+    "detallista"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Orientación al cliente": {
+   "aliases": [
+    "orientacion al cliente",
+    "enfoque en el cliente",
+    "servicio al cliente",
+    "customer service",
+    "customer focus"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Toma de decisiones": {
+   "aliases": [
+    "toma de decisiones",
+    "toma de decision",
+    "decision making"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Colaboración": {
+   "aliases": [
+    "colaboracion",
+    "colaborativo",
+    "collaboration"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  }
+ },
+ "excluded_title_signals": [
+  "auxiliar de limpieza",
+  "operario de limpieza",
+  "personal de limpieza",
+  "asesor comercial",
+  "ejecutivo comercial",
+  "vendedor",
+  "promotor de ventas",
+  "televentas",
+  "atencion al cliente"
+ ],
+ "education_only": [
+  "ingenieria industrial",
+  "ingeniero industrial",
+  "ing industrial"
+ ],
+ "context_terms": [
+  "proceso",
+  "operacion",
+  "logistica",
+  "supply chain",
+  "compras",
+  "planeamiento",
+  "produccion",
+  "calidad",
+  "lean",
+  "six sigma",
+  "automatizacion",
+  "rpa",
+  "power bi",
+  "analitica",
+  "proyecto",
+  "inventario",
+  "almacen",
+  "mejora continua",
+  "manufactura"
+ ],
+ "scoring": {
+  "area": 0.3,
+  "skills": 0.25,
+  "seniority": 0.15,
+  "education": 0.1,
+  "location": 0.1,
+  "preference": 0.1
+ },
+ "queries": [
+  "practicante de procesos",
+  "practicante ingeniería industrial",
+  "analista de mejora continua",
+  "practicante de logística"
+ ]
+}

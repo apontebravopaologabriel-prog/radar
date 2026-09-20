@@ -110,6 +110,22 @@ _CATALOG_SOURCES = [
 ]
 
 
+def _pack_areas() -> list[tuple[str, str]]:
+    from radar.careers import list_packs
+
+    return [(name, slug) for pack in list_packs() for name, slug in pack.area_slugs.items()]
+
+
+def _pack_skills() -> list[tuple[str, str, str | None, str]]:
+    from radar.careers import list_packs
+
+    return [
+        (name, name.lower().replace(" ", "-"), skill.category, skill.type)
+        for pack in list_packs()
+        for name, skill in pack.skills.items()
+    ]
+
+
 def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     """Apply small additive guarantees to databases created before migrations."""
     columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
@@ -122,13 +138,19 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS jobs_fingerprint_unique_idx ON jobs (canonical_fingerprint)")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = 1")
     conn.execute("CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active)")
+    conn.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (now()))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_usage (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), provider TEXT NOT NULL, "
+        "model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0, completion_tokens INTEGER NOT NULL DEFAULT 0, "
+        "created_at TEXT NOT NULL DEFAULT (now()))"
+    )
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT(name) DO NOTHING",
-        _CATALOG_AREAS,
+        _CATALOG_AREAS + _pack_areas(),
     )
     conn.executemany(
         "INSERT INTO skills(name, normalized_name, category, skill_type) VALUES (%s, %s, %s, %s) ON CONFLICT(name) DO NOTHING",
-        _CATALOG_SKILLS,
+        _CATALOG_SKILLS + _pack_skills(),
     )
     conn.executemany(
         "INSERT INTO sources(name, source_type, base_url) VALUES (%s, %s, %s) ON CONFLICT(name) DO NOTHING",

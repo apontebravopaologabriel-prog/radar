@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 
+from radar.careers import CareerPack, active_pack, effective_weights
 from radar.classify import classify, infer_seniority
 from radar.db.database import connection
 from radar.domain.models import RawJob
@@ -85,7 +86,8 @@ def get_source_id(conn, source_name: str):
     return row[0]
 
 
-def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
+def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str, int]:
+    pack = pack or active_pack()
     stats = {"found": len(jobs), "created": 0, "updated": 0, "duplicates": 0}
     with connection() as conn:
         run = conn.execute(
@@ -121,8 +123,8 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
                 work_mode = inferred_mode if inferred_mode != "unknown" else (raw.work_mode or "unknown")
                 sector = infer_sector(raw)
                 hours_per_week, schedule_text = extract_schedule(raw)
-                classified = classify(raw)
-                relevance = infer_relevance(raw, classified.primary_area.value)
+                classified = classify(raw, pack)
+                relevance = infer_relevance(raw, classified.primary_area.value, pack)
                 application_status = raw.application_status if raw.application_status in {"unknown", "open", "closed", "expired"} else "unknown"
                 application_source = raw.application_status_source if application_status != "unknown" else "unknown"
                 existing = conn.execute(
@@ -253,6 +255,7 @@ def ingest_jobs(jobs: list[RawJob]) -> dict[str, int]:
 
 def repair_data_quality() -> dict[str, int]:
     """Backfill inferred metadata for jobs captured before enrichment existed."""
+    pack = active_pack()
     stats = {"jobs_checked": 0, "work_modes_repaired": 0, "salaries_cleared": 0, "salaries_repaired": 0, "sectors_added": 0, "sectors_reclassified": 0, "schedules_added": 0, "classifications_rebuilt": 0}
     with connection() as conn:
         rows = conn.execute(
@@ -283,8 +286,8 @@ def repair_data_quality() -> dict[str, int]:
             inferred_sector = infer_sector(raw)
             sector = inferred_sector or row[10]
             hours_per_week, schedule_text = extract_schedule(raw)
-            classified = classify(raw)
-            relevance = infer_relevance(raw, classified.primary_area.value)
+            classified = classify(raw, pack)
+            relevance = infer_relevance(raw, classified.primary_area.value, pack)
             text_salary = extract_salary(raw.description)
             if text_salary:
                 salary_min, salary_max, salary_currency = normalize_salary(
@@ -423,6 +426,7 @@ def save_profile(
 
 
 def recompute_scores(profile_id: str) -> int:
+    weights = effective_weights()
     with connection() as conn:
         profile_row = conn.execute(
             "SELECT target_roles, preferred_locations, preferred_work_modes FROM user_profile WHERE id=%s",
@@ -460,7 +464,7 @@ def recompute_scores(profile_id: str) -> int:
                 "SELECT ia.name FROM job_areas ja JOIN industrial_areas ia ON ia.id=ja.area_id WHERE ja.job_id=%s AND ja.is_primary",
                 (job_id,),
             ).fetchone()
-            result = score_job(raw, profile, job_skills, area[0] if area else None)
+            result = score_job(raw, profile, job_skills, area[0] if area else None, weights)
             conn.execute(
                 """INSERT INTO job_scores(job_id,profile_id,algorithm_version,total_score,area_score,skills_score,seniority_score,education_score,location_score,preference_score,strong_matches,missing_skills,reason)
                 VALUES (%s,%s,'v1.0',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)

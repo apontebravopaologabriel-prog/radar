@@ -221,6 +221,22 @@ CREATE TABLE IF NOT EXISTS job_user_status (
 );
 CREATE INDEX IF NOT EXISTS job_user_status_hidden_idx ON job_user_status (status, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE IF NOT EXISTS agent_usage (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS agent_usage_time_idx ON agent_usage (created_at DESC);
+
 CREATE TABLE IF NOT EXISTS job_user_favorites (
     job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
     note TEXT,

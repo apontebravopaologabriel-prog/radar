@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from radar.domain.models import RawJob
 from radar.normalize import normalize_text
 
+DEFAULT_WEIGHTS = {
+    "area": 0.30,
+    "skills": 0.25,
+    "seniority": 0.15,
+    "education": 0.10,
+    "location": 0.10,
+    "preference": 0.10,
+}
 LEVELS = {"none": 0, "basic": 0.35, "intermediate": 0.7, "advanced": 1}
 
 
@@ -22,7 +30,14 @@ class Score:
     reason: str
 
 
-def score_job(job: RawJob, profile: dict, job_skills: set[str], job_area: str | None) -> Score:
+def score_job(
+    job: RawJob,
+    profile: dict,
+    job_skills: set[str],
+    job_area: str | None,
+    weights: dict[str, float] | None = None,
+) -> Score:
+    w = weights or DEFAULT_WEIGHTS
     profile_skills: dict[str, str] = profile.get("skills", {})
     desired_areas = {normalize_text(x) for x in profile.get("areas", [])}
     area = (
@@ -58,12 +73,12 @@ def score_job(job: RawJob, profile: dict, job_skills: set[str], job_area: str | 
     )
     education = 70.0
     total = round(
-        area * 0.30
-        + skills * 0.25
-        + seniority * 0.15
-        + education * 0.10
-        + location * 0.10
-        + preference * 0.10,
+        area * w["area"]
+        + skills * w["skills"]
+        + seniority * w["seniority"]
+        + education * w["education"]
+        + location * w["location"]
+        + preference * w["preference"],
         2,
     )
     reason = f"Coincide en {len(strong)} skills y tiene {len(missing)} brechas identificadas."
