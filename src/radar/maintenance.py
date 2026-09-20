@@ -3,6 +3,7 @@ y, con confirmación, reclasificar. Nunca borra ofertas; antes de escribir guard
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from datetime import UTC, datetime
@@ -13,7 +14,24 @@ from radar.classify import classify
 from radar.db.database import connection, database_path
 from radar.db.repository import _write_areas, recompute_scores
 from radar.domain.models import RawJob
+from radar.settings import get_setting, set_setting
 from radar.taxonomy import infer_relevance
+
+RULES_KEY = "classification_rules_hash"
+
+
+def rules_fingerprint(pack=None) -> str:
+    """Huella de las reglas que deciden áreas y relevancia; cambia cuando se editan."""
+    pack = pack or active_pack()
+    payload = json.dumps([pack.id, sorted(pack.core_areas), sorted(pack.adjacent_areas), pack.area_rules,
+                          pack.out_of_focus_rules, sorted(pack.weak_terms), pack.excluded_title_signals],
+                         ensure_ascii=False, sort_keys=True, default=list)
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def rules_stale() -> bool:
+    """True si las reglas cambiaron desde la última reclasificación (o nunca se registró)."""
+    return get_setting(RULES_KEY) != rules_fingerprint()
 
 
 def _stored() -> list[tuple]:
@@ -77,6 +95,7 @@ def reclassify_jobs() -> dict[str, Any]:
         profile = conn.execute("SELECT id FROM user_profile ORDER BY updated_at DESC LIMIT 1").fetchone()
     path = database_path().parent / f"reclassify-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}.json"
     path.write_text(json.dumps(backup, ensure_ascii=False), encoding="utf-8")
+    set_setting(RULES_KEY, rules_fingerprint(pack))
     if profile:
         recompute_scores(str(profile[0]))
     return {"reclassified": changed, "unchanged": len(rows) - changed, "backup": str(path)}

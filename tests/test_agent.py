@@ -244,6 +244,10 @@ def test_memory_is_injected_as_context_and_capped():
     list(loop.run_turn(CONFIG, [{"role": "user", "content": "hola"}], client))
     assert "Solo busco híbrido" in sent[0]["messages"][0]["content"]
     api.put("/api/agent/memory", json={"items": []})
+    assert "Aviso de datos" in loop.system_prompt()  # reglas nunca aplicadas a la BD
+    from radar import maintenance
+    from radar.settings import set_setting
+    set_setting(maintenance.RULES_KEY, maintenance.rules_fingerprint())
     assert loop.system_prompt() == loop.SYSTEM_PROMPT
 
 

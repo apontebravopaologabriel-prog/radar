@@ -15,12 +15,13 @@
    "Supply Chain, logística y compras",
    "Ingeniería de gestión y proyectos",
    "Seguridad y riesgos",
-   "Información, analítica y sistemas",
    "Diseño y manufactura",
    "Diseño de producto y desarrollo",
    "Ingeniería de sistemas"
   ],
-  "adjacent": [],
+  "adjacent": [
+   "Información, analítica y sistemas"
+  ],
   "out_of_focus": [
    "Otras",
    "Ventas / Comercial"
@@ -56,7 +57,13 @@
    "productividad laboral",
    "organizacion y metodos",
    "estudio de metodos",
-   "ingeniero de metodos"
+   "ingeniero de metodos",
+   "analista de tiempos",
+   "ingeniero de tiempos",
+   "ingenieria de metodos",
+   "cronometraje",
+   "balanceo de linea",
+   "estandares de trabajo"
   ],
   "Investigación de operaciones y optimización": [
    "investigacion de operaciones",
@@ -71,7 +78,12 @@
    "or-tools",
    "modelos matematicos",
    "analista de optimizacion",
-   "investigacion operativa"
+   "investigacion operativa",
+   "modelos analiticos",
+   "optimizacion de rutas",
+   "ruteo",
+   "scheduling",
+   "programacion de la produccion"
   ],
   "Ingeniería económica y control": [
    "costos",
@@ -86,7 +98,11 @@
    "control de costos",
    "costos y presupuestos",
    "evaluacion de proyectos",
-   "van y tir"
+   "van y tir",
+   "project controller",
+   "controller de proyectos",
+   "analista de control de gestion",
+   "evaluacion economica"
   ],
   "Facilities, energía y mantenimiento": [
    "facilities",
@@ -108,7 +124,11 @@
    "electricista",
    "instrumentista",
    "subestaciones",
-   "mantenimiento industrial"
+   "mantenimiento industrial",
+   "calderista",
+   "refrigeracion",
+   "aire acondicionado",
+   "tecnico electronico"
   ],
   "Calidad y confiabilidad": [
    "calidad",
@@ -125,7 +145,10 @@
    "gestion de calidad",
    "haccp",
    "sgc",
-   "auditor de calidad"
+   "auditor de calidad",
+   "sig",
+   "sistema integrado de gestion",
+   "sistemas integrados de gestion"
   ],
   "Ergonomía y factores humanos": [
    "ergonomia",
@@ -133,7 +156,11 @@
    "factores humanos",
    "human factors",
    "diseno del puesto",
-   "workstation design"
+   "workstation design",
+   "ergonomo",
+   "analista de ergonomia",
+   "riesgo disergonomico",
+   "biomecanica"
   ],
   "Operaciones y productividad": [
    "operaciones",
@@ -218,7 +245,10 @@
    "project manager",
    "coordinador de proyectos",
    "analista de proyectos",
-   "pmp"
+   "pmp",
+   "analista de gestion",
+   "transformacion organizacional",
+   "auxiliar de proyecto"
   ],
   "Seguridad y riesgos": [
    "sst",
@@ -258,7 +288,12 @@
    "analista de sistemas",
    "looker",
    "tableau",
-   "etl"
+   "etl",
+   "bi",
+   "reporting",
+   "analista de reporting",
+   "data science",
+   "analista de informacion"
   ],
   "Diseño y manufactura": [
    "manufactura",
@@ -293,7 +328,14 @@
    "product development",
    "new product development",
    "desarrollo de producto",
-   "qfd"
+   "qfd",
+   "ingeniero de producto",
+   "desarrollo de nuevos productos",
+   "diseno industrial",
+   "disenador industrial",
+   "investigacion y desarrollo",
+   "r&d",
+   "i+d"
   ],
   "Ingeniería de sistemas": [
    "ingenieria de sistemas",
@@ -305,7 +347,12 @@
    "solution architecture",
    "arquitectura de sistemas",
    "arquitectura de soluciones",
-   "ingeniero de requisitos"
+   "ingeniero de requisitos",
+   "sistemas integrados",
+   "systems engineer",
+   "mbse",
+   "ingeniero de integracion",
+   "ingenieria de requisitos"
   ]
  },
  "out_of_focus_rules": {
@@ -688,7 +735,20 @@
   "reclutador",
   "seleccion de personal",
   "psicologo",
-  "abogado"
+  "abogado",
+  "gestion humana",
+  "gestion de personas",
+  "gestion del talento",
+  "talento humano",
+  "counter",
+  "agencia de viajes",
+  "panaderia",
+  "costurero",
+  "costurera",
+  "admisionista",
+  "cobranza",
+  "cobranzas",
+  "creditos"
  ],
  "education_only": [
   "ingenieria industrial",

@@ -38,7 +38,8 @@ MIN_AREA_SCORE = 1.5  # un solo término débil o una mención suelta en la desc
 
 def _title_contains(title: str, phrase: str) -> bool:
     """En el título se admiten derivados cortos («almacenero», «almacenes») para no depender de cada variante."""
-    return re.search(rf"(?<!\w){re.escape(phrase)}\w{{0,5}}(?!\w)", title) is not None
+    suffix = r"\w{0,5}" if len(phrase) >= 6 else ""  # las siglas cortas («bi», «sig») deben coincidir exactas
+    return re.search(rf"(?<!\w){re.escape(phrase)}{suffix}(?!\w)", title) is not None
 
 
 def _area_score(title: str, description: str, phrases: tuple[str, ...], weak: frozenset[str]) -> tuple[float, str | None, bool]:
@@ -61,8 +62,8 @@ def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     pack = pack or default_pack()
     commercial_rules = tuple(p for rules in pack.out_of_focus_rules.values() for p in rules)
     commercial_area = next(iter(pack.out_of_focus_rules), None)
-    title = normalize_text(job.title)
-    description = normalize_text(job.description)
+    title = normalize_text(job.title).replace("_", " ")
+    description = normalize_text(job.description).replace("_", " ")
     text = f"{title} {description}"
     matched: list[tuple[float, int, Evidence]] = []
     commercial_title = next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(title, phrase)), None)

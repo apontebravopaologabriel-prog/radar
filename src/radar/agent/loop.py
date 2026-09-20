@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from radar import tools
+from radar import maintenance, tools
 from radar.agent.memory import delete_memory, list_memories, migrate_legacy, save_memory
 from radar.agent.provider import LLMConfig, ProviderError, stream_chat
 from radar.db.database import connection
@@ -106,6 +106,9 @@ def system_prompt() -> str:
     memory = get_memory()
     name = (get_profile() or {}).get("name")
     head = SYSTEM_PROMPT + (f"\n\nLa persona se llama {name}." if name else "")
+    if maintenance.rules_stale():
+        head += ("\n\nAviso de datos: las reglas de clasificación cambiaron desde la última reclasificación. Cuando "
+                 "venga al caso (o si los conteos por área te parecen raros), corre audit_classification y propón reclassify_jobs.")
     if not memory:
         return head
     notes = "\n".join(f"- {m}" for m in memory)
