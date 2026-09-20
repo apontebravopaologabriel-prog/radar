@@ -24,7 +24,14 @@ from radar.careers import (
 )
 from radar.db.queries import applications, get_profile
 from radar.db.repository import recompute_scores, track_application
-from radar.feed import default_district, district_names, nearby, setup_status, skill_impact, today_feed
+from radar.feed import (
+    default_district,
+    district_names,
+    nearby,
+    setup_status,
+    skill_impact,
+    today_feed,
+)
 from radar.settings import set_json_setting, set_setting, write_secret
 
 router = APIRouter(prefix="/api")
