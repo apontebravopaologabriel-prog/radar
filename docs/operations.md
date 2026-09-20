@@ -197,10 +197,22 @@ Ajustes → Agente: elige proveedor, modelo y pega tu clave. La clave se guarda 
 `~/.local/share/radar/secrets.json` (permisos `0600`), nunca en la base de datos ni en el navegador.
 El consumo se cuenta en la tabla `agent_usage` y el chat se detiene al llegar al tope mensual.
 
+En el chat de escritorio, `/model` y `/models` abren el selector interactivo de modelos. El selector
+separa el nombre visible del ID que se envía al proveedor: en DeepSeek muestra `DeepSeek V4.1 Flash`
+(`deepseek-flash`) y `DeepSeek V4 Pro` (`deepseek-v4-pro`). `/effort` abre el selector de esfuerzo
+(`auto`, `none`, `low`, `high`, `max`). Usa `↑`/`↓` para elegir, `←`/`→` para cambiar entre modelo
+y esfuerzo, `Enter` para aplicar y `Esc` para cerrar. También puedes aplicar directamente
+`/model deepseek-flash` o `/effort high`.
+
+Los dos modelos DeepSeek visibles son los identificadores oficiales actuales. `deepseek-v4-flash` es
+un alias legado y no se muestra en el selector normal; si se conserva en una base antigua, aparece
+solo como modelo actual para no cambiar silenciosamente la configuración existente. El modelo
+`deepseek-flash` corresponde actualmente a DeepSeek-V4.1-Flash.
+
 ## Cobertura nacional
 
-`scripts/radar-refresh.sh` captura Lima y, además, las ciudades de `RADAR_CITIES` (por defecto Arequipa,
-Trujillo, Chiclayo, Piura, Cusco, Huancayo, Iquitos, Tacna, Cajamarca e Ica) con 4 consultas cada una,
-en JobSpy y Computrabajo. Amplía o reduce la lista con la variable (`RADAR_CITIES=""` = solo Lima);
+`scripts/radar-refresh.sh` captura Lima por defecto. La cobertura adicional se habilita explícitamente
+con `RADAR_CITIES`, una lista separada por comas (por ejemplo, `RADAR_CITIES="Arequipa,Trujillo"`),
+con 4 consultas por ciudad en JobSpy y Computrabajo. `RADAR_CITIES=""` mantiene el refresco en solo Lima;
 cada ciudad añade varios minutos al refresco. Una ciudad nueva también debe existir en
 `src/radar/geolocation.py` (`_CITIES`) para aparecer en el mapa.

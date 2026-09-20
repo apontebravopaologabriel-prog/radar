@@ -24,6 +24,7 @@ from radar.agent.loop import (
     run_turn,
     set_memory,
 )
+from radar.agent.memory import delete_memory, list_memories, save_memory, search_memories
 from radar.agent.provider import NO_KEY_PROVIDERS, PROVIDERS, ProviderError, load_config
 from radar.careers import (
     WEIGHT_KEYS,
@@ -237,6 +238,7 @@ def _agent_settings() -> dict[str, Any]:
         "provider": config.provider,
         "base_url": config.base_url,
         "model": config.model,
+        "reasoning_effort": config.reasoning_effort or "auto",
         "has_key": bool(config.api_key),
         "needs_key": config.provider not in NO_KEY_PROVIDERS,
         "ready": config.ready,
@@ -257,6 +259,7 @@ def agent_settings() -> dict[str, Any]:
 class AgentSettingsUpdate(BaseModel):
     provider: str = Field(pattern="^(deepseek|openai|openrouter|ollama|custom)$")
     model: str | None = Field(default=None, max_length=100)
+    reasoning_effort: str = Field(default="auto", pattern="^(auto|none|low|high|max)$")
     base_url: str | None = Field(default=None, max_length=300, pattern="^https?://")
     api_key: str | None = Field(default=None, max_length=400)
     monthly_token_cap: int | None = Field(default=None, ge=1000, le=100_000_000)
@@ -275,6 +278,7 @@ def update_agent_settings(payload: AgentSettingsUpdate) -> dict[str, Any]:
         set_setting("agent_context_window", str(payload.context_window))
     set_setting("llm_provider", payload.provider)
     set_setting("llm_model", payload.model or None)
+    set_setting("llm_reasoning_effort", None if payload.reasoning_effort == "auto" else payload.reasoning_effort)
     set_setting("llm_base_url", payload.base_url or None)
     if payload.api_key is not None:  # cadena vacía = borrar la clave
         write_secret(f"llm_key_{payload.provider}", payload.api_key.strip() or None)
@@ -315,6 +319,14 @@ class MemoryBody(BaseModel):
     items: list[str] = Field(max_length=30)
 
 
+class StructuredMemoryBody(BaseModel):
+    topic_key: str = Field(min_length=2, max_length=100)
+    content: str = Field(min_length=1, max_length=1000)
+    memory_type: str = "preference"
+    source: str = "user"
+    confidence: float = Field(default=1.0, ge=0, le=1)
+
+
 @router.get("/agent/memory")
 def read_memory() -> dict[str, Any]:
     return {"items": get_memory()}
@@ -323,6 +335,22 @@ def read_memory() -> dict[str, Any]:
 @router.put("/agent/memory")
 def write_memory(body: MemoryBody) -> dict[str, Any]:
     return {"items": set_memory(body.items)}
+
+
+@router.get("/agent/memories")
+def read_structured_memories(query: str = Query(default="", max_length=200), limit: int = Query(default=30, ge=1, le=100)) -> dict[str, Any]:
+    return {"memories": search_memories(query, limit) if query.strip() else list_memories(limit)}
+
+
+@router.post("/agent/memories")
+def create_structured_memory(body: StructuredMemoryBody) -> dict[str, Any]:
+    return {"memory": save_memory(body.content, body.topic_key, body.memory_type, body.source, body.confidence)}
+
+
+@router.delete("/agent/memories/{topic_key:path}")
+def remove_structured_memory(topic_key: str) -> dict[str, Any]:
+    delete_memory(topic_key)
+    return {"deleted": topic_key}
 
 
 @router.get("/agent/tools")

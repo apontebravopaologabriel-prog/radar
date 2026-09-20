@@ -5,146 +5,60 @@
  "language": "es",
  "areas": {
   "core": [
-   "Automatización",
-   "Calidad",
-   "Compras",
-   "Demand Planning",
-   "Logística",
-   "Mantenimiento",
-   "Mejora continua",
-   "Operaciones",
-   "Planeamiento",
-   "Procesos",
-   "Producción",
-   "Supply Chain"
+   "Diseño y medición del trabajo",
+   "Investigación de operaciones y optimización",
+   "Ingeniería económica y control",
+   "Facilities, energía y mantenimiento",
+   "Calidad y confiabilidad",
+   "Ergonomía y factores humanos",
+   "Operaciones y productividad",
+   "Supply Chain, logística y compras",
+   "Ingeniería de gestión y proyectos",
+   "Seguridad y riesgos",
+   "Información, analítica y sistemas",
+   "Diseño y manufactura",
+   "Diseño de producto y desarrollo",
+   "Ingeniería de sistemas"
   ],
-  "adjacent": [
-   "Analytics",
-   "Data / BI",
-   "Finanzas / Control de gestión",
-   "Proyectos / PMO",
-   "Recursos Humanos / People Analytics",
-   "Seguridad y Salud en el Trabajo"
-  ],
+  "adjacent": [],
   "out_of_focus": [
    "Otras",
    "Ventas / Comercial"
   ]
  },
  "area_slugs": {
-  "Operaciones": "operaciones",
-  "Producción": "produccion",
-  "Mejora continua": "mejora-continua",
-  "Procesos": "procesos",
-  "Supply Chain": "supply-chain",
-  "Logística": "logistica",
-  "Compras": "compras",
-  "Planeamiento": "planeamiento",
-  "Demand Planning": "demand-planning",
-  "Calidad": "calidad",
-  "Data / BI": "data-bi",
-  "Analytics": "analytics",
-  "Automatización": "automatizacion",
-  "Mantenimiento": "mantenimiento",
-  "Proyectos / PMO": "proyectos-pmo",
-  "Finanzas / Control de gestión": "finanzas-control",
-  "Seguridad y Salud en el Trabajo": "sst",
-  "Recursos Humanos / People Analytics": "rrhh-people-analytics",
+  "Diseño y medición del trabajo": "diseno-medicion-trabajo",
+  "Investigación de operaciones y optimización": "investigacion-operaciones-optimizacion",
+  "Ingeniería económica y control": "ingenieria-economica-control",
+  "Facilities, energía y mantenimiento": "facilities-energia-mantenimiento",
+  "Calidad y confiabilidad": "calidad-confiabilidad",
+  "Ergonomía y factores humanos": "ergonomia-factores-humanos",
+  "Operaciones y productividad": "operaciones-productividad",
+  "Supply Chain, logística y compras": "supply-chain-logistica-compras",
+  "Ingeniería de gestión y proyectos": "ingenieria-gestion-proyectos",
+  "Seguridad y riesgos": "seguridad-riesgos",
+  "Información, analítica y sistemas": "informacion-analitica-sistemas",
+  "Diseño y manufactura": "diseno-manufactura",
+  "Diseño de producto y desarrollo": "diseno-producto-desarrollo",
+  "Ingeniería de sistemas": "ingenieria-sistemas",
   "Otras": "otras",
   "Ventas / Comercial": "ventas-comercial"
  },
  "area_rules": {
-  "Supply Chain": [
-   "supply chain",
-   "cadena de suministro",
-   "abastecimiento"
-  ],
-  "Logística": [
-   "logistica",
-   "almacen",
-   "warehouse",
-   "distribucion"
-  ],
-  "Compras": [
-   "compras",
-   "procurement",
-   "buyer",
-   "adquisiciones"
-  ],
-  "Demand Planning": [
-   "demand planning",
-   "forecast",
-   "pronostico",
-   "s&op"
-  ],
-  "Planeamiento": [
-   "planeamiento",
-   "planificacion",
-   "planning"
-  ],
-  "Mejora continua": [
-   "mejora continua",
-   "lean",
-   "kaizen",
-   "six sigma"
-  ],
-  "Calidad": [
-   "calidad",
-   "quality",
-   "iso 9001"
-  ],
-  "Data / BI": [
-   "power bi",
-   "business intelligence",
-   "data analyst",
-   "analitica"
-  ],
-  "Analytics": [
-   "analytics",
-   "analisis de datos",
-   "machine learning"
-  ],
-  "Automatización": [
-   "automatizacion",
-   "rpa",
-   "power automate"
-  ],
-  "Procesos": [
-   "procesos",
-   "process improvement",
-   "bpmn"
-  ],
-  "Producción": [
-   "produccion",
-   "manufactura",
-   "planta"
-  ],
-  "Mantenimiento": [
-   "mantenimiento",
-   "confiabilidad",
-   "reliability",
-   "mantenimiento industrial"
-  ],
-  "Operaciones": [
-   "operaciones",
-   "operations"
-  ],
-  "Proyectos / PMO": [
-   "proyectos",
-   "pmo",
-   "project management"
-  ],
-  "Seguridad y Salud en el Trabajo": [
-   "sst",
-   "seguridad y salud",
-   "sso",
-   "osha"
-  ],
-  "Finanzas / Control de gestión": [
-   "costos",
-   "control de gestion",
-   "finanzas"
-  ]
+  "Diseño y medición del trabajo": ["estudio de tiempos", "tiempos y movimientos", "time study", "work measurement", "metodos y tiempos", "balance de linea", "estandarizacion del trabajo", "productividad laboral"],
+  "Investigación de operaciones y optimización": ["investigacion de operaciones", "operations research", "optimizacion", "optimization", "simulacion", "simulation", "programacion lineal", "modelamiento", "decision analysis", "or-tools"],
+  "Ingeniería económica y control": ["costos", "costeo", "control de gestion", "presupuesto", "presupuestal", "engineering economics", "analisis economico", "business control"],
+  "Facilities, energía y mantenimiento": ["facilities", "facility", "mantenimiento", "maintenance", "maintenance engineering", "confiabilidad", "reliability", "energia", "energy management", "utilities", "layout industrial"],
+  "Calidad y confiabilidad": ["calidad", "quality", "iso 9001", "six sigma", "fmea", "control estadistico", "quality assurance", "quality control"],
+  "Ergonomía y factores humanos": ["ergonomia", "ergonomics", "factores humanos", "human factors", "diseno del puesto", "workstation design"],
+  "Operaciones y productividad": ["operaciones", "operations", "operational excellence", "mejora continua", "continuous improvement", "lean", "kaizen", "procesos", "process improvement", "bpmn", "business process"],
+  "Supply Chain, logística y compras": ["supply chain", "cadena de suministro", "logistica", "logistics", "almacen", "warehouse", "distribucion", "compras", "procurement", "buyer", "adquisiciones", "abastecimiento", "inventarios", "inventory"],
+  "Ingeniería de gestión y proyectos": ["ingenieria de gestion", "engineering management", "proyectos", "pmo", "project management", "change management", "performance management"],
+  "Seguridad y riesgos": ["sst", "seguridad y salud", "sso", "ssoma", "osha", "hse", "safety", "riesgos", "risk management"],
+  "Información, analítica y sistemas": ["information engineering", "power bi", "business intelligence", "data analyst", "data analytics", "analitica", "machine learning", "sql", "erp", "sap", "rpa", "power automate"],
+  "Diseño y manufactura": ["manufactura", "manufacturing", "produccion", "production", "planta", "plant engineering", "manufacturing engineering", "process engineering"],
+  "Diseño de producto y desarrollo": ["diseno de producto", "product design", "product development", "new product development", "desarrollo de producto", "qfd"],
+  "Ingeniería de sistemas": ["ingenieria de sistemas", "systems engineering", "system design", "requirements engineering", "requerimientos", "system architecture", "solution architecture", "arquitectura de sistemas"]
  },
  "out_of_focus_rules": {
   "Ventas / Comercial": [
@@ -473,6 +387,7 @@
   }
  },
  "excluded_title_signals": [
+  "limpieza",
   "auxiliar de limpieza",
   "operario de limpieza",
   "personal de limpieza",
@@ -481,7 +396,22 @@
   "vendedor",
   "promotor de ventas",
   "televentas",
-  "atencion al cliente"
+  "atencion al cliente",
+  "customer service",
+  "comercial",
+  "ventas",
+  "gestor comercial",
+  "gestora comercial",
+  "gerente comercial",
+  "jefe comercial",
+  "analista comercial",
+  "planner comercial",
+  "inteligencia comercial",
+  "trade marketing",
+  "administrador de tienda",
+  "supervisor de tiendas",
+  "promotor",
+  "tienda"
  ],
  "education_only": [
   "ingenieria industrial",

@@ -13,9 +13,9 @@ COMPUTRABAJO_ENABLED="${RADAR_COMPUTRABAJO_ENABLED:-1}"
 export RADAR_JOBSPY_SITES="${RADAR_JOBSPY_SITES:-indeed,linkedin}"
 STALE_AFTER_DAYS="${RADAR_STALE_AFTER_DAYS:-45}"
 LIVENESS_CHECK_LIMIT="${RADAR_LIVENESS_CHECK_LIMIT:-150}"
-# Cobertura nacional: además de Lima se capturan estas ciudades con un subconjunto de consultas
-# (la búsqueda "Perú" a secas devuelve sobre todo Lima). Vacía la variable para volver a solo Lima.
-CITIES="${RADAR_CITIES-Arequipa,Trujillo,Chiclayo,Piura,Cusco,Huancayo,Iquitos,Tacna,Cajamarca,Ica}"
+# Lima es el mercado predeterminado. La cobertura nacional se habilita explícitamente
+# definiendo RADAR_CITIES con una lista separada por comas.
+CITIES="${RADAR_CITIES-}"
 
 mkdir -p "$STATE_DIR"
 cd "$PROJECT_DIR"

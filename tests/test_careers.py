@@ -47,7 +47,7 @@ def test_same_engine_classifies_by_pack():
 def test_industrial_pack_keeps_previous_behavior():
     pack = load_pack("industrial_engineering")
     job = _job("Practicante de Mejora Continua", "Requiere Excel, Power BI y Lean")
-    assert classify(job, pack).primary_area.value == "Mejora continua"
+    assert classify(job, pack).primary_area.value == "Operaciones y productividad"
     seller = _job("Asesor comercial", "Ingeniería Industrial")
     assert classify(seller, pack).primary_area.value == "Ventas / Comercial"
 

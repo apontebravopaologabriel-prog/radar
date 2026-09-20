@@ -42,24 +42,20 @@ def _init_sqlite_db(conn: sqlite3.Connection) -> None:
 
 
 _CATALOG_AREAS = [
-    ("Operaciones", "operaciones"),
-    ("Producción", "produccion"),
-    ("Mejora continua", "mejora-continua"),
-    ("Procesos", "procesos"),
-    ("Supply Chain", "supply-chain"),
-    ("Logística", "logistica"),
-    ("Compras", "compras"),
-    ("Planeamiento", "planeamiento"),
-    ("Demand Planning", "demand-planning"),
-    ("Calidad", "calidad"),
-    ("Data / BI", "data-bi"),
-    ("Analytics", "analytics"),
-    ("Automatización", "automatizacion"),
-    ("Mantenimiento", "mantenimiento"),
-    ("Proyectos / PMO", "proyectos-pmo"),
-    ("Finanzas / Control de gestión", "finanzas-control"),
-    ("Seguridad y Salud en el Trabajo", "sst"),
-    ("Recursos Humanos / People Analytics", "rrhh-people-analytics"),
+    ("Diseño y medición del trabajo", "diseno-medicion-trabajo"),
+    ("Investigación de operaciones y optimización", "investigacion-operaciones-optimizacion"),
+    ("Ingeniería económica y control", "ingenieria-economica-control"),
+    ("Facilities, energía y mantenimiento", "facilities-energia-mantenimiento"),
+    ("Calidad y confiabilidad", "calidad-confiabilidad"),
+    ("Ergonomía y factores humanos", "ergonomia-factores-humanos"),
+    ("Operaciones y productividad", "operaciones-productividad"),
+    ("Supply Chain, logística y compras", "supply-chain-logistica-compras"),
+    ("Ingeniería de gestión y proyectos", "ingenieria-gestion-proyectos"),
+    ("Seguridad y riesgos", "seguridad-riesgos"),
+    ("Información, analítica y sistemas", "informacion-analitica-sistemas"),
+    ("Diseño y manufactura", "diseno-manufactura"),
+    ("Diseño de producto y desarrollo", "diseno-producto-desarrollo"),
+    ("Ingeniería de sistemas", "ingenieria-sistemas"),
     ("Otras", "otras"),
     ("Ventas / Comercial", "ventas-comercial"),
 ]
@@ -152,6 +148,12 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
         "CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), title TEXT NOT NULL, "
         "data TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()))"
     )
+    conn.execute("CREATE TABLE IF NOT EXISTS agent_memories (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), topic_key TEXT NOT NULL UNIQUE, memory_type TEXT NOT NULL DEFAULT 'preference', content TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'user', confidence REAL NOT NULL DEFAULT 1.0, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()), last_confirmed_at TEXT)")
+    conn.execute("CREATE INDEX IF NOT EXISTS agent_memories_active_idx ON agent_memories (is_active, updated_at DESC)")
+    conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS agent_memories_fts USING fts5(topic_key, content, content='agent_memories', content_rowid='rowid')")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); END")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),

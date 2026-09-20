@@ -11,6 +11,7 @@ export type CommandContext = {
   remove: (id?: string) => Promise<void>;
   list: () => Promise<ConversationInfo[]>;
   compact: (focus?: string) => Promise<string>;
+  openConfigMenu: (section?: "model" | "effort") => void;
   transcript: () => string;
   usage: { context: number; session: number; estimated: boolean };
   lastAnswer: () => string;
@@ -99,13 +100,22 @@ export const COMMANDS: Command[] = [
       const pct = Math.round((s.tokens_used_this_month / Math.max(s.monthly_token_cap, 1)) * 100);
       return `\`${meter(pct)}\` **${pct}%** del tope mensual\n\n**${s.provider}** · \`${s.model}\`\n${s.tokens_used_this_month.toLocaleString("es-PE")} de ${s.monthly_token_cap.toLocaleString("es-PE")} tokens${s.read_only ? " · solo lectura" : ""}`;
     } },
-  { name: "model", aliases: ["modelo"], args: "[nombre]", hint: "Ver o cambiar el modelo", kind: "local", run: async (args, ctx) => {
+  { name: "model", aliases: ["models", "modelo", "modelos"], args: "[nombre]", hint: "Ver o cambiar el modelo", kind: "local", run: async (args, ctx) => {
       const s = await api.agentSettings();
       const wanted = args.trim();
-      if (!wanted) return `**${s.provider}** · \`${s.model}\`\n\nCambia con \`/modelo <nombre>\` (ej. el nombre exacto de tu proveedor).`;
+      if (!wanted) { ctx.openConfigMenu("model"); return null; }
       await api.saveAgentSettings({ provider: s.provider, model: wanted });
       ctx.refreshSettings();
       return `Modelo cambiado a \`${wanted}\`.`;
+    } },
+  { name: "effort", aliases: ["esfuerzo", "thinking"], args: "[auto|none|low|high|max]", hint: "Cambiar el esfuerzo de razonamiento", kind: "local", run: async (args, ctx) => {
+      const s = await api.agentSettings();
+      const wanted = args.trim().toLowerCase();
+      if (!wanted) { ctx.openConfigMenu("effort"); return null; }
+      if (!(s.providers[s.provider]?.reasoning_efforts ?? []).includes(wanted) && wanted !== "auto") return "Effort inválido. Usa `auto`, `none`, `low`, `high` o `max`.";
+      await api.saveAgentSettings({ provider: s.provider, reasoning_effort: wanted as "auto" | "none" | "low" | "high" | "max" });
+      ctx.refreshSettings();
+      return `Effort cambiado a \`${wanted}\`.`;
     } },
   { name: "pin", aliases: ["fijar"], hint: "Fija el agente a la derecha o lo vuelve ventana", kind: "local", run: async (_a, ctx) => {
       if (!ctx.dock) return "Fijar solo está disponible en la versión de escritorio.";

@@ -39,8 +39,9 @@ export type Career = { active: string; name: string; areas: { core: string[]; ad
   skills: { name: string; type: string; category: string | null }[]; queries: string[];
   weights: Record<string, number>; tracks: { id: string; name: string }[] };
 export type AgentSettings = { provider: string; base_url: string; model: string; has_key: boolean; needs_key: boolean;
-  ready: boolean; enabled: boolean; read_only: boolean; context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
-  providers: Record<string, { base_url: string; model: string }> };
+  ready: boolean; enabled: boolean; read_only: boolean; reasoning_effort: "auto" | "none" | "low" | "high" | "max";
+  context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
+  providers: Record<string, { base_url: string; model: string; models?: string[]; model_names?: Record<string, string>; reasoning_efforts?: string[] }> };
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
 export type Doctor = { version: string; database: { path: string; size_mb: number }; jobs: { active: number; last_14_days: number; newest_published: string | null };
   career: string; agent: { enabled: boolean; provider: string; model: string; key: boolean; read_only: boolean; conversations: number }; refresh: RefreshState; tools: number };
@@ -76,7 +77,7 @@ export const api = {
   refreshStatus: () => request<RefreshState>("/api/refresh/status"),
   saveProfile: (profile: ProfileInput) => request<{ profile_id: string }>("/api/profile", { method: "PUT", body: JSON.stringify(profile) }),
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
-  saveAgentSettings: (body: { provider: string; model?: string; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
+  saveAgentSettings: (body: { provider: string; model?: string; reasoning_effort?: "auto" | "none" | "low" | "high" | "max"; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
     request<AgentSettings>("/api/agent/settings", { method: "PUT", body: JSON.stringify(body) }),
   conversations: () => request<{ conversations: ConversationInfo[] }>("/api/conversations?limit=20"),
   conversation: (id: string) => request<{ id: string; title: string; data: ConversationData }>(`/api/conversations/${id}`),
@@ -98,7 +99,7 @@ export const api = {
 
 export type ConversationInfo = { id: string; title: string; updated_at: string };
 export type ConversationData = { history: ApiMessage[]; lines: { kind: string; text: string }[] };
-export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | null; tool_call_id?: string;
+export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | null; reasoning_content?: string; tool_call_id?: string;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] };
 export type PendingAction = { id: string; name: string; arguments: Record<string, unknown>; description: string };
 export type ChatEvent =

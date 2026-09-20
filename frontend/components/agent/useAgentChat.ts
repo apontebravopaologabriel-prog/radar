@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, streamChat, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
 
-export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string };
+export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string; durationMs?: number };
 const SAVE_DELAY_MS = 900;
 /** Peso aproximado del prompt de sistema y las definiciones de herramientas (medido con DeepSeek). */
 export const BASE_PROMPT_TOKENS = 2800;
@@ -57,6 +57,7 @@ export function useAgentChat(onError: (e: unknown) => void) {
   /** Ejecuta un turno con el historial dado. */
   const run = useCallback(async (base: ApiMessage[]) => {
     setBusy(true); setPending([]);
+    const startedAt = performance.now();
     let current = "";
     let hist = base;
     abort.current = new AbortController();
@@ -76,7 +77,15 @@ export function useAgentChat(onError: (e: unknown) => void) {
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
       }, abort.current.signal);
     } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
-    finally { setBusy(false); void refreshSettings(); }
+    finally {
+      const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+      setLines((previous) => {
+        const index = [...previous].map((line) => line.kind).lastIndexOf("assistant");
+        if (index < 0) return previous;
+        return previous.map((line, lineIndex) => lineIndex === index ? { ...line, durationMs } : line);
+      });
+      setBusy(false); void refreshSettings();
+    }
   }, [onError, refreshSettings]);
 
   const send = useCallback(async (text: string) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
+import { api } from "../../lib/mobile-api";
 import { findCommand, matchCommands } from "./commands";
 import Markdown from "./Markdown";
 import RadarMark from "./RadarMark";
@@ -13,7 +14,7 @@ const TermLine = memo(function TermLine({ line }: { line: LineData }) {
   return (
     <div className={`term-line term-${line.kind}`}>
       <span className="term-glyph" aria-hidden>{line.kind === "user" ? "❯" : line.kind === "tool" ? "⎿" : line.kind === "error" ? "✕" : line.kind === "local" ? "▸" : <RadarMark />}</span>
-      <div className="term-body">{line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}</div>
+      <div className="term-body">{line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}{line.durationMs !== undefined && <small className="term-response-meta">{(line.durationMs / 1000).toFixed(1)} s</small>}</div>
     </div>
   );
 });
@@ -26,12 +27,44 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
   const [input, setInput] = useState("");
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(true);
+  const [configMenu, setConfigMenu] = useState<"model" | "effort" | null>(null);
+  const [configIndex, setConfigIndex] = useState(0);
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
+  const configMenuRef = useRef<HTMLDivElement>(null);
   const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
+  const provider = settings?.providers[settings.provider];
+  const modelOptions = provider?.models?.length ? provider.models : settings?.model ? [settings.model] : [];
+  const modelLabel = (value: string) => provider?.model_names?.[value] ?? value;
+  const effortOptions = ["auto", ...(provider?.reasoning_efforts ?? [])].filter((value, index, values) => values.indexOf(value) === index);
+  const configOptions = configMenu === "model" ? modelOptions : effortOptions;
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
+  useEffect(() => { setConfigIndex(0); }, [configMenu]);
+  useEffect(() => { if (configMenu) configMenuRef.current?.focus(); }, [configMenu]);
+
+  const effortLabel = (value: string) => value === "auto" ? "Auto" : value[0].toUpperCase() + value.slice(1);
+  const selectConfig = async (value: string) => {
+    if (!settings || !configMenu || busy) return;
+    try {
+      if (configMenu === "model") await api.saveAgentSettings({ provider: settings.provider, model: value });
+      else await api.saveAgentSettings({ provider: settings.provider, reasoning_effort: value as "auto" | "none" | "low" | "high" | "max" });
+      await refreshSettings();
+      setConfigMenu(null);
+    } catch { onSettings(); }
+  };
+
+  const onConfigKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") { event.preventDefault(); setConfigMenu(null); return; }
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault(); setConfigMenu(event.key === "ArrowLeft" ? "model" : "effort"); return;
+    }
+    if (!configOptions.length) return;
+    if (event.key === "ArrowDown") { event.preventDefault(); setConfigIndex((index) => (index + 1) % configOptions.length); }
+    if (event.key === "ArrowUp") { event.preventDefault(); setConfigIndex((index) => (index - 1 + configOptions.length) % configOptions.length); }
+    if (event.key === "Enter") { event.preventDefault(); void selectConfig(configOptions[configIndex]); }
+  };
 
   const submit = async (raw: string) => {
     const text = raw.trim();
@@ -53,7 +86,7 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
       const out = await command.run(rest.join(" "), {
-        send, reset, refreshSettings, open, remove, list, compact, usage, dock, close: onClose,
+        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), dock, close: onClose,
         transcript: () => transcriptOf(lines),
         lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
       });
@@ -125,9 +158,22 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
+      {configMenu && settings && <div ref={configMenuRef} className="term-config-menu" role="dialog" aria-label="Configuración del agente" onKeyDown={onConfigKeyDown} tabIndex={-1}>
+        <div className="term-config-tabs">
+          <button type="button" className={configMenu === "model" ? "on" : ""} onClick={() => setConfigMenu("model")}>Modelo</button>
+          {effortOptions.length > 1 && <button type="button" className={configMenu === "effort" ? "on" : ""} onClick={() => setConfigMenu("effort")}>Effort</button>}
+          <span className="term-config-hint">↑↓ elegir · Enter aplicar · Esc cerrar</span>
+        </div>
+        <div className="term-config-options" role="listbox" aria-label={configMenu === "model" ? "Modelos" : "Esfuerzo de razonamiento"}>
+          {configOptions.map((option, index) => <button type="button" role="option" aria-selected={index === configIndex} className={index === configIndex ? "on" : ""} key={option} onMouseEnter={() => setConfigIndex(index)} onClick={() => void selectConfig(option)}>
+            <span>{configMenu === "effort" ? effortLabel(option) : modelLabel(option)}</span>
+            {(configMenu === "model" ? option === settings.model : option === settings.reasoning_effort) && <b>actual</b>}
+          </button>)}
+        </div>
+      </div>}
       <div className="term-footer">
         <span>{busy ? "esc detener" : "/ commands · # memory · ↑ history"}</span>
-        <span>{settings?.ready ? `${settings.model} · ctx ${usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes ${Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%` : "sin configurar"}{settings?.read_only ? " · lectura" : ""}</span>
+        {settings?.ready ? <span>{settings.model} · {effortLabel(settings.reasoning_effort)} · ctx {usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes {Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%{settings.read_only ? " · lectura" : ""}</span> : <span>sin configurar</span>}
       </div>
     </div>
   );

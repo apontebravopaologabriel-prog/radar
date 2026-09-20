@@ -21,7 +21,7 @@ Radar MCP (FastMCP)
 Pipeline Python
   ├─ Computrabajo MCP por stdio
   ├─ JobSpy directo desde Python
-  ├─ refresco systemd de dieciséis búsquedas en Indeed y Computrabajo cada 6 horas
+  ├─ refresco systemd diario de dieciséis búsquedas en Indeed y Computrabajo
   ├─ normalización
   ├─ clasificación heurística
   ├─ deduplicación por fingerprint
@@ -73,6 +73,13 @@ frontend/
 ├── app/globals.css         # tema grafito, layout y scroll del explorador
 └── lib/api.ts              # cliente HTTP de Radar API
 ```
+
+El agente de chat vive en `src/radar/agent/` y `frontend/components/agent/`. El proveedor es
+OpenAI-compatible y conserva el `reasoning_content` de DeepSeek durante llamadas a herramientas.
+El selector de modelos usa el catálogo habilitado por proveedor: muestra un nombre legible, pero
+persiste el identificador real enviado a la API. En DeepSeek, por ejemplo, `DeepSeek V4.1 Flash`
+corresponde a `deepseek-flash` y `DeepSeek V4 Pro` a `deepseek-v4-pro`. `/model` y `/models`
+abren el selector de modelo; `/effort` abre el selector de `auto`, `none`, `low`, `high` y `max`.
 
 ## Decisiones deliberadas
 

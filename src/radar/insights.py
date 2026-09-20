@@ -17,6 +17,7 @@ from radar.db.queries import get_profile, list_jobs, skill_overview
 from radar.feed import skill_impact
 from radar.freshness import DEFAULT_MAX_AGE_DAYS
 from radar.geolocation import infer_location
+from radar.links import google_maps_search_url
 
 BREAKDOWNS = ("area", "place", "company", "work_mode", "seniority", "source")
 DESCRIPTION_LIMIT = 3000
@@ -58,6 +59,7 @@ def job_details(job_id: str) -> dict[str, Any]:
         "published_at": str(row[11]) if row[11] else None, "sector": row[12],
         "hours_per_week": row[13], "schedule": row[14], "application_status": row[15],
         "relevance": row[16], "area": row[18], "url": row[19], "is_favorite": bool(row[20]),
+        "google_maps_url": google_maps_search_url(row[2], place.label if place else row[3]),
         "skills": [{"name": s[0], "requirement": s[1]} for s in skills],
         "description": (row[17] or "")[:DESCRIPTION_LIMIT],
         "your_tracking": {"status": application[0], "notes": application[1]} if application else None,
@@ -136,13 +138,15 @@ def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: i
                 """SELECT s.name, count(DISTINCT j.id) FROM jobs j JOIN job_sources js ON js.job_id=j.id
                 JOIN sources s ON s.id=js.source_id
                 WHERE j.is_active=1 AND j.duplicate_status='canonical' AND j.published_at IS NOT NULL
+                AND j.relevance_tier IN ('core','adjacent')
                 AND date(j.published_at) >= date('now', '-' || %s || ' days') GROUP BY s.name""",
                 (max_age_days,),
             ).fetchall()
         counter.update({r[0]: r[1] for r in rows})
         total = sum(counter.values())
     else:
-        jobs = list_jobs(limit=None, max_age_days=max_age_days)
+        jobs = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="core")
+        jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="adjacent"))
         total = len(jobs)
         for job in jobs:
             if by == "place":
@@ -165,7 +169,9 @@ def salary_stats(area: str | None = None, place: str | None = None, max_age_days
     groups: dict[tuple[str, str], list[float]] = {}
     considered = 0
     discarded = 0
-    for job in list_jobs(limit=None, max_age_days=max_age_days, area=area):
+    focused_jobs = list_jobs(limit=None, max_age_days=max_age_days, area=area, relevance_tier="core")
+    focused_jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, area=area, relevance_tier="adjacent"))
+    for job in focused_jobs:
         considered += 1
         if place:
             point = infer_location(job["location"])

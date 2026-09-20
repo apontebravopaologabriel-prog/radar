@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import create_model
 
 from radar import cv_baseline, cv_targets, insights
+from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
     applications,
@@ -37,6 +38,7 @@ from radar.db.repository import (
 from radar.feed import nearby, setup_status, skill_impact, today_feed
 from radar.freshness import DEFAULT_MAX_AGE_DAYS
 from radar.help import help_topics, read_help
+from radar.links import google_maps_search_url
 from radar.pipeline import run_ingestion
 from radar.settings import get_setting, set_setting
 
@@ -127,7 +129,10 @@ def search_saved_jobs(
 ) -> dict:
     """Consulta ofertas ya guardadas (título, empresa, ubicación, área, salario, enlace)."""
     limit = min(max(limit, 1), 30)
-    return {"jobs": list_jobs(limit, seniority, area, max_age_days, search=search)}
+    jobs = list_jobs(limit, seniority, area, max_age_days, search=search)
+    for job in jobs:
+        job["google_maps_url"] = google_maps_search_url(job.get("company"), job.get("location"))
+    return {"jobs": jobs}
 
 
 @tool()
@@ -264,6 +269,18 @@ def get_help(topic: str = "inicio") -> dict:
 def get_user_profile() -> dict:
     """Devuelve el perfil separado de las estadísticas del mercado."""
     return {"profile": get_profile()}
+
+
+@tool()
+def get_user_memory(query: str = "", limit: int = 8) -> dict:
+    """Busca memoria durable aprobada por la persona. No incluye el historial completo del chat."""
+    return {"memories": search_memories(query, min(max(limit, 1), 20))}
+
+
+@tool(write=True)
+def remember_user(topic_key: str, content: str, memory_type: str = "preference") -> dict:
+    """Guarda una preferencia, meta o decisión durable después de que la persona la confirme."""
+    return {"memory": save_memory(content, topic_key=topic_key, memory_type=memory_type, source="chat")}
 
 
 @tool(write=True)

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from radar.db.database import connection
 from radar.db.queries import (
     get_profile,
     list_jobs,
@@ -9,7 +10,6 @@ from radar.db.queries import (
     recommendations,
     skill_overview,
 )
-from radar.db.database import connection
 from radar.db.repository import expire_stale_jobs, ingest_jobs, save_profile
 from radar.domain.models import RawJob
 

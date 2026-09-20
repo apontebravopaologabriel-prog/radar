@@ -124,7 +124,12 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                 sector = infer_sector(raw)
                 hours_per_week, schedule_text = extract_schedule(raw)
                 classified = classify(raw, pack)
-                relevance = infer_relevance(raw, classified.primary_area.value, pack)
+                relevance = infer_relevance(
+                    raw,
+                    classified.primary_area.value,
+                    pack,
+                    [area.value for area in classified.secondary_areas],
+                )
                 application_status = raw.application_status if raw.application_status in {"unknown", "open", "closed", "expired"} else "unknown"
                 application_source = raw.application_status_source if application_status != "unknown" else "unknown"
                 existing = conn.execute(
@@ -287,7 +292,12 @@ def repair_data_quality() -> dict[str, int]:
             sector = inferred_sector or row[10]
             hours_per_week, schedule_text = extract_schedule(raw)
             classified = classify(raw, pack)
-            relevance = infer_relevance(raw, classified.primary_area.value, pack)
+            relevance = infer_relevance(
+                raw,
+                classified.primary_area.value,
+                pack,
+                [area.value for area in classified.secondary_areas],
+            )
             text_salary = extract_salary(raw.description)
             if text_salary:
                 salary_min, salary_max, salary_currency = normalize_salary(

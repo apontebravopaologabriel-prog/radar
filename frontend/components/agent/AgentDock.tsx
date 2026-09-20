@@ -159,8 +159,8 @@ export default function AgentDock() {
 
   return (
     <>
-      <div className="agent-dock">
-        {enabled && <button type="button" onClick={toggle} aria-pressed={open} title="Agente (Ctrl+J)">{open ? "× agente" : "> agente"}</button>}
+      <div className="agent-dock is-autohide" aria-label="Controles de Radar">
+        {enabled && <button className="agent-launch" type="button" onClick={toggle} aria-pressed={open} aria-label={open ? "Cerrar agente" : "Abrir agente"} title={`${open ? "Cerrar" : "Abrir"} agente (Ctrl+J)`}><RadarMark size={16} spinning={open} /></button>}
         <a href="/ajustes" title="Ajustes" aria-label="Ajustes">⚙</a>
       </div>
       {enabled && open && mode === "float" && geo && (

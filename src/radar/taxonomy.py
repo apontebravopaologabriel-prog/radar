@@ -21,16 +21,34 @@ class Relevance:
     evidence: str
 
 
+_LEGACY_CORE_AREAS = frozenset({
+    "Automatización", "Calidad", "Compras", "Demand Planning", "Logística", "Mantenimiento",
+    "Mejora continua", "Operaciones", "Planeamiento", "Procesos", "Producción", "Supply Chain",
+})
+_LEGACY_ADJACENT_AREAS = frozenset({
+    "Analytics", "Data / BI", "Finanzas / Control de gestión", "Proyectos / PMO",
+    "Recursos Humanos / People Analytics", "Seguridad y Salud en el Trabajo",
+})
+
+
 def _tier_for_area(area: str | None, pack: CareerPack) -> str:
     if area in pack.core_areas:
         return "core"
     if area in pack.adjacent_areas:
         return "adjacent"
+    # Compatibility for callers/tests that still pass a pre-ISEBoK label.
+    if area in _LEGACY_CORE_AREAS:
+        return "core"
+    if area in _LEGACY_ADJACENT_AREAS:
+        return "adjacent"
     return "out_of_focus"
 
 
 def infer_relevance(
-    job: RawJob, primary_area: str | None, pack: CareerPack | None = None
+    job: RawJob,
+    primary_area: str | None,
+    pack: CareerPack | None = None,
+    secondary_areas: list[str] | None = None,
 ) -> Relevance:
     """Clasifica la cercanía al foco sin usar salario ni inventar campos.
 
@@ -41,13 +59,15 @@ def infer_relevance(
     pack = pack or default_pack()
     title = normalize_text(job.title)
     description = normalize_text(job.description or "")
-    tier = _tier_for_area(primary_area, pack)
+    areas = [area for area in [primary_area, *(secondary_areas or [])] if area]
+    tiers = [_tier_for_area(area, pack) for area in areas]
+    tier = "core" if "core" in tiers else "adjacent" if "adjacent" in tiers else "out_of_focus"
 
     excluded = next((phrase for phrase in pack.excluded_title_signals if phrase in title), None)
     if excluded:
         return Relevance("out_of_focus", 0.98, f"Título excluido: {excluded}")
 
-    area_evidence = primary_area or "sin área suficiente"
+    area_evidence = ", ".join(areas) or "sin área suficiente"
     has_operational_context = any(
         phrase in f"{title} {description}" for phrase in pack.context_terms
     )

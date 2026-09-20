@@ -248,6 +248,19 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 CREATE INDEX IF NOT EXISTS conversations_updated_idx ON conversations (updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS agent_memories (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), topic_key TEXT NOT NULL UNIQUE,
+    memory_type TEXT NOT NULL DEFAULT 'preference', content TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'user', confidence REAL NOT NULL DEFAULT 1.0,
+    is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (now()),
+    updated_at TEXT NOT NULL DEFAULT (now()), last_confirmed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS agent_memories_active_idx ON agent_memories (is_active, updated_at DESC);
+CREATE VIRTUAL TABLE IF NOT EXISTS agent_memories_fts USING fts5(topic_key, content, content='agent_memories', content_rowid='rowid');
+CREATE TRIGGER IF NOT EXISTS agent_memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END;
+CREATE TRIGGER IF NOT EXISTS agent_memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); END;
+CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END;
+
 CREATE TABLE IF NOT EXISTS job_user_favorites (
     job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
     note TEXT,
@@ -289,24 +302,20 @@ CREATE TABLE IF NOT EXISTS job_requirements (
 );
 
 INSERT INTO industrial_areas(name, slug) VALUES
-    ('Operaciones', 'operaciones'),
-    ('Producción', 'produccion'),
-    ('Mejora continua', 'mejora-continua'),
-    ('Procesos', 'procesos'),
-    ('Supply Chain', 'supply-chain'),
-    ('Logística', 'logistica'),
-    ('Compras', 'compras'),
-    ('Planeamiento', 'planeamiento'),
-    ('Demand Planning', 'demand-planning'),
-    ('Calidad', 'calidad'),
-    ('Data / BI', 'data-bi'),
-    ('Analytics', 'analytics'),
-    ('Automatización', 'automatizacion'),
-    ('Mantenimiento', 'mantenimiento'),
-    ('Proyectos / PMO', 'proyectos-pmo'),
-    ('Finanzas / Control de gestión', 'finanzas-control'),
-    ('Seguridad y Salud en el Trabajo', 'sst'),
-    ('Recursos Humanos / People Analytics', 'rrhh-people-analytics'),
+    ('Diseño y medición del trabajo', 'diseno-medicion-trabajo'),
+    ('Investigación de operaciones y optimización', 'investigacion-operaciones-optimizacion'),
+    ('Ingeniería económica y control', 'ingenieria-economica-control'),
+    ('Facilities, energía y mantenimiento', 'facilities-energia-mantenimiento'),
+    ('Calidad y confiabilidad', 'calidad-confiabilidad'),
+    ('Ergonomía y factores humanos', 'ergonomia-factores-humanos'),
+    ('Operaciones y productividad', 'operaciones-productividad'),
+    ('Supply Chain, logística y compras', 'supply-chain-logistica-compras'),
+    ('Ingeniería de gestión y proyectos', 'ingenieria-gestion-proyectos'),
+    ('Seguridad y riesgos', 'seguridad-riesgos'),
+    ('Información, analítica y sistemas', 'informacion-analitica-sistemas'),
+    ('Diseño y manufactura', 'diseno-manufactura'),
+    ('Diseño de producto y desarrollo', 'diseno-producto-desarrollo'),
+    ('Ingeniería de sistemas', 'ingenieria-sistemas'),
     ('Otras', 'otras'),
     ('Ventas / Comercial', 'ventas-comercial')
 ON CONFLICT(name) DO NOTHING;

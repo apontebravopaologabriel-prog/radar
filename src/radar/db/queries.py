@@ -147,6 +147,7 @@ def skill_overview(
         "j.published_at IS NOT NULL",
         "date(j.published_at) >= date('now', '-' || %s || ' days')",
         "date(j.published_at) < date('now', '+1 day')",
+        "j.relevance_tier IN ('core', 'adjacent')",
         "NOT EXISTS (SELECT 1 FROM job_user_status jus2 WHERE jus2.job_id=j.id AND jus2.status='hidden')",
     ]
     params: list[Any] = [max_age_days]
@@ -287,6 +288,7 @@ def recommendations(
             js.total_score, js.strong_matches, js.missing_skills, js.reason
             FROM job_scores js JOIN jobs j ON j.id=js.job_id LEFT JOIN companies c ON c.id=j.company_id
             WHERE js.profile_id=%s AND j.is_active=1 AND j.duplicate_status='canonical'
+            AND j.relevance_tier IN ('core','adjacent')
             AND COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')
             AND NOT EXISTS (SELECT 1 FROM job_sources jsl JOIN sources sl ON sl.id=jsl.source_id WHERE jsl.job_id=j.id AND lower(sl.name)='linkedin' AND (COALESCE(j.application_status, 'unknown') <> 'open' OR j.application_checked_at IS NULL OR date(j.application_checked_at) < date('now', '-' || %s || ' days')))
             AND j.published_at IS NOT NULL

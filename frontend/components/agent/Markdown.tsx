@@ -10,7 +10,10 @@ function inline(text: string, keyBase: string): ReactNode[] {
   let rest = text;
   let index = 0;
   while (rest) {
-    const match = pattern.exec(rest);
+    const markdownMatch = pattern.exec(rest);
+    const urlMatch = /(?:https?:\/\/|mailto:)[^\s<]+/.exec(rest);
+    const useBareUrl = Boolean(urlMatch && (!markdownMatch || urlMatch.index < markdownMatch.index));
+    const match = useBareUrl ? urlMatch : markdownMatch;
     if (!match) { out.push(rest); break; }
     if (match.index > 0) out.push(rest.slice(0, match.index));
     const token = match[0];
@@ -22,6 +25,12 @@ function inline(text: string, keyBase: string): ReactNode[] {
       out.push(SAFE_LINK.test(href ?? "")
         ? <a key={key} href={href} target="_blank" rel="noopener noreferrer">{label}</a>
         : <span key={key}>{label}</span>);
+    } else if (useBareUrl) {
+      // Las respuestas suelen devolver la URL desnuda. Separa puntuación final.
+      const trailing = /[.,!?;:]+$/.exec(token)?.[0] ?? "";
+      const href = trailing ? token.slice(0, -trailing.length) : token;
+      out.push(<a key={key} href={href} target="_blank" rel="noopener noreferrer">{href}</a>);
+      if (trailing) out.push(trailing);
     } else out.push(<em key={key}>{inline(token.slice(1, -1), key)}</em>);
     rest = rest.slice(match.index + token.length);
   }

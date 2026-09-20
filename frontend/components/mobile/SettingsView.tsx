@@ -15,6 +15,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [agent, setAgent] = useState<AgentSettings | null>(null);
   const [provider, setProvider] = useState("deepseek");
   const [model, setModel] = useState("");
+  const [reasoningEffort, setReasoningEffort] = useState<AgentSettings["reasoning_effort"]>("auto");
   const [key, setKey] = useState("");
   const [cap, setCap] = useState(500000);
   const [ctxWindow, setCtxWindow] = useState(64000);
@@ -25,25 +26,26 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
 
   useEffect(() => {
     Promise.all([api.career(), api.agentSettings()]).then(([c, a]) => {
-      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setCap(a.monthly_token_cap); setCtxWindow(a.context_window); setEnabled(a.enabled); setReadOnly(a.read_only);
+      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setReasoningEffort(a.reasoning_effort); setCap(a.monthly_token_cap); setCtxWindow(a.context_window); setEnabled(a.enabled); setReadOnly(a.read_only);
     }).catch(onError);
   }, [onError]);
 
   const flash = (text: string) => { setNote(text); setTimeout(() => setNote(""), 2500); };
   const saveAgent = async () => {
     try {
-      const next = await api.saveAgentSettings({ provider, model: model || undefined, api_key: key || undefined, monthly_token_cap: cap, context_window: ctxWindow, enabled, read_only: readOnly });
+      const next = await api.saveAgentSettings({ provider, model: model || undefined, reasoning_effort: reasoningEffort, api_key: key || undefined, monthly_token_cap: cap, context_window: ctxWindow, enabled, read_only: readOnly });
       setAgent(next); setKey(""); flash("Guardado"); onAgentChange?.(next.enabled);
     } catch (error) { onError(error); }
   };
   const pickProvider = (value: string) => {
     setProvider(value);
     setModel(agent?.providers[value]?.model ?? "");
+    setReasoningEffort("auto");
   };
 
   if (!career || !agent) return <p className="m-empty">Cargando…</p>;
   return (
-    <div className="m-stack">
+    <div className="m-stack settings-stack">
       <header className="m-head"><span className="m-eyebrow">[AJUSTES]</span><h1>Ajustes</h1>{note && <p role="status">{note}</p>}</header>
 
       <section className="m-card">
@@ -78,21 +80,39 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         <p className="m-sub">Es opcional: Radar funciona completo sin él. Usa tu propia clave: pagas al proveedor por lo que uses. La clave se guarda en tu equipo con permisos privados y nunca vuelve al navegador.</p>
         <label className="m-check"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />Activar el agente</label>
         <label className="m-check"><input type="checkbox" checked={readOnly} onChange={(e) => setReadOnly(e.target.checked)} />Solo lectura (no puede guardar nada)</label>
-        <label>Proveedor
-          <select value={provider} onChange={(e) => pickProvider(e.target.value)}>
-            {Object.keys(agent.providers).map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </label>
-        <label>Modelo<input value={model} onChange={(e) => setModel(e.target.value)} /></label>
-        <label>Clave de API {agent.has_key && provider === agent.provider && <b>(guardada)</b>}
-          <input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={agent.has_key ? "Dejar vacío para conservar" : "sk-…"} />
-        </label>
-        <label>Tope mensual de tokens
-          <input type="number" min={1000} step={50000} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
-        </label>
-        <label>Ventana de contexto del modelo (tokens; solo para el medidor de /contexto)
-          <input type="number" min={2000} step={1000} value={ctxWindow} onChange={(e) => setCtxWindow(Number(e.target.value))} />
-        </label>
+        <div className="settings-agent-fields">
+          <label>Proveedor
+            <select value={provider} onChange={(e) => pickProvider(e.target.value)}>
+              {Object.keys(agent.providers).map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </label>
+          <label>Modelo
+            {(agent.providers[provider]?.models?.length ?? 0) > 0 ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {agent.providers[provider].models?.map((name) => <option key={name} value={name}>{agent.providers[provider].model_names?.[name] ?? name}</option>)}
+                {!agent.providers[provider].models?.includes(model) && model && <option value={model}>{model} (actual)</option>}
+              </select>
+            ) : <input value={model} onChange={(e) => setModel(e.target.value)} />}
+          </label>
+          {(agent.providers[provider]?.reasoning_efforts?.length ?? 0) > 0 && <label>Esfuerzo de razonamiento
+            <select value={reasoningEffort} onChange={(e) => setReasoningEffort(e.target.value as AgentSettings["reasoning_effort"])}>
+              <option value="auto">Auto (predeterminado)</option>
+              <option value="none">None · más rápido</option>
+              <option value="low">Low</option>
+              <option value="high">High</option>
+              <option value="max">Max · más lento</option>
+            </select>
+          </label>}
+          <label>Clave de API {agent.has_key && provider === agent.provider && <b>(guardada)</b>}
+            <input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={agent.has_key ? "Dejar vacío para conservar" : "sk-…"} />
+          </label>
+          <label>Tope mensual de tokens
+            <input type="number" min={1000} step={50000} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
+          </label>
+          <label>Ventana de contexto del modelo (tokens; solo para el medidor de /contexto)
+            <input type="number" min={2000} step={1000} value={ctxWindow} onChange={(e) => setCtxWindow(Number(e.target.value))} />
+          </label>
+        </div>
         <p className="m-sub">Usado este mes: {agent.tokens_used_this_month.toLocaleString("es-PE")} de {agent.monthly_token_cap.toLocaleString("es-PE")}.</p>
         <button className="m-primary" onClick={saveAgent}>Guardar agente</button>
       </section>

@@ -16,14 +16,18 @@ import httpx
 from radar.settings import get_setting, read_secret
 
 # Verifica modelos y precios vigentes en la documentación de cada proveedor antes de fijarlos.
-PROVIDERS: dict[str, dict[str, str]] = {
-    "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
-    "openai": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini"},
-    "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "deepseek/deepseek-chat"},
-    "ollama": {"base_url": "http://127.0.0.1:11434/v1", "model": "qwen2.5:7b"},
-    "custom": {"base_url": "", "model": ""},
+PROVIDERS: dict[str, dict[str, Any]] = {
+    "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-flash",
+                 "models": ["deepseek-flash", "deepseek-v4-pro"],
+                 "model_names": {"deepseek-flash": "DeepSeek V4.1 Flash", "deepseek-v4-pro": "DeepSeek V4 Pro"},
+                 "reasoning_efforts": ["none", "low", "high", "max"]},
+    "openai": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini", "models": ["gpt-4o-mini"]},
+    "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "deepseek/deepseek-chat", "models": []},
+    "ollama": {"base_url": "http://127.0.0.1:11434/v1", "model": "qwen2.5:7b", "models": []},
+    "custom": {"base_url": "", "model": "", "models": []},
 }
 NO_KEY_PROVIDERS = {"ollama"}
+REASONING_EFFORTS = ("none", "low", "high", "max")
 
 
 class ProviderError(RuntimeError):
@@ -36,6 +40,7 @@ class LLMConfig:
     base_url: str
     model: str
     api_key: str | None
+    reasoning_effort: str | None = None
 
     @property
     def ready(self) -> bool:
@@ -50,6 +55,7 @@ def load_config() -> LLMConfig:
         base_url=(get_setting("llm_base_url") or preset["base_url"]).rstrip("/"),
         model=get_setting("llm_model") or preset["model"],
         api_key=read_secret(f"llm_key_{provider}"),
+        reasoning_effort=(get_setting("llm_reasoning_effort") if get_setting("llm_reasoning_effort") in REASONING_EFFORTS else None),
     )
 
 
@@ -68,6 +74,8 @@ def stream_chat(
     }
     if tools:
         body["tools"] = tools
+    if config.provider == "deepseek" and config.reasoning_effort:
+        body["reasoning_effort"] = config.reasoning_effort
     headers = {"Content-Type": "application/json"}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
@@ -98,6 +106,8 @@ def stream_chat(
                     yield {"usage": chunk["usage"]}
                 for choice in chunk.get("choices", []):
                     delta = choice.get("delta") or {}
+                    if delta.get("reasoning_content"):
+                        yield {"reasoning": delta["reasoning_content"]}
                     if delta.get("content"):
                         yield {"text": delta["content"]}
                     for part in delta.get("tool_calls") or []:

@@ -64,7 +64,10 @@ def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
             phrase = match.group(0)
             skills.append((skill, Evidence(skill, 0.9, _evidence(text, phrase), _requirement_type(text, match.start()))))
     evidences = [item[2] for item in matched]
-    return ClassifiedJob(evidences[0], evidences[1:], skills)
+    # Una oferta puede cruzar varias áreas del ISEBoK, pero limitarla a tres
+    # mantiene el resultado interpretable y evita que cada palabra clave cree
+    # una falsa lista de competencias.
+    return ClassifiedJob(evidences[0], evidences[1:3], skills)
 
 
 def infer_seniority(job: RawJob) -> str:

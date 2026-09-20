@@ -394,7 +394,8 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .job-card:hover, .job-card.selected { border-color: #898989; background: #1b1b1bd9; transform: translateX(2px); }
 .job-card strong { color: #ededed; }
 .job-company, .job-meta, .job-date { color: #8c8c8c; }
-.job-area { color: #cacaca; }
+.job-area { min-width: 0; overflow: hidden; color: #cacaca; text-overflow: ellipsis; white-space: nowrap; }
+.job-card-top .job-area { flex: 1 1 auto; }
 .favorite-toggle, .hidden-toggle, .cancel-hide { color: #858585; }
 .favorite-toggle[aria-label="Quitar de favoritos"] { color: #ededed; }
 .status-error { color: #d1a0a0; }
@@ -634,16 +635,23 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .offer-scroll-tools .favorites-toggle, .offer-scroll-tools .hidden-toggle { width: 22px; height: 22px; }
 .offer-scroll-heading strong { color: #eeeeee; font-size: 10px; font-weight: 500; letter-spacing: .08em; }
 .offer-scroll-list { display: grid; align-content: start; grid-auto-rows: max-content; flex: 1; min-height: 0; gap: 4px; padding-top: 8px; overflow-y: auto; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
-.offer-scroll-card { display: grid; gap: 3px; width: 100%; padding: 7px; border: 1px solid #2e2e2e; border-radius: 0; color: #c9c9c9; background: #101010cc; font: inherit; text-align: left; cursor: pointer; }
+.offer-scroll-card { display: grid; min-width: 0; gap: 3px; width: 100%; padding: 7px; border: 1px solid #2e2e2e; border-radius: 0; color: #c9c9c9; background: #101010cc; font: inherit; text-align: left; cursor: pointer; }
 .offer-scroll-card:hover, .offer-scroll-card.selected { border-color: #a0a0a0; background: #262626; }
-.offer-scroll-meta { display: flex; justify-content: space-between; gap: 10px; color: #858585; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
-.offer-scroll-area-line { display: flex; min-width: 0; gap: 4px; }
-.offer-scroll-source { overflow: hidden; color: #bdbdbd; opacity: 0; text-overflow: ellipsis; white-space: nowrap; transition: opacity .15s ease; }
-.offer-scroll-card:hover .offer-scroll-source, .offer-scroll-card:focus-visible .offer-scroll-source, .offer-scroll-card.selected .offer-scroll-source { opacity: 1; }
-.offer-scroll-card strong, .offer-scroll-title { overflow: hidden; color: #eeeeee; font-size: 12px; font-weight: 600; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-meta { display: flex; min-width: 0; justify-content: space-between; gap: 10px; color: #858585; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.offer-scroll-area-line { display: flex; min-width: 0; flex: 1 1 auto; gap: 4px; }
+.offer-scroll-area-line > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-date { flex: 0 0 auto; white-space: nowrap; }
+.offer-scroll-card strong, .offer-scroll-title { display: block; min-width: 0; overflow: visible; color: #eeeeee; font-size: 12px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; white-space: normal; }
 .offer-scroll-title { text-decoration: none; }
 .offer-scroll-title:hover { text-decoration: underline; text-decoration-color: #a8a8a8; text-underline-offset: 3px; }
 .offer-scroll-company, .offer-scroll-location { overflow: hidden; color: #888888; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.offer-scroll-footer { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.offer-scroll-location { min-width: 0; }
+.offer-scroll-source { color: #777777; }
+.offer-scroll-actions { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; }
+.offer-scroll-actions .card-action { margin-left: 0; opacity: .75; }
+.offer-scroll-actions .favorite-toggle { font-size: 13px; line-height: 1; }
+.offer-scroll-actions .card-action:hover, .offer-scroll-actions .card-action:focus { opacity: 1; }
 .offer-scroll-card:hover .company-map-link, .offer-scroll-card:focus-visible .company-map-link { opacity: 1; }
 .company-map-link:hover, .company-map-link:focus-visible { color: #ffffff; opacity: 1; }
 .offer-scroll-location { color: #aaaaaa; }
@@ -881,7 +889,11 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 .view-tab.favorites.active { color: var(--fav); background: #221d10; box-shadow: inset 0 -2px 0 var(--fav), 0 0 8px #c9a24a30; }
 .view-tab.hidden.active { color: var(--arch); background: #221212; box-shadow: inset 0 -2px 0 var(--arch), 0 0 8px #b8606030; }
 .offer-scroll-heading .view-tabs { margin: 0; }
-.offer-scroll-heading .view-tab { padding: 3px 7px; font-size: 9px; }
+.offer-scroll-heading .view-tab { width: 24px; flex: 0 0 24px; height: 22px; padding: 3px; font-size: 12px; letter-spacing: 0; }
+.offer-scroll-heading .view-tab svg { width: 12px; height: 12px; }
+
+/* En las listas, solo el área se compacta; el nombre de la oferta puede ocupar varias líneas. */
+.job-card strong { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
 
 /* filtro del archivo */
 .archive-filters { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }

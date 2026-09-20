@@ -7,12 +7,19 @@ from radar.enrichment import extract_schedule, infer_sector, infer_work_mode, no
 from radar.freshness import filter_recent_jobs, is_recent
 from radar.geolocation import infer_location
 from radar.importers import load_job_file
+from radar.links import google_maps_search_url
 from radar.normalize import fingerprint, normalize_text
 from radar.salary import extract_salary
 from radar.scoring import score_job
 from radar.sources.computrabajo import ComputrabajoSource
 from radar.sources.jobspy import JobSpySource
 from radar.taxonomy import infer_relevance
+
+
+def test_google_maps_search_url_uses_company_and_location():
+    url = google_maps_search_url("GRUPO INNOVA", "San Isidro")
+    assert url == "https://www.google.com/maps/search/?api=1&query=GRUPO%20INNOVA%2C%20San%20Isidro%2C%20Per%C3%BA"
+    assert google_maps_search_url(None, "Lima") is None
 
 
 def test_normalization_and_fingerprint_are_stable():
@@ -31,7 +38,7 @@ def test_classification_keeps_evidence():
         description="Requiere Excel, Power BI y Lean",
     )
     result = classify(job)
-    assert result.primary_area.value == "Mejora continua"
+    assert result.primary_area.value == "Operaciones y productividad"
     assert {name for name, _ in result.skills} >= {"Excel", "Power BI", "Lean"}
     assert all(item.evidence for _, item in result.skills)
     assert infer_seniority(job) == "intern"
@@ -57,7 +64,7 @@ def test_industrial_title_can_keep_commercial_context_as_secondary():
         "https://example.com",
         description="Relación comercial con clientes industriales.",
     ))
-    assert result.primary_area.value == "Operaciones"
+    assert result.primary_area.value == "Operaciones y productividad"
 
 
 def test_relevance_prioritizes_industrial_core_and_excludes_generic_sales():

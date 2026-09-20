@@ -121,6 +121,7 @@
 .term-error .term-body, .term-error .term-glyph { color: var(--danger); }
 .term-body { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .term-assistant .term-body, .term-local .term-body { white-space: normal; }
+.term-response-meta { display: block; margin-top: 4px; color: var(--dim); font-size: 10px; letter-spacing: .04em; }
 .term-welcome { color: var(--muted); }
 .term-welcome p { margin: 6px 0 10px; }
 .term-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -167,5 +168,35 @@
 .term-footer { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 11px; }
 .term-footer span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .term-footer span:last-child { text-align: right; }
+.term-footer-config { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.term-config-trigger { max-width: 190px; overflow: hidden; text-overflow: ellipsis; border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.term-config-trigger:hover, .term-config-trigger[aria-expanded="true"] { color: var(--ink); }
+.term-config-menu { position: absolute; right: 8px; bottom: 34px; z-index: 12; width: min(360px, calc(100% - 16px)); padding: 6px; border: 1px solid var(--muted); border-radius: 4px; background: var(--card); box-shadow: 0 12px 32px #000a; }
+.term-config-tabs { display: flex; align-items: center; gap: 4px; padding: 2px 2px 6px; border-bottom: 1px solid var(--line); }
+.term-config-tabs button { min-height: 28px; padding: 0 8px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.term-config-tabs button.on, .term-config-tabs button:hover { border-color: var(--line); background: var(--bg); color: var(--ink); }
+.term-config-hint { margin-left: auto; color: var(--dim); font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
+.term-config-options { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; max-height: 190px; overflow-y: auto; }
+.term-config-options button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.term-config-options button.on, .term-config-options button:hover { border-color: var(--line); background: var(--accent); color: var(--accent-ink); }
+.term-config-options b { font-size: 10px; font-weight: 400; opacity: .7; }
 .term-suggest button { border: 0; padding: 0 2px; min-height: 24px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .term-suggest button:hover { color: var(--ink); border: 0; }
+
+/* Ajustes de escritorio: panel de configuración, no formulario móvil. */
+@media (min-width: 700px) {
+  .m-main:has(.settings-stack) { max-width: 1220px; padding: 34px 42px 48px; }
+  .settings-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .settings-stack > .m-head, .settings-stack > .m-card:nth-of-type(4), .settings-stack > .m-card:nth-of-type(5) { grid-column: 1 / -1; }
+  .settings-stack > .m-head { padding: 4px 2px 8px; border-bottom: 1px solid var(--line); }
+  .settings-stack > .m-card { min-width: 0; padding: 18px 20px; }
+  .settings-stack > .m-card h2 { font-size: 15px; }
+  .settings-stack > .m-card:nth-of-type(3) { grid-column: 1 / -1; }
+  .settings-stack .m-sub { max-width: 760px; }
+  .settings-stack .m-primary { width: auto; min-width: 210px; }
+  .settings-agent-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+  .settings-agent-fields label:last-child { grid-column: 1 / -1; }
+  .settings-stack .m-slider { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 18px; margin-top: 14px; }
+  .settings-stack .m-slider input[type="range"] { height: 28px; }
+  .settings-stack .m-card:nth-of-type(3) .m-primary { margin-top: 18px; }
+}
