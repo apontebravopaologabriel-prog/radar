@@ -1,0 +1,4 @@
+/* Ajustes de rendimiento que no cambian el aspecto: el navegador omite layout y pintura de lo que no se ve. */
+.offer-scroll-card, .job-card { content-visibility: auto; contain-intrinsic-size: auto 88px; }
+.agent-window { contain: layout paint style; }
+.agent-pinned { contain: layout style; }

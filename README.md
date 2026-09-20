@@ -28,7 +28,7 @@ hipotéticos redactados por el agente; no son CVs enviables (ver
   `src/radar/careers/packs/*.json` (Ingeniería Industrial y Contabilidad). Añadir una carrera es
   añadir un JSON; se elige en Ajustes o con `RADAR_CAREER`.
 - **Adaptable a cualquier carrera:** en el primer inicio (escritorio y móvil) unas preguntas fijan tu carrera, dónde buscas (Lima primero, o cualquier ciudad del Perú), tu perfil y tus skills. Si tu carrera no está, la creas indicando áreas con palabras clave y skills; se guarda junto a tu base de datos. "Actualizar mercado ahora" trae las ofertas de tu carrera. Cada persona maneja su propia base local.
-- **Agente de chat (opcional, apagado por defecto):** en escritorio es una ventana flotante (`Ctrl+J`) sobre el mapa y en Ajustes (`/ajustes`) se activa, se pone en solo lectura o se apaga; apagado, el servidor rechaza el chat y no se carga su código. Es una terminal minimal: escribe `/` para comandos (`/hoy`, `/mapa Arequipa 25`, `/skills`, `/proceso`, `/estado`, `/costo`…; los que consultan tus datos no gastan tokens) y las respuestas se ven en Markdown. Usa tu propia clave de API (DeepSeek por defecto; también OpenAI, OpenRouter,
+- **Agente de chat (opcional, apagado por defecto):** en escritorio es una ventana flotante (`Ctrl+J`) sobre el mapa y en Ajustes (`/ajustes`) se activa, se pone en solo lectura o se apaga; apagado, el servidor rechaza el chat y no se carga su código. Es una terminal minimal: escribe `/` para comandos con nombres de Claude Code (`/today`, `/map Arequipa 25`, `/context`, `/compact`, `/memory`, `/doctor`, `/tools`…, con alias en español; los que consultan tus datos no gastan tokens) y `# texto` para que recuerde una preferencia y las respuestas se ven en Markdown. Usa tu propia clave de API (DeepSeek por defecto; también OpenAI, OpenRouter,
   Ollama o un endpoint compatible). Comparte las herramientas del MCP (`src/radar/tools.py`); las que
   escriben piden confirmación en pantalla. Tope mensual de tokens configurable.
 - **Acceso desde el celular:** ver [Acceso remoto](docs/operations.md#acceso-remoto-desde-el-celular).
@@ -46,6 +46,7 @@ Plan y estado: [Radar multicarrera, móvil y agente](docs/plan-multicarrera-movi
 - [Seguridad y cumplimiento](docs/security.md)
 - [Roadmap V2/V3](docs/roadmap.md)
 - [Plan general](docs/plan-general.md)
+- [Plan de rendimiento](docs/plan-rendimiento.md)
 - [Plan multicarrera, móvil y agente](docs/plan-multicarrera-movil.md)
 - [Plan de escritorio y agente como ventana](docs/plan-escritorio.md)
 - [Dirección de producto](docs/product-direction.md)

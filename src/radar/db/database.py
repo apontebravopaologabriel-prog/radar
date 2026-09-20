@@ -137,6 +137,10 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE jobs ADD COLUMN relevance_evidence TEXT")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS jobs_fingerprint_unique_idx ON jobs (canonical_fingerprint)")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = 1")
+    # Sin este índice cada oferta escaneaba toda la tabla job_sources (4 s por consulta con ~2 000 ofertas).
+    conn.execute("CREATE INDEX IF NOT EXISTS job_sources_job_seen_idx ON job_sources (job_id, last_seen_at DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS job_scores_profile_idx ON job_scores (profile_id, total_score DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS applications_job_idx ON applications (job_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active)")
     conn.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (now()))")
     conn.execute(
@@ -162,6 +166,9 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     )
 
 
+_SCHEMA_READY: set[str] = set()
+
+
 def _configure_connection(conn: RadarConnection) -> None:
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
@@ -178,9 +185,13 @@ def connection() -> Iterator[RadarConnection]:
     is_new = not db_file.exists()
     conn = sqlite3.connect(str(db_file), factory=RadarConnection, timeout=10.0)
     _configure_connection(conn)
+    key = str(db_file)
     if is_new:
         _init_sqlite_db(conn)
-    _ensure_runtime_schema(conn)
+        _SCHEMA_READY.discard(key)
+    if key not in _SCHEMA_READY:  # las garantías del esquema se aplican una vez por proceso y base
+        _ensure_runtime_schema(conn)
+        _SCHEMA_READY.add(key)
     try:
         yield conn
         conn.commit()

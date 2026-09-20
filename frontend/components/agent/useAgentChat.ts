@@ -104,10 +104,10 @@ export function useAgentChat(onError: (e: unknown) => void) {
   /** Empieza una conversación nueva (la anterior queda guardada). */
   const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
   /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
-  const compact = useCallback(async (): Promise<string> => {
+  const compact = useCallback(async (focus = ""): Promise<string> => {
     if (history.length < 2) return "Aún no hay nada que compactar.";
     const before = usage.context;
-    const res = await api.compact(history);
+    const res = await api.compact(history, focus);
     setHistory([
       { role: "user", content: `Resumen de la conversación hasta ahora (compactada):\n${res.summary}` },
       { role: "assistant", content: "Entendido. Continúo desde ese resumen." },

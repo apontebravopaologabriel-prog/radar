@@ -42,6 +42,8 @@ export type AgentSettings = { provider: string; base_url: string; model: string;
   ready: boolean; enabled: boolean; read_only: boolean; context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
   providers: Record<string, { base_url: string; model: string }> };
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
+export type Doctor = { version: string; database: { path: string; size_mb: number }; jobs: { active: number; last_14_days: number; newest_published: string | null };
+  career: string; agent: { enabled: boolean; provider: string; model: string; key: boolean; read_only: boolean; conversations: number }; refresh: RefreshState; tools: number };
 export type ProfileInput = { name: string; education?: string; areas: string[]; locations: string[];
   work_modes: string[]; skills: Record<string, string> };
 
@@ -84,8 +86,12 @@ export const api = {
     request<{ id: string }>(`/api/conversations/${id}`, { method: "PUT", body: JSON.stringify({ title, data }) }),
   deleteConversation: (id: string) => request<{ deleted: boolean }>(`/api/conversations/${id}`, { method: "DELETE" }),
   deleteAllConversations: () => request<{ deleted: number }>("/api/conversations", { method: "DELETE" }),
-  compact: (messages: ApiMessage[]) =>
-    request<{ summary: string; prompt_tokens: number; completion_tokens: number }>("/api/chat/compact", { method: "POST", body: JSON.stringify({ messages }) }),
+  compact: (messages: ApiMessage[], focus = "") =>
+    request<{ summary: string; prompt_tokens: number; completion_tokens: number }>("/api/chat/compact", { method: "POST", body: JSON.stringify({ messages, focus }) }),
+  memory: () => request<{ items: string[] }>("/api/agent/memory"),
+  setMemory: (items: string[]) => request<{ items: string[] }>("/api/agent/memory", { method: "PUT", body: JSON.stringify({ items }) }),
+  agentTools: () => request<{ read_only_mode: boolean; tools: { name: string; write: boolean; summary: string }[] }>("/api/agent/tools"),
+  doctor: () => request<Doctor>("/api/doctor"),
   confirm: (body: { tool_call_id: string; name: string; arguments: Record<string, unknown>; approve: boolean }) =>
     request<{ message: ApiMessage; result: unknown }>("/api/chat/confirm", { method: "POST", body: JSON.stringify(body) }),
 };

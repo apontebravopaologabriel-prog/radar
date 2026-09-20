@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 /** Markdown seguro para el chat: se construye con elementos de React (sin HTML crudo) y solo enlaza http(s) y mailto. */
 
@@ -95,7 +95,7 @@ function parse(source: string): Block[] {
   return blocks;
 }
 
-export default function Markdown({ text }: { text: string }) {
+function Markdown({ text }: { text: string }) {
   const blocks = parse(text);
   return (
     <div className="md">
@@ -124,3 +124,6 @@ export default function Markdown({ text }: { text: string }) {
     </div>
   );
 }
+
+/** Memoizado: una línea ya renderizada no se vuelve a analizar mientras llegan respuestas nuevas. */
+export default memo(Markdown);

@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.middleware.gzip import GZipMiddleware
 
 from radar.api_agent import router as agent_router
 from radar.api_cv import router as cv_router
@@ -42,6 +43,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class _SelectiveGZip(GZipMiddleware):
+    """Comprime las respuestas grandes (listas de ofertas ~6 MB) sin tocar el streaming del chat."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/api/chat"):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
+app.add_middleware(_SelectiveGZip, minimum_size=1024, compresslevel=5)
 app.add_middleware(AccessMiddleware)
 app.include_router(auth_router)
 app.include_router(cv_router)

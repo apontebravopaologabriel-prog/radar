@@ -37,24 +37,30 @@ nace flotante; el modo y el ancho se recuerdan. Los dos comparten la misma termi
 | Menú `/` | Lista sobre el prompt; ↑↓ navegan, Tab completa, Esc cierra |
 | Vacío | Una línea de bienvenida y cinco atajos en texto subrayado, sin botones |
 
-## 4. Comandos (estilo Claude Code)
+## 4. Comandos (nombres de Claude Code, con alias en español)
 
 | Comando | Hace | Tokens |
 |---|---|---|
-| `/contexto` (`/context`) | Medidor del contexto de la conversación: sistema y herramientas vs. mensajes, sesión total | 0 |
-| `/compactar` (`/compact`) | Resume la conversación con el modelo y sigue desde el resumen | sí (una llamada) |
-| `/costo` (`/tokens`) | Uso mensual frente al tope | 0 |
-| `/modelo [nombre]` (`/model`) | Ver o cambiar el modelo | 0 |
-| `/nueva` (`/new`, `/clear`) | Empieza otra conversación (la anterior queda guardada) | 0 |
-| `/historial`, `/abrir <n>`, `/borrar [todo]` | Conversaciones guardadas en la base local | 0 |
-| `/fijar` (`/pin`) | Alterna ventana flotante y panel a la derecha | 0 |
-| `/copiar`, `/salir` | Copia la última respuesta; cierra | 0 |
-| `/hoy`, `/mapa`, `/proceso`, `/skills`, `/estado`, `/perfil`, `/actualizar` | Consultas y acciones de Radar | 0 |
-| `/solo-lectura`, `/apagar` | Controles de seguridad del agente | 0 |
-| `/explicar`, `/plan`, `/resumen` | Piden al agente un análisis | sí |
+| `/context` | Medidor del contexto: sistema y herramientas vs. mensajes, total de la sesión | 0 |
+| `/compact [foco]` | Resume la conversación con el modelo (opcionalmente priorizando un foco) y sigue desde el resumen | sí (una llamada) |
+| `/cost` (`/usage`, `/tokens`) | Uso mensual frente al tope | 0 |
+| `/model [nombre]` | Ver o cambiar el modelo | 0 |
+| `/clear` (`/new`) | Conversación nueva (la anterior queda guardada) | 0 |
+| `/resume`, `/open <n>`, `/delete [all]` | Conversaciones guardadas en la base local | 0 |
+| `/export` | Descarga la conversación en Markdown | 0 |
+| `/memory [add\|rm\|clear]`, `# texto` | Preferencias que el agente recuerda en cada conversación (como CLAUDE.md) | 0 |
+| `/doctor` | Diagnóstico: ofertas, agente, base de datos, actualización en curso | 0 |
+| `/tools` (`/mcp`) | Herramientas que el agente puede usar (lectura y escritura) | 0 |
+| `/pin` | Alterna ventana flotante y panel a la derecha | 0 |
+| `/config`, `/copy`, `/exit` | Ajustes, copiar la última respuesta, cerrar | 0 |
+| `/today`, `/map`, `/pipeline`, `/skills`, `/status`, `/profile`, `/refresh` | Consultas y acciones de Radar | 0 |
+| `/readonly`, `/disable` | Controles de seguridad del agente | 0 |
+| `/init`, `/explain`, `/plan`, `/summary` | Piden al agente configurar o analizar | sí |
 
-El medidor usa los tokens reales que informa el proveedor en cada llamada; la ventana del modelo es un ajuste (por defecto 64 000) porque
-varía por modelo y proveedor.
+Funciones de Claude Code adoptadas: `/context`, `/compact [foco]`, `/cost`, `/model`, `/clear`, `/resume`, `/export`, `/memory` (y `#`),
+`/doctor`, `/tools`, `/config`, `/init`, `/copy`, `/exit`. Se dejaron fuera las que no tienen equivalente en Radar (edición de archivos, `bash`, hooks, agentes).
+Otras que podrían sumar: `/permissions` (lista y cambio granular de escrituras), `/rewind` (deshacer la última acción guardada), `/review` (revisión de la
+semana: nuevas, cambios y seguimiento) y `@` para mencionar una oferta por id.
 
 ## 5. Lo que falta
 

@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS job_sources (
 );
 CREATE INDEX IF NOT EXISTS job_sources_external_idx ON job_sources (source_id, external_id);
 
+CREATE INDEX IF NOT EXISTS job_sources_job_seen_idx ON job_sources (job_id, last_seen_at DESC);
+
 CREATE TABLE IF NOT EXISTS industrial_areas (
     id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
     name TEXT NOT NULL UNIQUE,

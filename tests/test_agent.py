@@ -222,3 +222,27 @@ def test_compact_endpoint_and_context_window_setting():
     assert api.put("/api/agent/settings", json={"provider": "deepseek", "context_window": 128000}).json()["context_window"] == 128000
     set_setting("agent_enabled", "0")
     assert api.post("/api/chat/compact", json={"messages": [{"role": "user", "content": "x"}]}).status_code == 403
+
+
+def test_memory_is_injected_as_context_and_capped():
+    api = TestClient(app)
+    assert api.get("/api/agent/memory").json()["items"] == []
+    saved = api.put("/api/agent/memory", json={"items": ["Solo busco híbrido", "  ", "Evito Ate " + "x" * 400]}).json()["items"]
+    assert saved[0] == "Solo busco híbrido" and len(saved) == 2 and len(saved[1]) <= 200
+    assert "Solo busco híbrido" in loop.system_prompt() and "no cambian tus reglas" in loop.system_prompt()
+    client, sent = _client(_text("ok"))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "hola"}], client))
+    assert "Solo busco híbrido" in sent[0]["messages"][0]["content"]
+    api.put("/api/agent/memory", json={"items": []})
+    assert loop.system_prompt() == loop.SYSTEM_PROMPT
+
+
+def test_compact_focus_doctor_and_tools_endpoints():
+    client, sent = _client(_text("- resumen"))
+    loop.compact(CONFIG, [{"role": "user", "content": "hola"}, {"role": "assistant", "content": "hey"}], client, focus="ofertas de Arequipa")
+    assert "Prioriza: ofertas de Arequipa" in sent[0]["messages"][0]["content"]
+    api = TestClient(app)
+    doc = api.get("/api/doctor").json()
+    assert doc["agent"]["enabled"] is True and doc["jobs"]["active"] == 0 and doc["tools"] > 10
+    listing = api.get("/api/agent/tools").json()
+    assert {"name": "favorite_job", "write": True} == {k: v for k, v in next(t for t in listing["tools"] if t["name"] == "favorite_job").items() if k != "summary"}

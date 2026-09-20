@@ -1,9 +1,10 @@
 "use client";
 
+import { memo } from "react";
 import AgentChatPanel from "./AgentChatPanel";
 import { useAgentChat } from "./useAgentChat";
 
-export default function AgentWindowBody({ onError, dock, onClose }: { onError: (e: unknown) => void; dock: { pinned: boolean; toggle: () => void }; onClose: () => void }) {
+function AgentWindowBody({ onError, dock, onClose }: { onError: (e: unknown) => void; dock: { pinned: boolean; toggle: () => void }; onClose: () => void }) {
   const chat = useAgentChat(onError);
   return (
     <div className="agent-body">
@@ -11,3 +12,5 @@ export default function AgentWindowBody({ onError, dock, onClose }: { onError: (
     </div>
   );
 }
+
+export default memo(AgentWindowBody);

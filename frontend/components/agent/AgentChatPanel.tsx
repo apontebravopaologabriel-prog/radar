@@ -1,13 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { findCommand, matchCommands } from "./commands";
 import Markdown from "./Markdown";
 import RadarMark from "./RadarMark";
 import type { useAgentChat } from "./useAgentChat";
 
 type Chat = ReturnType<typeof useAgentChat>;
+type LineData = Chat["lines"][number];
+
+const TermLine = memo(function TermLine({ line }: { line: LineData }) {
+  return (
+    <div className={`term-line term-${line.kind}`}>
+      <span className="term-glyph" aria-hidden>{line.kind === "user" ? "❯" : line.kind === "tool" ? "⎿" : line.kind === "error" ? "✕" : line.kind === "local" ? "▸" : <RadarMark />}</span>
+      <div className="term-body">{line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}</div>
+    </div>
+  );
+});
 const SETUP_PROMPT = "Ayúdame a configurar Radar";
+const transcriptOf = (lines: { kind: string; text: string }[]) =>
+  lines.map((l) => (l.kind === "user" ? `**❯ ${l.text}**` : l.kind === "tool" ? `> ${l.text}` : l.text)).join("\n\n");
 
 /** Terminal minimal: líneas con prefijo, respuestas en Markdown, comandos con `/` y aprobación con teclado. */
 export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { chat: Chat; onSettings: () => void; dock?: { pinned: boolean; toggle: () => void }; onClose?: () => void }) {
@@ -26,6 +38,14 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
     if (!text || busy) return;
     recall.current = { list: [...recall.current.list, text].slice(-50), at: -1 };
     setInput("");
+    if (text.startsWith("#")) {
+      // Atajo de memoria: "# prefiero híbrido" lo recuerda en cada conversación.
+      addLocal(text, "user");
+      const note = text.replace(/^#+\s*/, "").trim();
+      try { const { items } = await import("../../lib/mobile-api").then((m) => m.api.memory()); await import("../../lib/mobile-api").then((m) => m.api.setMemory([...items, note])); addLocal(`Anotado: _${note}_`); }
+      catch (error) { addLocal(error instanceof Error ? error.message : "No se pudo guardar.", "error"); }
+      return;
+    }
     if (!text.startsWith("/")) { await send(text); return; }
     const [head, ...rest] = text.slice(1).split(/\s+/);
     const command = findCommand(head.toLowerCase());
@@ -34,6 +54,7 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
     try {
       const out = await command.run(rest.join(" "), {
         send, reset, refreshSettings, open, remove, list, compact, usage, dock, close: onClose,
+        transcript: () => transcriptOf(lines),
         lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
       });
       if (out) addLocal(out);
@@ -73,17 +94,12 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
             <div><RadarMark size={16} /> <b>radar</b> <span className="term-dim">agente</span></div>
             <p className="term-dim">Pregunta lo que quieras sobre tus ofertas, o escribe / para comandos.</p>
             <div className="term-suggest">
-              {needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/configurar</button>}
-              {["/hoy", "/mapa", "/skills", "/contexto", "/ayuda"].map((c) => <button key={c} onClick={() => submit(c)}>{c}</button>)}
+              {needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/init</button>}
+              {["/today", "/map", "/skills", "/context", "/help"].map((c) => <button key={c} onClick={() => submit(c)}>{c}</button>)}
             </div>
           </div>
         )}
-        {lines.map((line, index) => (
-          <div key={index} className={`term-line term-${line.kind}`}>
-            <span className="term-glyph" aria-hidden>{line.kind === "user" ? "❯" : line.kind === "tool" ? "⎿" : line.kind === "error" ? "✕" : line.kind === "local" ? "▸" : <RadarMark />}</span>
-            <div className="term-body">{line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}</div>
-          </div>
-        ))}
+        {lines.map((line, index) => <TermLine key={index} line={line} />)}
         {pending.map((action) => (
           <div className="term-confirm" key={action.id}>
             <div><b>Acción propuesta:</b> {action.description}</div>
@@ -110,7 +126,7 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
       <div className="term-footer">
-        <span>{busy ? "esc detener" : "/ comandos · ↑ historial"}</span>
+        <span>{busy ? "esc detener" : "/ commands · # memory · ↑ history"}</span>
         <span>{settings?.ready ? `${settings.model} · ctx ${usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes ${Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%` : "sin configurar"}{settings?.read_only ? " · lectura" : ""}</span>
       </div>
     </div>

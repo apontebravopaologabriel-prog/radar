@@ -17,10 +17,12 @@ from radar.agent.loop import (
     compact,
     context_window,
     execute_tool,
+    get_memory,
     month_usage,
     monthly_cap,
     read_only,
     run_turn,
+    set_memory,
 )
 from radar.agent.provider import NO_KEY_PROVIDERS, PROVIDERS, ProviderError, load_config
 from radar.careers import (
@@ -283,6 +285,7 @@ def update_agent_settings(payload: AgentSettingsUpdate) -> dict[str, Any]:
 
 class ChatRequest(BaseModel):
     messages: list[dict[str, Any]] = Field(min_length=1, max_length=80)
+    focus: str = Field(default="", max_length=200)
 
 
 def _valid_history(messages: list[dict[str, Any]]) -> bool:
@@ -308,6 +311,58 @@ def chat(payload: ChatRequest) -> StreamingResponse:
     )
 
 
+class MemoryBody(BaseModel):
+    items: list[str] = Field(max_length=30)
+
+
+@router.get("/agent/memory")
+def read_memory() -> dict[str, Any]:
+    return {"items": get_memory()}
+
+
+@router.put("/agent/memory")
+def write_memory(body: MemoryBody) -> dict[str, Any]:
+    return {"items": set_memory(body.items)}
+
+
+@router.get("/agent/tools")
+def agent_tools() -> dict[str, Any]:
+    """Herramientas que el agente puede usar (equivale a /tools)."""
+    return {
+        "read_only_mode": read_only(),
+        "tools": [
+            {"name": t.name, "write": t.write, "summary": t.description.splitlines()[0]}
+            for t in tools.chat_tools()
+        ],
+    }
+
+
+@router.get("/doctor")
+def doctor() -> dict[str, Any]:
+    """Diagnóstico rápido de la instalación (equivale a /doctor)."""
+    from radar.db.database import connection, database_path
+
+    path = database_path()
+    with connection() as conn:
+        jobs = conn.execute("SELECT count(*) FROM jobs WHERE is_active=1").fetchone()[0]
+        fresh = conn.execute(
+            "SELECT count(*) FROM jobs WHERE is_active=1 AND date(published_at) >= date('now','-14 days')"
+        ).fetchone()[0]
+        newest = conn.execute("SELECT max(published_at) FROM jobs").fetchone()[0]
+        conversations = conn.execute("SELECT count(*) FROM conversations").fetchone()[0]
+    config = load_config()
+    return {
+        "version": "0.1.0",
+        "database": {"path": str(path), "size_mb": round(path.stat().st_size / 1e6, 1) if path.exists() else 0},
+        "jobs": {"active": jobs, "last_14_days": fresh, "newest_published": str(newest) if newest else None},
+        "career": active_pack().name,
+        "agent": {"enabled": agent_enabled(), "provider": config.provider, "model": config.model,
+                  "key": bool(config.api_key), "read_only": read_only(), "conversations": conversations},
+        "refresh": refresh_status(),
+        "tools": len(tools.chat_tools()),
+    }
+
+
 @router.post("/chat/compact")
 def compact_chat(payload: ChatRequest) -> dict[str, Any]:
     """Resume la conversación para liberar contexto (equivale a /compactar)."""
@@ -316,7 +371,7 @@ def compact_chat(payload: ChatRequest) -> dict[str, Any]:
     if not _valid_history(payload.messages):
         raise HTTPException(status_code=422, detail="Historial inválido")
     try:
-        return compact(load_config(), payload.messages)
+        return compact(load_config(), payload.messages, focus=payload.focus)
     except ProviderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

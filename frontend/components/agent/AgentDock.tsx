@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type AgentSettings } from "../../lib/mobile-api";
 import "../mobile/mobile.css";
 import "./agent-window.css";
@@ -36,7 +36,7 @@ export default function AgentDock() {
   const [mode, setMode] = useState<Mode>("float");
   const [pinWidth, setPinWidth] = useState(420);
   const [geo, setGeo] = useState<Geometry | null>(null);
-  const drag = useRef<{ dx: number; dy: number } | null>(null);
+  const drag = useRef<{ dx: number; dy: number; x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const enabled = settings?.enabled === true;
   const pinned = enabled && open && mode === "pinned";
@@ -80,32 +80,68 @@ export default function AgentDock() {
   useEffect(() => {
     const el = box.current;
     if (!el || !open || minimized || mode !== "float" || typeof ResizeObserver === "undefined") return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
-      const { width, height } = el.getBoundingClientRect();
-      setGeo((g) => g && (Math.abs(g.w - width) > 1 || Math.abs(g.h - height) > 1) ? clamp({ ...g, w: width, h: height }) : g);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const { width, height } = el.getBoundingClientRect();
+        setGeo((g) => g && (Math.abs(g.w - width) > 1 || Math.abs(g.h - height) > 1) ? clamp({ ...g, w: width, h: height }) : g);
+      }, 200);
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); if (timer) clearTimeout(timer); };
   }, [open, minimized, enabled, mode]);
 
+  // Arrastre: mientras se mueve solo se cambia `transform` (compositor, sin relayout ni re-render de React);
+  // la posición se guarda en el estado una sola vez al soltar.
+  const frame = useRef<number | null>(null);
   const onDown = (event: React.PointerEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest("button") || mode !== "float" || !geo) return;
-    drag.current = { dx: event.clientX - geo.x, dy: event.clientY - geo.y };
+    drag.current = { dx: event.clientX - geo.x, dy: event.clientY - geo.y, x: geo.x, y: geo.y };
+    if (box.current) box.current.style.willChange = "transform";
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onMove = (event: React.PointerEvent<HTMLElement>) => {
     const d = drag.current;
-    if (d && geo) setGeo(clamp({ ...geo, x: event.clientX - d.dx, y: event.clientY - d.dy }));
+    if (!d || !geo) return;
+    const next = clamp({ ...geo, x: event.clientX - d.dx, y: event.clientY - d.dy });
+    d.x = next.x; d.y = next.y;
+    if (frame.current === null) {
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        if (box.current && drag.current) box.current.style.transform = `translate3d(${drag.current.x - geo.x}px, ${drag.current.y - geo.y}px, 0)`;
+      });
+    }
   };
-  const onUp = () => { drag.current = null; };
+  const onUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (frame.current !== null) { cancelAnimationFrame(frame.current); frame.current = null; }
+    if (box.current) { box.current.style.transform = ""; box.current.style.willChange = ""; }
+    if (d && geo && (d.x !== geo.x || d.y !== geo.y)) setGeo({ ...geo, x: d.x, y: d.y });
+  };
   const onError = useCallback(() => undefined, []);
-  const dock = { pinned: mode === "pinned", toggle: toggleMode };
+  const dock = useMemo(() => ({ pinned: mode === "pinned", toggle: toggleMode }), [mode, toggleMode]);
+  const closeAgent = useCallback(() => setOpen(false), []);
 
   // Arrastre del borde izquierdo del panel fijado para cambiar su ancho.
+  // Durante el gesto solo cambia el ancho del panel (posición fija, no afecta al resto de la página);
+  // el mapa y la barra lateral se reajustan una sola vez al soltar.
+  const aside = useRef<HTMLElement>(null);
   const onResizeDown = (event: React.PointerEvent<HTMLElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
-    const move = (e: PointerEvent) => setPinWidth(Math.min(Math.max(window.innerWidth - e.clientX, PIN_MIN), PIN_MAX));
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    let width = pinWidth;
+    let raf: number | null = null;
+    const move = (e: PointerEvent) => {
+      width = Math.min(Math.max(window.innerWidth - e.clientX, PIN_MIN), PIN_MAX);
+      if (raf === null) raf = requestAnimationFrame(() => { raf = null; if (aside.current) aside.current.style.width = `${width}px`; });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (raf !== null) cancelAnimationFrame(raf);
+      setPinWidth(width);
+    };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
@@ -131,14 +167,14 @@ export default function AgentDock() {
         <div ref={box} className={`agent-window m-app ${minimized ? "is-min" : ""}`} role="dialog" aria-label="Agente de Radar"
           style={{ left: geo.x, top: geo.y, width: geo.w, height: minimized ? undefined : geo.h }}>
           {titlebar}
-          {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={() => setOpen(false)} />}
+          {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} />}
         </div>
       )}
       {enabled && open && mode === "pinned" && (
-        <aside className="agent-pinned m-app" style={{ width: pinWidth }} aria-label="Agente de Radar">
+        <aside ref={aside} className="agent-pinned m-app" style={{ width: pinWidth }} aria-label="Agente de Radar">
           <div className="agent-pinned-resize" onPointerDown={onResizeDown} role="separator" aria-orientation="vertical" aria-label="Ajustar ancho" />
           {titlebar}
-          <AgentWindowBody onError={onError} dock={dock} onClose={() => setOpen(false)} />
+          <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} />
         </aside>
       )}
     </>

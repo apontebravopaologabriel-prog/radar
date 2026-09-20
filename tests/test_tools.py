@@ -203,3 +203,31 @@ def test_salary_stats_drops_implausible_amounts_and_feed_breaks_ties_by_recency(
     tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "advanced"})
     titles = [j["title"] for j in tools.get_today_feed(5)["jobs"]]
     assert titles.index("Practicante de Procesos B") < titles.index("Practicante de Procesos A")
+
+
+def test_hot_query_indexes_exist_and_are_used():
+    from radar.db.database import connection
+
+    with connection() as conn:
+        names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'").fetchall()}
+        plan = " ".join(
+            str(r) for r in conn.execute(
+                "EXPLAIN QUERY PLAN SELECT (SELECT source_url FROM job_sources js WHERE js.job_id=j.id "
+                "ORDER BY js.last_seen_at DESC LIMIT 1) FROM jobs j"
+            ).fetchall()
+        )
+    assert {"job_sources_job_seen_idx", "job_scores_profile_idx", "applications_job_idx"} <= names
+    assert "job_sources_job_seen_idx" in plan  # sin el índice era un SCAN por oferta
+
+
+def test_large_lists_are_gzipped_but_chat_stream_is_not():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    _seed_market()
+    api = TestClient(app)
+    res = api.get("/api/jobs", headers={"Accept-Encoding": "gzip"})
+    assert res.status_code == 200 and res.json()["total"] >= 1
+    small = api.get("/api/health", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in small.headers  # bajo el umbral no se comprime
