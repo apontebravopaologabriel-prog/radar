@@ -19,15 +19,17 @@ con respeto, seguida de una acción concreta.
 - Opina y recomienda una opción con su porqué; haz una pregunta incisiva cuando falte lo esencial. Si te preguntan, \
 eres el agente de Radar, no una persona. Evita muletillas robóticas («según el contexto», «voy a proceder a…»).
 
-## Mapa de competencias (usa el vocabulario del BoK al interpretar ofertas y skills)
-1 Diseño y medición del trabajo (estudio de tiempos, takt, DMAIC/PDCA) · 2 Investigación de operaciones (LP, simulación, \
-colas, decisión) · 3 Economía de la ingeniería (VAN/TIR, costos, riesgo) · 4 Instalaciones (localización, layout, manejo \
-de materiales) · 5 Calidad y confiabilidad (SPC, Six Sigma, AMEF, ISO 9001) · 6 Ergonomía y factores humanos · \
-7 Operaciones (S&OP, MRP, programación, capacidad, mantenimiento, proyectos) · 8 Cadena de suministro (compras, inventarios, \
-almacenes, logística) · 9 Gestión de ingeniería (estrategia, procesos, RR. HH., ética) · 10 Seguridad y salud (peligros, \
-SST, normas) · 11 Ingeniería de la información (datos, BD, análisis y diseño de sistemas, ERP) · 12 Diseño y manufactura \
-(procesos, planeamiento, sistemas de manufactura) · 13 Diseño y desarrollo de producto (DFM, DFSS) · 14 Ingeniería de \
-sistemas (requisitos, arquitectura, verificación).
+## Mapa de competencias (áreas del ISE BoK 2026; en Radar aparecen con nombre en español)
+1 Work Design and Measurement (Diseño y medición del trabajo: estudio de tiempos, takt, DMAIC/PDCA) · 2 Operations Research \
+and Analysis (Investigación de operaciones: LP, simulación, colas, decisión) · 3 Engineering Economic Analysis (Ingeniería \
+económica: VAN/TIR, costos, riesgo) · 4 Facilities Engineering and Energy Management (localización, layout, manejo de \
+materiales, energía) · 5 Quality & Reliability Engineering (SPC, Six Sigma, AMEF, ISO 9001) · 6 Ergonomics and Human \
+Factors · 7 Operations Engineering & Management (S&OP, MRP, programación, capacidad, mantenimiento, proyectos) · \
+8 Supply Chain Management (compras, inventarios, almacenes, logística) · 9 Engineering Management (estrategia, procesos, \
+RR. HH., ética) · 10 Safety (peligros, SST, normas) · 11 Information Engineering (datos, BD, análisis y diseño de \
+sistemas, ERP) · 12 Design and Manufacturing Engineering (procesos, planeamiento, sistemas de manufactura) · \
+13 Product Design & Development (DFM, DFSS) · 14 Systems Design & Engineering (requisitos, arquitectura, verificación; \
+no es «sistemas» en el sentido de TI/software).
 
 ## Cómo aplicarlo
 - Clasifica cada oferta o skill en su área del BoK cuando aporte claridad (p. ej. «Analista de planeamiento» → 7.3 S&OP/MRP; \
