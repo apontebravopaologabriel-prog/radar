@@ -134,10 +134,11 @@
 .term-menu li small { color: var(--dim); text-align: right; }
 .term-menu li.on { background: var(--accent); color: var(--accent-ink); }
 .term-menu li.on small { color: var(--accent-ink); opacity: .7; }
-.term-prompt { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding-top: 8px; }
+.term-prompt { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; border-top: 1px solid var(--line); padding-top: 8px; }
 .term-prompt .term-glyph { color: var(--ink); }
-.m-app .term-prompt input { margin: 0; border: 0; background: transparent; padding: 0; min-height: 36px; font-size: 14px; }
-.m-app .term-prompt input:focus-visible { outline: none; }
+.m-app .term-prompt textarea { margin: 0; border: 0; background: transparent; padding: 8px 0; min-height: 36px; max-height: 132px; font: inherit; font-size: 14px; line-height: 1.45; resize: none; color: inherit; width: 100%; box-sizing: border-box; }
+.m-app .term-prompt textarea:focus-visible { outline: none; }
+.term-prompt .term-glyph { margin-top: 8px; }
 .term-prompt button { border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--muted); min-height: 28px; padding: 0 8px; font: inherit; cursor: pointer; }
 
 .radar-mark { flex: none; }
@@ -173,15 +174,6 @@
 .term-footer-config { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .term-config-trigger { max-width: 190px; overflow: hidden; text-overflow: ellipsis; border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .term-config-trigger:hover, .term-config-trigger[aria-expanded="true"] { color: var(--ink); }
-.term-config-menu { position: absolute; right: 8px; bottom: 34px; z-index: 12; width: min(360px, calc(100% - 16px)); padding: 6px; border: 1px solid var(--muted); border-radius: 4px; background: var(--card); box-shadow: 0 12px 32px #000a; }
-.term-config-tabs { display: flex; align-items: center; gap: 4px; padding: 2px 2px 6px; border-bottom: 1px solid var(--line); }
-.term-config-tabs button { min-height: 28px; padding: 0 8px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
-.term-config-tabs button.on, .term-config-tabs button:hover { border-color: var(--line); background: var(--bg); color: var(--ink); }
-.term-config-hint { margin-left: auto; color: var(--dim); font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
-.term-config-options { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; max-height: 190px; overflow-y: auto; }
-.term-config-options button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; padding: 0 9px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
-.term-config-options button.on, .term-config-options button:hover { border-color: var(--line); background: var(--accent); color: var(--accent-ink); }
-.term-config-options b { font-size: 10px; font-weight: 400; opacity: .7; }
 .term-suggest button { border: 0; padding: 0 2px; min-height: 24px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .term-suggest button:hover { color: var(--ink); border: 0; }
 
@@ -201,4 +193,29 @@
   .settings-stack .m-slider { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 18px; margin-top: 14px; }
   .settings-stack .m-slider input[type="range"] { height: 28px; }
   .settings-stack .m-card:nth-of-type(3) .m-primary { margin-top: 18px; }
+}
+
+/* Selector de modelo y effort: panel en línea (no popover), adaptable al ancho del chat. */
+.term { container-type: inline-size; }
+.cfg-picker { border: 1px solid var(--muted); border-radius: 4px; background: var(--card); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; outline: none; }
+.cfg-picker:focus-visible { border-color: var(--ink); }
+.cfg-picker-title { color: var(--ink); font-weight: 700; }
+.cfg-picker-body { display: flex; flex-direction: column; gap: 10px; }
+.cfg-models { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cfg-models li { display: grid; grid-template-columns: 14px 1fr auto; gap: 6px; align-items: center; min-height: 30px; padding: 0 8px; border-radius: 3px; color: var(--muted); cursor: pointer; }
+.cfg-models li.on { background: var(--accent); color: var(--accent-ink); }
+.cfg-models li b { font-size: 10px; font-weight: 400; opacity: .7; }
+.cfg-effort { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cfg-effort-track { display: flex; align-items: flex-start; gap: 4px; }
+.cfg-effort-track button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: transparent; color: var(--dim); font: inherit; font-size: 11px; cursor: pointer; padding: 2px 0; }
+.cfg-effort-track button i { font-style: normal; font-size: 14px; }
+.cfg-effort-track button.lit { color: var(--muted); }
+.cfg-effort-track button.on { color: var(--ink); font-weight: 700; }
+.cfg-effort small { color: var(--dim); font-size: 10px; }
+.cfg-picker-hint { color: var(--dim); font-size: 10px; }
+/* Ancho suficiente (escritorio fijado u horizontal): modelos a la izquierda, effort a la derecha. */
+@container (min-width: 520px) {
+  .cfg-picker-body { flex-direction: row; align-items: center; gap: 24px; }
+  .cfg-models { flex: 1 1 50%; }
+  .cfg-effort { flex: 1 1 50%; }
 }

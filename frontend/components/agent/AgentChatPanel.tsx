@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { api, type AgentContext } from "../../lib/mobile-api";
 import { findCommand, matchCommands } from "./commands";
+import ConfigPicker from "./ConfigPicker";
 import Markdown from "./Markdown";
 import RadarMark from "./RadarMark";
 import type { useAgentChat } from "./useAgentChat";
@@ -28,43 +29,27 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(true);
   const [configMenu, setConfigMenu] = useState<"model" | "effort" | null>(null);
-  const [configIndex, setConfigIndex] = useState(0);
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
-  const configMenuRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, contextMode, setContextMode } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
-  const provider = settings?.providers[settings.provider];
-  const modelOptions = provider?.models?.length ? provider.models : settings?.model ? [settings.model] : [];
-  const modelLabel = (value: string) => provider?.model_names?.[value] ?? value;
-  const effortOptions = ["auto", ...(provider?.reasoning_efforts ?? [])].filter((value, index, values) => values.indexOf(value) === index);
-  const configOptions = configMenu === "model" ? modelOptions : effortOptions;
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
-  useEffect(() => { setConfigIndex(0); }, [configMenu]);
-  useEffect(() => { if (configMenu) configMenuRef.current?.focus(); }, [configMenu]);
+  useEffect(() => {
+    const el = promptRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;  // crece hasta ~6 líneas
+  }, [input]);
+  useEffect(() => { if (!configMenu) promptRef.current?.focus(); }, [configMenu]);
 
   const effortLabel = (value: string) => value === "auto" ? "Auto" : value[0].toUpperCase() + value.slice(1);
   const contextLabel = context?.screen === "analysis" ? "ANÁLISIS" : context?.screen === "cvs" ? "CVs" : context?.mode === "radar" ? `RADAR / ${context.district || "LIMA"} / ${context.radar?.radiusKm ?? 5} KM` : context?.mode === "districts" ? `DISTRITOS / ${context.district || "TODOS"}` : "MAPA / OFERTAS";
-  const selectConfig = async (value: string) => {
-    if (!settings || !configMenu || busy) return;
-    try {
-      if (configMenu === "model") await api.saveAgentSettings({ provider: settings.provider, model: value });
-      else await api.saveAgentSettings({ provider: settings.provider, reasoning_effort: value as "auto" | "none" | "low" | "high" | "max" });
-      await refreshSettings();
-      setConfigMenu(null);
-    } catch { onSettings(); }
-  };
-
-  const onConfigKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); setConfigMenu(null); return; }
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.preventDefault(); setConfigMenu(event.key === "ArrowLeft" ? "model" : "effort"); return;
-    }
-    if (!configOptions.length) return;
-    if (event.key === "ArrowDown") { event.preventDefault(); setConfigIndex((index) => (index + 1) % configOptions.length); }
-    if (event.key === "ArrowUp") { event.preventDefault(); setConfigIndex((index) => (index - 1 + configOptions.length) % configOptions.length); }
-    if (event.key === "Enter") { event.preventDefault(); void selectConfig(configOptions[configIndex]); }
+  const applyConfig = async (model: string, effort: "auto" | "none" | "low" | "high" | "max") => {
+    if (!settings) return;
+    try { await api.saveAgentSettings({ provider: settings.provider, model, reasoning_effort: effort }); await refreshSettings(); }
+    catch { onSettings(); }
   };
 
   const submit = async (raw: string) => {
@@ -95,7 +80,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     } catch (error) { addLocal(error instanceof Error ? error.message : "El comando falló.", "error"); }
   };
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (matches.length) {
       if (event.key === "ArrowDown") { event.preventDefault(); setMenuIndex((i) => (i + 1) % matches.length); return; }
       if (event.key === "ArrowUp") { event.preventDefault(); setMenuIndex((i) => (i - 1 + matches.length) % matches.length); return; }
@@ -103,6 +88,12 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       if (event.key === "Tab" || (event.key === "Enter" && input !== `/${matches[menuIndex].name}`)) {
         event.preventDefault(); const c = matches[menuIndex]; setInput(`/${c.name}${c.args ? " " : ""}`); return;
       }
+    }
+    if (event.key === "Enter" && event.shiftKey) return;  // salto de línea
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      if (input.endsWith("\\")) { setInput(`${input.slice(0, -1)}\n`); return; }  // «\» + Enter también inserta salto
+      void submit(input); return;
     }
     if (event.key === "Escape" && busy) { event.preventDefault(); stop(); return; }
     if (input === "" && pending.length && (event.key === "y" || event.key === "n")) {
@@ -156,22 +147,10 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       )}
       <form className="term-prompt" onSubmit={(e) => { e.preventDefault(); void submit(input); }}>
         <span className="term-glyph" aria-hidden>❯</span>
-        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
+        <textarea ref={promptRef} rows={1} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
-      {configMenu && settings && <div ref={configMenuRef} className="term-config-menu" role="dialog" aria-label="Configuración del agente" onKeyDown={onConfigKeyDown} tabIndex={-1}>
-        <div className="term-config-tabs">
-          <button type="button" className={configMenu === "model" ? "on" : ""} onClick={() => setConfigMenu("model")}>Modelo</button>
-          {effortOptions.length > 1 && <button type="button" className={configMenu === "effort" ? "on" : ""} onClick={() => setConfigMenu("effort")}>Effort</button>}
-          <span className="term-config-hint">↑↓ elegir · Enter aplicar · Esc cerrar</span>
-        </div>
-        <div className="term-config-options" role="listbox" aria-label={configMenu === "model" ? "Modelos" : "Esfuerzo de razonamiento"}>
-          {configOptions.map((option, index) => <button type="button" role="option" aria-selected={index === configIndex} className={index === configIndex ? "on" : ""} key={option} onMouseEnter={() => setConfigIndex(index)} onClick={() => void selectConfig(option)}>
-            <span>{configMenu === "effort" ? effortLabel(option) : modelLabel(option)}</span>
-            {(configMenu === "model" ? option === settings.model : option === settings.reasoning_effort) && <b>actual</b>}
-          </button>)}
-        </div>
-      </div>}
+      {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
       <div className="term-context" title="Contexto de navegación enviado al agente. Pulsa para cambiar: apagado → selección → completo (incluye filas de análisis)">
         <button type="button" className="term-context-toggle" onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
           CONTEXTO · {contextMode === "off" ? "APAGADO" : contextMode === "selection" ? "SELECCIÓN" : "COMPLETO"}
