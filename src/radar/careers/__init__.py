@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from functools import cache
@@ -103,16 +104,107 @@ def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
     )
 
 
+def user_packs_dir() -> Path:
+    """Carreras creadas por el usuario: viven junto a su base de datos (cada persona, su equipo)."""
+    from radar.db.database import database_path
+
+    return database_path().parent / "careers"
+
+
 @cache
+def _load(career_id: str, user_dir: str) -> CareerPack:
+    for directory in (PACKS_DIR, Path(user_dir)):
+        path = directory / f"{career_id}.json"
+        if path.is_file() and path.resolve().parent == directory.resolve():
+            return parse_pack(json.loads(path.read_text(encoding="utf-8")), path.name)
+    raise CareerPackError(f"Carrera desconocida: {career_id}")
+
+
 def load_pack(career_id: str) -> CareerPack:
-    path = PACKS_DIR / f"{career_id}.json"
-    if not path.is_file() or path.resolve().parent != PACKS_DIR.resolve():
-        raise CareerPackError(f"Carrera desconocida: {career_id}")
-    return parse_pack(json.loads(path.read_text(encoding="utf-8")), path.name)
+    return _load(career_id, str(user_packs_dir()))
 
 
 def list_packs() -> list[CareerPack]:
-    return [load_pack(p.stem) for p in sorted(PACKS_DIR.glob("*.json"))]
+    ids = {p.stem for p in PACKS_DIR.glob("*.json")}
+    user_dir = user_packs_dir()
+    if user_dir.is_dir():
+        ids |= {p.stem for p in user_dir.glob("*.json")}
+    packs = []
+    for career_id in sorted(ids):
+        try:
+            packs.append(load_pack(career_id))
+        except (CareerPackError, ValueError):  # un JSON de usuario dañado no debe romper la app
+            continue
+    return packs
+
+
+MAX_AREAS = 20
+MAX_SKILLS = 60
+MAX_KEYWORDS = 12
+DEFAULT_WEIGHTS = {"area": 0.30, "skills": 0.25, "seniority": 0.15, "education": 0.10, "location": 0.10, "preference": 0.10}
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", normalize_text(value)).strip("-")
+
+
+def _clean(value: str, limit: int = 60) -> str:
+    return re.sub(r"\s+", " ", str(value)).strip()[:limit]
+
+
+def save_custom_pack(
+    name: str,
+    areas: dict[str, list[str]],
+    skills: list[str] | None = None,
+    queries: list[str] | None = None,
+) -> CareerPack:
+    """Crea (o reemplaza) una carrera propia a partir de áreas con palabras clave y una lista de skills.
+
+    Es determinista: sin modelo de lenguaje. Cada área se reconoce por sus palabras clave y cada skill
+    por su nombre. Devuelve el paquete ya validado y guardado junto a la base del usuario.
+    """
+    name = _clean(name, 80)
+    if not name:
+        raise CareerPackError("La carrera necesita un nombre")
+    areas = {_clean(k): v for k, v in areas.items() if _clean(k)}
+    if not areas or len(areas) > MAX_AREAS:
+        raise CareerPackError(f"Indica entre 1 y {MAX_AREAS} áreas")
+    skill_names = list(dict.fromkeys(_clean(x) for x in (skills or []) if _clean(x)))
+    if len(skill_names) > MAX_SKILLS:
+        raise CareerPackError(f"Máximo {MAX_SKILLS} skills")
+    slug = _slug(name)
+    if not slug:
+        raise CareerPackError("Nombre de carrera inválido")
+    area_rules = {}
+    for area, keywords in areas.items():
+        terms = [normalize_text(t) for t in [area, *keywords] if normalize_text(_clean(t))]
+        area_rules[area] = list(dict.fromkeys(terms))[: MAX_KEYWORDS + 1]
+    raw = {
+        "id": f"custom_{slug}"[:48],
+        "name": name,
+        "country": "PE",
+        "language": "es",
+        "areas": {"core": list(areas), "adjacent": [], "out_of_focus": ["Otras"]},
+        "area_slugs": {**{a: _slug(a) or "area" for a in areas}, "Otras": "otras"},
+        "area_rules": area_rules,
+        "out_of_focus_rules": {},
+        "skills": {
+            n: {"aliases": [normalize_text(n)], "category": None, "type": "technical"}
+            for n in skill_names
+        },
+        "excluded_title_signals": [],
+        "education_only": [],
+        "context_terms": sorted({t for terms in area_rules.values() for t in terms}),
+        "scoring": dict(DEFAULT_WEIGHTS),
+        "queries": [q for q in (_clean(x, 80) for x in (queries or [])) if q and not q.startswith("-")]
+        or [name, *list(areas)][:6],
+    }
+    pack = parse_pack(raw, "custom")
+    directory = user_packs_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{pack.id}.json").write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
+    _load.cache_clear()
+    return pack
 
 
 def active_career_id() -> str:

@@ -15,7 +15,7 @@ from typing import Any
 from pydantic import create_model
 
 from radar import cv_baseline, cv_targets
-from radar.careers import CareerPackError, list_packs, load_pack
+from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
     applications,
     career_timeline,
@@ -263,6 +263,23 @@ def set_career_track(career_id: str) -> dict:
         raise ValueError(str(exc)) from exc
     set_setting("career", pack.id)
     return {"active": pack.id, "name": pack.name}
+
+
+@tool(write=True)
+def create_career_pack(
+    name: str,
+    areas: dict[str, list[str]],
+    skills: list[str] | None = None,
+) -> dict:
+    """Crea una carrera propia y la activa. `areas` mapea cada área de trabajo a sus palabras clave
+    (por ejemplo {"Tributación": ["sunat", "igv"]}); `skills` son las competencias que se buscarán en
+    las ofertas. Úsala solo con datos que el usuario dio o aprobó."""
+    try:
+        pack = save_custom_pack(name, areas, skills)
+    except CareerPackError as exc:
+        raise ValueError(str(exc)) from exc
+    set_setting("career", pack.id)
+    return {"active": pack.id, "name": pack.name, "areas": pack.all_areas}
 
 
 # --- Seguimiento -------------------------------------------------------------------------------

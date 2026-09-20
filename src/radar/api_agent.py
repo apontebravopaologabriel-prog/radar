@@ -12,7 +12,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from radar import tools
-from radar.agent.loop import execute_tool, month_usage, monthly_cap, run_turn
+from radar.agent.loop import (
+    agent_enabled,
+    execute_tool,
+    month_usage,
+    monthly_cap,
+    read_only,
+    run_turn,
+)
 from radar.agent.provider import NO_KEY_PROVIDERS, PROVIDERS, load_config
 from radar.careers import (
     WEIGHT_KEYS,
@@ -33,6 +40,7 @@ from radar.feed import (
     today_feed,
 )
 from radar.geolocation import place_catalog
+from radar.refresh import refresh_status, start_refresh
 from radar.settings import set_json_setting, set_setting, write_secret
 
 router = APIRouter(prefix="/api")
@@ -163,6 +171,43 @@ def set_career(payload: CareerUpdate) -> dict[str, Any]:
     return _career_payload()
 
 
+class CustomCareer(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    areas: dict[str, list[str]] = Field(min_length=1, max_length=20)
+    skills: list[str] = Field(default_factory=list, max_length=60)
+    queries: list[str] = Field(default_factory=list, max_length=6)
+
+
+@router.post("/career/custom")
+def create_custom_career(payload: CustomCareer) -> dict[str, Any]:
+    from radar.careers import save_custom_pack
+
+    try:
+        pack = save_custom_pack(payload.name, payload.areas, payload.skills, payload.queries)
+    except CareerPackError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    set_setting("career", pack.id)
+    return _career_payload()
+
+
+class RefreshRequest(BaseModel):
+    places: list[str] = Field(default_factory=list, max_length=3)
+    limit: int = Field(default=15, ge=1, le=50)
+
+
+@router.post("/refresh", status_code=202)
+def refresh(payload: RefreshRequest) -> dict[str, Any]:
+    try:
+        return start_refresh(payload.places or None, limit=payload.limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/refresh/status")
+def refresh_state() -> dict[str, Any]:
+    return refresh_status()
+
+
 class WeightsUpdate(BaseModel):
     weights: dict[str, float]
 
@@ -191,6 +236,8 @@ def _agent_settings() -> dict[str, Any]:
         "has_key": bool(config.api_key),
         "needs_key": config.provider not in NO_KEY_PROVIDERS,
         "ready": config.ready,
+        "enabled": agent_enabled(),
+        "read_only": read_only(),
         "monthly_token_cap": monthly_cap(),
         "tokens_used_this_month": month_usage(),
         "providers": {k: v for k, v in PROVIDERS.items()},
@@ -208,10 +255,16 @@ class AgentSettingsUpdate(BaseModel):
     base_url: str | None = Field(default=None, max_length=300, pattern="^https?://")
     api_key: str | None = Field(default=None, max_length=400)
     monthly_token_cap: int | None = Field(default=None, ge=1000, le=100_000_000)
+    enabled: bool | None = None
+    read_only: bool | None = None
 
 
 @router.put("/agent/settings")
 def update_agent_settings(payload: AgentSettingsUpdate) -> dict[str, Any]:
+    if payload.enabled is not None:
+        set_setting("agent_enabled", "1" if payload.enabled else "0")
+    if payload.read_only is not None:
+        set_setting("agent_read_only", "1" if payload.read_only else "0")
     set_setting("llm_provider", payload.provider)
     set_setting("llm_model", payload.model or None)
     set_setting("llm_base_url", payload.base_url or None)
@@ -235,6 +288,8 @@ def _valid_history(messages: list[dict[str, Any]]) -> bool:
 
 @router.post("/chat")
 def chat(payload: ChatRequest) -> StreamingResponse:
+    if not agent_enabled():
+        raise HTTPException(status_code=403, detail="agent_disabled")
     if not _valid_history(payload.messages):
         raise HTTPException(status_code=422, detail="Historial inválido")
 
@@ -257,8 +312,10 @@ class ConfirmRequest(BaseModel):
 @router.post("/chat/confirm")
 def confirm(payload: ConfirmRequest) -> dict[str, Any]:
     """Ejecuta (o rechaza) una escritura propuesta por el agente. Solo herramientas de escritura."""
+    if not agent_enabled():
+        raise HTTPException(status_code=403, detail="agent_disabled")
     entry = tools.REGISTRY.get(payload.name)
-    if entry is None or not entry.chat or not entry.write:
+    if entry is None or not entry.chat or not entry.write or read_only():
         raise HTTPException(status_code=422, detail="Herramienta no confirmable")
     if not payload.approve:
         result: Any = {"cancelado_por_el_usuario": True}

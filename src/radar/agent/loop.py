@@ -44,6 +44,19 @@ algo no está ahí, di que no lo sabes.
 escritura solo cuando el usuario haya dado los datos."""
 
 
+def agent_enabled() -> bool:
+    """El agente nace apagado: solo funciona si el usuario lo activó en Ajustes."""
+    return get_setting("agent_enabled") == "1"
+
+
+def read_only() -> bool:
+    return get_setting("agent_read_only") == "1"
+
+
+def _allowed_tools() -> list[tools.Tool]:
+    return [t for t in tools.chat_tools() if not (read_only() and t.write)]
+
+
 def _tool_specs() -> list[dict[str, Any]]:
     return [
         {
@@ -54,7 +67,7 @@ def _tool_specs() -> list[dict[str, Any]]:
                 "parameters": t.json_schema(),
             },
         }
-        for t in tools.chat_tools()
+        for t in _allowed_tools()
     ]
 
 
@@ -99,7 +112,7 @@ def wrap_untrusted(result: Any) -> str:
 def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
     """Ejecuta una herramienta registrada validando sus argumentos contra su firma."""
     entry = tools.REGISTRY.get(name)
-    if entry is None or not entry.chat:
+    if entry is None or not entry.chat or (read_only() and entry.write):
         raise ValueError(f"Herramienta no disponible: {name}")
     return entry.call(arguments)
 
@@ -110,6 +123,9 @@ def run_turn(
     client: httpx.Client | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Eventos: text, tool_result, pending, error, done."""
+    if not agent_enabled():
+        yield {"type": "error", "message": "El agente está desactivado. Actívalo en Ajustes."}
+        return
     if not config.ready:
         yield {"type": "error", "message": "Configura el proveedor y la clave de API en Ajustes."}
         return
@@ -150,7 +166,7 @@ def run_turn(
                 args = json.loads(call["arguments"] or "{}")
             except json.JSONDecodeError:
                 args = None
-            if entry is None or not entry.chat or not isinstance(args, dict):
+            if entry is None or not entry.chat or not isinstance(args, dict) or (read_only() and entry.write):
                 result = {"error": "Herramienta o argumentos inválidos"}
             elif entry.write:
                 pending.append({"id": call["id"], "name": call["name"], "arguments": args,

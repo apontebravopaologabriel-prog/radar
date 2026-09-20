@@ -145,11 +145,11 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
         "created_at TEXT NOT NULL DEFAULT (now()))"
     )
     conn.executemany(
-        "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT(name) DO NOTHING",
+        "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),
     )
     conn.executemany(
-        "INSERT INTO skills(name, normalized_name, category, skill_type) VALUES (%s, %s, %s, %s) ON CONFLICT(name) DO NOTHING",
+        "INSERT INTO skills(name, normalized_name, category, skill_type) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_SKILLS + _pack_skills(),
     )
     conn.executemany(

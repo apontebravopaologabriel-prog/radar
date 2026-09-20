@@ -75,3 +75,39 @@ def test_ingest_and_score_use_active_career_pack():
     ingest_jobs([_job("Asistente contable", "NIIF y Excel")])
     profile_id = save_profile("Ana", None, ["Contabilidad"], ["Lima"], [], {"Excel": "advanced"})
     assert recompute_scores(profile_id) == 1
+
+
+def test_custom_career_is_created_classified_and_stays_local(tmp_path):
+    from radar.careers import active_pack, save_custom_pack, user_packs_dir
+
+    pack = save_custom_pack(
+        "Enfermería",
+        {"Emergencias": ["triaje", "urgencias"], "Cuidados intensivos": ["uci"]},
+        ["BLS", "Manejo de bombas de infusión"],
+    )
+    assert pack.id == "custom_enfermeria"
+    assert user_packs_dir().parent == tmp_path and (user_packs_dir() / "custom_enfermeria.json").is_file()
+    job = _job("Enfermera de Urgencias", "Triaje y BLS vigente")
+    result = classify(job, pack)
+    assert result.primary_area.value == "Emergencias"
+    assert {n for n, _ in result.skills} == {"BLS"}
+    assert infer_relevance(job, "Emergencias", pack).tier == "core"
+    from radar.settings import set_setting
+
+    set_setting("career", pack.id)
+    assert active_pack().id == pack.id
+    # Se guarda en el catálogo de la base sin romper por skills que ya existían con otro nombre.
+    ingest_jobs([_job("Enfermera UCI", "uci")])
+    save_custom_pack("Otra", {"Datos": ["sql"]}, ["Sql"])
+    ingest_jobs([_job("Analista", "sql")])
+
+
+def test_custom_career_rejects_bad_input():
+    from radar.careers import save_custom_pack
+
+    with pytest.raises(CareerPackError):
+        save_custom_pack("", {"A": []})
+    with pytest.raises(CareerPackError):
+        save_custom_pack("X", {})
+    with pytest.raises(CareerPackError):
+        save_custom_pack("X", {f"a{i}": [] for i in range(25)})

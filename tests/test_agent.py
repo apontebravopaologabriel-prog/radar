@@ -14,6 +14,7 @@ from radar.settings import read_secrets, secrets_path, set_setting
 def _db(tmp_path, monkeypatch):
     monkeypatch.setenv("RADAR_DB_PATH", str(tmp_path / "radar.db"))
     monkeypatch.delenv("RADAR_ACCESS_TOKEN", raising=False)
+    set_setting("agent_enabled", "1")  # el agente nace apagado; las pruebas lo activan
 
 
 CONFIG = LLMConfig("deepseek", "https://llm.test", "m", "sk-secret")
@@ -145,3 +146,30 @@ def test_today_applications_and_profile_endpoints():
     assert api.put("/api/applications/no-existe", json={"status": "saved"}).status_code == 404
     assert api.put("/api/career/weights", json={"weights": {"location": 0.9}}).status_code == 200
     assert api.put("/api/career/weights", json={"weights": {"foo": 1}}).status_code == 422
+
+
+def test_agent_is_off_by_default_and_enforced_on_the_server():
+    set_setting("agent_enabled", "0")
+    api = TestClient(app)
+    assert api.get("/api/agent/settings").json()["enabled"] is False
+    res = api.post("/api/chat", json={"messages": [{"role": "user", "content": "hola"}]})
+    assert res.status_code == 403 and res.json()["detail"] == "agent_disabled"
+    assert api.post("/api/chat/confirm", json={"tool_call_id": "1", "name": "favorite_job",
+                                               "arguments": {}, "approve": True}).status_code == 403
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "hola"}]))
+    assert events[0]["type"] == "error" and "desactivado" in events[0]["message"]
+    api.put("/api/agent/settings", json={"provider": "deepseek", "enabled": True})
+    assert api.get("/api/agent/settings").json()["enabled"] is True
+
+
+def test_read_only_mode_hides_and_blocks_write_tools():
+    set_setting("agent_read_only", "1")
+    names = {s["function"]["name"] for s in loop._tool_specs()}
+    assert "get_today_feed" in names and "favorite_job" not in names
+    client, _ = _client(_call("favorite_job", {"job_id": "x"}), _text("ok"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "guarda"}], client))
+    assert not any(e["type"] == "pending" for e in events)
+    api = TestClient(app)
+    assert api.post("/api/chat/confirm", json={"tool_call_id": "1", "name": "set_career_track",
+                                               "arguments": {"career_id": "contabilidad"},
+                                               "approve": True}).status_code == 422
