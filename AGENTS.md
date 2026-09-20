@@ -2,7 +2,7 @@
 
 ## Contexto
 
-Radar es una aplicación local de Career Intelligence para explorar ofertas de empleo en Lima.
+Radar es una aplicación local de Career Intelligence para explorar ofertas de empleo en el Perú (Lima como mercado principal, más ciudades del país).
 La fuente de verdad es SQLite (archivo local, sin servidor); FastAPI expone la API y Next.js genera
 el frontend estático que FastAPI sirve en `/radar`.
 
@@ -26,6 +26,7 @@ Antes de cambiar comportamiento, leer en este orden:
 - `src/radar/tools.py`: registro único de herramientas (MCP y chat). Declara `write` y `chat` por herramienta.
 - `src/radar/agent/`: proveedor OpenAI-compatible y bucle del agente (escrituras siempre pendientes).
 - `src/radar/help.md` + `help.py`: ayuda curada; el agente explica el producto solo desde ahí (`get_help`). Actualízala al cambiar una función visible.
+- `src/radar/geolocation.py`: distritos de Lima/Callao, ciudades y departamentos del Perú. Orden de resolución: ciudad (palabra completa) → distrito de Lima → departamento → Lima; "Perú" a secas no ubica. Añade ciudades en `_CITIES`.
 - `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
 - `frontend/components/mobile/` y `app/m/`: PWA móvil (`/m`); `frontend/public/` guarda manifest y service worker.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
@@ -113,4 +114,5 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
 - Terminal gris y negro: monoespaciada, solo modo oscuro, sin acentos de color, `>` en títulos y etiquetas `[SECCIÓN]`, objetivos táctiles de 44 px.
 - Toda herramienta nueva se registra en `tools.py`; si escribe, `write=True`. No exponer al chat
   herramientas que envíen mensajes, postulen o ejecuten SQL libre.
+- El mapa móvil usa Leaflet con teselas de OpenStreetMap (CARTO ya exige clave) y un punto por lugar; no cargar polígonos ni una capa por oferta.
 - El service worker no cachea `/api/chat`, `/api/agent` ni `/api/auth`.

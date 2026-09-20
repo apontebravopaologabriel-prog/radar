@@ -25,13 +25,14 @@ from radar.careers import (
 from radar.db.queries import applications, get_profile
 from radar.db.repository import recompute_scores, track_application
 from radar.feed import (
-    default_district,
-    district_names,
+    default_place,
+    map_places,
     nearby,
     setup_status,
     skill_impact,
     today_feed,
 )
+from radar.geolocation import place_catalog
 from radar.settings import set_json_setting, set_setting, write_secret
 
 router = APIRouter(prefix="/api")
@@ -50,19 +51,31 @@ def setup() -> dict[str, Any]:
     return setup_status()
 
 
-@router.get("/districts")
-def districts() -> dict[str, Any]:
-    return {"districts": district_names(), "default": default_district()}
+@router.get("/places")
+def places() -> dict[str, Any]:
+    catalog = place_catalog()
+    return {
+        "groups": [
+            {"label": "Lima y Callao (distritos)", "places": [p["name"] for p in catalog["lima"]]},
+            {"label": "Resto del Perú (ciudades)", "places": [p["name"] for p in catalog["peru"]]},
+        ],
+        "default": default_place(),
+    }
+
+
+@router.get("/map/places")
+def map_place_counts() -> dict[str, Any]:
+    return map_places()
 
 
 @router.get("/nearby")
 def nearby_jobs(
-    district: str = Query(min_length=1, max_length=80),
-    radius_km: float = Query(default=5.0, ge=0.5, le=60),
+    place: str = Query(min_length=1, max_length=80),
+    radius_km: float = Query(default=5.0, ge=0.5, le=2500),
     limit: int = Query(default=30, ge=1, le=60),
 ) -> dict[str, Any]:
     try:
-        return nearby(district, radius_km, limit)
+        return nearby(place, radius_km, limit)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

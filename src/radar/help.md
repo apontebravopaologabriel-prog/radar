@@ -1,5 +1,5 @@
 ## inicio
-Radar ordena las ofertas de empleo por lo bien que encajan contigo y te dice qué te falta para cerrar la brecha. Flujo: 1) elige tu carrera, 2) declara tu perfil y skills (solo lo cierto), 3) revisa "Hoy", 4) guarda lo que te interesa y sigue tu proceso en "Seguimiento". Radar nunca postula ni escribe a empresas por ti.
+Radar cubre todo el Perú: ordena las ofertas de empleo por lo bien que encajan contigo y te dice qué te falta para cerrar la brecha. Flujo: 1) elige tu carrera, 2) declara tu perfil y skills (solo lo cierto), 3) revisa "Hoy", 4) guarda lo que te interesa y sigue tu proceso en "Seguimiento". Radar nunca postula ni escribe a empresas por ti.
 
 ## hoy
 La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una línea (skills que coinciden y las que te faltan). Acciones: Guardar (pasa a Seguimiento), ★ (favorita), No me interesa (la oculta) y Abrir (enlace original). Abajo, "Qué aprender primero" simula cuánto sube tu encaje al dominar cada skill faltante. Sin perfil no hay puntaje: configúralo primero.
@@ -19,11 +19,8 @@ En Ajustes → "Qué pesa más en el encaje" ajustas la importancia de área, sk
 ## agente
 El agente responde preguntas y hace consultas con las mismas herramientas del MCP. Usa tu propia clave de API (Ajustes → Agente); pagas al proveedor por lo que uses y hay un tope mensual de tokens. Consulta libremente, pero toda acción que modifica datos (favoritos, seguimiento, perfil, carrera) aparece como tarjeta y solo se ejecuta si la apruebas. No envía mensajes ni postula.
 
-## cerca
-La pestaña Cerca lista las ofertas recientes dentro de un radio (2, 5, 10 o 20 km) de un distrito que eliges, de la más cercana a la más lejana, con los km. Es ligera y pensada para el celular. La distancia se calcula entre centroides de distrito, así que es aproximada.
-
 ## mapa
-El mapa completo es un modo avanzado pensado para pantalla grande (en el celular puede ir lento). Se abre en /radar y muestra las ofertas en un mapa de Lima y Callao: vista Distritos (cantidad por distrito) y vista Radar (radio de 2, 5 o 10 km desde un distrito). Las ubicaciones son aproximadas por distrito. Análisis permite consultas SQL de solo lectura y CVs compara tus brechas contra puestos objetivo (las ofertas con ★).
+La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Callao, y ciudades del resto del país) con la cantidad de ofertas. Toca un punto o elige un lugar de referencia y un radio (2, 5, 10, 25 o 100 km, o Todo Perú): abajo verás las ofertas de la más cercana a la más lejana. La distancia es entre centroides de distrito o ciudad, así que es aproximada; un punto punteado y "dpto." significan que la oferta solo indica el departamento y se ubica en su capital. El mapa carga los mosaicos de un servidor externo (OpenStreetMap), que ve qué zona miras. El mapa completo de escritorio (distritos y radar) está en Ajustes → modo avanzado, y ahí también Análisis (consultas SQL de solo lectura) y CVs (tus brechas contra los puestos con ★).
 
 ## actualizar
 Las ofertas se actualizan desde tu PC (no desde el celular) con el refresco de Radar o el comando `radar ingest`. El agente no busca en portales por ti. Si "Hoy" está vacío, actualiza el mercado.

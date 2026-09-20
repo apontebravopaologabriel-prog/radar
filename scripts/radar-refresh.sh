@@ -13,6 +13,9 @@ COMPUTRABAJO_ENABLED="${RADAR_COMPUTRABAJO_ENABLED:-1}"
 export RADAR_JOBSPY_SITES="${RADAR_JOBSPY_SITES:-indeed,linkedin}"
 STALE_AFTER_DAYS="${RADAR_STALE_AFTER_DAYS:-45}"
 LIVENESS_CHECK_LIMIT="${RADAR_LIVENESS_CHECK_LIMIT:-150}"
+# Cobertura nacional: además de Lima se capturan estas ciudades con un subconjunto de consultas
+# (la búsqueda "Perú" a secas devuelve sobre todo Lima). Vacía la variable para volver a solo Lima.
+CITIES="${RADAR_CITIES-Arequipa,Trujillo,Chiclayo,Piura,Cusco,Huancayo,Iquitos,Tacna,Cajamarca,Ica}"
 
 mkdir -p "$STATE_DIR"
 cd "$PROJECT_DIR"
@@ -75,6 +78,27 @@ run_step() {
     else
         echo "[computrabajo] scheduled cycle paused; set RADAR_COMPUTRABAJO_ENABLED=1 after detail validation"
     fi
+
+    city_queries=(
+        "logistica inventarios almacenes"
+        "produccion operaciones industrial"
+        "calidad Lean Six Sigma"
+        "procesos BPMN mejora continua"
+    )
+    IFS=',' read -ra city_list <<< "$CITIES"
+    for city in "${city_list[@]}"; do
+        [[ -z "$city" ]] && continue
+        for query in "${city_queries[@]}"; do
+            run_step "jobspy/indeed+linkedin [$city]: $query" \
+                timeout 180 "$JOBSPY_BIN" ingest --source jobspy --query "$query" \
+                    --location "$city" --limit 25 --max-age-days "$MAX_AGE_DAYS"
+            if [[ "$COMPUTRABAJO_ENABLED" == "1" ]]; then
+                run_step "computrabajo [$city]: $query" \
+                    timeout 180 "$RADAR_BIN" ingest --source computrabajo --query "$query" \
+                        --location "$city" --limit 25 --max-age-days "$MAX_AGE_DAYS"
+            fi
+        done
+    done
 
     run_step "quality: repair-data" "$RADAR_BIN" repair-data
     run_step "quality: expire-stale" "$RADAR_BIN" expire-stale --days "$STALE_AFTER_DAYS"

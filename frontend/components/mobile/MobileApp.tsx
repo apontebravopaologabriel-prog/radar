@@ -7,13 +7,13 @@ import AgentView from "./AgentView";
 import Onboarding from "./Onboarding";
 import PipelineView from "./PipelineView";
 import SettingsView from "./SettingsView";
-import NearbyView from "./NearbyView";
+import MapTab from "./MapTab";
 import TodayView from "./TodayView";
 
-type Tab = "today" | "nearby" | "pipeline" | "agent" | "settings";
+type Tab = "today" | "map" | "pipeline" | "agent" | "settings";
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "today", label: "Hoy", icon: "◉" },
-  { id: "nearby", label: "Cerca", icon: "◎" },
+  { id: "map", label: "Mapa", icon: "◎" },
   { id: "pipeline", label: "Proceso", icon: "☰" },
   { id: "agent", label: "Agente", icon: "✦" },
   { id: "settings", label: "Ajustes", icon: "⚙" },
@@ -70,7 +70,7 @@ export default function MobileApp() {
         {setup ? (
           <Onboarding onError={onError} onDone={() => { setSetup(false); setEpoch((n) => n + 1); setTab("today"); }} />
         ) : tab === "today" ? <TodayView key={epoch} onSetup={() => setSetup(true)} onError={onError} />
-        : tab === "nearby" ? <NearbyView onError={onError} />
+        : tab === "map" ? <MapTab onError={onError} />
         : tab === "pipeline" ? <PipelineView onError={onError} />
         : tab === "agent" ? <AgentView onSettings={() => setTab("settings")} onError={onError} />
         : <SettingsView authRequired={auth.required} onLogout={logout} onError={onError} />}

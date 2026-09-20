@@ -68,24 +68,36 @@ def test_setup_status_guides_and_help_is_grounded():
     assert "get_help" in {t.name for t in tools.chat_tools()}
 
 
-def test_find_jobs_near_orders_by_distance_and_filters_radius():
+def test_find_jobs_near_works_across_peru():
     from datetime import UTC, datetime
 
     from radar.db.repository import ingest_jobs as store
     from radar.domain.models import RawJob
+    from radar.feed import map_places
 
     now = datetime.now(UTC)
     store([
         RawJob("t", "Practicante de Procesos", "A", "https://e.com/a", location="Miraflores, Lima",
                description="Excel", published_at=now),
-        RawJob("t", "Practicante de Logística", "B", "https://e.com/b", location="San Isidro, Lima",
+        RawJob("t", "Practicante de Logística", "B", "https://e.com/b", location="San Isidro, Peru",
                description="Excel", published_at=now),
         RawJob("t", "Practicante de Calidad", "C", "https://e.com/c", location="Ate, Lima",
                description="Excel", published_at=now),
+        RawJob("t", "Analista de Compras", "D", "https://e.com/d", location="Yanahuara, Arequipa",
+               description="Excel, SAP", published_at=now),
+        RawJob("t", "Practicante de Producción", "E", "https://e.com/e", location="Áncash",
+               description="Excel", published_at=now),
     ])
-    result = tools.find_jobs_near("Miraflores", 5)
-    assert [j["district"] for j in result["jobs"]] == ["Miraflores", "San Isidro"]
-    assert result["jobs"][0]["km"] == 0
-    assert tools.find_jobs_near("Miraflores", 30)["total"] == 3
+    lima = tools.find_jobs_near("Miraflores", 5)
+    assert [j["place"] for j in lima["jobs"]] == ["Miraflores", "San Isidro"]
+    assert lima["jobs"][0]["km"] == 0
+    assert tools.find_jobs_near("Miraflores", 30)["total"] == 3  # Arequipa queda a ~1000 km
+    south = tools.find_jobs_near("Arequipa", 10)
+    assert [j["place"] for j in south["jobs"]] == ["Arequipa"]
+    nationwide = tools.find_jobs_near("Lima", 2000)
+    assert nationwide["total"] == 5
+    assert {j["precision"] for j in nationwide["jobs"]} == {"district", "city", "department"}
+    places = {p["name"]: p for p in map_places()["places"]}
+    assert places["Arequipa"]["precision"] == "city" and places["Áncash"]["precision"] == "department"
     with pytest.raises(ValueError):
         tools.find_jobs_near("Narnia")

@@ -85,3 +85,13 @@
 .m-km { flex: none; min-width: 52px; text-align: center; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .m-linkbtn { margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) { .m-app * { transition: none !important; animation: none !important; } }
+
+.m-map { width: 100%; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: #111; touch-action: none; }
+.m-map-loading { display: grid; place-items: center; height: 320px; color: var(--muted); }
+.m-map-tools { align-items: center; margin-top: 0; }
+.m-map-tools .m-sub { flex: 1; min-width: 160px; margin: 0; font-size: 12px; }
+.m-map .leaflet-container { font: inherit; background: #111; }
+.m-map .m-map-count { background: transparent; border: 0; box-shadow: none; color: #fff; font-weight: 700; font-size: 11px; }
+.m-map .m-map-count::before { display: none; }
+/* Mosaicos de OpenStreetMap oscurecidos y en grises para conservar la estética terminal. */
+.m-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) grayscale(1) brightness(.85) contrast(.9); }

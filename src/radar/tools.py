@@ -150,10 +150,11 @@ def get_today_feed(limit: int = 5) -> dict:
 
 
 @tool()
-def find_jobs_near(district: str, radius_km: float = 5.0, limit: int = 15) -> dict:
-    """Ofertas recientes dentro de un radio (km) de un distrito de Lima/Callao, de la más cercana a la
-    más lejana. La distancia es entre centroides de distrito (aproximada)."""
-    return nearby(district, radius_km, limit)
+def find_jobs_near(place: str, radius_km: float = 5.0, limit: int = 15) -> dict:
+    """Ofertas recientes dentro de un radio (km) de un distrito de Lima/Callao o de una ciudad del
+    Perú (Arequipa, Trujillo, Cusco...), de la más cercana a la más lejana. Distancia aproximada
+    entre centroides."""
+    return nearby(place, radius_km, limit)
 
 
 @tool()

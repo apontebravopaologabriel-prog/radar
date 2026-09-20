@@ -254,12 +254,13 @@ stdio…" y "API local") para reflejar el modo hospedado y el agente integrado.
 | 3. Chat con BYOK | Hecho | Proveedor OpenAI-compatible (DeepSeek por defecto), streaming, confirmación de escrituras, tope de tokens. |
 | Acceso remoto | Hecho (básico) | `RADAR_ACCESS_TOKEN` + Tailscale; passkeys no implementadas. |
 | Agente guía | Hecho | `get_setup_status` (qué falta y siguiente paso) y `get_help` (ayuda curada en `src/radar/help.md`); el chat ofrece "Ayúdame a configurar Radar" si la configuración está incompleta. |
+| Cobertura Perú | Hecho (base) | Objetivo actual: todo el Perú. `geolocation.py` resuelve distritos de Lima/Callao, ~65 ciudades y los 23 departamentos (precisión de ciudad/departamento, aproximada); mapa móvil con un punto por lugar; refresco con 10 ciudades (`RADAR_CITIES`). Pendiente: polígonos por ciudad y geocodificación real. |
 | Estética móvil | Hecho | Terminal gris y negro, monoespaciada, solo oscuro, alineada con el modo de escritorio. |
 | 4. Onboarding con CV | Pendiente | Hoy es un formulario; falta subir CV y extraer el perfil con confirmación. |
 | 5. Hospedaje multiusuario | Pendiente | Requiere `user_id`, autenticación por usuario y PostgreSQL. |
 | 6. Alertas y push | Pendiente | Requiere HTTPS y claves VAPID. |
 | 7. Expansión | Pendiente | Más carreras y ciudades (el mapa sigue siendo solo Lima). |
 
-Limitaciones conocidas: la geografía es solo Lima/Callao; el agente no se probó con un proveedor real
+Limitaciones conocidas: la geografía fuera de Lima es por centroide de ciudad (una oferta en un distrito de Arequipa se ubica en Arequipa); la búsqueda "Perú" a secas devuelve sobre todo Lima, por eso se captura por ciudad; el agente no se probó con un proveedor real
 (las pruebas usan un servidor simulado); la interfaz móvil se verificó con capturas y compilación, no
 con pruebas de interacción automatizadas.

@@ -196,3 +196,11 @@ uses `0.0.0.0` en una red que no controles.
 Ajustes → Agente: elige proveedor, modelo y pega tu clave. La clave se guarda en
 `~/.local/share/radar/secrets.json` (permisos `0600`), nunca en la base de datos ni en el navegador.
 El consumo se cuenta en la tabla `agent_usage` y el chat se detiene al llegar al tope mensual.
+
+## Cobertura nacional
+
+`scripts/radar-refresh.sh` captura Lima y, además, las ciudades de `RADAR_CITIES` (por defecto Arequipa,
+Trujillo, Chiclayo, Piura, Cusco, Huancayo, Iquitos, Tacna, Cajamarca e Ica) con 4 consultas cada una,
+en JobSpy y Computrabajo. Amplía o reduce la lista con la variable (`RADAR_CITIES=""` = solo Lima);
+cada ciudad añade varios minutos al refresco. Una ciudad nueva también debe existir en
+`src/radar/geolocation.py` (`_CITIES`) para aparecer en el mapa.
