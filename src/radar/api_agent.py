@@ -24,7 +24,7 @@ from radar.careers import (
 )
 from radar.db.queries import applications, get_profile
 from radar.db.repository import recompute_scores, track_application
-from radar.feed import skill_impact, today_feed
+from radar.feed import setup_status, skill_impact, today_feed
 from radar.settings import set_json_setting, set_setting, write_secret
 
 router = APIRouter(prefix="/api")
@@ -36,6 +36,11 @@ router = APIRouter(prefix="/api")
 @router.get("/today")
 def today(limit: int = Query(default=5, ge=1, le=20)) -> dict[str, Any]:
     return today_feed(limit)
+
+
+@router.get("/setup/status")
+def setup() -> dict[str, Any]:
+    return setup_status()
 
 
 @router.get("/skills/impact")

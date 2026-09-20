@@ -13,6 +13,7 @@ from radar.careers import CareerPack, default_pack
 from radar.domain.models import RawJob
 from radar.normalize import normalize_text
 
+
 @dataclass(frozen=True, slots=True)
 class Relevance:
     tier: str

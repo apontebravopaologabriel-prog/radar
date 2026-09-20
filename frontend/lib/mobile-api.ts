@@ -42,6 +42,7 @@ export const api = {
   login: (token: string) => request<{ authenticated: boolean }>("/api/auth/login", { method: "POST", body: JSON.stringify({ token }) }),
   logout: () => request<{ authenticated: boolean }>("/api/auth/logout", { method: "POST" }),
   today: () => request<Today>("/api/today?limit=8"),
+  setupStatus: () => request<{ complete: boolean; steps: { id: string; done: boolean; detail: string }[] }>("/api/setup/status"),
   impact: () => request<SkillImpact>("/api/skills/impact?limit=4"),
   applications: () => request<{ applications: Application[] }>("/api/applications"),
   setApplication: (jobId: string, status: string, notes?: string) =>

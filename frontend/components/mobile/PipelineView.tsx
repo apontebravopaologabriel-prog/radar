@@ -28,7 +28,7 @@ export default function PipelineView({ onError }: { onError: (e: unknown) => voi
   const shown = items.filter((i) => i.status === tab);
   return (
     <div className="m-stack">
-      <header className="m-head"><h1>Seguimiento</h1><p>Tu proceso, de guardada a oferta</p></header>
+      <header className="m-head"><span className="m-eyebrow">[SEGUIMIENTO]</span><h1>Seguimiento</h1><p>Tu proceso, de guardada a oferta</p></header>
       <div className="m-chips" role="tablist">
         {STATUS_ORDER.map((s) => (
           <button key={s} role="tab" aria-selected={tab === s} onClick={() => setTab(s)}>{STATUS_LABELS[s]} <b>{counts(s)}</b></button>

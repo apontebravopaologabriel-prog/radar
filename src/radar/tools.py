@@ -34,8 +34,9 @@ from radar.db.repository import (
     save_profile,
     track_application,
 )
-from radar.feed import skill_impact, today_feed
+from radar.feed import setup_status, skill_impact, today_feed
 from radar.freshness import DEFAULT_MAX_AGE_DAYS
+from radar.help import help_topics, read_help
 from radar.pipeline import run_ingestion
 from radar.settings import get_setting, set_setting
 
@@ -170,6 +171,24 @@ def get_market_history(limit: int = 90) -> dict:
 def capture_market_history(snapshot_date: str | None = None) -> dict:
     """Guarda una fotografía del mercado activo para comparaciones futuras."""
     return {"metrics_saved": capture_market_snapshot(snapshot_date)}
+
+
+# --- Guía y configuración ------------------------------------------------------------------------
+
+
+@tool()
+def get_setup_status() -> dict:
+    """Qué falta para dejar Radar listo (perfil, carrera, mercado, clave de IA) y el siguiente paso.
+    Úsala al iniciar una conversación nueva o cuando el usuario pregunte por dónde empezar."""
+    return setup_status()
+
+
+@tool()
+def get_help(topic: str = "inicio") -> dict:
+    """Explica cómo usar Radar. Apóyate solo en este texto al explicar funciones; no inventes otras.
+    Temas: inicio, hoy, seguimiento, perfil, carrera, pesos, agente, mapa, actualizar,
+    acceso-remoto, privacidad."""
+    return {"topic": topic, "text": read_help(topic), "available_topics": help_topics()}
 
 
 # --- Perfil y carrera --------------------------------------------------------------------------

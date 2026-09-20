@@ -38,7 +38,7 @@ export default function SettingsView({ authRequired, onLogout, onError }: { auth
   if (!career || !agent) return <p className="m-empty">Cargando…</p>;
   return (
     <div className="m-stack">
-      <header className="m-head"><h1>Ajustes</h1>{note && <p role="status">{note}</p>}</header>
+      <header className="m-head"><span className="m-eyebrow">[AJUSTES]</span><h1>Ajustes</h1>{note && <p role="status">{note}</p>}</header>
 
       <section className="m-card">
         <h2>Carrera</h2>

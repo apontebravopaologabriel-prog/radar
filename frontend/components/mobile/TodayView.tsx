@@ -36,7 +36,7 @@ export default function TodayView({ onSetup, onError }: { onSetup: () => void; o
   if (!today) return <p className="m-empty">Cargando…</p>;
   return (
     <div className="m-stack">
-      <header className="m-head"><h1>Hoy</h1><p>Ofertas frescas que encajan contigo</p></header>
+      <header className="m-head"><span className="m-eyebrow">[HOY]</span><h1>Hoy</h1><p>Ofertas frescas que encajan contigo</p></header>
       {!today.profile_configured && (
         <button className="m-callout" onClick={onSetup}>
           <strong>Configura tu perfil</strong>

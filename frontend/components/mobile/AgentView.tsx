@@ -5,7 +5,8 @@ import { api, streamChat, type AgentSettings, type ApiMessage, type PendingActio
 
 type Line = { kind: "user" | "assistant" | "tool" | "error"; text: string };
 const STORE = "radar.chat.v1";
-const SUGGESTIONS = ["¿Qué hay nuevo hoy?", "¿Qué skill me conviene aprender?", "Muéstrame mi seguimiento"];
+const SUGGESTIONS = ["¿Qué hay nuevo hoy?", "¿Qué skill me conviene aprender?", "Muéstrame mi seguimiento", "¿Cómo se usa Radar?"];
+const SETUP_PROMPT = "Ayúdame a configurar Radar";
 
 function load(): { history: ApiMessage[]; lines: Line[] } {
   try { return JSON.parse(localStorage.getItem(STORE) ?? "") as { history: ApiMessage[]; lines: Line[] }; } catch { return { history: [], lines: [] }; }
@@ -18,10 +19,11 @@ export default function AgentView({ onSettings, onError }: { onSettings: () => v
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
 
-  useEffect(() => { const s = load(); setHistory(s.history); setLines(s.lines); api.agentSettings().then(setSettings).catch(onError); }, [onError]);
+  useEffect(() => { const s = load(); setHistory(s.history); setLines(s.lines); api.agentSettings().then(setSettings).catch(onError); api.setupStatus().then((st) => setNeedsSetup(!st.complete)).catch(() => undefined); }, [onError]);
   useEffect(() => {
     try { localStorage.setItem(STORE, JSON.stringify({ history: history.slice(-40), lines: lines.slice(-60) })); } catch { /* sin almacenamiento */ }
     bottom.current?.scrollIntoView({ block: "end" });
@@ -80,7 +82,7 @@ export default function AgentView({ onSettings, onError }: { onSettings: () => v
   return (
     <div className="m-chat">
       <header className="m-head m-head-row">
-        <div><h1>Agente</h1>{settings && <p>{settings.ready ? `${settings.model} · ${Math.round((used / Math.max(cap, 1)) * 100)}% del tope mensual` : "Sin configurar"}</p>}</div>
+        <div><span className="m-eyebrow">[AGENTE]</span><h1>Agente</h1>{settings && <p>{settings.ready ? `${settings.model} · ${Math.round((used / Math.max(cap, 1)) * 100)}% del tope mensual` : "Sin configurar"}</p>}</div>
         {lines.length > 0 && <button className="m-link" onClick={reset}>Nueva</button>}
       </header>
       {settings && !settings.ready && (
@@ -91,7 +93,10 @@ export default function AgentView({ onSettings, onError }: { onSettings: () => v
       )}
       <div className="m-messages" aria-live="polite">
         {lines.length === 0 && (
-          <div className="m-suggest">{SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}</div>
+          <div className="m-suggest">
+            {needsSetup && <button className="m-suggest-primary" onClick={() => send(SETUP_PROMPT)}>{SETUP_PROMPT}</button>}
+            {SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
+          </div>
         )}
         {lines.map((line, index) => <div key={index} className={`m-msg m-msg-${line.kind}`}>{line.text}</div>)}
         {pending.map((action) => (

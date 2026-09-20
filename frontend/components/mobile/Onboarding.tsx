@@ -39,7 +39,7 @@ export default function Onboarding({ onDone, onError }: { onDone: () => void; on
 
   return (
     <div className="m-stack">
-      <header className="m-head"><h1>Bienvenido a Radar</h1><p>Tres minutos para que las ofertas se ordenen por ti. Solo declara lo que es cierto: nada se inventa.</p></header>
+      <header className="m-head"><span className="m-eyebrow">[INICIO]</span><h1>Bienvenido a Radar</h1><p>Tres minutos para que las ofertas se ordenen por ti. Solo declara lo que es cierto: nada se inventa.</p></header>
       <section className="m-card">
         <h2>1. Tu carrera</h2>
         <select value={career.active} onChange={(e) => changeCareer(e.target.value)} aria-label="Carrera">

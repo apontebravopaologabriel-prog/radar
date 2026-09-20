@@ -6,6 +6,7 @@ from radar.careers import CareerPack, default_pack
 from radar.domain.models import ClassifiedJob, Evidence, RawJob
 from radar.normalize import normalize_text
 
+
 def _evidence(text: str, phrase: str) -> str:
     match = re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, flags=re.IGNORECASE)
     if not match:

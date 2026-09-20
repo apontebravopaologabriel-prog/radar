@@ -25,6 +25,7 @@ Antes de cambiar comportamiento, leer en este orden:
   score. `classify.py` y `taxonomy.py` son motores que los leen; no hay reglas de una carrera en Python.
 - `src/radar/tools.py`: registro único de herramientas (MCP y chat). Declara `write` y `chat` por herramienta.
 - `src/radar/agent/`: proveedor OpenAI-compatible y bucle del agente (escrituras siempre pendientes).
+- `src/radar/help.md` + `help.py`: ayuda curada; el agente explica el producto solo desde ahí (`get_help`). Actualízala al cambiar una función visible.
 - `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
 - `frontend/components/mobile/` y `app/m/`: PWA móvil (`/m`); `frontend/public/` guarda manifest y service worker.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
@@ -109,7 +110,7 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
 ## Contratos de la app móvil (`/m`)
 
 - Es una interfaz aparte del mapa: no aplican las reglas de barra flotante del explorador de escritorio.
-- Monocromática (sin acentos de color), oscura o clara según el sistema, objetivos táctiles de 44 px.
+- Terminal gris y negro: monoespaciada, solo modo oscuro, sin acentos de color, `>` en títulos y etiquetas `[SECCIÓN]`, objetivos táctiles de 44 px.
 - Toda herramienta nueva se registra en `tools.py`; si escribe, `write=True`. No exponer al chat
   herramientas que envíen mensajes, postulen o ejecuten SQL libre.
 - El service worker no cachea `/api/chat`, `/api/agent` ni `/api/auth`.

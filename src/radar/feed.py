@@ -110,3 +110,36 @@ def skill_impact(limit: int = 8, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> di
         "jobs_considered": len(jobs),
         "skills": ranked[: min(max(limit, 1), 30)],
     }
+
+
+def setup_status() -> dict[str, Any]:
+    """Lista de pasos de configuración con su estado, para guiar la primera conversación."""
+    from radar.agent.provider import load_config
+    from radar.careers import active_pack
+
+    profile = get_profile()
+    skills = len((profile or {}).get("skills", {}))
+    with connection() as conn:
+        fresh = conn.execute(
+            "SELECT count(*) FROM jobs WHERE is_active=1 AND duplicate_status='canonical' "
+            "AND published_at IS NOT NULL AND date(published_at) >= date('now', '-14 days')"
+        ).fetchone()[0]
+        tracked = conn.execute("SELECT count(*) FROM applications").fetchone()[0]
+    pack = active_pack()
+    steps = [
+        {"id": "career", "done": True, "detail": f"Carrera activa: {pack.name}",
+         "next_action": "Cámbiala en Ajustes o con set_career_track si no es la tuya."},
+        {"id": "profile", "done": profile is not None,
+         "detail": "Sin perfil" if profile is None else f"Perfil de {profile['name']}",
+         "next_action": "Pregunta nombre, formación, áreas, ubicaciones y modalidad; luego propón update_profile."},
+        {"id": "skills", "done": skills > 0, "detail": f"{skills} skills declaradas",
+         "next_action": "Pregunta qué skills domina y con qué nivel; solo lo que afirme; propón update_profile."},
+        {"id": "market", "done": fresh > 0, "detail": f"{fresh} ofertas de los últimos 14 días",
+         "next_action": "Explica (get_help actualizar) que el mercado se actualiza desde la PC."},
+        {"id": "tracking", "done": tracked > 0, "detail": f"{tracked} ofertas en seguimiento",
+         "next_action": "Muestra get_today_feed y ofrece guardar las que le interesen."},
+        {"id": "ai", "done": load_config().ready, "detail": "Clave de IA configurada",
+         "next_action": "Ya estás hablando con el agente."},
+    ]
+    pending = [s for s in steps if not s["done"]]
+    return {"complete": not pending, "steps": steps, "next": pending[0] if pending else None}

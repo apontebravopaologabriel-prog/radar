@@ -53,7 +53,7 @@ export default function MobileApp() {
   if (auth.required && !auth.authenticated) {
     return (
       <div className="m-app"><main className="m-main m-login">
-        <h1>Radar</h1><p className="m-sub">Ingresa tu clave de acceso.</p>
+        <span className="m-eyebrow">[ACCESO]</span><h1>Radar</h1><p className="m-sub">Ingresa tu clave de acceso.</p>
         <form onSubmit={(e) => { e.preventDefault(); void login(); }}>
           <input type="password" autoComplete="current-password" value={token} onChange={(e) => setToken(e.target.value)} aria-label="Clave de acceso" />
           <button className="m-primary" type="submit" disabled={!token}>Entrar</button>

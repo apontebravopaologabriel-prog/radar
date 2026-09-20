@@ -1,6 +1,6 @@
 # Plan: Radar multicarrera, móvil y con agente integrado
 
-Estado (2026-09-20): fases 0–3 implementadas en la rama `feat/multicarrera-movil`; ver
+Estado (2026-09-20): fases 0–3 y agente guía implementadas en la rama `feat/multicarrera-movil`; ver
 [Estado de implementación](#14-estado-de-implementación). Las estimaciones son de orden de magnitud,
 no compromisos.
 
@@ -253,6 +253,8 @@ stdio…" y "API local") para reflejar el modo hospedado y el agente integrado.
 | 2. Móvil PWA | Hecho | `/m` con Hoy, Seguimiento, Agente y Ajustes; onboarding sin CLI (formulario); modo claro/oscuro; instalable; feed sin conexión. |
 | 3. Chat con BYOK | Hecho | Proveedor OpenAI-compatible (DeepSeek por defecto), streaming, confirmación de escrituras, tope de tokens. |
 | Acceso remoto | Hecho (básico) | `RADAR_ACCESS_TOKEN` + Tailscale; passkeys no implementadas. |
+| Agente guía | Hecho | `get_setup_status` (qué falta y siguiente paso) y `get_help` (ayuda curada en `src/radar/help.md`); el chat ofrece "Ayúdame a configurar Radar" si la configuración está incompleta. |
+| Estética móvil | Hecho | Terminal gris y negro, monoespaciada, solo oscuro, alineada con el modo de escritorio. |
 | 4. Onboarding con CV | Pendiente | Hoy es un formulario; falta subir CV y extraer el perfil con confirmación. |
 | 5. Hospedaje multiusuario | Pendiente | Requiere `user_id`, autenticación por usuario y PostgreSQL. |
 | 6. Alertas y push | Pendiente | Requiere HTTPS y claves VAPID. |

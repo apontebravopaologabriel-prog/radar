@@ -52,3 +52,17 @@ def test_profile_feed_and_skill_impact_roundtrip():
     assert tools.get_today_feed()["jobs"] == []  # ya gestionada
     with pytest.raises(ValueError):
         tools.update_profile("Ana", [], [], {"Excel": "guru"})
+
+
+def test_setup_status_guides_and_help_is_grounded():
+    status = tools.get_setup_status()
+    assert status["complete"] is False and status["next"]["id"] == "profile"
+    tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "basic"})
+    ids_done = {s["id"] for s in tools.get_setup_status()["steps"] if s["done"]}
+    assert {"career", "profile", "skills"} <= ids_done
+    topics = tools.get_help()["available_topics"]
+    assert {"inicio", "hoy", "agente", "privacidad"} <= set(topics)
+    assert "Radar nunca postula" in tools.get_help("inicio")["text"]
+    with pytest.raises(ValueError):
+        tools.get_help("no-existe")
+    assert "get_help" in {t.name for t in tools.chat_tools()}
