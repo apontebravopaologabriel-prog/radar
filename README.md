@@ -27,7 +27,8 @@ hipotéticos redactados por el agente; no son CVs enviables (ver
 - **Carreras:** la taxonomía, las competencias y los pesos del score viven en
   `src/radar/careers/packs/*.json` (Ingeniería Industrial y Contabilidad). Añadir una carrera es
   añadir un JSON; se elige en Ajustes o con `RADAR_CAREER`.
-- **Agente de chat:** usa tu propia clave de API (DeepSeek por defecto; también OpenAI, OpenRouter,
+- **Adaptable a cualquier carrera:** en el primer inicio (escritorio y móvil) unas preguntas fijan tu carrera, dónde buscas (Lima primero, o cualquier ciudad del Perú), tu perfil y tus skills. Si tu carrera no está, la creas indicando áreas con palabras clave y skills; se guarda junto a tu base de datos. "Actualizar mercado ahora" trae las ofertas de tu carrera. Cada persona maneja su propia base local.
+- **Agente de chat (opcional, apagado por defecto):** en escritorio es una ventana flotante (`Ctrl+J`) sobre el mapa y en Ajustes (`/ajustes`) se activa, se pone en solo lectura o se apaga; apagado, el servidor rechaza el chat y no se carga su código. Usa tu propia clave de API (DeepSeek por defecto; también OpenAI, OpenRouter,
   Ollama o un endpoint compatible). Comparte las herramientas del MCP (`src/radar/tools.py`); las que
   escriben piden confirmación en pantalla. Tope mensual de tokens configurable.
 - **Acceso desde el celular:** ver [Acceso remoto](docs/operations.md#acceso-remoto-desde-el-celular).

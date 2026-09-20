@@ -1,6 +1,6 @@
 # Plan: versión de escritorio y agente interno como ventana
 
-Estado: propuesta (2026-09-20). Prioridad acordada: primero el agente interno en la web de escritorio,
+Estado (2026-09-20): fase A implementada (ver sección 8); el resto sigue como propuesta. Prioridad acordada: primero el agente interno en la web de escritorio,
 opcional y desactivable, como ventana; después mejorar el resto de la versión de escritorio.
 
 ## 1. Principios
@@ -154,3 +154,21 @@ Se puede adelantar un recorte mínimo de la fase D (extraer el gestor de ventana
 2. ¿Ventana flotante por defecto y panel lateral como opción (recomendado)?
 3. ¿Dejar de versionar `frontend/out/`?
 4. ¿Qué geometrías de Perú usar para el mapa nacional (fuente y licencia)?
+
+## 8. Estado de implementación
+
+Decisiones tomadas: el agente nace **apagado**, la ventana es **flotante** (panel lateral queda como opción
+futura) y `frontend/out/` **se sigue versionando** por ahora (quien clone Radar no necesita Node para usarlo).
+
+| Fase | Estado | Detalle |
+|---|---|---|
+| A | Hecho | `agent_enabled`/`agent_read_only` aplicados en el servidor (403 `agent_disabled`); módulo de chat compartido (`components/agent/`); ventana flotante con arrastre, tamaño recordado, minimizar y `Ctrl+J`; su código solo se carga al abrirla; `/ajustes` con interruptores. |
+| Adaptable | Hecho | Preguntas de primer inicio en escritorio (ventana) y móvil; carrera propia (`POST /api/career/custom`, herramienta `create_career_pack`); "Actualizar mercado ahora" (`/api/refresh`) con progreso. |
+| B | Pendiente | Contexto de pantalla, acciones de interfaz con deshacer, conversaciones en la base, costo estimado. |
+| C | Pendiente | Conversaciones de referencia, prueba de inyección con proveedor real, herramientas nuevas. |
+| D–G | Pendiente | Refactor de `RadarClient`, kanban en escritorio, mapa nacional de escritorio, accesibilidad. |
+
+La ventana se monta desde `app/radar/page.tsx` (no dentro de `RadarClient.tsx`) para no mezclarse con el
+trabajo en curso de ese archivo; por eso todavía no recibe el contexto de la oferta o el distrito
+seleccionados. Limitación: con `RADAR_ACCESS_TOKEN` activo la interfaz de escritorio aún no tiene pantalla de
+acceso (la del móvil sí).

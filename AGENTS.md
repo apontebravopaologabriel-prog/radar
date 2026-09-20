@@ -28,6 +28,8 @@ Antes de cambiar comportamiento, leer en este orden:
 - `src/radar/help.md` + `help.py`: ayuda curada; el agente explica el producto solo desde ahí (`get_help`). Actualízala al cambiar una función visible.
 - `src/radar/geolocation.py`: distritos de Lima/Callao, ciudades y departamentos del Perú. Orden de resolución: ciudad (palabra completa) → distrito de Lima → departamento → Lima; "Perú" a secas no ubica. Añade ciudades en `_CITIES`.
 - `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
+- `frontend/components/agent/`: chat compartido (`useAgentChat`, `AgentChatPanel`) y la ventana flotante de escritorio (`AgentDock`), montada en `app/radar/page.tsx`. Solo existe si el agente está activado; no reintroducir un botón permanente cuando está apagado (queda solo el acceso a `/ajustes`).
+- `src/radar/refresh.py`: actualización del mercado desde la app; `careers/` también carga carreras propias desde `<carpeta de la base>/careers/`.
 - `frontend/components/mobile/` y `app/m/`: PWA móvil (`/m`); `frontend/public/` guarda manifest y service worker.
 - `src/radar/classify.py`: áreas, seniority y competencias detectadas.
 - `frontend/components/RadarClient.tsx`: estado, filtros, ofertas, popups y herramientas del mapa.

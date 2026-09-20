@@ -39,8 +39,9 @@ export type Career = { active: string; name: string; areas: { core: string[]; ad
   skills: { name: string; type: string; category: string | null }[]; queries: string[];
   weights: Record<string, number>; tracks: { id: string; name: string }[] };
 export type AgentSettings = { provider: string; base_url: string; model: string; has_key: boolean; needs_key: boolean;
-  ready: boolean; monthly_token_cap: number; tokens_used_this_month: number;
+  ready: boolean; enabled: boolean; read_only: boolean; monthly_token_cap: number; tokens_used_this_month: number;
   providers: Record<string, { base_url: string; model: string }> };
+export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
 export type ProfileInput = { name: string; education?: string; areas: string[]; locations: string[];
   work_modes: string[]; skills: Record<string, string> };
 
@@ -66,9 +67,13 @@ export const api = {
   setCareer: (careerId: string) => request<Career>("/api/career", { method: "PUT", body: JSON.stringify({ career_id: careerId }) }),
   setWeights: (weights: Record<string, number>) =>
     request<Career>("/api/career/weights", { method: "PUT", body: JSON.stringify({ weights }) }),
+  createCustomCareer: (body: { name: string; areas: Record<string, string[]>; skills: string[] }) =>
+    request<Career>("/api/career/custom", { method: "POST", body: JSON.stringify(body) }),
+  startRefresh: (places: string[]) => request<RefreshState>("/api/refresh", { method: "POST", body: JSON.stringify({ places, limit: 15 }) }),
+  refreshStatus: () => request<RefreshState>("/api/refresh/status"),
   saveProfile: (profile: ProfileInput) => request<{ profile_id: string }>("/api/profile", { method: "PUT", body: JSON.stringify(profile) }),
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
-  saveAgentSettings: (body: { provider: string; model?: string; base_url?: string; api_key?: string; monthly_token_cap?: number }) =>
+  saveAgentSettings: (body: { provider: string; model?: string; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean }) =>
     request<AgentSettings>("/api/agent/settings", { method: "PUT", body: JSON.stringify(body) }),
   confirm: (body: { tool_call_id: string; name: string; arguments: Record<string, unknown>; approve: boolean }) =>
     request<{ message: ApiMessage; result: unknown }>("/api/chat/confirm", { method: "POST", body: JSON.stringify(body) }),

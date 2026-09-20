@@ -46,6 +46,10 @@
 .m-chips b { margin-left: 6px; font-variant-numeric: tabular-nums; }
 
 .m-app label { display: block; margin-top: 12px; color: var(--muted); font-size: 13px; }
+.m-app textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; resize: vertical; }
+.m-app textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.m-app label.m-check input[type="checkbox"] { display: inline-block; width: 22px; height: 22px; min-height: 0; margin: 0 10px 0 0; padding: 0; flex: none; accent-color: var(--accent); }
+.m-app label.m-check { display: flex; align-items: center; margin-top: 12px; color: var(--ink); }
 .m-app input:not([type="range"]), .m-app select { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; }
 .m-app ::placeholder { color: var(--dim); }
 .m-app select { margin-top: 10px; }
@@ -57,7 +61,8 @@
 .m-seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .m-seg button { justify-content: center; padding: 0 4px; font-size: 13px; }
 
-.m-chat { display: flex; flex-direction: column; height: 100%; gap: 10px; }
+.m-chat-page { display: flex; flex-direction: column; height: 100%; gap: 10px; }
+.m-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 10px; }
 .m-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .m-msg { max-width: 88%; padding: 10px 12px; border-radius: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .m-msg-user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); }
@@ -95,3 +100,11 @@
 .m-map .m-map-count::before { display: none; }
 /* Mosaicos de OpenStreetMap oscurecidos y en grises para conservar la estética terminal. */
 .m-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) grayscale(1) brightness(.85) contrast(.9); }
+.m-app.m-embedded { position: static; inset: auto; }
+
+/* Primer inicio en escritorio: ventana centrada sobre el mapa. */
+.firstrun-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: rgba(0, 0, 0, .72); }
+.m-app.firstrun-window { position: relative; inset: auto; width: min(680px, calc(100vw - 32px)); height: min(820px, calc(100vh - 32px)); border: 1px solid var(--muted); border-radius: 4px; overflow: hidden; }
+.firstrun-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #212121; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; letter-spacing: .14em; }
+.firstrun-bar button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; }
+.firstrun-bar button:hover { color: var(--ink); }

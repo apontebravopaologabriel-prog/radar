@@ -25,6 +25,7 @@ export default function MobileApp() {
   const [setup, setSetup] = useState(false);
   const [error, setError] = useState("");
   const [token, setToken] = useState("");
+  const [agentOn, setAgentOn] = useState(false);
   const [epoch, setEpoch] = useState(0); // fuerza recarga de las vistas tras cambios de perfil
 
   const onError = useCallback((e: unknown) => {
@@ -33,7 +34,7 @@ export default function MobileApp() {
   }, []);
 
   useEffect(() => {
-    api.authStatus().then(setAuth).catch(() => setError("No se pudo contactar a Radar. ¿Está encendido?"));
+    api.authStatus().then((a) => { setAuth(a); if (a.authenticated) api.agentSettings().then((s) => setAgentOn(s.enabled)).catch(() => undefined); }).catch(() => setError("No se pudo contactar a Radar. ¿Está encendido?"));
     const hash = window.location.hash.slice(1) as Tab;
     if (TABS.some((t) => t.id === hash)) setTab(hash);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
@@ -42,7 +43,7 @@ export default function MobileApp() {
   useEffect(() => { if (!error) return; const t = setTimeout(() => setError(""), 5000); return () => clearTimeout(t); }, [error]);
 
   const login = async () => {
-    try { await api.login(token); setToken(""); setAuth(await api.authStatus()); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo iniciar sesión"); }
+    try { await api.login(token); setToken(""); setAuth(await api.authStatus()); api.agentSettings().then((s) => setAgentOn(s.enabled)).catch(() => undefined); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo iniciar sesión"); }
   };
   const logout = async () => {
     await api.logout().catch(() => undefined);
@@ -72,12 +73,12 @@ export default function MobileApp() {
         ) : tab === "today" ? <TodayView key={epoch} onSetup={() => setSetup(true)} onError={onError} />
         : tab === "map" ? <MapTab onError={onError} />
         : tab === "pipeline" ? <PipelineView onError={onError} />
-        : tab === "agent" ? <AgentView onSettings={() => setTab("settings")} onError={onError} />
-        : <SettingsView authRequired={auth.required} onLogout={logout} onError={onError} />}
+        : tab === "agent" && agentOn ? <AgentView onSettings={() => setTab("settings")} onError={onError} />
+        : <SettingsView authRequired={auth.required} onLogout={logout} onError={onError} onAgentChange={setAgentOn} />}
       </main>
       {error && <p className="m-toast" role="alert">{error}</p>}
       <nav className="m-tabs" aria-label="Secciones">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== "agent" || agentOn).map((t) => (
           <button key={t.id} aria-current={!setup && tab === t.id ? "page" : undefined} onClick={() => { setSetup(false); setTab(t.id); }}>
             <span aria-hidden>{t.icon}</span>{t.label}
           </button>

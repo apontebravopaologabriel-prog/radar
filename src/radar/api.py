@@ -69,6 +69,11 @@ if FRONTEND_OUT.exists():
     def serve_mobile_ui():
         return FileResponse(str(FRONTEND_OUT / "m.html"), headers={"Cache-Control": "no-cache"})
 
+    @app.get("/ajustes", include_in_schema=False)
+    @app.get("/ajustes/", include_in_schema=False)
+    def serve_settings_ui():
+        return FileResponse(str(FRONTEND_OUT / "ajustes.html"), headers={"Cache-Control": "no-cache"})
+
     _ROOT_ASSETS = {
         "manifest.webmanifest": "application/manifest+json",
         "sw.js": "text/javascript",

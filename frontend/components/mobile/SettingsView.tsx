@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { api, type AgentSettings, type Career } from "../../lib/mobile-api";
+import CustomCareerForm from "./CustomCareerForm";
+import RefreshPanel from "./RefreshPanel";
 
 const WEIGHT_LABELS: Record<string, string> = {
   area: "Área", skills: "Skills", seniority: "Nivel", education: "Formación", location: "Ubicación", preference: "Modalidad",
 };
 
-export default function SettingsView({ authRequired, onLogout, onError }: { authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void }) {
+export default function SettingsView({ authRequired, onLogout, onError, onAgentChange }: { authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void; onAgentChange?: (enabled: boolean) => void }) {
   const [career, setCareer] = useState<Career | null>(null);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [agent, setAgent] = useState<AgentSettings | null>(null);
@@ -15,19 +17,22 @@ export default function SettingsView({ authRequired, onLogout, onError }: { auth
   const [model, setModel] = useState("");
   const [key, setKey] = useState("");
   const [cap, setCap] = useState(500000);
+  const [enabled, setEnabled] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
   const [note, setNote] = useState("");
 
   useEffect(() => {
     Promise.all([api.career(), api.agentSettings()]).then(([c, a]) => {
-      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setCap(a.monthly_token_cap);
+      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setCap(a.monthly_token_cap); setEnabled(a.enabled); setReadOnly(a.read_only);
     }).catch(onError);
   }, [onError]);
 
   const flash = (text: string) => { setNote(text); setTimeout(() => setNote(""), 2500); };
   const saveAgent = async () => {
     try {
-      const next = await api.saveAgentSettings({ provider, model: model || undefined, api_key: key || undefined, monthly_token_cap: cap });
-      setAgent(next); setKey(""); flash("Guardado");
+      const next = await api.saveAgentSettings({ provider, model: model || undefined, api_key: key || undefined, monthly_token_cap: cap, enabled, read_only: readOnly });
+      setAgent(next); setKey(""); flash("Guardado"); onAgentChange?.(next.enabled);
     } catch (error) { onError(error); }
   };
   const pickProvider = (value: string) => {
@@ -46,6 +51,14 @@ export default function SettingsView({ authRequired, onLogout, onError }: { auth
         <select value={career.active} onChange={async (e) => { try { const c = await api.setCareer(e.target.value); setCareer(c); setWeights(c.weights); flash("Carrera cambiada"); } catch (error) { onError(error); } }} aria-label="Carrera">
           {career.tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
+        <button className="m-link" onClick={() => setShowCustom(!showCustom)}>{showCustom ? "Cancelar" : "Mi carrera no está en la lista"}</button>
+        {showCustom && <CustomCareerForm onError={onError} onCreated={(c) => { setCareer(c); setWeights(c.weights); setShowCustom(false); flash("Carrera creada"); }} />}
+      </section>
+
+      <section className="m-card">
+        <h2>Mercado</h2>
+        <p className="m-sub">Trae ofertas nuevas de tu carrera en tus ubicaciones y recalcula tu puntaje. Corre en tu equipo.</p>
+        <RefreshPanel places={[]} onError={onError} />
       </section>
 
       <section className="m-card">
@@ -60,8 +73,10 @@ export default function SettingsView({ authRequired, onLogout, onError }: { auth
       </section>
 
       <section className="m-card">
-        <h2>Agente de IA</h2>
-        <p className="m-sub">Usa tu propia clave: pagas al proveedor por lo que uses. La clave se guarda en tu equipo con permisos privados y nunca vuelve al navegador.</p>
+        <h2>Agente de IA <b>{enabled ? "(activado)" : "(apagado)"}</b></h2>
+        <p className="m-sub">Es opcional: Radar funciona completo sin él. Usa tu propia clave: pagas al proveedor por lo que uses. La clave se guarda en tu equipo con permisos privados y nunca vuelve al navegador.</p>
+        <label className="m-check"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />Activar el agente</label>
+        <label className="m-check"><input type="checkbox" checked={readOnly} onChange={(e) => setReadOnly(e.target.checked)} />Solo lectura (no puede guardar nada)</label>
         <label>Proveedor
           <select value={provider} onChange={(e) => pickProvider(e.target.value)}>
             {Object.keys(agent.providers).map((p) => <option key={p} value={p}>{p}</option>)}
@@ -81,7 +96,7 @@ export default function SettingsView({ authRequired, onLogout, onError }: { auth
       <section className="m-card">
         <h2>Más herramientas</h2>
         <p className="m-sub">Mapa completo, análisis SQL y CVs objetivo. Pensado para pantalla grande: en el celular puede ir lento.</p>
-        <a className="m-primary m-linkbtn" href="/radar">Abrir modo avanzado</a>
+        <a className="m-primary m-linkbtn" href="/radar">Abrir mapa completo y análisis</a>
         {authRequired && <button className="m-link" onClick={onLogout}>Cerrar sesión</button>}
       </section>
     </div>
