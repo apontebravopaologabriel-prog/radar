@@ -196,6 +196,13 @@ def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10) -> di
 
 
 @tool()
+def get_place_profile(place: str, max_age_days: int = 30) -> dict:
+    """Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad,
+    seniority, salario mediano y señales de producción. Úsala cuando la persona pregunte por el distrito seleccionado."""
+    return insights.place_profile(place, max_age_days)
+
+
+@tool()
 def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: str | None = None) -> dict:
     """Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción.
     `focus` solo resalta un tramo si la persona lo pidió; sin él, la comparación es general."""

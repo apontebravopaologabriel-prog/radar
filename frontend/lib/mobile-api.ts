@@ -50,6 +50,7 @@ export type AgentContext = {
   filters?: Record<string, string>;
   selectedJob?: { id: string; title: string; company?: string };
   visibleCount?: number;
+  districtJobs?: number;
   analysis?: { ready: boolean; updatedAt: string; windows: { title: string; sql: string; columns: string[]; rows: (string | number | null)[][]; rowCount: number }[]; recentQueries: string[] };
 };
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };

@@ -23,6 +23,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array |
 | `get_skill_demand` | lee | Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una. | area?: string|null, max_age_days?: integer, limit?: integer |
 | `get_market_breakdown` | lee | Cuenta ofertas vigentes agrupadas por `by`: area, place, company, work_mode, seniority o source. | by: string, max_age_days?: integer, limit?: integer |
+| `get_place_profile` | lee | Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad, | place: string, max_age_days?: integer |
 | `compare_places` | lee | Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción. | place_a: string, place_b: string, max_age_days?: integer, focus?: string|null |
 | `get_salary_stats` | lee | Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran). | area?: string|null, place?: string|null, max_age_days?: integer |
 | `plan_learning` | lee | Skills que más suben tu encaje si las aprendes, con su demanda en el mercado. Base para un plan. | limit?: integer |

@@ -176,7 +176,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         <button type="button" className="term-context-toggle" onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
           CONTEXTO · {contextMode === "off" ? "APAGADO" : contextMode === "selection" ? "SELECCIÓN" : "COMPLETO"}
         </button>
-        {contextMode !== "off" && <> · {contextLabel}{context?.visibleCount !== undefined ? ` · ${context.visibleCount} ofertas` : ""}</>}
+        {contextMode !== "off" && <> · {contextLabel}{(context?.districtJobs ?? context?.visibleCount) !== undefined ? ` · ${context?.districtJobs ?? context?.visibleCount} ofertas` : ""}</>}
       </div>
       <div className="term-footer">
         <span>{busy ? "esc detener" : "/ commands · # memory · ↑ history"}</span>

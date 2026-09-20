@@ -50,7 +50,7 @@ el servidor MCP del cliente para que las vea.
 > produce `docs/skills/radar/SKILL.md` (copiable a Antigravity o Claude Code) a partir del mismo registro que usa
 > el servidor y el chat de la app. Además del listado de abajo hay: `get_today_feed`, `find_jobs_near(place, radius_km)`
 > (distritos de Lima o ciudades del Perú), `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`,
-> `get_market_breakdown(by)`, `get_salary_stats`, `plan_learning`, `get_data_schema` y `run_readonly_sql` (solo SELECT/WITH,
+> `get_market_breakdown(by)`, `get_place_profile(place)`, `get_salary_stats`, `plan_learning`, `get_data_schema` y `run_readonly_sql` (solo SELECT/WITH,
 > máx. 50 filas), `get_setup_status`, `get_help`, `update_profile`, `favorite_job`, `list_career_tracks`,
 > `set_career_track` y `create_career_pack`. Las que escriben piden confirmación a la persona.
 >

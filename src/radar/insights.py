@@ -164,9 +164,8 @@ PRODUCTION_TERMS = ("producción", "produccion", "manufactura", "planta", "opera
                     "maquinista", "ensamble", "control de calidad")
 
 
-def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: str | None = None) -> dict[str, Any]:
-    """Compara dos distritos en varias dimensiones: volumen, áreas, modalidad, seniority, salario mediano y
-    señales de producción. `focus` (opcional, texto libre como «producción») solo resalta ese tramo."""
+def _place_summarizer(max_age_days: int):
+    """Devuelve `summarize(place)`: resumen de las ofertas vigentes de un distrito o ciudad."""
     jobs = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="core")
     jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="adjacent"))
 
@@ -197,6 +196,7 @@ def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: st
                     and (m := mid(job)) is not None and m >= SALARY_FLOOR["PEN"]]
         return {"place": place, "jobs": len(selected),
                 "top_areas": top(Counter(j.get("primary_area") or "sin área" for j in selected)),
+                "top_companies": top(Counter(j.get("company") or "sin empresa" for j in selected), 5),
                 "work_mode": top(Counter(j.get("work_mode") or "no indicado" for j in selected)),
                 "seniority": top(Counter(j.get("seniority") or "no indicado" for j in selected)),
                 "salary_pen": {"count": len(salaries), "median": round(statistics.median(salaries))} if salaries else None,
@@ -204,8 +204,19 @@ def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: st
                                "share_pct": round(len(production) / len(selected) * 100, 1) if selected else 0,
                                "titles": [j.get("title") for j in production[:5]]}}
 
-    left, right = summarize(place_a), summarize(place_b)
-    return {"max_age_days": max_age_days, "focus": focus, "places": [left, right],
+    return summarize
+
+
+def place_profile(place: str, max_age_days: int = 30) -> dict[str, Any]:
+    """Radiografía de un solo distrito o ciudad: conteo de ofertas y su mezcla."""
+    return {"max_age_days": max_age_days, **_place_summarizer(max_age_days)(place)}
+
+
+def compare_places(place_a: str, place_b: str, max_age_days: int = 30, focus: str | None = None) -> dict[str, Any]:
+    """Compara dos distritos en varias dimensiones: volumen, áreas, modalidad, seniority, salario mediano y
+    señales de producción. `focus` (opcional, texto libre como «producción») solo resalta ese tramo."""
+    summarize = _place_summarizer(max_age_days)
+    return {"max_age_days": max_age_days, "focus": focus, "places": [summarize(place_a), summarize(place_b)],
             "note": "Compara todas las dimensiones; «production» es solo una señal por palabras clave en título, área y ubicación."}
 
 

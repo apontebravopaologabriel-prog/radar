@@ -407,6 +407,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     filters: Object.fromEntries(Object.entries(filters).filter(([, value]) => Boolean(value))),
     selectedJob: selectedJob ? { id: selectedJob.id, title: selectedJob.title, company: selectedJob.company || undefined } : undefined,
     visibleCount: visibleJobs.length,
+    districtJobs: mode === "radar" ? undefined : selectedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
   }), [activeView, analysisContext, filters, mode, radarDistrict, radarRadiusKm, selectedDistrict, selectedJob, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);

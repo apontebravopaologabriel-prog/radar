@@ -254,3 +254,13 @@ def test_compare_places_is_multidimensional_and_hidden_duplicates_stay_out_of_ch
     assert "stronger_for_production" not in result
     chat = {t.name for t in tools.chat_tools()}
     assert not {"get_market_summary", "list_recommended_jobs", "get_skill_impact", "get_job_history"} & chat
+
+
+def test_place_profile_counts_only_that_place_and_prompt_does_not_autorun_setup():
+    from radar.agent import loop
+
+    profile = tools.get_place_profile("Ate")
+    assert profile["place"] == "Ate" and {"jobs", "top_companies", "salary_pen"} <= set(profile)
+    assert "get_place_profile" in {t.name for t in tools.chat_tools()}
+    assert "llama primero a get_setup_status" not in loop.SYSTEM_PROMPT
+    assert "SIN llamar herramientas" in loop.SYSTEM_PROMPT
