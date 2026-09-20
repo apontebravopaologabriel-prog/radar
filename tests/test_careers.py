@@ -111,3 +111,13 @@ def test_custom_career_rejects_bad_input():
         save_custom_pack("X", {})
     with pytest.raises(CareerPackError):
         save_custom_pack("X", {f"a{i}": [] for i in range(25)})
+
+
+def test_free_text_profile_areas_match_classified_areas():
+    from radar.scoring import area_matches
+
+    wanted = {"procesos y mejora continua", "data/bi y reporting junior", "analista funcional o de operaciones junior"}
+    assert area_matches("Procesos", wanted) and area_matches("Mejora continua", wanted)
+    assert area_matches("Data / BI", wanted) and area_matches("Operaciones", wanted)
+    assert not area_matches("Logística", wanted) and not area_matches(None, wanted)
+    assert area_matches("Procesos", {"procesos"})  # igualdad exacta sigue funcionando

@@ -173,3 +173,24 @@ def test_read_only_mode_hides_and_blocks_write_tools():
     assert api.post("/api/chat/confirm", json={"tool_call_id": "1", "name": "set_career_track",
                                                "arguments": {"career_id": "contabilidad"},
                                                "approve": True}).status_code == 422
+
+
+def test_conversations_are_stored_locally_and_deletable_even_when_agent_is_off():
+    api = TestClient(app)
+    payload = {"title": "Mi búsqueda", "data": {"history": [{"role": "user", "content": "hola"}], "lines": []}}
+    created = api.post("/api/conversations", json=payload)
+    assert created.status_code == 201
+    cid = created.json()["id"]
+    assert api.get(f"/api/conversations/{cid}").json()["data"]["history"][0]["content"] == "hola"
+    payload["title"] = "Renombrada"
+    assert api.put(f"/api/conversations/{cid}", json=payload).status_code == 200
+    assert [c["title"] for c in api.get("/api/conversations").json()["conversations"]] == ["Renombrada"]
+    assert api.put("/api/conversations/nope", json=payload).status_code == 404
+    huge = {"title": "x", "data": {"blob": "a" * 500_000}}
+    assert api.post("/api/conversations", json=huge).status_code == 413
+    set_setting("agent_enabled", "0")
+    assert api.get("/api/conversations").status_code == 403
+    assert api.post("/api/conversations", json=payload).status_code == 403
+    assert api.delete("/api/conversations").json()["deleted"] == 1
+    set_setting("agent_enabled", "1")
+    assert api.get("/api/conversations").json()["conversations"] == []

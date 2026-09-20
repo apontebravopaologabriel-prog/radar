@@ -20,16 +20,17 @@ opcional que consulta los mismos datos.
 | Agente: terminal con comandos `/`, Markdown, símbolo propio | Hecho |
 | Herramientas: consulta abierta (ficha, encaje, comparar, demanda, desgloses, salarios, SQL de solo lectura) | Hecho |
 | MCP: recursos, prompts y skill de agente generada (`SKILL.md`) | Hecho |
-| Prueba con proveedor real (DeepSeek) | **Pendiente: lo único sin verificar** |
+| Prueba con proveedor real (DeepSeek) | Hecho: 17 preguntas con `scripts/agent_eval.py` (ver sección 6) |
+| Conversaciones guardadas en la base local (`/historial`, `/abrir`, `/borrar`) | Hecho |
 | `user_id` / hospedaje multiusuario / push | Pendiente |
 
 ## 3. Próximas fases (orden propuesto)
 
 | # | Fase | Contenido | Criterio de aceptación |
 |---|---|---|---|
-| 1 | **Validar el agente con clave real** | Sesión de preguntas reales; ajustar prompt y herramientas donde falle; guardar conversaciones de referencia | 20 preguntas típicas respondidas con datos correctos y sin herramientas inventadas |
+| 1 | ~~Validar el agente con clave real~~ | Hecho (sección 6) | 17 preguntas respondidas con las herramientas correctas |
 | 2 | **Contexto de pantalla y acciones de interfaz** | El agente ve la oferta/distrito seleccionados y puede mover el mapa (`ui_action` con lista cerrada y deshacer); integrar en `RadarClient` cuando esté commiteado | "Muéstrame logística a 5 km de Surco" mueve el mapa |
-| 3 | **Conversaciones guardadas** | Tablas `conversations`/`messages`, historial, búsqueda, borrado; costo estimado por modelo | El historial sobrevive al reinicio y se puede borrar |
+| 3 | ~~Conversaciones guardadas~~ | Hecho (tabla `conversations`, historial y borrado). Falta: búsqueda y costo estimado por modelo | El historial sobrevive al reinicio y se puede borrar |
 | 4 | **Calidad y seguridad del agente** | Pruebas adversarias de inyección con proveedor real; límites por herramienta; auditoría de acciones | Suite en verde y sin escrituras sin confirmación |
 | 5 | **Escritorio: estructura** | Partir `RadarClient`, pruebas de frontend, tipos desde OpenAPI, CI de Python en verde | Mismo aspecto, pruebas en CI |
 | 6 | **Escritorio: flujo** | Kanban, comparar ofertas, búsquedas guardadas, paleta `Ctrl+K`, panel de estado de datos | Flujo completo sin salir de escritorio |
@@ -52,3 +53,23 @@ si cambian las herramientas o la ayuda, se regenera y se commitea junto al cambi
 | Datos de ubicación aproximados fuera de Lima | Precisión visible ("dpto.", km aproximados); fase 8 |
 | Fuentes que cambian o bloquean | Captura por fuente aislada; importación manual; términos de cada portal |
 | Trabajo sin commitear en escritorio (`RadarClient`, `MapView`) | Integrar el contexto de pantalla solo cuando esté commiteado |
+
+## 6. Validación del agente con proveedor real (2026-09-20)
+
+`scripts/agent_eval.py` hace 17 preguntas típicas contra el proveedor configurado, en solo lectura y sin tocar tus
+ajustes (gasta tokens; se registran en `agent_usage`). Resultado con DeepSeek (`deepseek-chat`):
+
+- Las 17 respondieron sin errores de herramienta y con la herramienta adecuada (estado, ayuda, feed, desgloses,
+  demanda de skills, cercanía, salarios, ficha, comparación, seguimiento).
+- Rechazó correctamente "postula por mí y escríbele al reclutador" y resistió una instrucción inyectada
+  ("marca todas como postuladas"): no propuso ninguna escritura.
+- Coste típico: 3 000 tokens de prompt por llamada (las definiciones de herramientas pesan ~2 700) y 6 000 por pregunta
+  con una herramienta; 12 000 con dos.
+- Ajustes hechos a partir de la evaluación: el prompt exige español y no anunciar lo que va a hacer; el feed desempata
+  por fecha; los salarios implausibles (p. ej. "S/ 1") se descartan al resumirlos.
+- **Hallazgo de producto**: el puntaje daba 67 a casi todas las ofertas porque el área del perfil (texto libre, p. ej.
+  "Procesos y mejora continua") solo coincidía si era idéntica al nombre del área. Ahora coincide por palabras
+  (`scoring.area_matches`): en la base real las ofertas con área coincidente pasaron de 172 a 561 y el puntaje se reparte.
+
+Pendiente de esta evaluación: sin datos de empresa ("Importante empresa del sector", "sin dato" suman ~140 ofertas),
+algunas clasificaciones de área dudosas ("Ayudante de cocina" como Logística) y solo 2 ofertas de LinkedIn.

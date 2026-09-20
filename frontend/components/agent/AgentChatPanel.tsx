@@ -16,7 +16,7 @@ export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSet
   const [menuOpen, setMenuOpen] = useState(true);
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -32,7 +32,7 @@ export default function AgentChatPanel({ chat, onSettings }: { chat: Chat; onSet
     addLocal(text, "user");
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
-      const out = await command.run(rest.join(" "), { send, reset, refreshSettings });
+      const out = await command.run(rest.join(" "), { send, reset, refreshSettings, open, remove, list });
       if (out) addLocal(out);
     } catch (error) { addLocal(error instanceof Error ? error.message : "El comando falló.", "error"); }
   };

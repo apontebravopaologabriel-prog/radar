@@ -1,4 +1,4 @@
-import { api, STATUS_LABELS, STATUS_ORDER } from "../../lib/mobile-api";
+import { api, STATUS_LABELS, STATUS_ORDER, type ConversationInfo } from "../../lib/mobile-api";
 
 /** Comandos con `/` del agente. Los "local" se resuelven con la API de Radar (sin gastar tokens);
  *  los "prompt" envían una instrucción al modelo. */
@@ -6,7 +6,11 @@ export type CommandContext = {
   send: (text: string) => Promise<void>;
   reset: () => void;
   refreshSettings: () => void;
+  open: (id: string) => Promise<void>;
+  remove: (id?: string) => Promise<void>;
+  list: () => Promise<ConversationInfo[]>;
 };
+let lastList: ConversationInfo[] = [];
 export type Command = {
   name: string;
   args?: string;
@@ -83,6 +87,22 @@ export const COMMANDS: Command[] = [
       const current = await api.agentSettings();
       await api.saveAgentSettings({ provider: current.provider, enabled: false });
       return "Agente **apagado**. Recarga la página para ocultar la ventana; reactívalo en Ajustes.";
+    } },
+  { name: "historial", hint: "Conversaciones guardadas", kind: "local", run: async (_a, ctx) => {
+      lastList = (await ctx.list()).slice(0, 10);
+      if (!lastList.length) return "Aún no hay conversaciones guardadas.";
+      return ["Abre una con `/abrir <n>`:", "", ...lastList.map((c, i) => `${i + 1}. ${c.title} _(${c.updated_at.slice(0, 10)})_`)].join("\n");
+    } },
+  { name: "abrir", args: "<n>", hint: "Abre una conversación del historial", kind: "local", run: async (args, ctx) => {
+      const target = lastList[Number(args.trim()) - 1];
+      if (!target) return "Primero usa `/historial` y elige un número.";
+      await ctx.open(target.id);
+      return null;
+    } },
+  { name: "borrar", args: "[todo]", hint: "Borra esta conversación (o todo el historial)", kind: "local", run: async (args, ctx) => {
+      if (args.trim() === "todo") { await api.deleteAllConversations(); ctx.reset(); return null; }
+      await ctx.remove();
+      return null;
     } },
   { name: "nueva", hint: "Empieza una conversación nueva", kind: "local", run: async (_a, ctx) => { ctx.reset(); return null; } },
   { name: "explicar", args: "<oferta o tema>", hint: "El agente lo explica con datos", kind: "prompt", run: async (args, ctx) => {

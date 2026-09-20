@@ -156,10 +156,15 @@ def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: i
             "rows": [{"value": k, "jobs": n} for k, n in counter.most_common(min(max(limit, 1), 30))]}
 
 
+# Pisos de plausibilidad para un sueldo mensual: por debajo suele ser un dato mal cargado ("S/ 1").
+SALARY_FLOOR = {"PEN": 500.0, "USD": 150.0}
+
+
 def salary_stats(area: str | None = None, place: str | None = None, max_age_days: int = 60) -> dict[str, Any]:
     """Salarios declarados (no todas las ofertas los publican). Se resume por moneda y periodo."""
     groups: dict[tuple[str, str], list[float]] = {}
     considered = 0
+    discarded = 0
     for job in list_jobs(limit=None, max_age_days=max_age_days, area=area):
         considered += 1
         if place:
@@ -170,10 +175,15 @@ def salary_stats(area: str | None = None, place: str | None = None, max_age_days
         if low is None and high is None:
             continue
         mid = (low + high) / 2 if low is not None and high is not None else (low if low is not None else high)
-        groups.setdefault((job["salary_currency"] or "?", "mensual"), []).append(mid)
+        currency = job["salary_currency"] or "?"
+        if mid < SALARY_FLOOR.get(currency, 1.0):
+            discarded += 1
+            continue
+        groups.setdefault((currency, "mensual"), []).append(mid)
     return {
         "jobs_considered": considered, "area": area, "place": place,
-        "note": "Solo ofertas que publican salario; suele ser una minoría.",
+        "discarded_implausible": discarded,
+        "note": "Solo ofertas que publican salario (suele ser una minoría); se descartan montos implausibles.",
         "groups": [
             {"currency": c, "period": p, "count": len(v), "min": round(min(v)), "median": round(statistics.median(v)),
              "max": round(max(v))}

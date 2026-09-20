@@ -292,7 +292,7 @@ def recommendations(
             AND j.published_at IS NOT NULL
             AND date(j.published_at) >= date('now', '-' || %s || ' days')
             AND date(j.published_at) < date('now', '+1 day')
-            ORDER BY js.total_score DESC LIMIT %s""",
+            ORDER BY js.total_score DESC, j.published_at DESC, j.relevance_score DESC LIMIT %s""",
             (profile["id"], max_age_days, max_age_days, min(max(limit, 1), 50)),
         ).fetchall()
     jobs = []

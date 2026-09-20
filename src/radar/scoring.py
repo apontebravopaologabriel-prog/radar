@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from radar.domain.models import RawJob
@@ -14,6 +15,27 @@ DEFAULT_WEIGHTS = {
     "preference": 0.10,
 }
 LEVELS = {"none": 0, "basic": 0.35, "intermediate": 0.7, "advanced": 1}
+
+
+def _tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"\w+", text) if len(t) > 2 or t == "bi"}
+
+
+def area_matches(job_area: str | None, desired_areas: set[str]) -> bool:
+    """El área de la oferta coincide con lo que la persona escribió, aunque sea texto libre.
+
+    "Procesos y mejora continua" cubre las áreas Procesos y Mejora continua; "Data/BI y reporting"
+    cubre Data / BI. Coincide si el nombre del área es igual, está contenido o si todas sus palabras
+    significativas aparecen en la frase.
+    """
+    if not job_area:
+        return False
+    area = normalize_text(job_area)
+    area_tokens = _tokens(area)
+    for phrase in desired_areas:
+        if area == phrase or area in phrase or (area_tokens and area_tokens <= _tokens(phrase)):
+            return True
+    return False
 
 
 @dataclass(slots=True)
@@ -42,7 +64,7 @@ def score_job(
     desired_areas = {normalize_text(x) for x in profile.get("areas", [])}
     area = (
         100.0
-        if job_area and normalize_text(job_area) in desired_areas
+        if area_matches(job_area, desired_areas)
         else (55.0 if not desired_areas else 0.0)
     )
     strong = [

@@ -144,6 +144,10 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
         "model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0, completion_tokens INTEGER NOT NULL DEFAULT 0, "
         "created_at TEXT NOT NULL DEFAULT (now()))"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), title TEXT NOT NULL, "
+        "data TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()))"
+    )
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),

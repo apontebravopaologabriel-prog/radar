@@ -237,6 +237,15 @@ CREATE TABLE IF NOT EXISTS agent_usage (
 );
 CREATE INDEX IF NOT EXISTS agent_usage_time_idx ON agent_usage (created_at DESC);
 
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    title TEXT NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (now()),
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS conversations_updated_idx ON conversations (updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS job_user_favorites (
     job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
     note TEXT,

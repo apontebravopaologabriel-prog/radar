@@ -182,3 +182,24 @@ def test_mcp_exposes_resources_prompts_and_skill_export(tmp_path):
     assert text.startswith("---\nname: radar") and "`run_readonly_sql`" in text and "`favorite_job` | escribe" in text
     assert "Radar nunca postula" in text
     assert export(tmp_path).read_text(encoding="utf-8") == text
+
+
+def test_salary_stats_drops_implausible_amounts_and_feed_breaks_ties_by_recency():
+    from datetime import UTC, datetime, timedelta
+
+    from radar.db.repository import ingest_jobs as store
+    from radar.domain.models import RawJob
+
+    now = datetime.now(UTC)
+    store([
+        RawJob("t", "Practicante de Procesos A", "A", "https://e.com/a", location="Lima", description="Excel",
+               published_at=now - timedelta(days=5), salary_min=1, salary_max=1, salary_currency="PEN"),
+        RawJob("t", "Practicante de Procesos B", "B", "https://e.com/b", location="Lima", description="Excel",
+               published_at=now, salary_min=1500, salary_max=1500, salary_currency="PEN"),
+    ])
+    stats = tools.get_salary_stats()
+    assert stats["discarded_implausible"] >= 0
+    assert all(g["min"] >= 500 for g in stats["groups"] if g["currency"] == "PEN")
+    tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "advanced"})
+    titles = [j["title"] for j in tools.get_today_feed(5)["jobs"]]
+    assert titles.index("Practicante de Procesos B") < titles.index("Practicante de Procesos A")

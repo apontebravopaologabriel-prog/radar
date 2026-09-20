@@ -25,8 +25,9 @@ MAX_TOOL_RESULT_CHARS = 6000
 DEFAULT_MONTHLY_TOKEN_CAP = 500_000
 
 SYSTEM_PROMPT = """Eres el agente de Radar, una app personal de inteligencia de carrera. Ayudas a \
-encontrar ofertas en todo el Perú, entender qué pide el mercado y decidir qué aprender. Responde en español, breve y \
-concreto.
+encontrar ofertas en todo el Perú, entender qué pide el mercado y decidir qué aprender. Responde SIEMPRE en español, breve y \
+concreto. No anuncies lo que vas a hacer (nada de «voy a revisar…»): llama a la herramienta y responde con \
+el resultado.
 
 Reglas:
 - Puedes responder cualquier pregunta sobre Radar y sus datos: para cifras usa las herramientas (get_market_breakdown, \

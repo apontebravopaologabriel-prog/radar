@@ -334,3 +334,104 @@ def confirm(payload: ConfirmRequest) -> dict[str, Any]:
         },
         "result": result,
     }
+
+
+# --- Conversaciones guardadas (en la base local del usuario) -------------------------------------
+
+MAX_CONVERSATION_CHARS = 400_000
+MAX_CONVERSATIONS = 200
+
+
+class ConversationBody(BaseModel):
+    title: str = Field(default="Conversación", max_length=120)
+    data: dict[str, Any]
+
+
+def _require_agent() -> None:
+    if not agent_enabled():
+        raise HTTPException(status_code=403, detail="agent_disabled")
+
+
+def _serialize(body: ConversationBody) -> str:
+    text = json.dumps(body.data, ensure_ascii=False)
+    if len(text) > MAX_CONVERSATION_CHARS:
+        raise HTTPException(status_code=413, detail="Conversación demasiado larga")
+    return text
+
+
+@router.get("/conversations")
+def list_conversations(limit: int = Query(default=20, ge=1, le=100)) -> dict[str, Any]:
+    _require_agent()
+    from radar.db.database import connection
+
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT id, title, updated_at FROM conversations ORDER BY updated_at DESC LIMIT %s", (limit,)
+        ).fetchall()
+    return {"conversations": [{"id": r[0], "title": r[1], "updated_at": r[2]} for r in rows]}
+
+
+@router.post("/conversations", status_code=201)
+def create_conversation(body: ConversationBody) -> dict[str, str]:
+    _require_agent()
+    from radar.db.database import connection
+
+    text = _serialize(body)
+    with connection() as conn:
+        count = conn.execute("SELECT count(*) FROM conversations").fetchone()[0]
+        if count >= MAX_CONVERSATIONS:
+            conn.execute(
+                "DELETE FROM conversations WHERE id IN (SELECT id FROM conversations ORDER BY updated_at LIMIT %s)",
+                (count - MAX_CONVERSATIONS + 1,),
+            )
+        new_id = conn.execute(
+            "INSERT INTO conversations(title, data) VALUES (%s, %s) RETURNING id", (body.title, text)
+        ).fetchone()[0]
+    return {"id": new_id}
+
+
+@router.get("/conversations/{conversation_id}")
+def get_conversation(conversation_id: str) -> dict[str, Any]:
+    _require_agent()
+    from radar.db.database import connection
+
+    with connection() as conn:
+        row = conn.execute("SELECT id, title, data FROM conversations WHERE id=%s", (conversation_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    return {"id": row[0], "title": row[1], "data": json.loads(row[2])}
+
+
+@router.put("/conversations/{conversation_id}")
+def save_conversation(conversation_id: str, body: ConversationBody) -> dict[str, str]:
+    _require_agent()
+    from radar.db.database import connection
+
+    text = _serialize(body)
+    with connection() as conn:
+        updated = conn.execute(
+            "UPDATE conversations SET title=%s, data=%s, updated_at=now() WHERE id=%s",
+            (body.title, text, conversation_id),
+        ).rowcount
+    if not updated:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    return {"id": conversation_id}
+
+
+@router.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: str) -> dict[str, bool]:
+    from radar.db.database import connection
+
+    with connection() as conn:
+        conn.execute("DELETE FROM conversations WHERE id=%s", (conversation_id,))
+    return {"deleted": True}
+
+
+@router.delete("/conversations")
+def delete_all_conversations() -> dict[str, int]:
+    """Borrar el historial siempre está permitido, incluso con el agente apagado."""
+    from radar.db.database import connection
+
+    with connection() as conn:
+        deleted = conn.execute("DELETE FROM conversations").rowcount
+    return {"deleted": deleted}
