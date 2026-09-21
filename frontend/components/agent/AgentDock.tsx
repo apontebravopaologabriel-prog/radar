@@ -123,6 +123,7 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
   const onError = useCallback(() => undefined, []);
   const dock = useMemo(() => ({ pinned: mode === "pinned", toggle: toggleMode }), [mode, toggleMode]);
   const closeAgent = useCallback(() => setOpen(false), []);
+  const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
 
   // Arrastre del borde izquierdo del panel fijado para cambiar su ancho.
   // Durante el gesto solo cambia el ancho del panel (posición fija, no afecta al resto de la página);
@@ -148,7 +149,7 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
 
   const titlebar = (
     <header className="agent-titlebar" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-      <span><RadarMark size={12} /> radar</span>
+      <span className="agent-title"><RadarMark size={12} /> radar<b className="agent-title-slot" ref={setTitleSlot} /></span>
       <div>
         <button type="button" onClick={toggleMode} aria-label={mode === "pinned" ? "Volver a ventana" : "Fijar a la derecha"} title={mode === "pinned" ? "Ventana flotante" : "Fijar a la derecha"}>{mode === "pinned" ? "❐" : "⇥"}</button>
         {mode === "float" && <button type="button" onClick={() => setMinimized(!minimized)} aria-label={minimized ? "Restaurar" : "Minimizar"}>{minimized ? "▢" : "–"}</button>}
@@ -167,14 +168,14 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
         <div ref={box} className={`agent-window m-app ${minimized ? "is-min" : ""}`} role="dialog" aria-label="Agente de Radar"
           style={{ left: geo.x, top: geo.y, width: geo.w, height: minimized ? undefined : geo.h }}>
           {titlebar}
-          {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} />}
+          {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} titleSlot={titleSlot} />}
         </div>
       )}
       {enabled && open && mode === "pinned" && (
         <aside ref={aside} className="agent-pinned m-app" style={{ width: pinWidth }} aria-label="Agente de Radar">
           <div className="agent-pinned-resize" onPointerDown={onResizeDown} role="separator" aria-orientation="vertical" aria-label="Ajustar ancho" />
           {titlebar}
-          <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} />
+          <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} titleSlot={titleSlot} />
         </aside>
       )}
     </>

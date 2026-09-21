@@ -36,3 +36,15 @@ html .terminal-toast { right: calc(18px + var(--agent-dock-w, 0px)); }
 .agent-pinned .agent-titlebar { cursor: default; }
 .agent-titlebar span { display: inline-flex; align-items: center; gap: 6px; }
 .agent-titlebar .radar-mark { color: #ececec; }
+
+/* Título de la conversación junto a «radar» en la barra superior. */
+.agent-title { min-width: 0; flex: 1 1 auto; }
+.agent-title-slot { display: inline-flex; min-width: 0; font-weight: 400; }
+.agent-title-slot::before { content: "·"; color: #6f6f6f; margin: 0 6px; }
+.agent-titlebar .chat-title { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; color: #cfcfcf; font: inherit; font-size: 12px; padding: 0; min-height: 0; cursor: text; text-align: left; }
+.agent-titlebar .chat-title:hover { color: #fff; }
+.agent-titlebar .chat-title i { font-style: normal; opacity: 0; }
+.agent-titlebar .chat-title:hover i { opacity: .6; }
+.agent-titlebar .chat-title-empty { color: #7a7a7a; font-style: italic; cursor: default; }
+.agent-titlebar .chat-title-input { border: 1px solid #6f6f6f; border-radius: 3px; background: #1a1a1a; padding: 1px 4px; min-width: 120px; width: 100%; }
+.agent-titlebar .chat-title-input:focus-visible { outline: none; border-color: #ececec; }

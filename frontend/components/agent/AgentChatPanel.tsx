@@ -42,7 +42,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, contextMode, setContextMode, rewind } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, contextMode, setContextMode, rewind } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -105,7 +105,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
       const out = await command.run(rest.join(" "), {
-        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), openResume: () => setResumeOpen(true), dock, close: onClose,
+        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), openResume: () => setResumeOpen(true), rename: renameChat, title, dock, close: onClose,
         transcript: () => transcriptOf(lines),
         lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
       });

@@ -13,6 +13,8 @@ export type CommandContext = {
   compact: (focus?: string) => Promise<string>;
   openConfigMenu: (section?: "model" | "effort") => void;
   openResume: () => void;
+  rename: (title: string) => void;
+  title: string;
   transcript: () => string;
   usage: { context: number; session: number; estimated: boolean };
   lastAnswer: () => string;
@@ -166,6 +168,12 @@ export const COMMANDS: Command[] = [
       return "Agente **apagado**. Recarga la página para ocultar la ventana; reactívalo en Ajustes.";
     } },
   { name: "resume", aliases: ["historial", "history"], hint: "Elige una conversación anterior", kind: "local", run: async (_a, ctx) => { ctx.openResume(); return null; } },
+  { name: "rename", aliases: ["renombrar"], args: "<título>", hint: "Cambia el título de esta conversación", kind: "local", run: async (args, ctx) => {
+      if (!ctx.title) return "Aún no hay conversación que renombrar: escribe primero un mensaje.";
+      if (!args.trim()) return `Título actual: **${ctx.title}**. Usa \`/rename <título>\` o haz clic en el título de la barra superior.`;
+      ctx.rename(args);
+      return `Conversación renombrada.`;
+    } },
   { name: "open", aliases: ["abrir"], args: "<n>", hint: "Abre una conversación del historial", kind: "local", run: async (args, ctx) => {
       if (!lastList.length) lastList = (await ctx.list()).slice(0, 10);
       const target = lastList[Number(args.trim()) - 1];

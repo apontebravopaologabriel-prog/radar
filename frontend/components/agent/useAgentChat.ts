@@ -13,6 +13,9 @@ export const BASE_PROMPT_TOKENS = 2800;
 export type ContextMode = "off" | "selection" | "full";
 const CONTEXT_MODES: ContextMode[] = ["off", "selection", "full"];
 const CONTEXT_KEY = "radar.agent.contextMode";
+const TITLE_MAX = 60;
+/** Título automático: el primer mensaje de la persona. */
+const autoTitle = (lines: { kind: string; text: string }[]) => (lines.find((l) => l.kind === "user")?.text ?? "").slice(0, TITLE_MAX);
 
 /** Recorta el contexto según el modo: «selección» omite las filas de los análisis (lo más caro en tokens). */
 export function scopeContext(context: AgentContext | undefined, mode: ContextMode): AgentContext | undefined {
@@ -38,6 +41,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
+  const [customTitle, setCustomTitle] = useState<string | null>(null);  // título puesto a mano; null = automático
   const [turn, setTurn] = useState<{ startedAt: number; tokens: number } | null>(null);
   const alwaysAllow = useRef<Set<string>>(new Set());  // herramientas aprobadas «siempre» durante esta sesión
   const conversationId = useRef<string | null>(null);
@@ -57,6 +61,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         conversationId.current = saved.id;
         setHistory(saved.data.history ?? []);
         setLines((saved.data.lines ?? []) as Line[]);
+        setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
       }
     }).catch(() => undefined).finally(() => { loaded.current = true; });
   }, [onError]);
@@ -65,8 +70,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   useEffect(() => {
     if (!loaded.current || lines.length === 0) return;
     const timer = setTimeout(async () => {
-      const firstUser = lines.find((l) => l.kind === "user")?.text ?? "Conversación";
-      const title = firstUser.slice(0, 60);
+      const title = customTitle ?? (autoTitle(lines) || "Conversación");
       const data = { history: history.slice(-60), lines: lines.slice(-100) };
       try {
         if (conversationId.current) await api.saveConversation(conversationId.current, title, data);
@@ -74,7 +78,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
       } catch { /* no interrumpe el chat si no se pudo guardar */ }
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [history, lines]);
+  }, [history, lines, customTitle]);
 
   /** Ejecuta un turno con el historial dado. */
   const run = useCallback(async (base: ApiMessage[]) => {
@@ -168,7 +172,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
-  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
+  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
   /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
   const compact = useCallback(async (focus = ""): Promise<string> => {
     if (history.length < 2) return "Aún no hay nada que compactar.";
@@ -186,6 +190,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     const saved = await api.conversation(id);
     conversationId.current = saved.id;
     setHistory(saved.data.history ?? []); setLines((saved.data.lines ?? []) as Line[]); setPending([]);
+    setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
   }, []);
   /** Borra una conversación (la actual si no se indica). */
   const remove = useCallback(async (id?: string) => {
@@ -194,6 +199,12 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     if (!id || id === conversationId.current) reset();
   }, [reset]);
   const list = useCallback(async (): Promise<ConversationInfo[]> => (await api.conversations()).conversations, []);
+  /** Renombra la conversación actual; un texto vacío vuelve al título automático. */
+  const rename = useCallback((value: string) => {
+    const clean = value.replace(/\s+/g, " ").trim().slice(0, TITLE_MAX);
+    setCustomTitle(clean || null);
+  }, []);
+  const title = customTitle ?? autoTitle(lines);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, usage, turn, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
+  return { lines, pending, busy, settings, needsSetup, usage, turn, title, rename, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }
