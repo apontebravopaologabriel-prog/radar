@@ -1,5 +1,5 @@
 /* Ventana del agente en escritorio: flotante, sobre el mapa, misma estética terminal. */
-.agent-dock { position: fixed; top: 196px; left: 16px; z-index: 900; display: flex; width: 39px; min-height: 84px; flex-direction: column; gap: 6px; pointer-events: auto; }
+.agent-dock { position: fixed; top: 195px; left: 16px; z-index: 900; display: flex; width: 39px; min-height: 84px; flex-direction: column; gap: 6px; pointer-events: auto; }
 .agent-dock button, .agent-dock a {
   width: 39px; height: 39px; min-height: 39px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid #444; border-radius: 0; color: #858585; background: #080808c9; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px);

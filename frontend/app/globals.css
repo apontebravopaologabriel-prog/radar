@@ -1044,8 +1044,8 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
   .mode-rail.is-autohide { top: 60px; left: 0; width: 14px; min-height: 130px; pointer-events: none; }
   .mode-rail.is-autohide::before { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; content: ""; background: #ffffff26; }
   .mode-rail.is-autohide button, .edge-menu-toggle.is-autohide { transform: translateX(-56px); opacity: 0; pointer-events: none; transition: transform .16s ease, opacity .16s ease, border-color .12s, background .12s; }
-  .mode-rail.is-autohide.is-peek button, .mode-rail.is-autohide:focus-within button { transform: translateX(16px); opacity: 1; pointer-events: auto; }
-  .edge-menu-toggle.is-autohide.is-peek, .edge-menu-toggle.is-autohide.is-open, .edge-menu-toggle.is-autohide:focus-visible { transform: none; opacity: 1; pointer-events: auto; }
+  .radar-rail-peek .mode-rail.is-autohide button, .mode-rail.is-autohide.is-peek button, .mode-rail.is-autohide:focus-within button { transform: translateX(16px); opacity: 1; pointer-events: auto; }
+  .radar-rail-peek .edge-menu-toggle.is-autohide, .edge-menu-toggle.is-autohide.is-peek, .edge-menu-toggle.is-autohide.is-open, .edge-menu-toggle.is-autohide:focus-visible { transform: none; opacity: 1; pointer-events: auto; }
 }
 
 /* Ventanas de Análisis: se estiran desde el borde derecho, el inferior o la esquina */
