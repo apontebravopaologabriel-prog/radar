@@ -14,7 +14,17 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_build, cv_edit, cv_plan, cv_targets, insights, maintenance, system
+from radar import (
+    cv_baseline,
+    cv_build,
+    cv_edit,
+    cv_plan,
+    cv_targets,
+    insights,
+    maintenance,
+    profile_edit,
+    system,
+)
 from radar.agent.history import search_conversations
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
@@ -348,7 +358,55 @@ def remember_user(topic_key: str, content: str, memory_type: str = "preference")
     return {"memory": save_memory(content, topic_key=topic_key, memory_type=memory_type, source="chat")}
 
 
+@tool()
+def get_my_profile() -> dict:
+    """Tu perfil completo tal como lo ve la persona en Ajustes: nombre, titular, resumen, distrito de casa, contacto,
+    formación, áreas objetivo, lugares, modalidades y skills con su nivel, más qué le falta y por qué importa. Úsala
+    antes de editar algo, para partir de lo que hay."""
+    return profile_edit.get_full()
+
+
 @tool(write=True)
+def update_profile_fields(
+    name: str | None = None,
+    headline: str | None = None,
+    summary: str | None = None,
+    home_district: str | None = None,
+    education: str | None = None,
+    contact: dict[str, str] | None = None,
+    areas: list[str] | None = None,
+    areas_add: list[str] | None = None,
+    areas_remove: list[str] | None = None,
+    locations: list[str] | None = None,
+    locations_add: list[str] | None = None,
+    locations_remove: list[str] | None = None,
+    work_modes: list[str] | None = None,
+    skills: dict[str, str] | None = None,
+) -> dict:
+    """Edita SOLO los campos que pases del perfil (lo que se ve y edita en Ajustes); lo demás no se toca. Pasa
+    únicamente lo que la persona pidió cambiar y con lo que ella dijo: nunca inventes datos ni niveles. Escalares:
+    name, headline, summary, home_district (distrito de casa), education; un texto vacío borra el campo (no name).
+    contact: {email, phone, linkedin, location} (fusiona; vacío quita ese dato). Listas: areas/locations reemplazan
+    todo; *_add y *_remove agregan o quitan elementos sueltos (preferidos). work_modes: onsite (presencial), hybrid o
+    remote. skills: {skill: none|basic|intermediate|advanced|remove} (solo skills del catálogo de la carrera).
+    Devuelve el antes/después y un `undo`. Experiencia, certificados y proyectos van con update_cv."""
+    fields = {k: v for k, v in {
+        "name": name, "headline": headline, "summary": summary, "home_district": home_district,
+        "education": education, "contact": contact, "areas": areas, "areas_add": areas_add,
+        "areas_remove": areas_remove, "locations": locations, "locations_add": locations_add,
+        "locations_remove": locations_remove, "work_modes": work_modes, "skills": skills,
+    }.items() if v is not None}
+    if not fields:
+        raise ValueError("Indica al menos un campo a cambiar")
+    return profile_edit.patch(fields)
+
+
+PREVIEWS: dict[str, Callable[[dict[str, Any]], list[str]]] = {
+    "update_profile_fields": lambda args: profile_edit.preview(args),
+}
+
+
+@tool(write=True, chat=False)
 def update_profile(
     name: str,
     areas: list[str],

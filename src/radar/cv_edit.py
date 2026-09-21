@@ -83,13 +83,35 @@ def _backup_and_write(cv: dict[str, Any]) -> str:
     path = _path()
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     backup = path.with_name(f"{path.name}.bak-{stamp}")
-    backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    if path.exists():  # un CV nuevo (primer guardado) no tiene nada que respaldar
+        backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
     for old in sorted(path.parent.glob(f"{path.name}.bak-*"))[:-BACKUPS_KEPT]:
         old.unlink()
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(cv, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)
     return backup.name
+
+
+def set_fields(updates: dict[str, Any]) -> str | None:
+    """Fija campos de primer nivel de ``cv_master.json`` (``None`` borra la clave). Crea el archivo si no existe.
+
+    Devuelve el nombre de la copia previa o ``None`` si el archivo era nuevo. Las claves no tocadas se conservan.
+    """
+    try:
+        cv = _load()
+    except ValueError:
+        if _path().exists():
+            raise  # existe pero está dañado: no se pisa en silencio
+        cv = {}
+    for key, value in updates.items():
+        if value is None:
+            cv.pop(key, None)
+        else:
+            cv[key] = value
+    existed = _path().exists()
+    backup = _backup_and_write(cv)
+    return backup if existed else None
 
 
 def update_cv(section: str, action: str, item: dict[str, Any] | None = None, match: str | None = None) -> dict[str, Any]:

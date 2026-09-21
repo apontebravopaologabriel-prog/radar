@@ -21,7 +21,7 @@ visionario e independiente, cuya lealtad es con los datos y con el futuro de la 
 
 Cualquier cambio de personalidad se hace en `soul.md` (se empaqueta con el paquete `radar`).
 
-## Herramientas (56 en total, 44 en el chat)
+## Herramientas (58 en total, 45 en el chat)
 
 `src/radar/tools.py` es el único registro. Cada herramienta declara `write` (pide confirmación) y `chat`
 (visible para el agente de la app). Las marcadas **MCP** solo están en el servidor MCP.
@@ -29,7 +29,7 @@ Cualquier cambio de personalidad se hace en `soul.md` (se empaqueta con el paque
 | Grupo | Herramientas |
 |---|---|
 | Mercado y ofertas | `search_saved_jobs` (filtros por área, sector, exclusión de sectores y texto), `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (por área, lugar, empresa, modalidad, seniority, sector o portal, con filtros), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`; **MCP:** `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |
-| Perfil, CV y memoria | `get_user_profile`, `get_my_cv`, `update_cv`\*, `update_profile`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
+| Perfil, CV y memoria | `get_my_profile`, `update_profile_fields`\*, `get_user_profile`, `get_my_cv`, `update_cv`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
 | Plan de cierre y CV descargable | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* |
 | Seguimiento | `favorite_job`\*, `track_job_application`\*, `list_job_applications` |
 | Captura y sistema | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`; **MCP:** `ingest_jobs`\*, `capture_market_history`\* |
@@ -121,7 +121,7 @@ silencio, sin citarlo. Las menciones con `@` viajan siempre y tienen prioridad.
 `certifications`, `experience`, `education`, `languages`, `projects`, `contact` (email, teléfono, LinkedIn, ubicación), `gaps` (brechas de evidencia), `summary` y `headline`.
 Acciones: `add`, `update`, `remove`. Valida los campos permitidos y las fechas `AAAA-MM`, rechaza duplicados y
 coincidencias ambiguas, conserva las claves que no toca, guarda `cv_master.json.bak-<fecha>` (últimas 5) y escribe de
-forma atómica. Solo con lo que la persona dicta. Las skills y herramientas se cambian con `update_profile`, y la vista
+forma atómica. Solo con lo que la persona dicta. Las skills y herramientas se cambian con `update_profile_fields` (o en Ajustes → Perfil), y la vista
 de CVs se ve actualizada al reabrirla.
 
 ## Mantenimiento y sistema
@@ -168,3 +168,25 @@ consumo se cuenta en `agent_usage`.
 `preview_cv(job_id)` y `build_cv(job_id)` producen tu CV **real** para una oferta (no el hipotético). Radar solo
 **elige y ordena** lo que ya está en `cv_master.json`; no reformula ni inventa. Detalle y decisiones en
 [cv-word-plan.md](cv-word-plan.md). La vista `CVs` lo ofrece dentro del detalle de cada objetivo.
+
+## Perfil editable (Ajustes y agente)
+
+La pestaña **Perfil** de Ajustes y el agente editan el mismo perfil con la misma lógica (`src/radar/profile_edit.py`).
+Cada dato tiene un solo dueño y quien edita no tiene que saberlo:
+
+| Dato | Se guarda en |
+|---|---|
+| Nombre, titular, resumen, distrito de casa, contacto | `cv_master.json` (con copia previa) |
+| Formación en una línea, áreas objetivo, lugares, modalidades, skills | SQLite `user_profile` / `user_skills` |
+
+- **Edición parcial.** `update_profile_fields` (y `PATCH /api/me`) solo tocan los campos indicados; nunca borran lo que
+  no se menciona. Las listas admiten `*_add` y `*_remove` para agregar o quitar elementos sueltos, y las skills
+  `{skill: nivel | remove}`. Todo se valida antes de escribir y, si falla la base, el archivo vuelve a como estaba.
+- **Antes → después.** La tarjeta de confirmación del chat muestra el cambio exacto; en Ajustes cada guardado ofrece
+  «Deshacer» (la respuesta incluye el `undo` listo para reenviar).
+- **Sin duplicados que se desincronicen.** El nombre se mantiene igual en ambos almacenes, la copia de lugares del
+  archivo se actualiza con la base, y las herramientas declaradas se leen de la base al vuelo (antes había una copia
+  guardada que quedaba vieja).
+- **Modalidades** se guardan como las usan las ofertas y el puntaje: `onsite`, `hybrid`, `remote`.
+- `update_profile` (reemplazo total) sigue disponible solo para el servidor MCP y el Onboarding; el agente de la app usa
+  `update_profile_fields`. Experiencia, certificados y proyectos siguen en `update_cv`.

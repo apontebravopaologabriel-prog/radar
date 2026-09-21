@@ -3,11 +3,16 @@
 import { useEffect, useState } from "react";
 import { api, type AgentSettings, type Career } from "../../lib/mobile-api";
 import CustomCareerForm from "./CustomCareerForm";
+import ProfileTab from "./ProfileTab";
 import RefreshPanel from "./RefreshPanel";
+import "./settings.css";
 
 const WEIGHT_LABELS: Record<string, string> = {
   area: "Área", skills: "Skills", seniority: "Nivel", education: "Formación", location: "Ubicación", preference: "Modalidad",
 };
+
+type SettingsTab = "perfil" | "busqueda" | "agente" | "apariencia";
+const TABS: [SettingsTab, string][] = [["perfil", "Perfil"], ["busqueda", "Búsqueda"], ["agente", "Agente"], ["apariencia", "Apariencia"]];
 
 export default function SettingsView({ authRequired, onLogout, onError, onAgentChange }: { authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void; onAgentChange?: (enabled: boolean) => void }) {
   const [career, setCareer] = useState<Career | null>(null);
@@ -23,6 +28,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [readOnly, setReadOnly] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [note, setNote] = useState("");
+  const [tab, setTab] = useState<SettingsTab>("perfil");
   const [lite, setLite] = useState(false);
   useEffect(() => { try { setLite(localStorage.getItem("radar.perf") === "lite"); } catch { /* sin almacenamiento */ } }, []);
   const toggleLite = (on: boolean) => {
@@ -54,8 +60,13 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   return (
     <div className="m-stack settings-stack">
       <header className="m-head"><span className="m-eyebrow">[AJUSTES]</span><h1>Ajustes</h1>{note && <p role="status">{note}</p>}</header>
+      <nav className="set-tabs" role="tablist" aria-label="Secciones de ajustes">
+        {TABS.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
+      </nav>
+      {tab === "perfil" && <ProfileTab career={career} onError={onError} />}
 
-      <section className="m-card">
+      {tab === "busqueda" && (<>
+      <section className="set-section">
         <h2>Carrera</h2>
         <p className="m-sub">Define las áreas, competencias y pesos con que se clasifican las ofertas nuevas.</p>
         <select value={career.active} onChange={async (e) => { try { const c = await api.setCareer(e.target.value); setCareer(c); setWeights(c.weights); flash("Carrera cambiada"); } catch (error) { onError(error); } }} aria-label="Carrera">
@@ -65,14 +76,14 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         {showCustom && <CustomCareerForm onError={onError} onCreated={(c) => { setCareer(c); setWeights(c.weights); setShowCustom(false); flash("Carrera creada"); }} />}
       </section>
 
-      <section className="m-card">
+      <section className="set-section">
         <h2>Mercado</h2>
         <p className="m-sub">Trae ofertas nuevas de tu carrera en tus ubicaciones y recalcula tu puntaje. Corre en tu equipo.</p>
         <RefreshPanel places={[]} onError={onError} />
       </section>
 
-      <section className="m-card">
-        <h2>Qué pesa más en el encaje</h2>
+      <details className="set-section set-advanced">
+        <summary>Qué pesa más en el encaje (avanzado)</summary>
         {Object.keys(WEIGHT_LABELS).map((k) => (
           <label className="m-slider" key={k}>
             <span>{WEIGHT_LABELS[k]} <b>{Math.round((weights[k] ?? 0) * 100)}%</b></span>
@@ -80,15 +91,20 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
           </label>
         ))}
         <button className="m-primary" onClick={async () => { try { const c = await api.setWeights(weights); setCareer(c); setWeights(c.weights); flash("Pesos aplicados"); } catch (error) { onError(error); } }}>Aplicar y recalcular</button>
-      </section>
+      </details>
+      </>)}
 
-      <section className="m-card">
+      {tab === "apariencia" && (<>
+      <section className="set-section">
         <h2>Rendimiento <b>{lite ? "(modo ligero)" : "(efectos retro)"}</b></h2>
         <p className="m-sub">El modo ligero quita las líneas de escaneo, la rejilla y el barrido del mapa, y los desenfoques de los paneles. Es lo más rápido en equipos modestos. Se guarda solo en este navegador.</p>
         <label className="m-check"><input type="checkbox" checked={lite} onChange={(e) => toggleLite(e.target.checked)} />Modo ligero (sin efectos retro)</label>
       </section>
 
-      <section className="m-card">
+      </>)}
+
+      {tab === "agente" && (
+      <section className="set-section">
         <h2>Agente de IA <b>{enabled ? "(activado)" : "(apagado)"}</b></h2>
         <p className="m-sub">Es opcional: Radar funciona completo sin él. Usa tu propia clave: pagas al proveedor por lo que uses. La clave se guarda en tu equipo con permisos privados y nunca vuelve al navegador.</p>
         <label className="m-check"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />Activar el agente</label>
@@ -119,23 +135,25 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
           <label>Clave de API {agent.has_key && provider === agent.provider && <b>(guardada)</b>}
             <input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={agent.has_key ? "Dejar vacío para conservar" : "sk-…"} />
           </label>
+          <details className="set-advanced set-span">
+            <summary>Límites (avanzado)</summary>
           <label>Tope mensual de tokens
             <input type="number" min={1000} step={50000} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
           </label>
           <label>Ventana de contexto del modelo (tokens; solo para el medidor de /contexto)
             <input type="number" min={2000} step={1000} value={ctxWindow} onChange={(e) => setCtxWindow(Number(e.target.value))} />
           </label>
+          </details>
         </div>
         <p className="m-sub">Usado este mes: {agent.tokens_used_this_month.toLocaleString("es-PE")} de {agent.monthly_token_cap.toLocaleString("es-PE")}.</p>
         <button className="m-primary" onClick={saveAgent}>Guardar agente</button>
       </section>
+      )}
 
-      <section className="m-card">
-        <h2>Más herramientas</h2>
-        <p className="m-sub">Mapa completo, análisis SQL y CVs objetivo. Pensado para pantalla grande: en el celular puede ir lento.</p>
-        <a className="m-primary m-linkbtn" href="/radar">Abrir mapa completo y análisis</a>
+      <footer className="set-footer">
+        <a className="m-link" href="/radar">Abrir mapa, análisis y CVs</a>
         {authRequired && <button className="m-link" onClick={onLogout}>Cerrar sesión</button>}
-      </section>
+      </footer>
     </div>
   );
 }

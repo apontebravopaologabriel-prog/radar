@@ -276,7 +276,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         {pending.map((action) => (
           <div className="term-confirm" key={action.id}>
             <div><b>Acción propuesta:</b> {action.description}</div>
-            <code>{action.name}({JSON.stringify(action.arguments)})</code>
+            {action.preview?.length ? <ul className="term-preview">{action.preview.map((line) => <li key={line}>{line}</li>)}</ul> : <code>{action.name}({JSON.stringify(action.arguments)})</code>}
             <div className="m-actions">
               <button onClick={() => decide(action, true)}>[1] Sí</button>
               <button onClick={() => decide(action, true, true)}>[2] Sí, y no preguntar más esta sesión</button>

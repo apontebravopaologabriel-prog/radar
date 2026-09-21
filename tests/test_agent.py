@@ -325,3 +325,18 @@ def test_plan_mode_rejects_a_write_call_even_if_the_model_insists():
     client, _ = _client(_call("reclassify_jobs", {}), _text("no puedo"))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client, plan=True))
     assert not any(e["type"] == "pending" for e in events)
+
+
+def test_profile_edit_confirmation_shows_before_and_after_and_writes_nothing(tmp_path):
+    cv = tmp_path / "cv_master.json"
+    cv.write_text(json.dumps({"name": "Ana", "home_district": "La Victoria"}), encoding="utf-8")
+    client, _ = _client(_call("update_profile_fields", {"home_district": "Surco", "skills": {"Klingon": "basic"}}))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "me mudé a Surco"}], client))
+    [action] = next(e for e in events if e["type"] == "pending")["actions"]
+    assert action["name"] == "update_profile_fields"
+    assert action["preview"][0].startswith("No se puede aplicar")  # la skill desconocida se detecta antes de aprobar
+    client, _ = _client(_call("update_profile_fields", {"home_district": "Surco"}))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "me mudé a Surco"}], client))
+    [action] = next(e for e in events if e["type"] == "pending")["actions"]
+    assert action["preview"] == ["Distrito: La Victoria → Surco"]
+    assert json.loads(cv.read_text(encoding="utf-8"))["home_district"] == "La Victoria"  # nada se escribe sin aprobar

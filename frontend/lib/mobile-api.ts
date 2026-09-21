@@ -60,6 +60,14 @@ export type Doctor = { version: string; database: { path: string; size_mb: numbe
 export type ProfileInput = { name: string; education?: string; areas: string[]; locations: string[];
   work_modes: string[]; skills: Record<string, string> };
 
+export type MeProfile = {
+  name: string; headline: string; summary: string; home_district: string; contact: Record<string, string>;
+  education: string; areas: string[]; locations: string[]; work_modes: string[]; skills: Record<string, string>;
+  has_photo: boolean;
+  completeness: { percent: number; missing: { key: string; label: string; why: string }[] };
+};
+export type MePatchResult = { changed: string[]; undo: Record<string, unknown>; warnings: string[]; profile: MeProfile };
+
 export const api = {
   authStatus: () => request<{ required: boolean; authenticated: boolean }>("/api/auth/status"),
   login: (token: string) => request<{ authenticated: boolean }>("/api/auth/login", { method: "POST", body: JSON.stringify({ token }) }),
@@ -88,6 +96,8 @@ export const api = {
     request<Career>("/api/career/custom", { method: "POST", body: JSON.stringify(body) }),
   startRefresh: (places: string[]) => request<RefreshState>("/api/refresh", { method: "POST", body: JSON.stringify({ places, limit: 15 }) }),
   refreshStatus: () => request<RefreshState>("/api/refresh/status"),
+  me: () => request<{ profile: MeProfile }>("/api/me").then((r) => r.profile),
+  patchMe: (fields: Record<string, unknown>) => request<MePatchResult>("/api/me", { method: "PATCH", body: JSON.stringify(fields) }),
   saveProfile: (profile: ProfileInput) => request<{ profile_id: string }>("/api/profile", { method: "PUT", body: JSON.stringify(profile) }),
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
   saveAgentSettings: (body: { provider: string; model?: string; reasoning_effort?: "auto" | "none" | "low" | "high" | "max"; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
@@ -116,7 +126,7 @@ export type ConversationHit = { id: string; title: string; updated_at: string; m
 export type ConversationData = { history: ApiMessage[]; lines: { kind: string; text: string }[] };
 export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | null; reasoning_content?: string; tool_call_id?: string;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] };
-export type PendingAction = { id: string; name: string; arguments: Record<string, unknown>; description: string };
+export type PendingAction = { id: string; name: string; arguments: Record<string, unknown>; description: string; preview?: string[] };
 export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "assistant_message"; message: ApiMessage }

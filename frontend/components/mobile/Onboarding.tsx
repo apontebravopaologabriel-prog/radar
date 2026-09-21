@@ -6,7 +6,7 @@ import CustomCareerForm from "./CustomCareerForm";
 import RefreshPanel from "./RefreshPanel";
 
 const LEVELS = [["none", "No"], ["basic", "Básico"], ["intermediate", "Medio"], ["advanced", "Alto"]] as const;
-const MODES = [["presencial", "Presencial"], ["hybrid", "Híbrido"], ["remote", "Remoto"]] as const;
+const MODES = [["onsite", "Presencial"], ["hybrid", "Híbrido"], ["remote", "Remoto"]] as const;
 
 export default function Onboarding({ onDone, onError }: { onDone: () => void; onError: (e: unknown) => void }) {
   const [career, setCareer] = useState<Career | null>(null);

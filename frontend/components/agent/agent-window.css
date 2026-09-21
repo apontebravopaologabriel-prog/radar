@@ -126,3 +126,6 @@ html .terminal-toast { right: calc(18px + var(--agent-dock-w, 0px)); }
 .term-line.is-streaming .md > :last-child::after { content: "▍"; margin-left: 2px; animation: term-blink 1s steps(1) infinite; }
 @keyframes term-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .term-line.is-streaming .md > :last-child::after { animation: none; } }
+
+/* «Antes → después» en la tarjeta de confirmación de ediciones del perfil */
+.term-confirm .term-preview { margin: 2px 0; padding: 0; list-style: none; display: grid; gap: 2px; color: #cfcfcf; font-size: 11px; overflow-wrap: anywhere; }

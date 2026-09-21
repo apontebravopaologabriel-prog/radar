@@ -15,6 +15,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from radar.api_agent import router as agent_router
 from radar.api_cv import router as cv_router
+from radar.api_me import router as me_router
 from radar.auth import AccessMiddleware
 from radar.auth import router as auth_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
@@ -57,6 +58,7 @@ app.add_middleware(_SelectiveGZip, minimum_size=1024, compresslevel=5)
 app.add_middleware(AccessMiddleware)
 app.include_router(auth_router)
 app.include_router(cv_router)
+app.include_router(me_router)
 app.include_router(agent_router)
 
 if FRONTEND_OUT.exists():

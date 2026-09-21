@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from radar.db.database import connection, database_path
+from radar.db.queries import get_profile
 from radar.geolocation import LIMA_DISTRICTS, LocationPoint, infer_location
 
 _STATUS_RANK = {"cubierto": 0, "parcial": 1, "falta": 2}
@@ -51,6 +52,14 @@ def load_profile() -> dict[str, Any] | None:
     # La ruta original de la foto es un dato de configuración local; no se expone.
     profile.pop("photo_path", None)
     profile["has_photo"] = photo_path() is not None
+    # Las herramientas autodeclaradas viven en la base (se editan en Ajustes o con el agente): una copia guardada
+    # en el archivo quedaría vieja. Si hay perfil en la base, manda; si no, se conserva lo del archivo.
+    account = get_profile()
+    if account and account["skills"]:
+        profile["tools_declared_in_db"] = {
+            "_nota": "Niveles autodeclarados en tu perfil de Radar; no verificados con evidencia.",
+            **{name: level for name, level in account["skills"].items() if level != "none"},
+        }
     return profile
 
 

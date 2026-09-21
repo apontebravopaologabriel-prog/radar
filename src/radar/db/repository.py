@@ -393,6 +393,8 @@ def save_profile(
     locations: list[str],
     work_modes: list[str],
     skills: dict[str, str],
+    remove_skills: list[str] | None = None,
+    reason: str | None = None,
 ) -> str:
     areas_json = json.dumps(areas, ensure_ascii=False) if isinstance(areas, list) else areas
     locations_json = json.dumps(locations, ensure_ascii=False) if isinstance(locations, list) else locations
@@ -426,13 +428,24 @@ def save_profile(
                     "INSERT INTO user_skills(profile_id,skill_id,level,last_verified_at) VALUES (%s,%s,%s,now()) ON CONFLICT(profile_id,skill_id) DO UPDATE SET level=EXCLUDED.level, updated_at=now(), last_verified_at=now()",
                     (profile_id, row[0], level),
                 )
+        for skill in remove_skills or []:
+            row = conn.execute(
+                "SELECT id FROM skills WHERE normalized_name=%s OR lower(name)=lower(%s)",
+                (normalize_text(skill).replace(" ", "-"), skill),
+            ).fetchone()
+            if row:
+                conn.execute("DELETE FROM user_skills WHERE profile_id=%s AND skill_id=%s", (profile_id, row[0]))
         version = conn.execute(
             "SELECT COALESCE(MAX(version_number), 0) + 1 FROM profile_versions WHERE profile_id=%s",
             (profile_id,),
         ).fetchone()[0]
+        current_skills = dict(conn.execute(
+            "SELECT s.name, us.level FROM user_skills us JOIN skills s ON s.id=us.skill_id WHERE us.profile_id=%s",
+            (profile_id,),
+        ).fetchall())
         conn.execute(
             "INSERT INTO profile_versions(profile_id,version_number,snapshot,change_reason) VALUES (%s,%s,%s,%s)",
-            (profile_id, version, json.dumps({"name": name, "education": education, "target_roles": areas, "preferred_locations": locations, "preferred_work_modes": work_modes, "skills": skills}), "explicit profile update"),
+            (profile_id, version, json.dumps({"name": name, "education": education, "target_roles": areas, "preferred_locations": locations, "preferred_work_modes": work_modes, "skills": current_skills}), reason or "explicit profile update"),
         )
         conn.commit()
     recompute_scores(profile_id)

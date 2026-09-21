@@ -362,8 +362,12 @@ def run_turn(
             elif signature in seen_calls:
                 result = {"error": "Ya hiciste esta misma consulta; usa el resultado anterior o cambia el enfoque."}
             elif entry.write:
-                pending.append({"id": call["id"], "name": call["name"], "arguments": args,
-                                "description": entry.description.splitlines()[0]})
+                action = {"id": call["id"], "name": call["name"], "arguments": args,
+                          "description": entry.description.splitlines()[0]}
+                preview = tools.PREVIEWS.get(call["name"])
+                if preview is not None:  # «antes → después» para que la persona vea qué aprueba
+                    action["preview"] = preview(args)
+                pending.append(action)
                 continue
             else:
                 seen_calls.add(signature)

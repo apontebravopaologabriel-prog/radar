@@ -8,7 +8,7 @@ La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una 
 Seguimiento lleva cada oferta por: Guardadas, Postulé, Entrevista, Oferta y Descartadas. Los botones mueven la oferta al siguiente estado y conservan el historial. Si llevas 7 días o más en "Postulé" sin novedad, Radar sugiere hacer seguimiento. Radar solo registra: la postulación la haces tú en el portal.
 
 ## perfil
-El perfil tiene nombre, formación, áreas que buscas, ubicaciones, modalidad y skills con nivel (ninguno, básico, medio, alto). Declara solo lo que es cierto: el puntaje y las brechas se calculan con eso y nunca se inventan niveles. Se edita desde Onboarding o pidiéndoselo al agente, que siempre te pide confirmar.
+El perfil tiene nombre, formación, áreas que buscas, ubicaciones, modalidad y skills con nivel (ninguno, básico, medio, alto). Declara solo lo que es cierto: el puntaje y las brechas se calculan con eso y nunca se inventan niveles. Se edita en Ajustes → Perfil (nombre, titular, distrito, contacto, áreas, lugares, modalidad y skills; cada cambio se guarda al salir del campo y se puede deshacer) o pidiéndoselo al agente, que te muestra el antes y el después y siempre te pide confirmar.
 
 ## carrera
 Si tu carrera no está en la lista, créala en el primer inicio o en Ajustes: indicas tus áreas de trabajo con palabras clave y las skills que quieres buscar; se guarda en tu equipo, junto a tu base de datos. La carrera activa define las áreas, competencias, señales de título y pesos con que se clasifican las ofertas nuevas (hoy: Ingeniería Industrial y Contabilidad). Cambiarla afecta a las ofertas que se ingesten desde ese momento; las ya guardadas conservan su clasificación. Se cambia en Ajustes.
