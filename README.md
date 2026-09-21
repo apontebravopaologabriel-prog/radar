@@ -2,6 +2,8 @@
 
 Radar es un sistema personal de Career Intelligence para el mercado inicial de Ingeniería Industrial en Perú.
 
+<img width="1571" height="1390" alt="Capture" src="https://github.com/user-attachments/assets/e76df213-dea0-447b-87e9-3cd2c92851d1" />
+
 ## Estado
 
 La V1 implementa la columna vertebral y V2 añade memoria profesional:
