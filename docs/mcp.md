@@ -51,8 +51,8 @@ servidor, hay que recargar el servidor MCP del cliente para que las vea.
 
 > La lista completa y siempre al día está en la **skill de agente** generada: `radar skill export --out docs/skills`
 > produce `docs/skills/radar/SKILL.md` (copiable a un cliente MCP externo) a partir del mismo registro que usa
-> el servidor y el chat de la app. El registro tiene **54 herramientas** (42 visibles en el chat); las que escriben
-> piden confirmación a la persona. Agrupadas (detalle en [agente.md](agente.md#herramientas-54-en-total-42-en-el-chat)):
+> el servidor y el chat de la app. El registro tiene **56 herramientas** (44 visibles en el chat); las que escriben
+> piden confirmación a la persona. Agrupadas (detalle en [agente.md](agente.md#herramientas-56-en-total-44-en-el-chat)):
 >
 > - **Mercado:** `search_saved_jobs` (filtros por área, sector y exclusión de sectores), `get_today_feed`,
 >   `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`,
@@ -62,6 +62,7 @@ servidor, hay que recargar el servidor MCP del cliente para que las vea.
 > - **Perfil, CV y memoria:** `get_user_profile`, `get_my_cv`, `update_cv`, `update_profile`, `get_user_memory`,
 >   `remember_user`, `search_past_conversations`, `list_career_tracks`, `set_career_track`, `create_career_pack`.
 > - **Plan de cierre:** `get_closure_plan` (qué cerrar primero, ponderado por el mercado) y `close_gap` (registra evidencia real y mide el efecto).
+> - **CV descargable:** `preview_cv` (qué entra y qué se omite) y `build_cv` (DOCX y PDF).
 > - **Captura y sistema:** `refresh_market`, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`,
 >   `run_maintenance`, `set_score_weights`, `audit_classification`, `reclassify_jobs`, `get_setup_status`, `get_help`.
 >

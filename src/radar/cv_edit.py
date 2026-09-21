@@ -27,7 +27,8 @@ LIST_SECTIONS: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]
     "projects": (("name", "description", "skills", "date", "link"), ("name",), ("name",)),
 }
 TEXT_SECTIONS = {"summary", "headline"}
-SECTIONS = (*LIST_SECTIONS, "gaps", *TEXT_SECTIONS)
+CONTACT_FIELDS = ("email", "phone", "linkedin", "location")
+SECTIONS = (*LIST_SECTIONS, "gaps", "contact", *TEXT_SECTIONS)
 ACTIONS = ("add", "update", "remove")
 
 
@@ -104,6 +105,20 @@ def update_cv(section: str, action: str, item: dict[str, Any] | None = None, mat
             raise ValueError("item.text debe tener entre 1 y 600 caracteres")
         cv[section] = text
         result: Any = text
+    elif section == "contact":  # solo action «update»: se fusionan los campos dados
+        extra = set(item) - set(CONTACT_FIELDS)
+        if extra or not item:
+            raise ValueError(f"contact admite: {', '.join(CONTACT_FIELDS)}")
+        contact = dict(cv.get("contact") or {})
+        for key, value in item.items():
+            value = " ".join(str(value).split())
+            if len(value) > 120:
+                raise ValueError(f"{key} debe tener hasta 120 caracteres")
+            if key == "email" and value and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+                raise ValueError("email no parece válido")
+            contact[key] = value
+        cv["contact"] = {k: v for k, v in contact.items() if v}
+        result = cv["contact"]
     elif section == "gaps":
         gaps = list(cv.get("gaps_of_evidence") or [])
         if action == "add":

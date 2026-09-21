@@ -6,8 +6,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
-from radar import cv_baseline, cv_plan, cv_targets
+from radar import cv_baseline, cv_build, cv_plan, cv_targets
 
 router = APIRouter(prefix="/api/cv")
 MAX_COMPARED = 4
@@ -28,6 +29,38 @@ def cv_selection() -> dict[str, Any]:
 def cv_closure_plan(limit: int = Query(default=10, ge=1, le=30)) -> dict[str, Any]:
     """Skills a cerrar primero entre todos los objetivos, ponderadas por demanda del mercado."""
     return cv_plan.closure_plan(limit)
+
+
+class BuildRequest(BaseModel):
+    job_id: str = Field(min_length=1, max_length=64)
+    formats: list[str] | None = None
+
+
+@router.get("/build/preview")
+def cv_build_preview(job_id: str = Query(min_length=1, max_length=64)) -> dict[str, Any]:
+    """Qué entraría en el CV para esta oferta y qué se omite, sin escribir archivos."""
+    try:
+        return cv_build.select(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/build")
+def cv_build_files(request: BuildRequest) -> dict[str, Any]:
+    """Genera el DOCX/PDF del CV para la oferta (carpeta ``cvs/<fecha>/``, sin sobrescribir)."""
+    try:
+        return cv_build.build(request.job_id, request.formats)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/files/{day}/{name}")
+def cv_generated_file(day: str, name: str) -> FileResponse:
+    # Solo archivos ya generados bajo cvs/, con extensión permitida: nunca una ruta arbitraria.
+    path = cv_build.resolve_file(f"{day}/{name}")
+    if path is None:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(str(path), filename=path.name, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/targets")

@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_edit, cv_plan, cv_targets, insights, maintenance, system
+from radar import cv_baseline, cv_build, cv_edit, cv_plan, cv_targets, insights, maintenance, system
 from radar.agent.history import search_conversations
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
@@ -322,7 +322,8 @@ def get_my_cv() -> dict:
 def update_cv(section: str, action: str, item: dict | None = None, match: str | None = None) -> dict:
     """Edita tu CV real (lo que ves en CVs). section: certifications {name, issuer, date AAAA-MM}, experience {role,
     company, location, from, to, bullets[]}, education {institution, program, from, to, status, skills[]}, languages
-    {name, level, evidence}, gaps {text}, summary o headline {text}. action: add | update | remove; en update y remove,
+    {name, level, evidence}, projects {name, description, skills[], date, link}, contact {email, phone, linkedin,
+    location} (action update), gaps {text}, summary o headline {text}. action: add | update | remove; en update y remove,
     `match` es un texto que identifica el ítem. Solo con lo que la persona dictó: pregunta lo que falte (emisor,
     fecha). Guarda copia previa. Skills y herramientas: update_profile."""
     return cv_edit.update_cv(section, action, item, match)
@@ -488,6 +489,23 @@ def get_closure_plan(limit: int = 10) -> dict:
     la pide. Incluye lo estructural (años de experiencia, grado), que un curso no cierra, y lo cerrado
     recientemente. Úsala cuando pregunten qué aprender o demostrar primero."""
     return cv_plan.closure_plan(limit)
+
+
+@tool()
+def preview_cv(job_id: str) -> dict:
+    """Vista previa del CV descargable para una oferta, sin escribir archivos: qué se incluye de tu CV real, qué
+    se omite y por qué, el idioma detectado, el presupuesto de páginas y la cobertura de skills de la oferta
+    (demostradas en el cuerpo, solo listadas, ausentes). Nada se inventa: solo elige y ordena lo que ya tienes."""
+    return cv_build.select(job_id)
+
+
+@tool(write=True)
+def build_cv(job_id: str, formats: list[str] | None = None) -> dict:
+    """Genera el CV para una oferta como DOCX y PDF (formats: docx, pdf) en la carpeta de datos de Radar, sin
+    sobrescribir nada. Plantilla sobria de una columna a prueba de ATS. Devuelve rutas, chequeo del PDF (páginas,
+    texto extraíble) y la selección. Úsala cuando la persona pida su CV para una oferta; antes conviene
+    preview_cv y avisarle de las skills ausentes."""
+    return cv_build.build(job_id, formats)
 
 
 @tool(write=True)

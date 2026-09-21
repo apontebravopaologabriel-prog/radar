@@ -1,6 +1,37 @@
 # CV en Word: viabilidad y plan detallado
 
-Estado: **diseño**. La vista `CVs` y la brecha base (fases A y B) ya existen; el Word (fases C a E) no.
+Estado: **implementado (v1)**. Existen la vista `CVs`, la brecha base y el CV descargable en DOCX y PDF.
+Lo que sigue pendiente está en «Pendiente» al final.
+
+## Lo construido (v1) y en qué se aparta del diseño original
+
+- **Sin dependencias nuevas.** El DOCX lo escribe `src/radar/cv_docx.py` con la biblioteca estándar (zip + XML):
+  una columna, sin tablas ni imágenes, encabezados estándar y viñetas reales. El PDF sale de LibreOffice (`soffice`)
+  si está instalado; si no, se entrega solo el DOCX y se avisa. Los chequeos usan `pdfinfo` y `pdftotext` si existen.
+- **Ids derivados, sin migrar el archivo.** Cada línea se identifica con un hash de su contenido
+  (`exp:1a2b3c4d`), así que `cv_master.json` no cambia de formato y la trazabilidad funciona igual.
+- **Selección por código** (`src/radar/cv_build.py`): puntúa cada viñeta, proyecto y certificado por las skills de la
+  oferta (mismos alias que el cruce del CV), respeta un presupuesto de página (1 página con menos de 36 meses de
+  experiencia o en ofertas de práctica/trainee/junior; 2 en los demás casos) y anota qué deja fuera y por qué.
+- **Solo hechos reales.** Las skills en `falta` nunca se listan. El resumen es el tuyo. No se reformula.
+- **Idioma** detectado de la oferta (español o inglés); los encabezados y meses cambian con él.
+- **Cobertura honesta:** demostradas en el cuerpo, solo listadas (sin respaldo) y ausentes (no se añaden).
+- **Avisos antes de enviar:** faltan datos de contacto, o tu CV contiene marcadores como «(nombre no indicado)».
+- **Trazabilidad:** junto a cada archivo se guarda un `manifest.json` (oferta, plantilla, ids incluidos y omitidos,
+  cobertura, hash del perfil). Los archivos van a `<datos>/cvs/<fecha>/CV_<Empresa>_<Puesto>.docx` y nunca se
+  sobrescriben. La API solo sirve archivos de esa carpeta y con extensión `.docx` o `.pdf`.
+- **Interfaz:** en el detalle de cada objetivo, «CV descargable»: vista previa, cobertura, qué queda fuera y descarga.
+- **Herramientas del agente:** `preview_cv` y `build_cv` (esta última pide confirmación). Datos de contacto:
+  `update_cv` con `section=contact`.
+- **Foto:** apagada (no se incluye), por ser lo más seguro para los ATS.
+
+## Pendiente
+
+Reformulación asistida con marca «reformulado», plantillas adicionales (`moderno`, `compacto`), edición de un Word
+propio y la importación de tu CV desde texto o PDF.
+
+> **Lo que sigue es el diseño original.** Sirve como contexto y como hoja de ruta de lo pendiente; la v1 real es la
+> descrita arriba (por ejemplo, no usa `python-docx` ni plantillas en carpetas, y los ids se derivan del contenido).
 
 ## Qué se quiere
 

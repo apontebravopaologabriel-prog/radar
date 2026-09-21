@@ -1,6 +1,6 @@
 # CVs objetivo (perfiles hipotéticos)
 
-Estado: **implementado** (selección por favoritos, brecha base por código, vista `CVs`, herramientas MCP). Pendiente: el CV real en Word, ver [cv-word-plan.md](cv-word-plan.md).
+Estado: **implementado** (selección por favoritos, brecha base por código, vista `CVs`, herramientas MCP y CV descargable en DOCX/PDF, ver [cv-word-plan.md](cv-word-plan.md)).
 
 ## Propósito
 
