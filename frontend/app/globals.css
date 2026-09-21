@@ -84,7 +84,7 @@ select:focus, label input:focus, .search-box:focus-within { border-color: #10a37
 .job-list-tools > span { color: var(--teal); font-weight: 400; letter-spacing: 0; text-transform: none; }
 .clear-skill-filter { display: grid; width: 18px; height: 18px; place-items: center; padding: 0; border: 1px solid #347d69; border-radius: 50%; color: #9fe8d4; background: transparent; font: inherit; line-height: 1; cursor: pointer; }
 .clear-skill-filter:hover { color: var(--ink); background: #347d69; }
-.job-list { flex: 1 1 auto; max-height: none; min-height: 0; padding-right: 4px; overflow-y: auto; scrollbar-color: #555555 transparent; scrollbar-width: thin; }
+.job-list { flex: 1 1 auto; max-height: none; min-height: 0; padding-right: 4px; overflow-x: hidden; overflow-y: auto; scrollbar-color: #555555 transparent; scrollbar-width: thin; }
 .job-card { display: block; width: 100%; margin-bottom: 7px; padding: 11px 12px; border: 1px solid transparent; border-radius: 3px; text-align: left; color: var(--ink); background: #2a2a2a; }
 .job-card:hover, .job-card.selected { border-color: #347d69; background: #263b35; }
 .job-card-top, .job-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -266,7 +266,7 @@ select:focus, label input:focus { border-color: #b8ff72; box-shadow: 0 0 0 2px #
 .job-list-header { color: #728078; font-size: 8px; letter-spacing: .15em; }
 .job-list-tools > span { color: #b8ff72; font-size: 9px; }
 .job-card { margin-bottom: 5px; padding: 10px; border-color: #16221a; border-radius: 0; background: #0b110d; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
-.job-card:hover, .job-card.selected { border-color: #62884d; background: #101b12; transform: translateX(2px); }
+.job-card:hover, .job-card.selected { border-color: #62884d; background: #101b12; }
 .job-card strong { color: #dce8dd; font-size: 11px; }
 .job-company, .job-meta { color: #718077; font-size: 9px; }
 .job-area { color: #b8ff72; font-size: 8px; }
@@ -389,9 +389,9 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .segmented button.active { color: #080808; background: #d0d0d0; box-shadow: 0 0 15px #ffffff18; }
 .job-list-header { margin: 10px 0 7px; padding: 9px 12px; border: 1px solid #383838; color: #949494; background: #0a0a0ac9; box-shadow: 0 10px 24px #00000038; backdrop-filter: blur(16px); }
 .job-list-tools > span { color: #c8c8c8; }
-.job-list { max-height: min(290px, calc(100% - 500px)); padding: 0 7px 0 0; overflow-y: auto; scrollbar-color: #606060 transparent; }
+.job-list { max-height: min(290px, calc(100% - 500px)); padding: 0 7px 0 0; overflow-x: hidden; overflow-y: auto; scrollbar-color: #606060 transparent; }
 .job-card { margin-bottom: 5px; padding: 10px; border: 1px solid #242424; border-radius: 0; background: #0a0a0af2; box-shadow: 0 7px 18px #0000002b; }
-.job-card:hover, .job-card.selected { border-color: #898989; background: #1b1b1bd9; transform: translateX(2px); }
+.job-card:hover, .job-card.selected { border-color: #898989; background: #1b1b1bd9; }
 .job-card strong { color: #ededed; }
 .job-company, .job-meta, .job-date { color: #8c8c8c; }
 .job-area { min-width: 0; overflow: hidden; color: #cacaca; text-overflow: ellipsis; white-space: nowrap; }
@@ -634,7 +634,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .offer-scroll-tools { display: flex; align-items: center; gap: 3px; }
 .offer-scroll-tools .favorites-toggle, .offer-scroll-tools .hidden-toggle { width: 22px; height: 22px; }
 .offer-scroll-heading strong { color: #eeeeee; font-size: 10px; font-weight: 500; letter-spacing: .08em; }
-.offer-scroll-list { display: grid; align-content: start; grid-auto-rows: max-content; flex: 1; min-height: 0; gap: 4px; padding-top: 8px; overflow-y: auto; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
+.offer-scroll-list { display: grid; align-content: start; grid-auto-rows: max-content; flex: 1; min-height: 0; gap: 4px; padding-top: 8px; overflow-x: hidden; overflow-y: auto; scrollbar-color: #777777 transparent; scrollbar-width: thin; }
 .offer-scroll-card { display: grid; min-width: 0; gap: 3px; width: 100%; padding: 7px; border: 1px solid #2e2e2e; border-radius: 0; color: #c9c9c9; background: #101010cc; font: inherit; text-align: left; cursor: pointer; }
 .offer-scroll-card:hover, .offer-scroll-card.selected { border-color: #a0a0a0; background: #262626; }
 .offer-scroll-meta { display: flex; min-width: 0; justify-content: space-between; gap: 10px; color: #858585; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
@@ -737,7 +737,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 
 @keyframes card-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .job-card, .offer-scroll-card { animation: card-in .25s ease both; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
-.job-card:hover, .offer-scroll-card:hover { transform: translateX(2px); }
+.job-card:hover, .offer-scroll-card:hover { }
 
 @keyframes count-flash { 0% { color: #ffffff; text-shadow: 0 0 10px #ffffffaa; } 100% { color: inherit; text-shadow: none; } }
 .result-count { animation: count-flash .5s ease; }
