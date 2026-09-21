@@ -301,3 +301,33 @@ def test_refresh_market_is_a_confirmed_write_and_builds_place_focused_steps(monk
     refresh._state["running"] = False
     with pytest.raises(ValueError):
         refresh.start_place_refresh("Marte")
+
+
+def test_system_tools_are_confirmed_writes_and_schedule_edits_only_the_timer(tmp_path, monkeypatch):
+    from radar import system
+
+    assert tools.REGISTRY["get_system_status"].write is False
+    assert all(tools.REGISTRY[n].write for n in ("set_refresh_schedule", "run_maintenance", "set_score_weights"))
+    unit = tmp_path / "radar-refresh.timer"
+    unit.write_text("[Unit]\nDescription=x\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=24h\n", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(system, "timer_path", lambda: unit)
+    monkeypatch.setattr(system.shutil, "which", lambda name: "/usr/bin/systemctl")
+    monkeypatch.setattr(system, "_systemctl", lambda *a: calls.append(a) or type("R", (), {"stdout": "[]", "returncode": 0})())
+    system.set_schedule(7, on_boot=False)
+    text = unit.read_text(encoding="utf-8")
+    assert "OnUnitActiveSec=7d" in text and "OnBootSec" not in text
+    assert ("daemon-reload",) in calls and ("restart", "radar-refresh.timer") in calls
+    with pytest.raises(ValueError):
+        system.set_schedule(99)
+    with pytest.raises(ValueError):
+        system.run_maintenance("rm -rf")
+    system.set_schedule(0)
+    assert ("disable", "--now", "radar-refresh.timer") in calls
+
+
+def test_backup_and_status_work_on_a_real_database():
+    from radar import system
+
+    result = system.backup_database()
+    assert result["size_mb"] >= 0 and system.system_status()["database"]["integrity"] == "ok"

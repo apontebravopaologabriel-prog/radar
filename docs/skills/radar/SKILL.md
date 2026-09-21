@@ -56,6 +56,10 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `reclassify_jobs` | escribe | Reclasifica todas las ofertas guardadas con las reglas vigentes (áreas y relevancia). No borra |  |
 | `refresh_market` | escribe | Busca ofertas nuevas enfocadas en un distrito o ciudad (Indeed/LinkedIn y Computrabajo) y las guarda. Corre en | place: string, limit?: integer |
 | `get_refresh_status` | lee | Avance de la captura de ofertas en curso o de la última: pasos hechos, ofertas nuevas y errores. |  |
+| `get_system_status` | lee | Estado del sistema: BD (tamaño, integridad, respaldos), ofertas por tier, última captura, temporizador de |  |
+| `set_refresh_schedule` | escribe | Cambia cada cuántos días corre la captura automática (1-30; 0 la desactiva). `on_boot` añade o quita el | days: integer, on_boot?: boolean|null |
+| `run_maintenance` | escribe | Mantenimiento de la BD. task: backup (copia consistente, guarda las últimas 5), repair_data (completa modalidad, | task: string, days?: integer, limit?: integer |
+| `set_score_weights` | escribe | Ajusta los pesos del puntaje de encaje (claves: area, skills, seniority, education, location, preference; cada | weights: object |
 
 ## Flujos recomendados
 
@@ -114,7 +118,11 @@ La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Calla
 
 ### actualizar
 
-En Ajustes → "Actualizar mercado ahora" Radar busca ofertas de tu carrera en tus ubicaciones (Computrabajo y, si está instalado, Indeed/LinkedIn) y recalcula tu puntaje; tarda unos minutos y se ejecuta en tu equipo. También puedes usar el refresco programado o `radar ingest`. El agente no busca en portales por ti. Si "Hoy" está vacío, actualiza el mercado.
+En Ajustes → "Actualizar mercado ahora" Radar busca ofertas de tu carrera en tus ubicaciones (Computrabajo y, si está instalado, Indeed/LinkedIn) y recalcula tu puntaje; tarda unos minutos y se ejecuta en tu equipo. También puedes usar el refresco programado o `radar ingest`. El agente puede lanzar esa captura para un distrito o ciudad (refresh_market, con tu confirmación) y contarte el avance; no postula ni contacta a nadie. Si "Hoy" está vacío, actualiza el mercado.
+
+### sistema
+
+El agente puede revisar el estado del sistema (base de datos, ofertas, última captura, temporizador) y, siempre con tu confirmación, cambiar cada cuántos días corre la captura automática, ajustar los pesos del puntaje, reclasificar ofertas y hacer mantenimiento: respaldo (guarda las últimas 5 copias), reparar datos, desactivar ofertas que ya no se ven y revisar enlaces cerrados. Nunca borra ofertas. La clave de API, el modo solo lectura y el tope de tokens los cambias tú en Ajustes, no el agente.
 
 ### acceso-remoto
 

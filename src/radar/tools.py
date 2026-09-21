@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_targets, insights, maintenance
+from radar import cv_baseline, cv_targets, insights, maintenance, system
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
@@ -496,3 +496,45 @@ def refresh_market(place: str, limit: int = 25) -> dict:
 def get_refresh_status() -> dict:
     """Avance de la captura de ofertas en curso o de la última: pasos hechos, ofertas nuevas y errores."""
     return refresh_status()
+
+
+# --- Sistema y configuración ---------------------------------------------------------------------------
+
+
+@tool()
+def get_system_status() -> dict:
+    """Estado del sistema: BD (tamaño, integridad, respaldos), ofertas por tier, última captura, temporizador de
+    captura automática, si las reglas de clasificación están desactualizadas y el estado del agente (sin claves).
+    Úsala antes de proponer mantenimiento o cuando pregunten cuándo corre la captura."""
+    return system.system_status()
+
+
+@tool(write=True)
+def set_refresh_schedule(days: int, on_boot: bool | None = None) -> dict:
+    """Cambia cada cuántos días corre la captura automática (1-30; 0 la desactiva). `on_boot` añade o quita el
+    disparo 5 min después de cada arranque del equipo."""
+    return system.set_schedule(days, on_boot)
+
+
+@tool(write=True)
+def run_maintenance(task: str, days: int = 45, limit: int = 40) -> dict:
+    """Mantenimiento de la BD. task: backup (copia consistente, guarda las últimas 5), repair_data (completa modalidad,
+    sector, salario y horario), expire_stale (desactiva ofertas no vistas en `days` días, sin borrarlas),
+    check_applications (visita hasta `limit` enlaces y detecta cerradas) o market_snapshot. Haz backup antes de
+    tareas que cambian datos si no hay uno reciente."""
+    return system.run_maintenance(task, days, limit)
+
+
+@tool(write=True)
+def set_score_weights(weights: dict[str, float]) -> dict:
+    """Ajusta los pesos del puntaje de encaje (claves: area, skills, seniority, education, location, preference; cada
+    valor 0-1; se normalizan) y recalcula los puntajes. Cambia lo que ves como recomendado."""
+    from radar.careers import WEIGHT_KEYS
+    from radar.db.repository import recompute_scores
+    from radar.settings import set_json_setting
+
+    if set(weights) - set(WEIGHT_KEYS) or any(v < 0 or v > 1 for v in weights.values()):
+        raise ValueError(f"Pesos inválidos; claves permitidas: {', '.join(WEIGHT_KEYS)}, valores entre 0 y 1")
+    set_json_setting("score_weights", weights)
+    profile = get_profile()
+    return {"weights": weights, "recomputed": recompute_scores(profile["id"]) if profile else 0}
