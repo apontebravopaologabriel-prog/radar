@@ -1,4 +1,4 @@
-"""Genera una "skill" de agente (SKILL.md) para clientes MCP: Antigravity, Claude Code y similares.
+"""Genera una "skill" de agente (SKILL.md) para clientes MCP externos (Claude Code y similares).
 
 El contenido sale del registro de herramientas y de la ayuda curada, así que nunca se desalinea del
 servidor. Se regenera con `radar skill export`.

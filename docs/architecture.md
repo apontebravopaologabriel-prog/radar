@@ -14,7 +14,7 @@ automatizan postulaciones.
 ## Componentes
 
 ```text
-Agente (Antigravity, Claude Code, Hermes…)
+Agente externo opcional (Claude Code, Hermes…)
   ↓ MCP stdio
 Radar MCP (FastMCP)
   ↓
@@ -41,7 +41,7 @@ Radar API (FastAPI, puerto 8100)
 SQLite
 ```
 
-El agente conectado por MCP (Antigravity por defecto; el servidor es independiente del cliente) es la interfaz conversacional. Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. SQLite es la fuente de verdad.
+El agente integrado de la app es la interfaz conversacional; un agente externo puede conectarse de forma opcional por MCP (el servidor es independiente del cliente). Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. SQLite es la fuente de verdad.
 
 La clasificación actual es heurística: `src/radar/classify.py` acumula un puntaje por área a partir de las reglas del paquete de carrera (`careers/packs/*.json`) y `src/radar/taxonomy.py` asigna la relevancia (ver [database.md](database.md#clasificación-profesional)); el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Cada oferta recibe además una relevancia trazable (`core`, `adjacent` u `out_of_focus`) para priorizar el mercado de Ingeniería Industrial sin borrar ofertas. Todavía no depende de un LLM.
 

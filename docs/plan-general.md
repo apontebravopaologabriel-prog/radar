@@ -43,7 +43,7 @@ opcional que consulta los mismos datos.
 ## 4. Cómo se generan las "skills" del agente
 
 `radar skill export --out docs/skills` escribe `docs/skills/radar/SKILL.md` a partir del registro de herramientas y de
-`help.md`; se copia a Antigravity o Claude Code para que un agente externo sepa cuándo y cómo usar Radar. Regla:
+`help.md`; se copia a un cliente MCP externo para que un agente sepa cuándo y cómo usar Radar. Regla:
 si cambian las herramientas o la ayuda, se regenera y se commitea junto al cambio.
 
 ## 5. Riesgos abiertos

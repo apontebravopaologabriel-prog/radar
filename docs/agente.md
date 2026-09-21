@@ -2,7 +2,7 @@
 
 Guía de referencia del agente de chat: qué es, cómo se comporta, qué puede hacer, cómo se usa la
 interfaz y qué límites tiene. El agente comparte herramientas con el servidor MCP (`src/radar/tools.py`),
-así que todo lo que hace en la app también lo puede hacer Antigravity o Claude Code con el mismo registro.
+así que todo lo que hace en la app también lo puede hacer un agente externo (opcional, vía MCP) con el mismo registro.
 
 ## Identidad («alma»)
 

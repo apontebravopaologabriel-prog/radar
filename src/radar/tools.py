@@ -1,6 +1,6 @@
 """Capa única de herramientas de Radar.
 
-El servidor MCP (Antigravity, Claude Code...) y el agente de chat de la app usan estas mismas
+El servidor MCP (opcional, para agentes externos) y el agente de chat de la app usan estas mismas
 funciones. Cada herramienta declara si escribe: las de escritura exigen confirmación explícita en el
 chat y nunca envían mensajes ni postulan.
 """

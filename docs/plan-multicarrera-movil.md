@@ -44,7 +44,7 @@ Pasar de una herramienta personal de Ingeniería Industrial en Lima a un product
 
 | Modo | Para quién | Datos | Agente |
 |---|---|---|---|
-| Local | Tú / técnicos | SQLite en tu PC | MCP (Antigravity, Claude Code) o chat con tu clave |
+| Local | Tú / técnicos | SQLite en tu PC | MCP opcional (Claude Code, etc.) o chat con tu clave |
 | Hospedado personal | Tú desde el celular | Tu VPS con SQLite + Litestream | Chat con tu clave |
 | Hospedado multiusuario | Público | PostgreSQL | Chat con clave propia (BYOK) o créditos |
 

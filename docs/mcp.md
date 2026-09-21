@@ -1,12 +1,19 @@
-# MCP de Radar
+# MCP de Radar (opcional)
 
-Radar expone un servidor MCP estándar por stdio (`radar-mcp`, FastMCP). No depende de un cliente
-concreto: sirve con cualquier agente compatible con MCP. El cliente predeterminado es **Antigravity**;
-también funciona con Claude Code, Hermes o cualquier otro cliente con la misma configuración.
+Radar funciona completo y aislado con su **agente integrado** (chat de la app, ver [agente.md](agente.md)):
+no necesita ningún cliente externo. Este servidor MCP es una puerta opcional para quien prefiera usar el
+agente externo de su elección (Claude Code, Antigravity, Hermes o cualquier cliente compatible con MCP).
+
+**Cuándo tiene sentido:** el agente externo puede combinar Radar con otros servidores MCP suyos (calendario,
+correo, notas...), algo que el agente integrado no hace. **Cuándo no:** si prefieres mantener Radar aislado, no
+hagas nada; nada se registra ni se expone por defecto.
+
+Radar expone un servidor MCP estándar por stdio (`radar-mcp`, FastMCP), independiente del cliente, con las
+mismas herramientas que el agente integrado.
 
 ## Configuración
 
-Comando del servidor, igual para todos los clientes:
+Comando del servidor, igual para todos los clientes (ajusta la ruta a tu instalación):
 
 ```text
 /home/paolo/Projects/Radar/.venv/bin/radar-mcp
@@ -29,25 +36,21 @@ El proceso necesita acceso de lectura/escritura al archivo SQLite local (por def
 `~/.local/share/radar/radar.db`, configurable con `RADAR_DB_PATH`) y, para los CVs objetivo, al mismo
 directorio de datos.
 
-### Antigravity (predeterminado)
-
-Radar está registrado en la configuración global de Antigravity, `~/.gemini/config/mcp_config.json`,
-con el bloque anterior (`disabled: false`) junto a los demás servidores. Después de cambiar esta
-configuración, reinicia Antigravity o recarga sus servidores MCP desde
-`Additional Options (...) > MCP Servers`.
-
-### Otros clientes
+### Clientes
 
 - **Claude Code:** `claude mcp add radar -- /home/paolo/Projects/Radar/.venv/bin/radar-mcp`.
+- **Antigravity:** añade el bloque anterior a `~/.gemini/config/mcp_config.json` y recarga los servidores en
+  `Additional Options (...) > MCP Servers`.
 - **Hermes u otro cliente MCP:** pega el bloque JSON en su configuración de servidores.
 
-Un cliente nuevo no requiere cambios en Radar. Tras añadir herramientas al servidor, hay que recargar
-el servidor MCP del cliente para que las vea.
+Además puedes copiar la skill generada (`radar skill export --out docs/skills`) al cliente para que sepa cuándo
+y cómo usar las herramientas. Un cliente nuevo no requiere cambios en Radar. Tras añadir herramientas al
+servidor, hay que recargar el servidor MCP del cliente para que las vea.
 
 ## Herramientas
 
 > La lista completa y siempre al día está en la **skill de agente** generada: `radar skill export --out docs/skills`
-> produce `docs/skills/radar/SKILL.md` (copiable a Antigravity o Claude Code) a partir del mismo registro que usa
+> produce `docs/skills/radar/SKILL.md` (copiable a un cliente MCP externo) a partir del mismo registro que usa
 > el servidor y el chat de la app. El registro tiene **52 herramientas** (40 visibles en el chat); las que escriben
 > piden confirmación a la persona. Agrupadas (detalle en [agente.md](agente.md#herramientas-52-en-total-40-en-el-chat)):
 >
@@ -105,4 +108,4 @@ como asignados por el agente en la matriz.
 
 ## Política para el agente
 
-Cualquier agente conectado (Antigravity, Claude Code, Hermes u otro) debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de escribir (perfil, CV, temporizador, mantenimiento, reclasificación, pesos). No existen herramientas de postulación ni de envío de mensajes. Los detalles del agente de la app (modos, memoria, límites) están en [agente.md](agente.md).
+Cualquier agente externo conectado debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de escribir (perfil, CV, temporizador, mantenimiento, reclasificación, pesos). No existen herramientas de postulación ni de envío de mensajes. Los detalles del agente de la app (modos, memoria, límites) están en [agente.md](agente.md).

@@ -163,7 +163,7 @@ pkill -f ".venv/bin/radar-api"
 nohup .venv/bin/radar-api >>~/.local/state/radar/api.log 2>&1 &
 ```
 
-Los servidores MCP (Antigravity, Claude Code, Hermes u otro cliente) también deben recargarse para ver herramientas nuevas.
+Los servidores MCP (si usas uno externo) también deben recargarse para ver herramientas nuevas.
 
 ## CVs objetivo: datos locales
 

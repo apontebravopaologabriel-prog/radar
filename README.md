@@ -12,7 +12,7 @@ La V1 implementa la columna vertebral y V2 añade memoria profesional:
 buscar → normalizar → clasificar → deduplicar → observar → guardar → puntuar → evolucionar
 ```
 
-La fuente de verdad es SQLite (archivo local, sin servidor). los agentes (Antigravity por defecto, o cualquier cliente MCP) se conectan mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
+La fuente de verdad es SQLite (archivo local, sin servidor). el agente integrado de la app trabaja sobre esos datos y, de forma opcional, un agente externo se conecta mediante el MCP propio `radar`; las postulaciones automáticas están fuera del alcance. La primera entrega del frontend geográfico ya está disponible en `frontend/`.
 
 El frontend incluye las vistas `Distritos`, `Radar`, `Análisis` y `CVs`. `Análisis` ejecuta consultas
 SQL de solo lectura sobre SQLite (con consultas predefinidas) y muestra el resultado como
@@ -50,7 +50,7 @@ Plan y estado: [Radar multicarrera, móvil y agente](docs/plan-multicarrera-movi
 - [Guía para agentes](AGENTS.md)
 - [Arquitectura y flujo](docs/architecture.md)
 - [Modelo de datos](docs/database.md)
-- [MCP de Radar (Antigravity y otros clientes)](docs/mcp.md)
+- [MCP opcional para agentes externos](docs/mcp.md)
 - [Operación diaria](docs/operations.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Seguridad y cumplimiento](docs/security.md)
@@ -102,7 +102,7 @@ uv pip install --python .venv-jobspy/bin/python -e '.[jobspy]'
 .venv-jobspy/bin/radar ingest --source jobspy --query "practicante ingeniería industrial" --location Lima --limit 10
 ```
 
-Para conectar un agente (Antigravity, Claude Code, Hermes u otro cliente MCP; ver [docs/mcp.md](docs/mcp.md)):
+Opcional: para conectar un agente externo (Claude Code, Antigravity, Hermes u otro cliente MCP; ver [docs/mcp.md](docs/mcp.md)):
 
 ```json
 {

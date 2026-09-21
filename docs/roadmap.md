@@ -9,7 +9,7 @@
 - Clasificación heurística.
 - Perfil separado.
 - Score trazable.
-- Consultas MCP para agentes (Antigravity y otros clientes).
+- Consultas MCP para agentes (opcional, para agentes externos).
 - Sin postulaciones automáticas; el frontend geográfico se documenta en la sección correspondiente.
 
 ## V2 — implementada en esta iteración
