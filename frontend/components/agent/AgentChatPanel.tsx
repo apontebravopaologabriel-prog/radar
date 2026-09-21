@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { api, type AgentContext } from "../../lib/mobile-api";
+import { api, type AgentContext, type Mention } from "../../lib/mobile-api";
 import { SHORTCUTS, findCommand, matchCommands } from "./commands";
 import ConfigPicker from "./ConfigPicker";
 import Markdown from "./Markdown";
@@ -51,6 +51,10 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const [menuOpen, setMenuOpen] = useState(true);
   const [configMenu, setConfigMenu] = useState<"model" | "effort" | null>(null);
   const [resumeOpen, setResumeOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);  // texto tras «@» junto al cursor
+  const [mentionItems, setMentionItems] = useState<(Mention & { label: string; hint: string })[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const picked = useRef<Mention[]>([]);  // menciones elegidas en este mensaje
   const [expandTools, setExpandTools] = useState(false);  // Ctrl+O: mostrar el resultado completo de las herramientas
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
@@ -66,6 +70,21 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 132)}px`;  // crece hasta ~6 líneas
   }, [input]);
+  useEffect(() => {
+    if (mentionQuery === null) { setMentionItems([]); return; }
+    let live = true;
+    const timer = window.setTimeout(() => {
+      api.mentions(mentionQuery).then((r) => {
+        if (!live) return;
+        setMentionItems([
+          ...r.places.map((p) => ({ ...p, label: p.name, hint: p.kind === "district" ? "distrito" : "ciudad" })),
+          ...r.jobs.map((j) => ({ ...j, label: j.name, hint: j.company ?? "oferta" })),
+        ]);
+        setMentionIndex(0);
+      }).catch(() => setMentionItems([]));
+    }, 140);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [mentionQuery]);
   useEffect(() => { if (!configMenu && !resumeOpen) promptRef.current?.focus(); }, [configMenu, resumeOpen]);
 
   const effortLabel = (value: string) => value === "auto" ? "Auto" : value[0].toUpperCase() + value.slice(1);
@@ -99,6 +118,23 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     } catch { onSettings(); }
   };
 
+  const onInput = (value: string, caret: number) => {
+    setInput(value);
+    const match = /(^|\s)@([^\s@]{0,40})$/.exec(value.slice(0, caret));
+    setMentionQuery(match ? match[2] : null);
+  };
+  const pickMention = (item: (typeof mentionItems)[number]) => {
+    const el = promptRef.current;
+    const caret = el?.selectionStart ?? input.length;
+    const before = input.slice(0, caret).replace(/@[^\s@]{0,40}$/, "");
+    const label = item.type === "job" && item.label.length > 40 ? `${item.label.slice(0, 39)}…` : item.label;
+    const token = `@${label.replace(/\s+/g, "_")}`;
+    setInput(`${before}${token} ${input.slice(caret)}`);
+    picked.current = [...picked.current, item.type === "place" ? { type: "place", name: item.name } : { type: "job", id: item.id, name: item.name, company: item.company }];
+    setMentionQuery(null);
+    window.setTimeout(() => el?.focus(), 0);
+  };
+
   const submit = async (raw: string) => {
     const text = raw.trim();
     if (!text || busy) return;
@@ -113,7 +149,12 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       catch (error) { addLocal(error instanceof Error ? error.message : "No se pudo guardar.", "error"); }
       return;
     }
-    if (!text.startsWith("/")) { await send(text); return; }
+    if (!text.startsWith("/")) {
+      const used = picked.current.filter((m) => text.includes(`@${(m.name.length > 40 ? `${m.name.slice(0, 39)}…` : m.name).replace(/\s+/g, "_")}`));
+      picked.current = [];
+      await send(text, used);
+      return;
+    }
     const [head, ...rest] = text.slice(1).split(/\s+/);
     const command = findCommand(head.toLowerCase());
     addLocal(text, "user");
@@ -129,6 +170,12 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery !== null && mentionItems.length) {
+      if (event.key === "ArrowDown") { event.preventDefault(); setMentionIndex((i) => (i + 1) % mentionItems.length); return; }
+      if (event.key === "ArrowUp") { event.preventDefault(); setMentionIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length); return; }
+      if (event.key === "Tab" || event.key === "Enter") { event.preventDefault(); pickMention(mentionItems[mentionIndex]); return; }
+      if (event.key === "Escape") { event.preventDefault(); setMentionQuery(null); return; }
+    }
     if (matches.length) {
       if (event.key === "ArrowDown") { event.preventDefault(); setMenuIndex((i) => (i + 1) % matches.length); return; }
       if (event.key === "ArrowUp") { event.preventDefault(); setMenuIndex((i) => (i - 1 + matches.length) % matches.length); return; }
@@ -206,6 +253,16 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         {busy && <Working startedAt={turn?.startedAt ?? Date.now()} tokens={turn?.tokens ?? 0} />}
         <div ref={bottom} />
       </div>
+      {mentionQuery !== null && mentionItems.length > 0 && (
+        <ul className="term-menu" role="listbox" aria-label="Menciones">
+          {mentionItems.map((m, i) => (
+            <li key={`${m.type}-${m.label}-${i}`} role="option" aria-selected={i === mentionIndex} className={i === mentionIndex ? "on" : ""}
+              onMouseDown={(e) => { e.preventDefault(); pickMention(m); }}>
+              <span>@{m.label}</span><small>{m.hint}</small>
+            </li>
+          ))}
+        </ul>
+      )}
       {matches.length > 0 && (
         <ul className="term-menu" role="listbox" aria-label="Comandos">
           {matches.map((c, i) => (
@@ -218,7 +275,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       )}
       <form className="term-prompt" onSubmit={(e) => { e.preventDefault(); void submit(input); }}>
         <span className="term-glyph" aria-hidden>❯</span>
-        <textarea ref={promptRef} rows={1} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
+        <textarea ref={promptRef} rows={1} value={input} onChange={(e) => onInput(e.target.value, e.target.selectionStart)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
       {resumeOpen && <ResumePicker onOpen={open} onDelete={(id) => remove(id)} onClose={() => setResumeOpen(false)} />}

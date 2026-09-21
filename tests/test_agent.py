@@ -301,3 +301,10 @@ def test_past_conversations_are_searchable_accent_insensitive_and_listed_with_co
     assert {c["title"]: c["lines"] for c in listed} == {"Miraflores logística": 3, "Otra": 1}
     assert loop.tools.REGISTRY["search_past_conversations"].write is False
     assert loop.tools.REGISTRY["search_past_conversations"].call({"query": "logistica"})["conversations"]
+
+
+def test_mentions_endpoint_returns_places_and_is_accent_insensitive():
+    api = TestClient(app)
+    data = api.get("/api/mentions", params={"q": "mira"}).json()
+    assert any(p["name"] == "Miraflores" for p in data["places"]) and data["jobs"] == []
+    assert api.get("/api/mentions").json()["places"]

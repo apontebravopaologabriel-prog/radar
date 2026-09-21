@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, streamChat, type AgentContext, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
+import { api, streamChat, type AgentContext, type Mention, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
 
 export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string; durationMs?: number;
   /** Llamada a herramienta: resumen de una línea del resultado y el resultado recortado (Ctrl+O lo expande). */
@@ -105,7 +105,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   }, [history, lines, customTitle]);
 
   /** Ejecuta un turno con el historial dado. */
-  const run = useCallback(async (base: ApiMessage[]) => {
+  const run = useCallback(async (base: ApiMessage[], mentions: Mention[] = []) => {
     setBusy(true); setPending([]);
     const startedAt = performance.now();
     setTurn({ startedAt: Date.now(), tokens: 0 });
@@ -140,7 +140,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         }
         else if (event.type === "error") setLines((p) => [...p, { kind: "error", text: event.message }]);
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
-      }, abort.current.signal, scopeContext(context, contextMode));
+      }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode));
     } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
     finally {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
@@ -153,13 +153,13 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     }
   }, [context, contextMode, onError, refreshSettings]);
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, mentions: Mention[] = []) => {
     const clean = text.trim();
     if (!clean || busy) return;
     setLines((p) => [...p, { kind: "user", text: clean }]);
     const next: ApiMessage[] = [...history, { role: "user", content: clean }];
     setHistory(next);
-    await run(next);
+    await run(next, mentions);
   }, [busy, history, run]);
 
   const autoApprove = useRef<(actions: PendingAction[], resume: boolean, base: ApiMessage[]) => void>(() => undefined);

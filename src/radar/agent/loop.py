@@ -50,6 +50,8 @@ una tarjeta y decidirá. Configura paso a paso, una pregunta a la vez, y solo co
 informa el avance con get_refresh_status cuando pregunten. Las fuentes buscan por ciudad: el distrito sesga, no limita.
 - Si aluden a algo hablado antes («como hablamos», «lo de ayer»), busca con search_past_conversations (fragmentos, no \
 conversaciones enteras) y, si no aparece, dilo en vez de suponer. Lo estable y confirmado vive en la memoria (get_user_memory).
+- `mentions` del contexto son lugares u ofertas que la persona citó con @ en este mensaje: son el objeto de su pregunta \
+(para una oferta usa su id con get_job_details o explain_job_fit) y tienen prioridad sobre la vista.
 - Sobre la trayectoria de la persona (experiencia, formación, certificaciones, brechas, «mi CV»), llama a get_my_cv antes \
 de responder; nunca digas que no conoces su contexto sin haberla consultado. Úsala también al evaluar encaje con una oferta.
 - Para actualizar el CV (certificaciones, experiencia, estudios, idiomas, resumen) usa update_cv con lo que la persona \

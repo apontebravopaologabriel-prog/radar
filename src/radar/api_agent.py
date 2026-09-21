@@ -462,6 +462,25 @@ def _serialize(body: ConversationBody) -> str:
     return text
 
 
+@router.get("/mentions")
+def mentions(q: str = Query(default="", max_length=60), limit: int = Query(default=8, ge=1, le=15)) -> dict[str, Any]:
+    """Candidatos para `@` en el chat: lugares (distritos y ciudades) y ofertas vigentes por título o empresa."""
+    from radar.db.queries import list_jobs
+    from radar.geolocation import place_catalog
+    from radar.normalize import normalize_text
+
+    needle = normalize_text(q)
+    catalog = place_catalog()
+    places = [{"type": "place", "name": p["name"], "kind": p["kind"]} for p in [*catalog["lima"], *catalog["peru"]]
+              if not needle or normalize_text(str(p["name"])).startswith(needle) or f" {needle}" in normalize_text(str(p["name"]))]
+    places.sort(key=lambda p: not normalize_text(p["name"]).startswith(needle))
+    jobs = []
+    if len(needle) >= 2:
+        jobs = [{"type": "job", "id": j["id"], "name": j["title"], "company": j.get("company")}
+                for j in list_jobs(limit=6, max_age_days=30, search=q)]
+    return {"places": places[: min(limit, 6)], "jobs": jobs[: max(limit - 6, 3)]}
+
+
 @router.get("/conversations")
 def list_conversations(limit: int = Query(default=20, ge=1, le=100)) -> dict[str, Any]:
     _require_agent()

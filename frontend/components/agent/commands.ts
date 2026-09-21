@@ -47,6 +47,7 @@ export const SHORTCUTS = [
   "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",
   "| `Ctrl+C` | Detener; con el campo vacío, dos veces cierra |",
   "| `1` `2` `3` | Aprobar / aprobar siempre (sesión) / rechazar (`y` y `n` también) |",
+  "| `@` | Citar un distrito, ciudad u oferta (`Tab` o `Enter` elige) |",
   "| `#` texto | Guardar en memoria |",
   "| `?` (vacío) | Esta ayuda |",
 ].join("\n");

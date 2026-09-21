@@ -42,6 +42,7 @@ export type AgentSettings = { provider: string; base_url: string; model: string;
   ready: boolean; enabled: boolean; read_only: boolean; reasoning_effort: "auto" | "none" | "low" | "high" | "max";
   context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
   providers: Record<string, { base_url: string; model: string; models?: string[]; model_names?: Record<string, string>; reasoning_efforts?: string[] }> };
+export type Mention = { type: "place"; name: string } | { type: "job"; id: string; name: string; company?: string | null };
 export type AgentContext = {
   screen: "map" | "analysis" | "cvs";
   mode?: "jobs" | "districts" | "radar";
@@ -66,6 +67,7 @@ export const api = {
   today: () => request<Today>("/api/today?limit=8"),
   setupStatus: () => request<{ complete: boolean; steps: { id: string; done: boolean; detail: string }[] }>("/api/setup/status"),
   profile: () => request<{ profile: { name: string; education: string | null; target_roles: string[]; locations: string[]; work_modes: string[]; skills: Record<string, string> } | null }>("/api/profile"),
+  mentions: (q: string) => request<{ places: { type: "place"; name: string; kind: string }[]; jobs: { type: "job"; id: string; name: string; company: string | null }[] }>(`/api/mentions?q=${encodeURIComponent(q)}`),
   places: () => request<{ groups: { label: string; places: string[] }[]; default: string | null }>("/api/places"),
   mapPlaces: () => request<MapPlaces>("/api/map/places"),
   nearby: (place: string, radiusKm: number) =>
@@ -125,7 +127,7 @@ export type ChatEvent =
   | { type: "done" };
 
 /** Lee el SSE de /api/chat y entrega cada evento; termina cuando el servidor cierra el stream. */
-export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext): Promise<void> {
+export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext | (Partial<AgentContext> & { mentions?: Mention[] })): Promise<void> {
   const response = await fetch(`${API_URL}/api/chat`, {
     method: "POST", credentials: "include", signal,
     headers: { "Content-Type": "application/json" },
