@@ -100,7 +100,7 @@ Computrabajo e Indeed bloquean este chequeo casi siempre (anti-bot), así que en
 
 ## Refresco continuo
 
-El refresco persistente se ejecuta como servicio de usuario una vez al día. Consulta dieciséis búsquedas amplias de datos/BI, procesos, automatización, transformación digital, ERP, planeamiento, supply chain, logística, compras, producción, calidad, mantenimiento, control de gestión y PMO en Indeed, LinkedIn (vía `python-jobspy`, sin login) y Computrabajo (vía MCP, con detalle completo por oferta). Cada portal corre de forma aislada y un fallo no bloquea el otro; el script registra qué paso falló en el resumen final del log en vez de tragarse el error en silencio. La ingesta no filtra por salario: captura el mercado y deja el sueldo para análisis posterior. El servicio usa 7 días por defecto para mantener la vista accionable; puedes ampliar el rango temporalmente con `RADAR_MAX_AGE_DAYS=14`. Tras ingerir, corre `repair-data`, `expire-stale` y `check-applications` antes de guardar el snapshot del mercado.
+El refresco persistente se ejecuta como servicio de usuario **cada 7 días** (`radar-refresh.timer`; también 5 minutos después de cada arranque). Consulta dieciséis búsquedas amplias de datos/BI, procesos, automatización, transformación digital, ERP, planeamiento, supply chain, logística, compras, producción, calidad, mantenimiento, control de gestión y PMO en Indeed, LinkedIn (vía `python-jobspy`, sin login) y Computrabajo (vía MCP, con detalle completo por oferta). Cada portal corre de forma aislada y un fallo no bloquea el otro; el script registra qué paso falló en el resumen final del log en vez de tragarse el error en silencio. La ingesta no filtra por salario: captura el mercado y deja el sueldo para análisis posterior. El script usa 10 días por defecto (`--max-age-days`), de modo que las corridas semanales se solapen y no se pierdan ofertas publicadas entre una y otra; puedes cambiarlo con `RADAR_MAX_AGE_DAYS`. Tras ingerir, corre `repair-data`, `expire-stale` y `check-applications` antes de guardar el snapshot del mercado.
 
 ```bash
 systemctl --user status radar-refresh.timer
@@ -108,7 +108,7 @@ systemctl --user list-timers radar-refresh.timer
 tail -f /home/paolo/.local/state/radar/refresh.log
 ```
 
-El servicio es tolerante a fallos por consulta, usa un máximo de 7 días por defecto y guarda snapshots del mercado. Una oferta pasada desaparece de la vista accionable por el filtro de fecha; si además ninguna fuente la vuelve a ver en 45 días, `expire-stale` la desactiva mientras el registro histórico permanece en SQLite. Para detenerlo temporalmente: `systemctl --user disable --now radar-refresh.timer`; para reactivarlo: `systemctl --user enable --now radar-refresh.timer`.
+El servicio es tolerante a fallos por consulta, usa un máximo de 10 días por defecto y guarda snapshots del mercado. Una oferta pasada desaparece de la vista accionable por el filtro de fecha; si además ninguna fuente la vuelve a ver en 45 días, `expire-stale` la desactiva mientras el registro histórico permanece en SQLite. Para detenerlo temporalmente: `systemctl --user disable --now radar-refresh.timer`; para reactivarlo: `systemctl --user enable --now radar-refresh.timer`.
 
 Las ofertas incorporadas incluyen `sector`, `work_mode`, `hours_per_week`, `schedule_text` y el estado de solicitud cuando la fuente entrega evidencia suficiente. Los campos ausentes permanecen como `NULL` o `unknown`; en LinkedIn un estado `unknown` no se muestra como oferta accionable.
 
@@ -197,17 +197,18 @@ Ajustes → Agente: elige proveedor, modelo y pega tu clave. La clave se guarda 
 `~/.local/share/radar/secrets.json` (permisos `0600`), nunca en la base de datos ni en el navegador.
 El consumo se cuenta en la tabla `agent_usage` y el chat se detiene al llegar al tope mensual.
 
-En el chat de escritorio, `/model` y `/models` abren el selector interactivo de modelos. El selector
-separa el nombre visible del ID que se envía al proveedor: en DeepSeek muestra `DeepSeek V4.1 Flash`
-(`deepseek-flash`) y `DeepSeek V4 Pro` (`deepseek-v4-pro`). `/effort` abre el selector de esfuerzo
-(`auto`, `none`, `low`, `high`, `max`). Usa `↑`/`↓` para elegir, `←`/`→` para cambiar entre modelo
-y esfuerzo, `Enter` para aplicar y `Esc` para cerrar. También puedes aplicar directamente
-`/model deepseek-flash` o `/effort high`.
+En el chat de escritorio, `/model` y `/effort` abren el mismo selector en línea: `↑`/`↓` eligen el modelo, `←`/`→`
+cambian el esfuerzo (`auto`, `none`, `low`, `high`, `max`), `Enter` aplica ambos y `Esc` cierra. El selector separa
+el nombre visible del ID que se envía al proveedor: en DeepSeek muestra `DeepSeek V4.1 Flash` (`deepseek-flash`) y
+`DeepSeek V4 Pro` (`deepseek-v4-pro`). También puedes aplicar directamente `/model deepseek-flash` o `/effort high`.
 
 Los dos modelos DeepSeek visibles son los identificadores oficiales actuales. `deepseek-v4-flash` es
 un alias legado y no se muestra en el selector normal; si se conserva en una base antigua, aparece
 solo como modelo actual para no cambiar silenciosamente la configuración existente. El modelo
 `deepseek-flash` corresponde actualmente a DeepSeek-V4.1-Flash.
+
+La interfaz, los atajos, los modos (manual, auto y plan) y el resto de capacidades del agente están descritos en
+[agente.md](agente.md). Tras cambios de backend hay que reiniciar la API (ver «Reiniciar la API tras cambios de backend»).
 
 ### Contexto de pantalla y comparaciones
 
@@ -217,11 +218,30 @@ oferta seleccionada, cantidad visible y, en `Análisis`, las ventanas restaurada
 El contexto se actualiza al cambiar de vista o al generar un análisis; por eso una respuesta
 posterior puede reflejar una ventana nueva sin tratar el estado anterior como un error inventado.
 
+`Ctrl+K` decide cuánto de ese contexto se envía: apagado, selección (por defecto, sin SQL ni filas de análisis) o
+completo. Con un distrito seleccionado el agente recibe su conteo propio (`districtJobs`), no el total visible.
+Las menciones con `@` (distritos, ciudades y ofertas) viajan siempre como una lista explícita.
+
 Para comparar el lugar seleccionado con otro, formula la petición directamente, por ejemplo:
-`compara lo que tengo seleccionado con Lurín, ¿cuál es más fuerte en producción?`. El agente usa
-`compare_places`, una consulta de solo lectura que compara volumen, proporción de ofertas con señales
-de producción/manufactura, áreas y títulos representativos. La ubicación se interpreta de forma
-aproximada según el texto y la geolocalización de Radar; no representa sedes exactas.
+`compara lo que tengo seleccionado con Lurín`. El agente usa `compare_places`, una consulta de solo lectura que
+compara ofertas, áreas, empresas, modalidad, seniority, salario mediano y, como una dimensión más, las señales de
+producción. `get_place_profile` da la radiografía de un solo lugar. La ubicación se interpreta de forma aproximada
+según el texto y la geolocalización de Radar; no representa sedes exactas.
+
+## Mantenimiento de datos
+
+- **Clasificación:** el agente puede auditar (`audit_classification`, solo lectura) si las áreas y la relevancia
+  guardadas coinciden con las reglas vigentes, y reclasificar (`reclassify_jobs`, con confirmación). Cada
+  reclasificación guarda un JSON reversible (`reclassify-<fecha>.json`) junto a la base de datos y registra la huella de
+  las reglas; si las reglas cambian después, el prompt del agente avisa que conviene volver a auditar. Detalle en
+  [database.md](database.md#clasificación-profesional).
+- **Respaldos:** `run_maintenance(task="backup")` usa la API de respaldo de SQLite y guarda las últimas 5 copias en
+  `backups/` junto a la base de datos. Conviene hacer uno antes de reclasificar o de reparar datos.
+- **Otras tareas:** `repair_data`, `expire_stale` (desactiva, no borra), `check_applications` (visita hasta 60 enlaces) y
+  `market_snapshot`. Los mismos comandos siguen disponibles por terminal (`radar repair-data`, `radar audit-data`,
+  `radar expire-stale`, `radar check-applications`, `radar market-snapshot`).
+- **CV:** `update_cv` guarda `cv_master.json.bak-<fecha>` (últimas 5) antes de cada cambio.
+- **Estado:** `get_system_status` resume base de datos, integridad, ofertas por tier, última captura y temporizador.
 
 ## Cobertura nacional
 
@@ -234,11 +254,12 @@ cada ciudad añade varios minutos al refresco. Una ciudad nueva también debe ex
 
 ## Captura automática y por lugar
 
-- **Automática:** el temporizador `~/.config/systemd/user/radar-refresh.timer` ejecuta `scripts/radar-refresh.sh` cada 7 días
-  (`OnUnitActiveSec=7d`; también 5 minutos después de cada arranque). El script usa `--max-age-days 10` para solapar
-  semanas y no perder ofertas publicadas entre corridas. Tras cambiar el temporizador: `systemctl --user daemon-reload`
-  y `systemctl --user restart radar-refresh.timer`.
+- **Automática:** cada 7 días (`OnUnitActiveSec=7d`, más 5 minutos tras cada arranque). El agente puede cambiar la
+  frecuencia con `set_refresh_schedule(days, on_boot)` (de 1 a 30 días; 0 desactiva el temporizador; `on_boot=false` quita
+  el disparo tras el arranque) y consultar cuándo corrió y cuándo corre con `get_system_status`. A mano: edita
+  `~/.config/systemd/user/radar-refresh.timer`, luego `systemctl --user daemon-reload` y
+  `systemctl --user restart radar-refresh.timer`. Solo funciona en Linux con systemd.
 - **Por lugar (agente y MCP):** `refresh_market(place, limit)` pide confirmación y trae ofertas enfocadas en un distrito o
-  ciudad en segundo plano; `get_refresh_status()` informa el avance. Las fuentes buscan por ciudad: en JobSpy la ubicación
-  es «Distrito, Lima» y en Computrabajo el distrito se añade a la palabra clave, así que el resultado se sesga hacia el
-  lugar sin limitarse a él.
+  ciudad en segundo plano (varios minutos); `get_refresh_status()` informa el avance. Las fuentes buscan por ciudad: en JobSpy
+  la ubicación es «Distrito, Lima» y en Computrabajo el distrito se añade a la palabra clave, así que el resultado se sesga
+  hacia el lugar sin limitarse a él.

@@ -55,7 +55,7 @@ nace flotante; el modo y el ancho se recuerdan. Los dos comparten la misma termi
 | `/config`, `/copy`, `/exit` | Ajustes, copiar la última respuesta, cerrar | 0 |
 | `/today`, `/map`, `/pipeline`, `/skills`, `/status`, `/profile`, `/refresh` | Consultas y acciones de Radar | 0 |
 | `/readonly`, `/disable` | Controles de seguridad del agente | 0 |
-| `/init`, `/explain`, `/plan`, `/summary` | Piden al agente configurar o analizar | sí |
+| `/init`, `/explain`, `/learn`, `/summary` | Piden al agente configurar o analizar (`/plan` activa el modo plan; ver [agente.md](agente.md)) | sí |
 
 Funciones de Claude Code adoptadas: `/context`, `/compact [foco]`, `/cost`, `/model`, `/clear`, `/resume`, `/export`, `/memory` (y `#`),
 `/doctor`, `/tools`, `/config`, `/init`, `/copy`, `/exit`. Se dejaron fuera las que no tienen equivalente en Radar (edición de archivos, `bash`, hooks, agentes).

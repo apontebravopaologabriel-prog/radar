@@ -48,19 +48,27 @@ el servidor MCP del cliente para que las vea.
 
 > La lista completa y siempre al día está en la **skill de agente** generada: `radar skill export --out docs/skills`
 > produce `docs/skills/radar/SKILL.md` (copiable a Antigravity o Claude Code) a partir del mismo registro que usa
-> el servidor y el chat de la app. Además del listado de abajo hay: `get_today_feed`, `find_jobs_near(place, radius_km)`
-> (distritos de Lima o ciudades del Perú), `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`,
-> `get_market_breakdown(by)`, `get_place_profile(place)`, `audit_classification` (solo lectura) y `reclassify_jobs` (con confirmación), `get_salary_stats`, `plan_learning`, `get_data_schema` y `run_readonly_sql` (solo SELECT/WITH,
-> máx. 50 filas), `get_setup_status`, `get_help`, `update_profile`, `favorite_job`, `list_career_tracks`,
-> `set_career_track` y `create_career_pack`. Las que escriben piden confirmación a la persona.
+> el servidor y el chat de la app. El registro tiene **52 herramientas** (40 visibles en el chat); las que escriben
+> piden confirmación a la persona. Agrupadas (detalle en [agente.md](agente.md#herramientas-52-en-total-40-en-el-chat)):
+>
+> - **Mercado:** `search_saved_jobs` (filtros por área, sector y exclusión de sectores), `get_today_feed`,
+>   `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`,
+>   `get_market_breakdown` (por área, lugar, empresa, modalidad, seniority, sector o portal, con filtros),
+>   `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`,
+>   `get_data_schema` y `run_readonly_sql` (solo SELECT/WITH, máx. 50 filas).
+> - **Perfil, CV y memoria:** `get_user_profile`, `get_my_cv`, `update_cv`, `update_profile`, `get_user_memory`,
+>   `remember_user`, `search_past_conversations`, `list_career_tracks`, `set_career_track`, `create_career_pack`.
+> - **Captura y sistema:** `refresh_market`, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`,
+>   `run_maintenance`, `set_score_weights`, `audit_classification`, `reclassify_jobs`, `get_setup_status`, `get_help`.
 >
 > El servidor también publica **recursos** (`radar://topics`, `radar://help/{topic}`, `radar://schema`) y **prompts**
-> (`configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`).
+> (`configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`). Tras añadir herramientas hay que recargar el
+> servidor MCP del cliente.
 
 - `health()`: comprueba disponibilidad; no cambia datos.
 - `ingest_jobs(source, query, location="Lima", limit=25, max_age_days=14)`: busca, clasifica, deduplica y guarda únicamente ofertas fechadas dentro del rango reciente. El límite operativo es 100. Usa `max_age_days=7` para una búsqueda de la última semana.
-- `search_saved_jobs(limit=20, seniority=null, area=null, max_age_days=14)`: consulta ofertas recientes guardadas y excluye las ocultadas en la instalación local; máximo 100. Devuelve modalidad, sector, horario y estado de postulación cuando están disponibles.
-- `get_market_summary()`: total activo, áreas primarias y skills frecuentes.
+- `search_saved_jobs(limit=20, seniority=null, area=null, max_age_days=14, search=null, sector=null, exclude_sector=null)`: consulta ofertas recientes guardadas y excluye las ocultadas en la instalación local. Devuelve un extracto de la descripción (la ficha completa está en `get_job_details`), modalidad, sector y salario.
+- `get_market_summary()` (solo MCP): total activo, áreas primarias y skills frecuentes.
 - `get_user_profile()`: devuelve el perfil separado; puede devolver `profile: null`.
 - `list_recommended_jobs(limit=10, max_age_days=14)`: devuelve solo recomendaciones activas y fechadas dentro del rango, con enlace directo, fecha de publicación, modalidad, sector, salario y horas cuando existen; requiere perfil configurado.
 - Las ofertas sin fecha o antiguas se conservan como historial, pero no se recomiendan.
@@ -97,4 +105,4 @@ como asignados por el agente en la matriz.
 
 ## Política para el agente
 
-Cualquier agente conectado (Antigravity, Claude Code, Hermes u otro) debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de futuras escrituras del perfil. V1 no tiene herramientas de postulación.
+Cualquier agente conectado (Antigravity, Claude Code, Hermes u otro) debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de escribir (perfil, CV, temporizador, mantenimiento, reclasificación, pesos). No existen herramientas de postulación ni de envío de mensajes. Los detalles del agente de la app (modos, memoria, límites) están en [agente.md](agente.md).

@@ -69,3 +69,17 @@ independiente para conservar accesibles el ranking y el resto del explorador.
 - **Sin foto:** se espera `photo.jpg` o `photo.png` en ese mismo directorio.
 - **`save_target_profile` devuelve `errors`:** el esquema exige `quote` o `reason` en ítems explícitos,
   `reason` en inferidos y en `cubierto`, y valores válidos de `origin`, `status` y `kind`.
+
+## El agente dice «alcanzó el máximo de pasos» o no puede guardar cambios
+
+- **Máximo de pasos:** un turno tiene hasta 8 pasos; en el último el agente cierra sin herramientas con lo obtenido. Si
+  ves que se agota, la pregunta suele requerir SQL: prueba `get_market_breakdown` con filtros (área, lugar, sector,
+  `exclude_sector`, texto) o `/plan` para que investigue y proponga.
+- **No guarda cambios en el CV, el temporizador o el mantenimiento:** revisa el pie de la ventana. Con `read-only` (o en
+  modo `plan`) el servidor no ofrece herramientas de escritura; quita solo lectura con `/readonly off` y sal del modo plan
+  con `Shift+Tab` o `/plan off`.
+- **`Shift+Tab` no cambia nada visible:** el pie muestra el modo (`manual`, `auto` o `plan`) y, aparte, `· read-only`.
+- **Los conteos por área o distrito parecen raros:** pide al agente que corra `audit_classification`; si hay desfase,
+  propondrá `reclassify_jobs` (con confirmación y copia reversible).
+- **Una herramienta o endpoint nuevo no aparece:** reinicia la API y recarga el servidor MCP del cliente; el frontend se
+  sirve desde `frontend/out`, así que recarga la página (y recompila con `npm run build` si cambió el frontend).

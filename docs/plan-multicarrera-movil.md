@@ -256,6 +256,7 @@ stdio…" y "API local") para reflejar el modo hospedado y el agente integrado.
 | Agente guía | Hecho | `get_setup_status` (qué falta y siguiente paso) y `get_help` (ayuda curada en `src/radar/help.md`); el chat ofrece "Ayúdame a configurar Radar" si la configuración está incompleta. |
 | Cobertura Perú | Hecho (base) | Objetivo actual: todo el Perú. `geolocation.py` resuelve distritos de Lima/Callao, ~65 ciudades y los 23 departamentos (precisión de ciudad/departamento, aproximada); mapa móvil con un punto por lugar; refresco con 10 ciudades (`RADAR_CITIES`). Pendiente: polígonos por ciudad y geocodificación real. |
 | Estética móvil | Hecho | Terminal gris y negro, monoespaciada, solo oscuro, alineada con el modo de escritorio. |
+| Agente maduro | Hecho | Alma ISE BoK, modos manual/auto/plan, `@`, memoria, `/resume`, mantenimiento y CV por texto; ver [agente.md](agente.md). |
 | 4. Onboarding con CV | Pendiente | Hoy es un formulario; falta subir CV y extraer el perfil con confirmación. |
 | 5. Hospedaje multiusuario | Pendiente | Requiere `user_id`, autenticación por usuario y PostgreSQL. |
 | 6. Alertas y push | Pendiente | Requiere HTTPS y claves VAPID. |

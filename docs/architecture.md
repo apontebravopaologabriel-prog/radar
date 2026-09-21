@@ -43,7 +43,7 @@ SQLite
 
 El agente conectado por MCP (Antigravity por defecto; el servidor es independiente del cliente) es la interfaz conversacional. Python coordina fuentes, transforma respuestas, clasifica texto, calcula fingerprints y persiste. SQLite es la fuente de verdad.
 
-La clasificación actual es heurística y usa alias definidos en `src/radar/classify.py` y la taxonomía de `src/radar/taxonomy.py`; el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Cada oferta recibe además una relevancia trazable (`core`, `adjacent` u `out_of_focus`) para priorizar el mercado de Ingeniería Industrial sin borrar ofertas. Todavía no depende de un LLM.
+La clasificación actual es heurística: `src/radar/classify.py` acumula un puntaje por área a partir de las reglas del paquete de carrera (`careers/packs/*.json`) y `src/radar/taxonomy.py` asigna la relevancia (ver [database.md](database.md#clasificación-profesional)); el enriquecimiento de sector, modalidad, salario y horario también conserva evidencia y deja `NULL` cuando no hay datos confiables. Cada oferta recibe además una relevancia trazable (`core`, `adjacent` u `out_of_focus`) para priorizar el mercado de Ingeniería Industrial sin borrar ofertas. Todavía no depende de un LLM.
 
 Las consultas de la vista web aplican frescura por `published_at`, muestran ofertas activas y
 canónicas, y excluyen las ocultadas por el usuario. `job_sources` conserva todas las URLs de una
@@ -62,6 +62,12 @@ src/radar/
 ├── sources/                # adaptadores externos
 ├── db/                     # conexión, escritura y consultas
 ├── cv_targets.py           # CVs objetivo hipotéticos: lectura, validación, matriz y distancias
+├── cv_edit.py              # edición por texto de cv_master.json (validación, copia previa, escritura atómica)
+├── maintenance.py          # auditoría y reclasificación de áreas, con huella de las reglas
+├── system.py               # estado del sistema, temporizador systemd y tareas de mantenimiento (lista cerrada)
+├── refresh.py              # captura en segundo plano (general y por lugar)
+├── tools.py                # registro único de herramientas: MCP y chat
+├── agent/                  # bucle del agente, proveedor, memoria, historial de conversaciones y soul.md
 └── mcp/server.py           # servidor MCP para cualquier agente
 frontend/
 ├── app/radar/              # pantalla principal del explorador
@@ -82,16 +88,23 @@ corresponde a `deepseek-flash` y `DeepSeek V4 Pro` a `deepseek-v4-pro`. `/model`
 abren el selector de modelo; `/effort` abre el selector de `auto`, `none`, `low`, `high` y `max`.
 
 El chat recibe un contexto explícito de la interfaz en cada turno, no una captura de pantalla ni
-el DOM: vista (`map`, `analysis` o `cvs`), modo del mapa, distrito y radio seleccionados, filtros,
-oferta activa y contador de resultados. Análisis también publica si terminó de restaurar sus
-ventanas, sus consultas recientes y un resumen seguro de cada ventana (título, SQL de solo lectura,
-columnas, filas iniciales y total). Así el agente puede responder sobre el estado actual y distinguir
-una ventana recién creada de la respuesta anterior.
+el DOM: vista (`map`, `analysis` o `cvs`), modo del mapa, distrito y radio seleccionados (con el conteo propio del
+distrito, `districtJobs`), filtros, oferta activa y contador de resultados. Análisis también publica si terminó de
+restaurar sus ventanas y un resumen de cada una. El usuario elige cuánto se envía (apagado, selección o completo) y
+las menciones con `@` viajan aparte como lista explícita. El prompt lo trata como dato de navegación, no como
+instrucciones.
 
-Para comparar el distrito seleccionado con otra ubicación existe la herramienta de solo lectura
-`compare_places`. Resume ofertas, peso de señales de producción y áreas principales para cada lugar,
-y determina el lugar más fuerte bajo un criterio explicable de producción/manufactura; evita que el
-agente tenga que encadenar consultas de esquema y SQL para una comparación sencilla.
+El prompt de sistema se compone de las reglas operativas (`SYSTEM_PROMPT` en `agent/loop.py`), el carácter
+(`agent/soul.md`, basado en el ISE BoK), el nombre y el titular del CV de la persona, sus notas de memoria y, cuando
+corresponde, el aviso de reglas de clasificación desactualizadas y el bloque del modo plan. Un turno tiene hasta 8
+pasos; en el último se retiran las herramientas para cerrar con lo obtenido. Los resultados de herramientas se recortan
+por elementos y los de turnos anteriores solo conservan un extracto. Las herramientas de escritura nunca se ejecutan
+dentro del bucle: se devuelven como `pending` y el usuario las aprueba en `/api/chat/confirm`; en modo plan (o solo
+lectura) el servidor ni siquiera las ofrece.
+
+Para comparar el distrito seleccionado con otro existe `compare_places` (volumen, áreas, modalidad, seniority, salario
+mediano y señales de producción como una dimensión más) y `get_place_profile` para un solo lugar. La referencia
+completa del agente (herramientas, modos, interfaz y memoria) está en [agente.md](agente.md).
 
 ## Decisiones deliberadas
 

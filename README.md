@@ -28,13 +28,17 @@ hipotéticos redactados por el agente; no son CVs enviables (ver
   `src/radar/careers/packs/*.json` (Ingeniería Industrial y Contabilidad). Añadir una carrera es
   añadir un JSON; se elige en Ajustes o con `RADAR_CAREER`.
 - **Adaptable a cualquier carrera:** en el primer inicio (escritorio y móvil) unas preguntas fijan tu carrera, dónde buscas (Lima primero, o cualquier ciudad del Perú), tu perfil y tus skills. Si tu carrera no está, la creas indicando áreas con palabras clave y skills; se guarda junto a tu base de datos. "Actualizar mercado ahora" trae las ofertas de tu carrera. Cada persona maneja su propia base local.
-- **Agente de chat (opcional, apagado por defecto):** en escritorio es una ventana flotante (`Ctrl+J`) sobre el mapa y en Ajustes (`/ajustes`) se activa, se pone en solo lectura o se apaga; apagado, el servidor rechaza el chat y no se carga su código. Es una terminal minimal: escribe `/` para comandos con nombres de Claude Code (`/today`, `/map Arequipa 25`, `/context`, `/compact`, `/memory`, `/doctor`, `/tools`…, con alias en español; los que consultan tus datos no gastan tokens) y `# texto` para que recuerde una preferencia y las respuestas se ven en Markdown. `/model` o `/models` abre el selector interactivo de modelos y `/effort` el de razonamiento; las flechas cambian la selección, Enter aplica y Esc cierra. El catálogo muestra nombres amigables pero guarda y envía el ID real del proveedor (por ejemplo, `DeepSeek V4.1 Flash` → `deepseek-flash`). Usa tu propia clave de API (DeepSeek por defecto; también OpenAI, OpenRouter,
-  Ollama o un endpoint compatible). En cada turno recibe el contexto explícito de la pantalla: vista
-  actual (Mapa, Análisis o CVs), modo, distrito/radio seleccionados, filtros, oferta activa y análisis
-  abiertos; no lee el DOM ni inventa una vista. Puedes pedir `compara lo seleccionado con Lurín` y
-  usará la comparación directa por ubicación para explicar qué lugar es más fuerte en producción.
-  Comparte las herramientas del MCP (`src/radar/tools.py`); las que
-  escriben piden confirmación en pantalla. Tope mensual de tokens configurable.
+- **Agente de chat (opcional, apagado por defecto):** un ingeniero industrial senior (marco ISE BoK) que consulta tus
+  datos, cita distritos y ofertas con `@`, conoce tu CV, mantiene la base y, con tu confirmación, cambia perfil, CV,
+  temporizador y pesos. En escritorio es una ventana flotante (`Ctrl+J`) o un panel fijado; se activa en Ajustes
+  (`/ajustes`) y apagado el servidor rechaza el chat. Es una terminal minimal al estilo de Claude Code: `/` abre los
+  comandos (con alias en español), `/help` y otros abren una ventana temporal que se cierra con `Esc`, `Shift+Tab`
+  cambia entre modo manual, auto y plan, `/resume` es un selector de conversaciones con búsqueda, `/model` y
+  `/effort` comparten un selector, y `?` muestra los atajos. Usa tu propia clave de API (DeepSeek por defecto;
+  también OpenAI, OpenRouter, Ollama o un endpoint compatible) con tope mensual de tokens. Recibe el contexto
+  explícito de la pantalla (vista, distrito, filtros, oferta abierta), que se puede apagar con `Ctrl+K`. Comparte
+  las 52 herramientas del MCP (40 visibles en el chat, `src/radar/tools.py`); las que escriben piden confirmación.
+  Guía completa: [docs/agente.md](docs/agente.md).
 - **Acceso desde el celular:** ver [Acceso remoto](docs/operations.md#acceso-remoto-desde-el-celular).
 
 Plan y estado: [Radar multicarrera, móvil y agente](docs/plan-multicarrera-movil.md).
@@ -51,6 +55,7 @@ Plan y estado: [Radar multicarrera, móvil y agente](docs/plan-multicarrera-movi
 - [Roadmap V2/V3](docs/roadmap.md)
 - [Plan general](docs/plan-general.md)
 - [Plan de rendimiento](docs/plan-rendimiento.md)
+- [Agente de Radar: identidad, herramientas, modos e interfaz](docs/agente.md)
 - [Plan multicarrera, móvil y agente](docs/plan-multicarrera-movil.md)
 - [Plan de escritorio y agente como ventana](docs/plan-escritorio.md)
 - [Dirección de producto](docs/product-direction.md)
@@ -163,14 +168,14 @@ canónica. Actualmente aplica a la instalación local completa; todavía no exis
 Las ofertas favoritas se guardan en `job_user_favorites` y se consultan desde la vista Favoritos
 mediante la estrella `☆`/`★`.
 
-Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta dieciséis consultas amplias de áreas industriales en Indeed una vez al día y usa una ventana de 7 días por defecto. Computrabajo queda pausado automáticamente mientras se valida su extracción de detalle; se puede activar con `RADAR_COMPUTRABAJO_ENABLED=1` después de esa validación. La ingesta no filtra por salario; el sueldo se utiliza después como dato de análisis y filtro opcional:
+Para mantener el mercado actualizado en segundo plano, Radar tiene un temporizador de usuario que ejecuta dieciséis consultas amplias de áreas industriales en Indeed, LinkedIn (búsqueda pública vía JobSpy, sin login) y Computrabajo **cada 7 días**, con una ventana de 10 días para solapar las corridas. Computrabajo se puede pausar con `RADAR_COMPUTRABAJO_ENABLED=0`. Desde el agente puedes cambiar la frecuencia (`set_refresh_schedule`) o traer ofertas de un distrito (`refresh_market`). La ingesta no filtra por salario; el sueldo se utiliza después como dato de análisis y filtro opcional:
 
 ```bash
 systemctl --user status radar-refresh.timer
 tail -f /home/paolo/.local/state/radar/refresh.log
 ```
 
-El refresco usa JobSpy/Indeed y el adaptador MCP de Computrabajo; LinkedIn, Bumeran, Laborum y Empleos Perú continúan entrando mediante importación asistida para no automatizar cuentas personales.
+El refresco usa JobSpy (Indeed y LinkedIn) y el adaptador MCP de Computrabajo; Bumeran, Laborum y Empleos Perú continúan entrando mediante importación asistida para no automatizar cuentas personales.
 
 ## Límites deliberados
 

@@ -24,7 +24,8 @@ Antes de cambiar comportamiento, leer en este orden:
 - `src/radar/careers/`: paquetes de carrera (`packs/*.json`): áreas, competencias, señales y pesos del
   score. `classify.py` y `taxonomy.py` son motores que los leen; no hay reglas de una carrera en Python.
 - `src/radar/tools.py`: registro único de herramientas (MCP y chat). Declara `write` y `chat` por herramienta.
-- `src/radar/agent/`: proveedor OpenAI-compatible y bucle del agente (escrituras siempre pendientes).
+- `src/radar/agent/`: proveedor OpenAI-compatible, bucle del agente (escrituras siempre pendientes; en modo plan o solo lectura no se ofrecen), memoria (`memory.py`), búsqueda en conversaciones (`history.py`) y el carácter (`soul.md`, marco ISE BoK). Referencia completa: `docs/agente.md`.
+- `src/radar/maintenance.py`, `system.py`, `cv_edit.py`: auditoría/reclasificación de áreas, estado del sistema y temporizador systemd, y edición por texto de `cv_master.json`. Todas con listas cerradas de acciones, confirmación y copia previa; nunca borran ofertas.
 - `src/radar/help.md` + `help.py`: ayuda curada; el agente explica el producto solo desde ahí (`get_help`). Actualízala al cambiar una función visible.
 - `src/radar/geolocation.py`: distritos de Lima/Callao, ciudades y departamentos del Perú. Orden de resolución: ciudad (palabra completa) → distrito de Lima → departamento → Lima; "Perú" a secas no ubica. Añade ciudades en `_CITIES`.
 - `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
@@ -115,8 +116,8 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
 ## Contratos de la app móvil (`/m`)
 
 - Es una interfaz aparte del mapa: no aplican las reglas de barra flotante del explorador de escritorio.
-- Terminal gris y negro: monoespaciada, solo modo oscuro, sin acentos de color, `>` en títulos y etiquetas `[SECCIÓN]`, objetivos táctiles de 44 px.
-- Toda herramienta nueva se registra en `tools.py`; si escribe, `write=True`. No exponer al chat
+- Terminal gris y negro: monoespaciada, solo modo oscuro, sin acentos de color (excepción deliberada: el chat del agente usa la paleta de acento de `mobile.css`, al estilo de Claude Code), `>` en títulos y etiquetas `[SECCIÓN]`, objetivos táctiles de 44 px.
+- Toda herramienta nueva se registra en `tools.py`; si escribe, `write=True` (aparece como tarjeta de confirmación). Añádela a la tabla de `docs/agente.md`, regenera la skill (`radar skill export --out docs/skills`) y cubre con una prueba en `tests/test_tools.py`; cada herramienta del chat cuesta tokens en cada mensaje, así que marca `chat=False` las que solo sirvan al MCP y mantén sus descripciones cortas. No exponer al chat
   herramientas que envíen mensajes, postulen o ejecuten SQL libre.
 - El mapa móvil usa Leaflet con teselas de OpenStreetMap (CARTO ya exige clave) y un punto por lugar; no cargar polígonos ni una capa por oferta.
 - El service worker no cachea `/api/chat`, `/api/agent` ni `/api/auth`.

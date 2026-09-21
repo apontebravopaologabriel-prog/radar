@@ -72,7 +72,23 @@ integridad de áreas y posibles títulos comerciales dentro de áreas objetivo.
 `Ventas / Comercial` es un área explícita. Las señales comerciales presentes en el título tienen
 prioridad sobre palabras genéricas de la descripción (`operaciones`, `planning` o `procesos`), de
 modo que un puesto como `Ejecutivo Comercial` no se presenta como una oferta de Ingeniería
-Industrial. La clasificación sigue siendo determinista y conserva la evidencia textual.
+Industrial. Una mención suelta de una señal comercial en la descripción no basta: hacen falta al menos tres.
+
+La clasificación sigue siendo determinista y conserva la evidencia textual. Cada área acumula un puntaje:
+una coincidencia en el título vale 3 (admite derivados cortos: «almacenero» coincide con «almacen», salvo en siglas
+de menos de 6 letras, que deben ser exactas), cada mención fuerte en la descripción vale 0,8 (máximo 3) y las palabras
+genéricas de `weak_terms` del paquete (por ejemplo `requerimientos`, `proyectos`, `sql`, `erp`) solo suman 0,25. Bajo un
+puntaje mínimo (1,5) la oferta queda en `Otras`, y los títulos de `excluded_title_signals` (limpieza, contabilidad,
+marketing, desarrolladores…) sin señal de área en el título también. El vocabulario (áreas, `weak_terms` y exclusiones) vive
+en `src/radar/careers/packs/*.json`. `job_areas` guarda hasta tres áreas por oferta, con la primaria marcada.
+
+En el paquete de Ingeniería Industrial las 14 áreas siguen el orden del ISE BoK, con nombre en español; «Información,
+analítica y sistemas» es adyacente y el resto núcleo.
+
+**Mantenimiento:** al reingresar una oferta existente se vuelven a escribir sus áreas junto con la relevancia. Para aplicar
+reglas nuevas a lo ya guardado, `audit_classification` compara lo almacenado con lo que las reglas clasificarían hoy y
+`reclassify_jobs` lo corrige con una copia reversible (`reclassify-<fecha>.json`). La huella de las reglas se guarda en
+`app_settings` (`classification_rules_hash`).
 
 ## Mercado y usuario
 

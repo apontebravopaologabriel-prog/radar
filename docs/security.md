@@ -31,9 +31,22 @@ API es de solo lectura. `cv_master.json` y `photo.jpg` contienen datos personale
 
 - Las descripciones de ofertas son texto de terceros. El agente las recibe marcadas como
   `datos_externos_no_confiables` y su prompt las trata como información, nunca como instrucciones.
-- Las herramientas que escriben (favoritos, seguimiento, perfil, carrera) no se ejecutan dentro del
-  bucle del agente: el usuario las aprueba en `/api/chat/confirm`. No existen herramientas que envíen
-  mensajes ni postulen. `ingest_jobs` y `save_target_profile` no se exponen al chat.
+- Las herramientas que escriben (favoritos, seguimiento, perfil, CV, carrera, memoria, captura, temporizador,
+  mantenimiento, pesos y reclasificación) no se ejecutan dentro del bucle del agente: el usuario las aprueba en
+  `/api/chat/confirm`. El modo **auto** solo aprueba solas cuatro acciones de seguimiento personal
+  (`favorite_job`, `track_job_application`, `remember_user`, `record_career_event`); todo lo demás sigue pidiendo
+  confirmación. En modo **plan** y en **solo lectura** el servidor no ofrece las herramientas de escritura y rechaza
+  cualquier llamada. No existen herramientas que envíen mensajes ni postulen. `ingest_jobs` y `save_target_profile`
+  no se exponen al chat.
+- El agente no puede cambiar la clave de API, el modo solo lectura ni el tope de tokens: son ajustes de la persona.
+- Las acciones de sistema son listas cerradas: `run_maintenance` solo acepta `backup`, `repair_data`, `expire_stale`,
+  `check_applications` y `market_snapshot`; `set_refresh_schedule` solo edita `radar-refresh.timer` (1 a 30 días);
+  `update_cv` valida el formato de cada sección y guarda una copia previa de `cv_master.json`. Nada de esto borra
+  ofertas, y la reclasificación deja un JSON reversible.
+- `get_my_cv` envía tu CV completo al proveedor de LLM cuando la pregunta lo necesita; el resumen fijo del prompt
+  incluye solo el nombre y el titular.
+- Las conversaciones (`conversations`) y la memoria (`agent_memories`) viven en la base local. El agente solo busca en
+  conversaciones anteriores cuando la persona alude a ellas, y devuelve fragmentos.
 - El perfil y las ofertas consultadas viajan al proveedor de LLM elegido: usa un proveedor en el que
   confíes o Ollama local para no enviar datos a terceros.
 - `RADAR_ACCESS_TOKEN` activa una clave de acceso para `/api/*` (cookie `HttpOnly`, `SameSite=Strict`,

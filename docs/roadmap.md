@@ -54,6 +54,14 @@
   deje de depender de centroides aproximados por distrito/ciudad.
 - Detalle completo de oferta y cambio de estado desde la interfaz.
 
+## Agente — implementado
+
+- Identidad basada en el ISE BoK, modos manual/auto/plan, menciones con `@`, memoria durable y búsqueda en conversaciones.
+- Interfaz estilo terminal (selectores, atajos, ventanas temporales, herramientas plegables); ver [agente.md](agente.md).
+- Mantenimiento desde el agente: auditoría y reclasificación de áreas, respaldos, temporizador de captura, pesos y edición del CV por texto.
+- Captura enfocada en un distrito (`refresh_market`) y captura automática cada 7 días.
+- Pendiente: carga de herramientas bajo demanda (hoy 40 en el chat, unos 5.000 tokens por mensaje), streaming por líneas y vocabulario más rico para las áreas con pocas ofertas (trabajo, producto, sistemas).
+
 ## V2 — siguiente etapa
 - Snapshots automáticos por semana/mes/año y reportes comparativos.
 - Métricas por área, empresa y skill.
