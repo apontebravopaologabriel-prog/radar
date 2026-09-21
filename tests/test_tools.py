@@ -344,3 +344,30 @@ def test_get_my_cv_reads_the_master_cv_without_private_paths(tmp_path, monkeypat
                                                         "experience": [{"role": "Auxiliar"}], "photo_path": "/home/x.jpg"}), encoding="utf-8")
     cv = tools.get_my_cv()["cv"]
     assert cv["experience"] and "photo_path" not in cv and "_nota" not in cv
+
+
+def test_update_cv_edits_the_master_cv_safely(tmp_path, monkeypatch):
+    import json
+
+    from radar import cv_edit, cv_targets
+
+    monkeypatch.setattr(cv_targets, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(cv_edit, "data_dir", lambda: tmp_path)
+    cv_file = tmp_path / "cv_master.json"
+    cv_file.write_text(json.dumps({"name": "Ana", "photo_path": "/x.jpg", "certifications": [{"name": "SQL", "date": "2025-06"}],
+                                   "gaps_of_evidence": ["Python sin certificación"]}), encoding="utf-8")
+    assert tools.REGISTRY["update_cv"].write is True
+    tools.update_cv("certifications", "add", {"name": "Lean Six Sigma Green Belt", "issuer": "ASQ", "date": "2026-08"})
+    data = json.loads(cv_file.read_text(encoding="utf-8"))
+    assert [c["name"] for c in data["certifications"]] == ["SQL", "Lean Six Sigma Green Belt"] and data["photo_path"] == "/x.jpg"
+    assert list(tmp_path.glob("cv_master.json.bak-*"))
+    tools.update_cv("certifications", "update", {"date": "2026-09"}, match="green belt")
+    assert json.loads(cv_file.read_text(encoding="utf-8"))["certifications"][1]["date"] == "2026-09"
+    for bad in (("certifications", "add", {"name": "SQL"}), ("certifications", "add", {"name": "X", "date": "ayer"}),
+                ("certifications", "add", {"issuer": "solo emisor"}), ("certifications", "add", {"name": "Y", "color": "rojo"}),
+                ("tools", "add", {"name": "Excel"}), ("certifications", "remove", None)):
+        with pytest.raises(ValueError):
+            tools.update_cv(*bad)
+    tools.update_cv("gaps", "remove", match="python")
+    tools.update_cv("certifications", "remove", match="sql")
+    assert [c["name"] for c in json.loads(cv_file.read_text(encoding="utf-8"))["certifications"]] == ["Lean Six Sigma Green Belt"]

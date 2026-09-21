@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_targets, insights, maintenance, system
+from radar import cv_baseline, cv_edit, cv_targets, insights, maintenance, system
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
@@ -317,6 +317,16 @@ def get_my_cv() -> dict:
     return {"cv": {k: v for k, v in cv.items() if not k.startswith("_") and k != "has_photo"}}
 
 
+@tool(write=True)
+def update_cv(section: str, action: str, item: dict | None = None, match: str | None = None) -> dict:
+    """Edita tu CV real (lo que ves en CVs). section: certifications {name, issuer, date AAAA-MM}, experience {role,
+    company, location, from, to, bullets[]}, education {institution, program, from, to, status, skills[]}, languages
+    {name, level, evidence}, gaps {text}, summary o headline {text}. action: add | update | remove; en update y remove,
+    `match` es un texto que identifica el ítem. Solo con lo que la persona dictó: pregunta lo que falte (emisor,
+    fecha). Guarda copia previa. Skills y herramientas: update_profile."""
+    return cv_edit.update_cv(section, action, item, match)
+
+
 @tool()
 def get_user_memory(query: str = "", limit: int = 8) -> dict:
     """Busca memoria durable aprobada por la persona. No incluye el historial completo del chat."""
@@ -361,7 +371,8 @@ def record_career_event(
     started_on: str | None = None,
     ended_on: str | None = None,
 ) -> dict:
-    """Registra explícitamente un curso, proyecto, empleo, logro o meta profesional."""
+    """Registra en la línea de tiempo una meta, nota, entrevista o logro. Certificaciones, empleos y estudios que deban
+    verse en tu CV se guardan con update_cv, no aquí."""
     return {"event_id": add_career_event(None, event_type, title, description, started_on, ended_on)}
 
 

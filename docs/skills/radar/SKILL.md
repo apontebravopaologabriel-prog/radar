@@ -37,11 +37,12 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `get_help` | lee | Explica cómo usar Radar. Apóyate solo en este texto al explicar funciones; no inventes otras. | topic?: string |
 | `get_user_profile` | lee | Devuelve el perfil separado de las estadísticas del mercado. |  |
 | `get_my_cv` | lee | Tu CV real (cv_master): resumen, experiencia, formación, certificaciones, idiomas, herramientas declaradas y |  |
+| `update_cv` | escribe | Edita tu CV real (lo que ves en CVs). section: certifications {name, issuer, date AAAA-MM}, experience {role, | section: string, action: string, item?: object|null, match?: string|null |
 | `get_user_memory` | lee | Busca memoria durable aprobada por la persona. No incluye el historial completo del chat. | query?: string, limit?: integer |
 | `remember_user` | escribe | Guarda una preferencia, meta o decisión durable después de que la persona la confirme. | topic_key: string, content: string, memory_type?: string |
 | `update_profile` | escribe | Crea o actualiza el perfil real. `skills` mapea skill -> none\|basic\|intermediate\|advanced. | name: string, areas: array, locations: array, skills: object, education?: string|null, work_modes?: array|null |
 | `get_career_timeline` | lee | Devuelve la evolución del perfil y los eventos profesionales registrados. | limit?: integer |
-| `record_career_event` | escribe | Registra explícitamente un curso, proyecto, empleo, logro o meta profesional. | event_type: string, title: string, description?: string|null, started_on?: string|null, ended_on?: string|null |
+| `record_career_event` | escribe | Registra en la línea de tiempo una meta, nota, entrevista o logro. Certificaciones, empleos y estudios que deban | event_type: string, title: string, description?: string|null, started_on?: string|null, ended_on?: string|null |
 | `list_career_tracks` | lee | Carreras disponibles y la carrera activa (define áreas, competencias y pesos del score). |  |
 | `set_career_track` | escribe | Cambia la carrera activa. Afecta a las ofertas que se ingesten y clasifiquen desde ahora. | career_id: string |
 | `create_career_pack` | escribe | Crea una carrera propia y la activa. `areas` mapea cada área de trabajo a sus palabras clave | name: string, areas: object, skills?: array|null |
