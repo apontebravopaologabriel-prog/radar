@@ -13,7 +13,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 |---|---|---|---|
 | `ingest_jobs` | escribe | Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario. | source: string, query: string, location?: string, limit?: integer, max_age_days?: integer |
 | `health` | lee | Indica que Radar está disponible. |  |
-| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, ubicación, área, sector, salario, enlace). `search` busca en título, | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null |
+| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, ubicación, área, sector, salario, enlace y un extracto; la ficha completa | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null |
 | `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. |  |
 | `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. | limit?: integer, max_age_days?: integer |
 | `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer |
@@ -54,6 +54,8 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `resolve_nearest_districts` | lee | Distritos más cercanos a una zona mencionada en una oferta, con km aproximados. | reference: string, limit?: integer |
 | `audit_classification` | lee | Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes. | sample?: integer |
 | `reclassify_jobs` | escribe | Reclasifica todas las ofertas guardadas con las reglas vigentes (áreas y relevancia). No borra |  |
+| `refresh_market` | escribe | Busca ofertas nuevas enfocadas en un distrito o ciudad (Indeed/LinkedIn y Computrabajo) y las guarda. Corre en | place: string, limit?: integer |
+| `get_refresh_status` | lee | Avance de la captura de ofertas en curso o de la última: pasos hechos, ofertas nuevas y errores. |  |
 
 ## Flujos recomendados
 

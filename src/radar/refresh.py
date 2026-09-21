@@ -114,6 +114,40 @@ def start_refresh(
     return refresh_status()
 
 
+def start_place_refresh(place: str, limit: int = 25, max_age_days: int = 14) -> dict[str, Any]:
+    """Trae ofertas nuevas enfocadas en un distrito o ciudad, en segundo plano.
+
+    Las fuentes solo buscan por ciudad: JobSpy (Indeed/LinkedIn) acepta «Distrito, Lima» como ubicación y en
+    Computrabajo el distrito se añade a la palabra clave. El resultado se sesga hacia ese lugar, no se limita a él.
+    """
+    point = infer_location(place)
+    if point is None or (point.precision == "department" and point.label == "Lima" and place.strip().lower() != "lima"):
+        raise ValueError(f"Lugar desconocido: {place}")
+    binaries = _binaries()
+    if not binaries:
+        raise RuntimeError("No se encontró el comando `radar` para actualizar el mercado.")
+    is_district = point.precision == "district"
+    city = "Lima" if is_district else point.label
+    chosen = [q for q in list(active_pack().queries) if q and not q.startswith("-")][:MAX_QUERIES]
+    steps: list[list[str]] = []
+    for query in chosen:
+        for name, base in binaries.items():
+            if name == "jobspy":
+                where, keyword = (f"{point.label}, Lima" if is_district else city), query
+            else:
+                where, keyword = city, (f"{query} {point.label}" if is_district else query)
+            steps.append([*base, "--query", keyword, "--location", where, "--limit", str(min(max(limit, 1), 50)),
+                          "--max-age-days", str(max_age_days)])
+    steps = steps[:MAX_STEPS]
+    with _lock:
+        if _state["running"]:
+            raise RuntimeError("Ya hay una actualización en curso.")
+        _state.update(running=True, done=0, total=len(steps), created=0, errors=[],
+                      started_at=time.time(), finished_at=None, current=None)
+    threading.Thread(target=_work, args=(steps,), daemon=True, name="radar-refresh").start()
+    return {**refresh_status(), "place": point.label, "note": "Se ejecuta en segundo plano; consulta get_refresh_status."}
+
+
 def refresh_status() -> dict[str, Any]:
     with _lock:
         return dict(_state, errors=list(_state["errors"]))

@@ -284,3 +284,20 @@ def test_market_breakdown_supports_sector_and_filters():
     with pytest.raises(ValueError) as exc:
         tools.run_readonly_sql("select nope from jobs")
     assert "Tablas y columnas" in str(exc.value)
+
+
+def test_refresh_market_is_a_confirmed_write_and_builds_place_focused_steps(monkeypatch):
+    import radar.refresh as refresh
+
+    assert tools.REGISTRY["refresh_market"].write is True and tools.REGISTRY["get_refresh_status"].write is False
+    monkeypatch.setattr(refresh, "_binaries", lambda: {"computrabajo": ["radar", "ingest", "--source", "computrabajo"],
+                                                      "jobspy": ["radar", "ingest", "--source", "jobspy"]})
+    captured = []
+    monkeypatch.setattr(refresh, "_work", lambda steps: captured.extend(steps))
+    monkeypatch.setattr(refresh.threading, "Thread", lambda target, args, **k: type("T", (), {"start": lambda self: target(*args)})())
+    state = refresh.start_place_refresh("Miraflores")
+    assert state["place"] == "Miraflores" and captured
+    assert any("Miraflores, Lima" in step for step in captured) and any("Lima" in step and "Miraflores" in " ".join(step) for step in captured)
+    refresh._state["running"] = False
+    with pytest.raises(ValueError):
+        refresh.start_place_refresh("Marte")

@@ -7,7 +7,7 @@ RADAR_BIN="$PROJECT_DIR/.venv/bin/radar"
 STATE_DIR="/home/paolo/.local/state/radar"
 # The scheduled view favors freshness; override with RADAR_MAX_AGE_DAYS when
 # a wider market snapshot is intentionally needed.
-MAX_AGE_DAYS="${RADAR_MAX_AGE_DAYS:-7}"
+MAX_AGE_DAYS="${RADAR_MAX_AGE_DAYS:-10}"
 COMPUTRABAJO_ENABLED="${RADAR_COMPUTRABAJO_ENABLED:-1}"
 # LinkedIn via jobspy validated 2026-09-18 (public search results, no login).
 export RADAR_JOBSPY_SITES="${RADAR_JOBSPY_SITES:-indeed,linkedin}"

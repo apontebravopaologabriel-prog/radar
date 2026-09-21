@@ -40,6 +40,7 @@ from radar.freshness import DEFAULT_MAX_AGE_DAYS
 from radar.help import help_topics, read_help
 from radar.links import google_maps_search_url
 from radar.pipeline import run_ingestion
+from radar.refresh import refresh_status, start_place_refresh
 from radar.settings import get_setting, set_setting
 
 
@@ -478,3 +479,20 @@ def reclassify_jobs() -> dict:
     """Reclasifica todas las ofertas guardadas con las reglas vigentes (áreas y relevancia). No borra
     ofertas y guarda una copia reversible. Proponla solo tras audit_classification si hay desfase."""
     return maintenance.reclassify_jobs()
+
+
+# --- Captura de ofertas ------------------------------------------------------------------------------
+
+
+@tool(write=True)
+def refresh_market(place: str, limit: int = 25) -> dict:
+    """Busca ofertas nuevas enfocadas en un distrito o ciudad (Indeed/LinkedIn y Computrabajo) y las guarda. Corre en
+    segundo plano varios minutos; las fuentes buscan por ciudad, así que el distrito sesga el resultado, no lo limita.
+    Luego usa get_refresh_status."""
+    return start_place_refresh(place, limit)
+
+
+@tool()
+def get_refresh_status() -> dict:
+    """Avance de la captura de ofertas en curso o de la última: pasos hechos, ofertas nuevas y errores."""
+    return refresh_status()

@@ -230,3 +230,15 @@ con `RADAR_CITIES`, una lista separada por comas (por ejemplo, `RADAR_CITIES="Ar
 con 4 consultas por ciudad en JobSpy y Computrabajo. `RADAR_CITIES=""` mantiene el refresco en solo Lima;
 cada ciudad añade varios minutos al refresco. Una ciudad nueva también debe existir en
 `src/radar/geolocation.py` (`_CITIES`) para aparecer en el mapa.
+
+
+## Captura automática y por lugar
+
+- **Automática:** el temporizador `~/.config/systemd/user/radar-refresh.timer` ejecuta `scripts/radar-refresh.sh` cada 7 días
+  (`OnUnitActiveSec=7d`; también 5 minutos después de cada arranque). El script usa `--max-age-days 10` para solapar
+  semanas y no perder ofertas publicadas entre corridas. Tras cambiar el temporizador: `systemctl --user daemon-reload`
+  y `systemctl --user restart radar-refresh.timer`.
+- **Por lugar (agente y MCP):** `refresh_market(place, limit)` pide confirmación y trae ofertas enfocadas en un distrito o
+  ciudad en segundo plano; `get_refresh_status()` informa el avance. Las fuentes buscan por ciudad: en JobSpy la ubicación
+  es «Distrito, Lima» y en Computrabajo el distrito se añade a la palabra clave, así que el resultado se sesga hacia el
+  lugar sin limitarse a él.
