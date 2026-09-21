@@ -7,6 +7,8 @@ export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; te
   /** Llamada a herramienta: resumen de una línea del resultado y el resultado recortado (Ctrl+O lo expande). */
   summary?: string; detail?: string };
 
+/** En modo auto solo se aprueban solas estas acciones (seguimiento personal); las de sistema, CV o datos siempre piden confirmación. */
+const AUTO_SAFE = new Set(["favorite_job", "track_job_application", "remember_user", "record_career_event"]);
 const DETAIL_MAX = 800;
 const shortArgs = (raw: string) => {
   try {
@@ -67,7 +69,16 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
   const [planMode, setPlanModeState] = useState(false);
   const planRef = useRef(false);  // lectura síncrona: aprobar el plan y enviar ocurren en el mismo instante
-  const setPlanMode = useCallback((value: boolean) => { planRef.current = value; setPlanModeState(value); }, []);  // modo plan: el agente investiga y propone, sin escribir
+  const [autoMode, setAutoModeState] = useState(false);  // modo auto: aprueba solas las acciones de bajo riesgo
+  const autoRef = useRef(false);
+  const setPlanMode = useCallback((value: boolean) => {
+    planRef.current = value; setPlanModeState(value);
+    if (value) { autoRef.current = false; setAutoModeState(false); }
+  }, []);
+  const setAutoMode = useCallback((value: boolean) => {
+    autoRef.current = value; setAutoModeState(value);
+    if (value) { planRef.current = false; setPlanModeState(false); }
+  }, []);  // modo plan: el agente investiga y propone, sin escribir
   const [planReady, setPlanReady] = useState(false);  // hay un plan esperando aprobación
   const [customTitle, setCustomTitle] = useState<string | null>(null);  // título puesto a mano; null = automático
   const [turn, setTurn] = useState<{ startedAt: number; tokens: number } | null>(null);
@@ -139,8 +150,9 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         }
         else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, estimated: false }));
         else if (event.type === "pending") {
-          const auto = event.actions.filter((a) => alwaysAllow.current.has(a.name));
-          const manual = event.actions.filter((a) => !alwaysAllow.current.has(a.name));
+          const isAuto = (a: PendingAction) => alwaysAllow.current.has(a.name) || (autoRef.current && AUTO_SAFE.has(a.name));
+          const auto = event.actions.filter(isAuto);
+          const manual = event.actions.filter((a) => !isAuto(a));
           setPending(manual);
           if (auto.length) autoApprove.current(auto, manual.length === 0, hist);
         }
@@ -250,5 +262,5 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   }, [send, setPlanMode]);
   const title = customTitle ?? autoTitle(lines);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, usage, turn, title, rename, planMode, setPlanMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
+  return { lines, pending, busy, settings, needsSetup, usage, turn, title, rename, planMode, setPlanMode, autoMode, setAutoMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }

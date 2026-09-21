@@ -42,7 +42,7 @@ export const SHORTCUTS = [
   "| `Esc` | Detener la respuesta |",
   "| `PgUp` / `PgDn` | Recorrer la conversación (sin barra de desplazamiento) |",
   "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
-  "| `Shift+Tab` | Modo: normal → plan → solo lectura |",
+  "| `Shift+Tab` | Modo: manual → auto → plan (se ve abajo; auto aprueba solo el seguimiento personal) |",
   "| `/resume` → `Ctrl+D` | Borrar la conversación resaltada (pide confirmar) |",
   "| `Ctrl+O` | Mostrar u ocultar el resultado completo de las herramientas |",
   "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",
@@ -246,10 +246,10 @@ export const COMMANDS: Command[] = [
     } },
   { name: "plan", aliases: ["planear"], args: "[texto | off]", hint: "Modo plan: el agente investiga y propone sin ejecutar", kind: "local", run: async (args, ctx) => {
       const text = args.trim();
-      if (text === "off" || text === "salir") { ctx.plan.set(false); return "Modo plan **desactivado**."; }
+      if (text === "off" || text === "salir") { ctx.plan.set(false); return null; }  // el modo se ve en el pie, sin ruido en el chat
       ctx.plan.set(true);
-      if (text) { await ctx.send(text); return null; }  // «/plan reclasifica la BD» activa el modo y lanza la petición
-      return "Modo plan **activado**: el agente investiga y te propone un plan sin ejecutar nada. Escribe tu objetivo, o `/plan off` para salir.";
+      if (text) await ctx.send(text);  // «/plan reclasifica la BD» activa el modo y lanza la petición
+      return null;
     } },
   { name: "learn", aliases: ["aprender", "learning"], hint: "Plan de aprendizaje según el mercado", kind: "prompt", run: async (_a, ctx) => {
       await ctx.send("Arma mi plan de aprendizaje: usa plan_learning y get_skill_demand, ordena las skills y sé concreto.");

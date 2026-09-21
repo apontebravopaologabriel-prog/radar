@@ -60,7 +60,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, planMode, setPlanMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, planMode, setPlanMode, autoMode, setAutoMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -87,8 +87,6 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   }, [mentionQuery]);
   useEffect(() => { if (!configMenu && !resumeOpen) promptRef.current?.focus(); }, [configMenu, resumeOpen]);
 
-  const effortLabel = (value: string) => value === "auto" ? "Auto" : value[0].toUpperCase() + value.slice(1);
-  const contextLabel = context?.screen === "analysis" ? "ANÁLISIS" : context?.screen === "cvs" ? "CVs" : context?.mode === "radar" ? `RADAR / ${context.district || "LIMA"} / ${context.radar?.radiusKm ?? 5} KM` : context?.mode === "districts" ? `DISTRITOS / ${context.district || "TODOS"}` : "MAPA / OFERTAS";
   const applyConfig = async (model: string, effort: "auto" | "none" | "low" | "high" | "max") => {
     if (!settings) return;
     try { await api.saveAgentSettings({ provider: settings.provider, model, reasoning_effort: effort }); await refreshSettings(); }
@@ -109,24 +107,11 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     }
     search.current = null;
   };
-  /** Shift+Tab: normal → plan → solo lectura → normal. */
-  const cycleMode = async () => {
-    if (!settings) return;
-    try {
-      if (settings.read_only) {
-        await api.saveAgentSettings({ provider: settings.provider, read_only: false });
-        setPlanMode(false);
-        addLocal("Modo normal: las acciones que cambian datos piden tu aprobación.");
-      } else if (planMode) {
-        setPlanMode(false); setPlanReady(false);
-        await api.saveAgentSettings({ provider: settings.provider, read_only: true });
-        addLocal("Modo solo lectura: el agente solo consulta.");
-      } else {
-        setPlanMode(true);
-        addLocal("Modo plan: el agente investiga y te propone un plan; no ejecuta nada hasta que lo apruebes.");
-      }
-      await refreshSettings();
-    } catch { onSettings(); }
+  /** Shift+Tab: manual → auto → plan → manual. Solo cambia el indicador del pie; no escribe nada en el chat. */
+  const cycleMode = () => {
+    if (planMode) { setPlanMode(false); setPlanReady(false); }
+    else if (autoMode) setPlanMode(true);
+    else setAutoMode(true);
   };
 
   const onInput = (value: string, caret: number) => {
@@ -217,7 +202,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       return;
     }
     if (input === "" && event.key === "?") { event.preventDefault(); addLocal(SHORTCUTS); return; }
-    if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); void cycleMode(); return; }
+    if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); cycleMode(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "o") { event.preventDefault(); setExpandTools((v) => !v); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "k") { event.preventDefault(); setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off"); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "r") { event.preventDefault(); searchHistory(); return; }
@@ -307,16 +292,10 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
       <div className="term-footer">
         <span>
-          {busy ? "esc detener" : "? atajos · shift+tab modo"}
-          {settings?.read_only ? " · ⏸ lectura" : planMode ? " · ◇ plan" : ""}
-          {" · "}
-          <button type="button" className="term-context-toggle" title="Contexto de pantalla que recibe el agente (Ctrl+K): apagado → selección → completo"
-            onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
-            {contextMode === "off" ? "○ sin contexto" : `◉ ${contextMode === "full" ? "completo" : "selección"}`}
-          </button>
-          {contextMode !== "off" && <> · {contextLabel.toLowerCase()}{(context?.districtJobs ?? context?.visibleCount) !== undefined ? ` · ${context?.districtJobs ?? context?.visibleCount}` : ""}</>}
+          {settings?.read_only ? "read-only mode on" : planMode ? "plan mode on" : autoMode ? "auto mode on" : "manual mode on"}
+          <span className="term-dim"> (shift+tab)</span>
+          {contextMode === "off" ? <span className="term-dim"> · no context</span> : contextMode === "full" ? <span className="term-dim"> · full context</span> : null}
         </span>
-        {settings?.ready ? <span>{settings.model} · {effortLabel(settings.reasoning_effort)} · {usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes {Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%</span> : <span>sin configurar</span>}
       </div>
     </div>
   );
