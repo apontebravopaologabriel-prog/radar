@@ -2,6 +2,8 @@
 .m-app {
   --bg: #171717; --card: #212121; --line: #3f3f3f; --ink: #ececec; --muted: #a6a6a6; --dim: #6f6f6f;
   --accent: #ececec; --accent-ink: #171717; --danger: #f0a0a0;
+  /* Colores del agente (paleta al estilo Claude Code): marca, éxito, error, modos y enlaces. */
+  --brand: #d97757; --ok: #4eba65; --err: #ff6b80; --plan: #48968c; --auto: #af87ff; --warn: #d7a55f; --link: #7aa2f7;
   color-scheme: dark;
   position: fixed; inset: 0; display: flex; flex-direction: column;
   background: var(--bg); color: var(--ink);
@@ -239,3 +241,34 @@
 .m-chat-title .chat-title { border: 0; background: transparent; color: var(--muted); font: inherit; padding: 0; cursor: text; text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-chat-title .chat-title-input { border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); padding: 2px 6px; width: 100%; box-sizing: border-box; }
 .m-chat-title .chat-title-empty { color: var(--dim); }
+
+/* ── Color (estilo Claude Code) ── */
+.term-prompt .term-glyph, .term-user .term-glyph { color: var(--brand); }
+.term-error .term-body, .term-error .term-glyph { color: var(--err); }
+.term-call .term-glyph { color: var(--ok); }
+.term-call.is-error .term-glyph, .term-call.is-error .term-call-result { color: var(--err); }
+.term-line.is-working .radar-mark, .agent-titlebar .radar-mark { color: var(--brand); }
+.md a { color: var(--link); }
+.md code { color: #d9a86c; }
+.md-h { color: var(--ink); }
+.term-confirm { border-color: var(--auto); }
+.term-confirm b { color: var(--auto); }
+.term-notice { color: var(--ok); font-size: 11px; }
+.term-notice .md p { margin: 0; }
+/* Selección en menús y selectores: texto de marca con «❯», sin bloque blanco. */
+.term-menu li.on, .cfg-models li.on, .rs-list li.on { background: #262626; color: var(--brand); }
+.term-menu li.on small, .rs-list li.on .rs-meta, .rs-list li.on .rs-snippet, .cfg-models li.on b { color: var(--muted); opacity: 1; }
+.cfg-effort-track button.on { color: var(--brand); }
+.cfg-effort-track button.lit { color: var(--muted); }
+.cfg-picker { border-color: var(--brand); }
+.cfg-picker-title { color: var(--brand); }
+.term-confirm .m-actions button:hover { border-color: var(--auto); color: var(--auto); }
+/* Modos en el pie: manual (tenue), auto (violeta), plan (verde azulado); solo lectura en ámbar. */
+.term-mode-manual { color: var(--muted); }
+.term-mode-auto { color: var(--auto); }
+.term-mode-plan { color: var(--plan); }
+.term-readonly { color: var(--warn); }
+.term-footer .term-mode { font-weight: 700; }
+/* Panel de información (/help, /status…). */
+.info-panel { border-color: var(--line); }
+.info-body { max-height: min(56vh, 420px); overflow-y: auto; }

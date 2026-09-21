@@ -5,6 +5,7 @@ import { api, type AgentContext, type Mention } from "../../lib/mobile-api";
 import { SHORTCUTS, findCommand, matchCommands } from "./commands";
 import ConfigPicker from "./ConfigPicker";
 import Markdown from "./Markdown";
+import InfoPanel from "./InfoPanel";
 import ResumePicker from "./ResumePicker";
 import RadarMark from "./RadarMark";
 import type { useAgentChat } from "./useAgentChat";
@@ -15,7 +16,7 @@ type LineData = Chat["lines"][number];
 const TermLine = memo(function TermLine({ line, expanded, streaming }: { line: LineData; expanded: boolean; streaming: boolean }) {
   if (line.kind === "tool" && line.summary !== undefined) {  // llamada a herramienta: ⏺ nombre(args) / ⎿ resumen (Ctrl+O expande)
     return (
-      <div className="term-line term-tool term-call">
+      <div className={`term-line term-tool term-call${line.summary.startsWith("error") ? " is-error" : ""}`}>
         <span className="term-glyph" aria-hidden>⏺</span>
         <div className="term-body">
           <div className="term-call-head">{line.text}</div>
@@ -38,7 +39,7 @@ function Working({ startedAt, tokens }: { startedAt: number; tokens: number }) {
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(id); }, []);
   const seconds = Math.max(0, Math.round((now - startedAt) / 1000));
   const count = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
-  return <div className="term-line term-tool"><span className="term-glyph"><RadarMark spinning /></span><div className="term-body">Analizando… <span className="term-dim">({seconds} s{tokens > 0 ? ` · ↓${count} tokens` : ""} · esc para detener)</span></div></div>;
+  return <div className="term-line term-tool is-working"><span className="term-glyph"><RadarMark spinning /></span><div className="term-body">Analizando… <span className="term-dim">({seconds} s{tokens > 0 ? ` · ↓${count} tokens` : ""} · esc para detener)</span></div></div>;
 }
 const SETUP_PROMPT = "Ayúdame a configurar Radar";
 const transcriptOf = (lines: { kind: string; text: string }[]) =>
@@ -55,6 +56,14 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const [mentionItems, setMentionItems] = useState<(Mention & { label: string; hint: string })[]>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
   const picked = useRef<Mention[]>([]);  // menciones elegidas en este mensaje
+  const [panel, setPanel] = useState<{ title: string; text: string } | null>(null);  // ventana temporal (/help, /status…)
+  const [notice, setNotice] = useState<string | null>(null);  // aviso breve que se apaga solo
+  const noticeTimer = useRef<number | null>(null);
+  const showNotice = (text: string) => {
+    setNotice(text);
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 3500);
+  };
   const [expandTools, setExpandTools] = useState(false);  // Ctrl+O: mostrar el resultado completo de las herramientas
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
@@ -85,7 +94,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     }, 140);
     return () => { live = false; window.clearTimeout(timer); };
   }, [mentionQuery]);
-  useEffect(() => { if (!configMenu && !resumeOpen) promptRef.current?.focus(); }, [configMenu, resumeOpen]);
+  useEffect(() => { if (!configMenu && !resumeOpen && !panel) promptRef.current?.focus(); }, [configMenu, resumeOpen, panel]);
 
   const applyConfig = async (model: string, effort: "auto" | "none" | "low" | "high" | "max") => {
     if (!settings) return;
@@ -153,7 +162,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     }
     const [head, ...rest] = text.slice(1).split(/\s+/);
     const command = findCommand(head.toLowerCase());
-    addLocal(text, "user");
+    if (!command?.view) addLocal(text, "user");  // los comandos de ventana o aviso no se muestran en el chat
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
       const out = await command.run(rest.join(" "), {
@@ -161,7 +170,11 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         transcript: () => transcriptOf(lines),
         lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
       });
-      if (out) addLocal(out);
+      if (out) {
+        if (command.view === "panel") setPanel({ title: `/${command.name}`, text: out });
+        else if (command.view === "notice") showNotice(out);
+        else addLocal(out);
+      }
     } catch (error) { addLocal(error instanceof Error ? error.message : "El comando falló.", "error"); }
   };
 
@@ -201,7 +214,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       if (event.key === "1") void approvePlan(); else setPlanReady(false);
       return;
     }
-    if (input === "" && event.key === "?") { event.preventDefault(); addLocal(SHORTCUTS); return; }
+    if (input === "" && event.key === "?") { event.preventDefault(); setPanel({ title: "atajos", text: SHORTCUTS }); return; }
     if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); cycleMode(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "o") { event.preventDefault(); setExpandTools((v) => !v); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "k") { event.preventDefault(); setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off"); return; }
@@ -288,13 +301,15 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         <textarea ref={promptRef} rows={1} value={input} onChange={(e) => onInput(e.target.value, e.target.selectionStart)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
+      {panel && <InfoPanel title={panel.title} text={panel.text} onClose={() => setPanel(null)} />}
       {resumeOpen && <ResumePicker onOpen={open} onDelete={(id) => remove(id)} onClose={() => setResumeOpen(false)} />}
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
+      {notice && <div className="term-notice" role="status"><Markdown text={notice} /></div>}
       <div className="term-footer">
         <span>
-          {planMode ? "plan mode on" : autoMode ? "auto mode on" : "manual mode on"}
+          <span className={`term-mode term-mode-${planMode ? "plan" : autoMode ? "auto" : "manual"}`}>{planMode ? "plan mode on" : autoMode ? "auto mode on" : "manual mode on"}</span>
           <span className="term-dim"> (shift+tab)</span>
-          {settings?.read_only ? <span className="term-dim"> · read-only (/readonly off)</span> : null}
+          {settings?.read_only ? <span className="term-readonly"> · read-only (/readonly off)</span> : null}
           {contextMode === "off" ? <span className="term-dim"> · no context</span> : contextMode === "full" ? <span className="term-dim"> · full context</span> : null}
         </span>
       </div>

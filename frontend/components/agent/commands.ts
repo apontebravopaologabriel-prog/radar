@@ -29,6 +29,8 @@ export type Command = {
   args?: string;
   hint: string;
   kind: "local" | "prompt";
+  /** «panel»: ventana temporal que se cierra con Esc; «notice»: aviso breve. Sin valor, la respuesta va al chat. */
+  view?: "panel" | "notice";
   run: (args: string, ctx: CommandContext) => Promise<string | null>;
 };
 
@@ -260,6 +262,13 @@ export const COMMANDS: Command[] = [
       return null;
     } },
 ];
+
+// Comandos informativos: no ensucian el chat ni se guardan en la conversación.
+const VIEWS: Record<string, "panel" | "notice"> = {
+  help: "panel", keys: "panel", status: "panel", doctor: "panel", tools: "panel", context: "panel", cost: "panel", profile: "panel",
+  copy: "notice", export: "notice", pin: "notice", readonly: "notice", refresh: "notice", model: "notice", effort: "notice",
+};
+for (const command of COMMANDS) command.view = VIEWS[command.name];
 
 export const findCommand = (name: string): Command | undefined =>
   COMMANDS.find((c) => c.name === name || c.aliases?.includes(name));
