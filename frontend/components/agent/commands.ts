@@ -39,6 +39,7 @@ export const SHORTCUTS = [
   "| `↑` (vacío) | Recuperar mensajes anteriores |",
   "| `Ctrl+R` | Buscar en el historial (repite para el siguiente) |",
   "| `Esc` | Detener la respuesta |",
+  "| `PgUp` / `PgDn` | Recorrer la conversación (sin barra de desplazamiento) |",
   "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
   "| `Shift+Tab` | Alternar modo normal / solo lectura |",
   "| `/resume` → `Ctrl+D` | Borrar la conversación resaltada (pide confirmar) |",

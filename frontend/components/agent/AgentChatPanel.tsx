@@ -42,6 +42,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, contextMode, setContextMode, rewind } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
@@ -122,6 +123,11 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         event.preventDefault(); const c = matches[menuIndex]; setInput(`/${c.name}${c.args ? " " : ""}`); return;
       }
     }
+    if (event.key === "PageUp" || event.key === "PageDown") {  // sin barra visible, el registro se recorre con el teclado
+      const log = logRef.current;
+      if (log) { event.preventDefault(); log.scrollBy({ top: (event.key === "PageUp" ? -1 : 1) * log.clientHeight * 0.85 }); }
+      return;
+    }
     if (event.key === "Enter" && event.shiftKey) return;  // salto de línea
     if (event.key === "Enter" && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -164,7 +170,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
           <span>Los comandos con <code>/</code> funcionan sin clave; para conversar con el agente hace falta la tuya (por ejemplo DeepSeek). Toca para configurar.</span>
         </button>
       )}
-      <div className="term-log" aria-live="polite">
+      <div className="term-log" aria-live="polite" ref={logRef}>
         {lines.length === 0 && (
           <div className="term-welcome">
             <span className="term-dim">escribe <b>/</b> para comandos · <b>?</b> atajos{needsSetup ? " · " : ""}{needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/init</button>}</span>
