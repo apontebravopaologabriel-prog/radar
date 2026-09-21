@@ -94,11 +94,11 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
 
   // Arrastre: mientras se mueve solo se cambia `transform` (compositor, sin relayout ni re-render de React);
   // la posición se guarda en el estado una sola vez al soltar.
-  const frame = useRef<number | null>(null);
   const onDown = (event: React.PointerEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest("button") || mode !== "float" || !geo) return;
     drag.current = { dx: event.clientX - geo.x, dy: event.clientY - geo.y, x: geo.x, y: geo.y };
     if (box.current) box.current.style.willChange = "transform";
+    document.body.classList.add("is-agent-dragging");
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onMove = (event: React.PointerEvent<HTMLElement>) => {
@@ -106,17 +106,13 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
     if (!d || !geo) return;
     const next = clamp({ ...geo, x: event.clientX - d.dx, y: event.clientY - d.dy });
     d.x = next.x; d.y = next.y;
-    if (frame.current === null) {
-      frame.current = requestAnimationFrame(() => {
-        frame.current = null;
-        if (box.current && drag.current) box.current.style.transform = `translate3d(${drag.current.x - geo.x}px, ${drag.current.y - geo.y}px, 0)`;
-      });
-    }
+    // pointermove llega como mucho una vez por fotograma: escribir directo evita el fotograma extra de un rAF.
+    if (box.current) box.current.style.transform = `translate3d(${d.x - geo.x}px, ${d.y - geo.y}px, 0)`;
   };
   const onUp = () => {
     const d = drag.current;
     drag.current = null;
-    if (frame.current !== null) { cancelAnimationFrame(frame.current); frame.current = null; }
+    document.body.classList.remove("is-agent-dragging");
     if (box.current) { box.current.style.transform = ""; box.current.style.willChange = ""; }
     if (d && geo && (d.x !== geo.x || d.y !== geo.y)) setGeo({ ...geo, x: d.x, y: d.y });
   };

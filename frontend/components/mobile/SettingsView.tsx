@@ -23,6 +23,13 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [readOnly, setReadOnly] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [note, setNote] = useState("");
+  const [lite, setLite] = useState(false);
+  useEffect(() => { try { setLite(localStorage.getItem("radar.perf") === "lite"); } catch { /* sin almacenamiento */ } }, []);
+  const toggleLite = (on: boolean) => {
+    setLite(on);
+    if (on) document.documentElement.dataset.perf = "lite"; else delete document.documentElement.dataset.perf;
+    try { if (on) localStorage.setItem("radar.perf", "lite"); else localStorage.removeItem("radar.perf"); } catch { /* sin almacenamiento */ }
+  };
 
   useEffect(() => {
     Promise.all([api.career(), api.agentSettings()]).then(([c, a]) => {
@@ -73,6 +80,12 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
           </label>
         ))}
         <button className="m-primary" onClick={async () => { try { const c = await api.setWeights(weights); setCareer(c); setWeights(c.weights); flash("Pesos aplicados"); } catch (error) { onError(error); } }}>Aplicar y recalcular</button>
+      </section>
+
+      <section className="m-card">
+        <h2>Rendimiento <b>{lite ? "(modo ligero)" : "(efectos retro)"}</b></h2>
+        <p className="m-sub">El modo ligero quita las líneas de escaneo, la rejilla y el barrido del mapa, y los desenfoques de los paneles. Es lo más rápido en equipos modestos. Se guarda solo en este navegador.</p>
+        <label className="m-check"><input type="checkbox" checked={lite} onChange={(e) => toggleLite(e.target.checked)} />Modo ligero (sin efectos retro)</label>
       </section>
 
       <section className="m-card">

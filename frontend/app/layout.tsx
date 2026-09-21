@@ -15,7 +15,11 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        {/* Aplica el modo rendimiento antes de pintar para evitar el parpadeo de efectos. */}
+        <script dangerouslySetInnerHTML={{ __html: 'try{if(localStorage.getItem("radar.perf")==="lite")document.documentElement.dataset.perf="lite"}catch(e){}' }} />
+      </head>
       <body>{children}</body>
     </html>
   );
