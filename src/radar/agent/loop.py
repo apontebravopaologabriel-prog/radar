@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from radar import maintenance, tools
+from radar import cv_targets, maintenance, tools
 from radar.agent.memory import delete_memory, list_memories, migrate_legacy, save_memory
 from radar.agent.provider import LLMConfig, ProviderError, stream_chat
 from radar.db.database import connection
@@ -48,6 +48,8 @@ pregunta), en todas las dimensiones; `focus` solo si piden un eje concreto.
 una tarjeta y decidirá. Configura paso a paso, una pregunta a la vez, y solo con datos que ella dio.
 - Si piden buscar más ofertas de un distrito o ciudad, propón refresh_market (pide confirmación; corre en segundo plano) y \
 informa el avance con get_refresh_status cuando pregunten. Las fuentes buscan por ciudad: el distrito sesga, no limita.
+- Sobre la trayectoria de la persona (experiencia, formación, certificaciones, brechas, «mi CV»), llama a get_my_cv antes \
+de responder; nunca digas que no conoces su contexto sin haberla consultado. Úsala también al evaluar encaje con una oferta.
 - Sistema: get_system_status para saber cómo está (BD, captura, temporizador). Con confirmación puedes cambiar el \
 temporizador (set_refresh_schedule), hacer mantenimiento (run_maintenance; antes un backup si no hay uno reciente) y \
 ajustar pesos (set_score_weights). No cambies la clave, el modo solo lectura ni el tope de tokens: son de la persona.
@@ -96,7 +98,11 @@ def system_prompt() -> str:
     """Prompt de sistema + memoria de la persona (datos que ella escribió, no instrucciones)."""
     memory = get_memory()
     name = (get_profile() or {}).get("name")
-    head = SYSTEM_PROMPT + (f"\n\nLa persona se llama {name}." if name else "")
+    cv = cv_targets.load_profile() or {}
+    who = f"La persona se llama {name}." if name else ""
+    if cv.get("headline") or cv.get("home_district"):
+        who += f" Perfil: {cv.get('headline') or ''}{' Vive en ' + cv['home_district'] + '.' if cv.get('home_district') else ''}"
+    head = SYSTEM_PROMPT + (f"\n\n{who.strip()}" if who.strip() else "")
     if maintenance.rules_stale():
         head += ("\n\nAviso de datos: las reglas de clasificación cambiaron desde la última reclasificación. Cuando "
                  "venga al caso (o si los conteos por área te parecen raros), corre audit_classification y propón reclassify_jobs.")

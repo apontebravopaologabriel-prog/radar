@@ -36,6 +36,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `get_setup_status` | lee | Qué falta para dejar Radar listo (perfil, carrera, mercado, clave de IA) y el siguiente paso. |  |
 | `get_help` | lee | Explica cómo usar Radar. Apóyate solo en este texto al explicar funciones; no inventes otras. | topic?: string |
 | `get_user_profile` | lee | Devuelve el perfil separado de las estadísticas del mercado. |  |
+| `get_my_cv` | lee | Tu CV real (cv_master): resumen, experiencia, formación, certificaciones, idiomas, herramientas declaradas y |  |
 | `get_user_memory` | lee | Busca memoria durable aprobada por la persona. No incluye el historial completo del chat. | query?: string, limit?: integer |
 | `remember_user` | escribe | Guarda una preferencia, meta o decisión durable después de que la persona la confirme. | topic_key: string, content: string, memory_type?: string |
 | `update_profile` | escribe | Crea o actualiza el perfil real. `skills` mapea skill -> none\|basic\|intermediate\|advanced. | name: string, areas: array, locations: array, skills: object, education?: string|null, work_modes?: array|null |

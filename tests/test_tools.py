@@ -331,3 +331,16 @@ def test_backup_and_status_work_on_a_real_database():
 
     result = system.backup_database()
     assert result["size_mb"] >= 0 and system.system_status()["database"]["integrity"] == "ok"
+
+
+def test_get_my_cv_reads_the_master_cv_without_private_paths(tmp_path, monkeypatch):
+    import json
+
+    from radar import cv_targets
+
+    monkeypatch.setattr(cv_targets, "data_dir", lambda: tmp_path)
+    assert tools.get_my_cv()["cv"] is None
+    (tmp_path / "cv_master.json").write_text(json.dumps({"_nota": "x", "name": "Ana", "headline": "Ing. industrial",
+                                                        "experience": [{"role": "Auxiliar"}], "photo_path": "/home/x.jpg"}), encoding="utf-8")
+    cv = tools.get_my_cv()["cv"]
+    assert cv["experience"] and "photo_path" not in cv and "_nota" not in cv

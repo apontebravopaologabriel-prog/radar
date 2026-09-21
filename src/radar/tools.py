@@ -307,6 +307,17 @@ def get_user_profile() -> dict:
 
 
 @tool()
+def get_my_cv() -> dict:
+    """Tu CV real (cv_master): resumen, experiencia, formación, certificaciones, idiomas, herramientas declaradas y
+    brechas de evidencia. Úsala cuando pregunten por tu experiencia, formación, certificaciones o cómo te ves
+    frente a un puesto. Es la fuente sobre tu trayectoria; get_user_profile solo trae skills y preferencias."""
+    cv = cv_targets.load_profile()
+    if cv is None:
+        return {"cv": None, "note": "Aún no hay CV cargado (cv_master.json en la carpeta de datos)."}
+    return {"cv": {k: v for k, v in cv.items() if not k.startswith("_") and k != "has_photo"}}
+
+
+@tool()
 def get_user_memory(query: str = "", limit: int = 8) -> dict:
     """Busca memoria durable aprobada por la persona. No incluye el historial completo del chat."""
     return {"memories": search_memories(query, min(max(limit, 1), 20))}
