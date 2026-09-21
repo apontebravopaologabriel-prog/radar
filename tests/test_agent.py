@@ -62,7 +62,7 @@ def test_provider_maps_auth_errors_without_leaking_key():
 
 
 def test_read_tool_runs_and_result_is_marked_untrusted():
-    client, sent = _client(_call("get_market_summary", {}), _text("Listo"))
+    client, sent = _client(_call("get_market_breakdown", {"by": "area"}), _text("Listo"))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "resumen"}], client))
     kinds = [e["type"] for e in events if e["type"] != "usage"]
     assert kinds == ["assistant_message", "tool_result", "text", "done"]
@@ -260,3 +260,18 @@ def test_compact_focus_doctor_and_tools_endpoints():
     assert doc["agent"]["enabled"] is True and doc["jobs"]["active"] == 0 and doc["tools"] > 10
     listing = api.get("/api/agent/tools").json()
     assert {"name": "favorite_job", "write": True} == {k: v for k, v in next(t for t in listing["tools"] if t["name"] == "favorite_job").items() if k != "summary"}
+
+
+def test_last_step_closes_without_tools_instead_of_failing():
+    calls = [_call("get_market_breakdown", {"by": "area", "limit": n}, f"c{n}") for n in range(1, loop.MAX_STEPS)]
+    client, sent = _client(*calls, _text("Con lo obtenido, esto es lo que hay."))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "analiza"}], client))
+    assert not any(e["type"] == "error" for e in events)
+    assert events[-1]["type"] == "done" and "tools" not in sent[-1] or not sent[-1].get("tools")
+
+
+def test_repeated_identical_tool_call_is_short_circuited():
+    client, _ = _client(_call("get_market_breakdown", {"by": "area"}, "a"), _call("get_market_breakdown", {"by": "area"}, "b"), _text("ok"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client))
+    results = [e["message"]["content"] for e in events if e["type"] == "tool_result"]
+    assert "misma consulta" in results[1]

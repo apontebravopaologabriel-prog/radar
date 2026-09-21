@@ -49,8 +49,9 @@ def analizar_mercado(area: str = "", lugar: str = "") -> str:
     """Análisis del mercado actual, opcionalmente por área y lugar."""
     foco = " ".join(x for x in (f"del área {area}" if area else "", f"en {lugar}" if lugar else "") if x)
     return (
-        f"Analiza el mercado laboral {foco or 'general'} con datos reales: get_market_breakdown (por área, lugar y "
-        "empresa), get_skill_demand y get_salary_stats. Resume hallazgos con cifras y cita las herramientas usadas."
+        f"Analiza el mercado laboral {foco or 'general'} con datos reales: get_market_breakdown (por área, lugar, sector "
+        "y empresa, con filtros), get_place_profile si hay un lugar, get_skill_demand y get_salary_stats. Antes de "
+        "concluir, si los conteos por área parecen raros, corre audit_classification. Resume con cifras y cita las herramientas."
     )
 
 

@@ -126,10 +126,15 @@ def search_saved_jobs(
     area: str | None = None,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
     search: str | None = None,
+    sector: str | None = None,
+    exclude_sector: str | None = None,
 ) -> dict:
-    """Consulta ofertas ya guardadas (título, empresa, ubicación, área, salario, enlace)."""
+    """Ofertas guardadas (título, empresa, ubicación, área, sector, salario, enlace). `search` busca en título,
+    empresa, descripción y lugar; `sector` filtra uno y `exclude_sector` excluye varios separados por coma
+    (sectores: ver get_market_breakdown by=sector)."""
     limit = min(max(limit, 1), 30)
-    jobs = list_jobs(limit, seniority, area, max_age_days, search=search)
+    excluded = [x.strip() for x in (exclude_sector or "").split(",") if x.strip()]
+    jobs = list_jobs(limit, seniority, area, max_age_days, search=search, sector=sector, exclude_sectors=excluded or None)
     for job in jobs:
         job["google_maps_url"] = google_maps_search_url(job.get("company"), job.get("location"))
     return {"jobs": jobs}
@@ -190,9 +195,13 @@ def get_skill_demand(area: str | None = None, max_age_days: int = 30, limit: int
 
 
 @tool()
-def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10) -> dict:
-    """Cuenta ofertas vigentes agrupadas por `by`: area, place, company, work_mode, seniority o source."""
-    return insights.market_breakdown(by, max_age_days, limit)
+def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10, area: str | None = None,
+                         place: str | None = None, sector: str | None = None, exclude_sector: str | None = None,
+                         search: str | None = None) -> dict:
+    """Cuenta ofertas vigentes agrupadas por `by` (area, place, company, work_mode, seniority, sector o source), con
+    filtros opcionales: area, place, sector, exclude_sector (varios con coma) y search (texto en título o empresa).
+    Ej.: by=company, search=asistente, exclude_sector="Finanzas y banca,Tecnología y servicios TI"."""
+    return insights.market_breakdown(by, max_age_days, limit, area, place, sector, exclude_sector, search)
 
 
 @tool()
@@ -229,8 +238,12 @@ def get_data_schema() -> dict:
 
 @tool()
 def run_readonly_sql(sql: str) -> dict:
-    """Consulta SQL de solo lectura (SELECT/WITH, máx. 50 filas) para preguntas que las demás
-    herramientas no cubren. Llama antes a get_data_schema. Las fechas están en texto ISO."""
+    """SQL de solo lectura (SELECT/WITH, máx. 50 filas) para lo que las demás herramientas no cubren; úsala como
+    último recurso y con pocos intentos. Ofertas vigentes: FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
+    WHERE j.is_active=1 AND j.duplicate_status='canonical' AND j.relevance_tier IN ('core','adjacent'). Área: JOIN
+    job_areas ja ON ja.job_id=j.id AND ja.is_primary=1 JOIN industrial_areas ia ON ia.id=ja.area_id. Columnas útiles
+    de jobs: title, location, sector, work_mode, seniority, salary_min/max, published_at (texto ISO). Si falla, el error
+    trae el esquema: no hace falta llamar a get_data_schema."""
     return insights.readonly_sql(sql)
 
 
@@ -411,7 +424,7 @@ def get_target_context(job_ids: list[str]) -> dict:
     return context
 
 
-@tool()
+@tool(chat=False)
 def list_targets() -> dict:
     """Objetivos actuales (ofertas con estrella) ordenados por cercanía al perfil real, con su brecha
     base calculada por código. La selección la hace el usuario desde la interfaz."""
@@ -430,13 +443,13 @@ def save_target_profile(job_id: str, profile: dict) -> dict:
     return cv_targets.save_target(job_id, profile)
 
 
-@tool()
+@tool(chat=False)
 def get_target_matrix() -> dict:
     """Matriz de brechas entre los CVs objetivo guardados (requisitos con `key` por puesto)."""
     return cv_targets.build_matrix(cv_targets.load_targets())
 
 
-@tool()
+@tool(chat=False)
 def resolve_nearest_districts(reference: str, limit: int = 3) -> dict:
     """Distritos más cercanos a una zona mencionada en una oferta, con km aproximados."""
     return {"districts": cv_targets.districts_near(reference, limit)}

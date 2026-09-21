@@ -271,3 +271,16 @@ def test_classification_audit_is_read_only_and_reclassify_needs_confirmation():
     assert tools.REGISTRY["reclassify_jobs"].write is True
     report = tools.audit_classification(3)
     assert {"jobs", "drifted", "drift_pct", "top_transitions", "sample"} <= set(report)
+
+
+def test_market_breakdown_supports_sector_and_filters():
+    from radar import insights
+
+    assert "sector" in insights.BREAKDOWNS
+    result = tools.get_market_breakdown("company", 60, 5, search="asistente", exclude_sector="Finanzas y banca,Tecnología y servicios TI")
+    assert result["filters"]["search"] == "asistente" and "rows" in result
+    with pytest.raises(ValueError):
+        tools.get_market_breakdown("source", 30, 5, sector="Educación")
+    with pytest.raises(ValueError) as exc:
+        tools.run_readonly_sql("select nope from jobs")
+    assert "Tablas y columnas" in str(exc.value)

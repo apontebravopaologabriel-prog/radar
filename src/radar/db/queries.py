@@ -19,6 +19,8 @@ def list_jobs(
     source: str | None = None,
     skill: str | None = None,
     relevance_tier: str | None = None,
+    sector: str | None = None,
+    exclude_sectors: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     clauses = [
         "j.is_active = 1",
@@ -41,6 +43,12 @@ def list_jobs(
     if work_mode:
         clauses.append("j.work_mode = %s")
         params.append(work_mode)
+    if sector:
+        clauses.append("j.sector = %s")
+        params.append(sector)
+    if exclude_sectors:
+        clauses.append(f"COALESCE(j.sector, '') NOT IN ({','.join(['%s'] * len(exclude_sectors))})")
+        params.extend(exclude_sectors)
     if min_salary is not None:
         clauses.append("COALESCE(j.salary_max, j.salary_min, 0) >= %s")
         params.append(min_salary)

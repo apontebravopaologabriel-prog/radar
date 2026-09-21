@@ -19,7 +19,7 @@ from radar.freshness import DEFAULT_MAX_AGE_DAYS
 from radar.geolocation import infer_location
 from radar.links import google_maps_search_url
 
-BREAKDOWNS = ("area", "place", "company", "work_mode", "seniority", "source")
+BREAKDOWNS = ("area", "place", "company", "work_mode", "seniority", "source", "sector")
 DESCRIPTION_LIMIT = 3000
 
 
@@ -127,11 +127,17 @@ def skill_demand(area: str | None = None, max_age_days: int = 30, limit: int = 1
     return {"total_jobs": data["total_jobs"], "max_age_days": max_age_days, "area": area, "skills": rows}
 
 
-def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: int = 10) -> dict[str, Any]:
-    """Cuenta ofertas vigentes agrupadas por área, lugar, empresa, modalidad, nivel o portal."""
+def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: int = 10, area: str | None = None,
+                     place: str | None = None, sector: str | None = None, exclude_sector: str | None = None,
+                     search: str | None = None) -> dict[str, Any]:
+    """Cuenta ofertas vigentes agrupadas por área, lugar, empresa, modalidad, nivel, sector o portal, con filtros
+    opcionales (`exclude_sector` acepta varios separados por coma)."""
     if by not in BREAKDOWNS:
         raise ValueError(f"`by` debe ser uno de {', '.join(BREAKDOWNS)}")
+    excluded = [x.strip() for x in (exclude_sector or "").split(",") if x.strip()]
     counter: Counter[str] = Counter()
+    if by == "source" and (area or place or sector or excluded or search):
+        raise ValueError("`by=source` no admite filtros")
     if by == "source":
         with connection() as conn:
             rows = conn.execute(
@@ -145,18 +151,29 @@ def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: i
         counter.update({r[0]: r[1] for r in rows})
         total = sum(counter.values())
     else:
-        jobs = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="core")
-        jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="adjacent"))
+        kwargs = {"limit": None, "max_age_days": max_age_days, "area": area, "search": search, "sector": sector,
+                  "exclude_sectors": excluded or None}
+        jobs = list_jobs(relevance_tier="core", **kwargs)
+        jobs.extend(list_jobs(relevance_tier="adjacent", **kwargs))
+        if place:
+            wanted = " ".join(place.lower().split())
+
+            def in_place(job: dict[str, Any]) -> bool:
+                point = infer_location(job["location"])
+                return wanted in " ".join((job["location"] or "").lower().split()) or bool(point and point.label.lower() == wanted)
+            jobs = [job for job in jobs if in_place(job)]
         total = len(jobs)
         for job in jobs:
             if by == "place":
                 point = infer_location(job["location"])
                 key = point.label if point else None
             else:
-                key = {"area": job["primary_area"], "company": job["company"],
-                       "work_mode": job["work_mode"], "seniority": job["seniority"]}[by]
+                key = {"area": job["primary_area"], "company": job["company"], "work_mode": job["work_mode"],
+                       "seniority": job["seniority"], "sector": job["sector"], "source": job.get("source")}[by]
             counter[key or "sin dato"] += 1
     return {"by": by, "max_age_days": max_age_days, "total": total,
+            "filters": {k: v for k, v in {"area": area, "place": place, "sector": sector, "exclude_sector": exclude_sector,
+                                          "search": search}.items() if v},
             "rows": [{"value": k, "jobs": n} for k, n in counter.most_common(min(max(limit, 1), 30))]}
 
 
@@ -276,7 +293,13 @@ def readonly_sql(sql: str, max_rows: int = 50) -> dict[str, Any]:
     try:
         return run_readonly_query(sql, max_rows=min(max_rows, 50))
     except (QueryError, QueryTimeout) as exc:
-        raise ValueError(str(exc)) from exc
+        raise ValueError(f"{exc}. Tablas y columnas: {_schema_names()}") from exc
+
+
+def _schema_names() -> str:
+    """Esquema compacto (solo nombres) para que un error de SQL se corrija en el siguiente intento."""
+    tables = data_schema()["tables"]
+    return "; ".join(f"{t['table']}({','.join(c['name'] for c in t['columns'] if c['name'] not in ('description_raw',))})" for t in tables)[:1100]
 
 
 def data_schema() -> dict[str, Any]:

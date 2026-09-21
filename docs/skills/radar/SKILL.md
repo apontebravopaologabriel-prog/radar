@@ -13,7 +13,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 |---|---|---|---|
 | `ingest_jobs` | escribe | Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario. | source: string, query: string, location?: string, limit?: integer, max_age_days?: integer |
 | `health` | lee | Indica que Radar está disponible. |  |
-| `search_saved_jobs` | lee | Consulta ofertas ya guardadas (título, empresa, ubicación, área, salario, enlace). | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null |
+| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, ubicación, área, sector, salario, enlace). `search` busca en título, | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null |
 | `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. |  |
 | `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. | limit?: integer, max_age_days?: integer |
 | `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer |
@@ -22,13 +22,13 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `explain_job_fit` | lee | Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y | job_id: string |
 | `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array |
 | `get_skill_demand` | lee | Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una. | area?: string|null, max_age_days?: integer, limit?: integer |
-| `get_market_breakdown` | lee | Cuenta ofertas vigentes agrupadas por `by`: area, place, company, work_mode, seniority o source. | by: string, max_age_days?: integer, limit?: integer |
+| `get_market_breakdown` | lee | Cuenta ofertas vigentes agrupadas por `by` (area, place, company, work_mode, seniority, sector o source), con | by: string, max_age_days?: integer, limit?: integer, area?: string|null, place?: string|null, sector?: string|null, exclude_sector?: string|null, search?: string|null |
 | `get_place_profile` | lee | Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad, | place: string, max_age_days?: integer |
 | `compare_places` | lee | Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción. | place_a: string, place_b: string, max_age_days?: integer, focus?: string|null |
 | `get_salary_stats` | lee | Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran). | area?: string|null, place?: string|null, max_age_days?: integer |
 | `plan_learning` | lee | Skills que más suben tu encaje si las aprendes, con su demanda en el mercado. Base para un plan. | limit?: integer |
 | `get_data_schema` | lee | Tablas y columnas consultables con run_readonly_sql. |  |
-| `run_readonly_sql` | lee | Consulta SQL de solo lectura (SELECT/WITH, máx. 50 filas) para preguntas que las demás | sql: string |
+| `run_readonly_sql` | lee | SQL de solo lectura (SELECT/WITH, máx. 50 filas) para lo que las demás herramientas no cubren; úsala como | sql: string |
 | `get_skill_impact` | lee | Simula qué skill faltante sube más el encaje si se aprende (nivel básico). | limit?: integer |
 | `get_job_history` | lee | Devuelve observaciones históricas de una oferta sin borrar registros antiguos. | job_id: string, limit?: integer |
 | `get_market_history` | lee | Consulta snapshots históricos semanales o mensuales del mercado. | limit?: integer |
