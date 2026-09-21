@@ -105,3 +105,24 @@ html .terminal-toast { right: calc(18px + var(--agent-dock-w, 0px)); }
 /* Sin barras de desplazamiento visibles (como un terminal): se sigue desplazando con rueda, gestos y PgUp/PgDn. */
 .agent-window *, .agent-pinned *, .m-chat * { scrollbar-width: none; -ms-overflow-style: none; }
 .agent-window *::-webkit-scrollbar, .agent-pinned *::-webkit-scrollbar, .m-chat *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* ── Fidelidad de terminal: esquinas rectas, cursor de bloque, herramientas plegables ── */
+.agent-window.m-app, .agent-pinned.m-app { font-variant-ligatures: none; text-rendering: optimizeSpeed; letter-spacing: 0; box-shadow: none; }
+.agent-window.m-app { border-radius: 0; }
+.agent-window :is(.term-menu, .cfg-picker, .term-confirm, .term-line.term-user, .md code, .md pre, .m-callout),
+.agent-pinned :is(.term-menu, .cfg-picker, .term-confirm, .term-line.term-user, .md code, .md pre, .m-callout),
+.agent-window :is(.rs-search, .chat-title-input, .term-confirm button, .term-prompt button, .cfg-models li, .rs-list li, .term-menu li),
+.agent-pinned :is(.rs-search, .chat-title-input, .term-confirm button, .term-prompt button, .cfg-models li, .rs-list li, .term-menu li) { border-radius: 0 !important; }
+/* Cursor de bloque donde el navegador lo soporte (caret-shape); en los demás queda el cursor normal. */
+.agent-window .term-prompt textarea, .agent-pinned .term-prompt textarea { caret-color: var(--ink); caret-shape: block; }
+
+/* Llamadas a herramientas: ⏺ nombre(args) / ⎿ resumen. */
+.term-call .term-glyph { color: var(--muted); }
+.term-call-head { color: var(--muted); }
+.term-call-result { color: var(--dim); }
+.term-call-detail { margin: 3px 0 0; padding: 4px 8px; border-left: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10.5px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+
+/* Cursor de escritura mientras el agente responde (al final del último bloque de la respuesta). */
+.term-line.is-streaming .md > :last-child::after { content: "▍"; margin-left: 2px; animation: term-blink 1s steps(1) infinite; }
+@keyframes term-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .term-line.is-streaming .md > :last-child::after { animation: none; } }

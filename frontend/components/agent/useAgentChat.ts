@@ -3,7 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, streamChat, type AgentContext, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
 
-export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string; durationMs?: number };
+export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string; durationMs?: number;
+  /** Llamada a herramienta: resumen de una línea del resultado y el resultado recortado (Ctrl+O lo expande). */
+  summary?: string; detail?: string };
+
+const DETAIL_MAX = 800;
+const shortArgs = (raw: string) => {
+  try {
+    const args = JSON.parse(raw || "{}") as Record<string, unknown>;
+    return Object.entries(args).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(", ").slice(0, 72);
+  } catch { return ""; }
+};
+/** Una línea legible del resultado de una herramienta: error, conteo de filas o número de campos. */
+const summarizeResult = (content: string | null): { summary: string; detail: string } => {
+  let inner: unknown = content;
+  try { const parsed = JSON.parse(content ?? "null") as Record<string, unknown> | null; inner = parsed && "datos_externos_no_confiables" in parsed ? parsed.datos_externos_no_confiables : parsed; } catch { /* texto */ }
+  const detail = (typeof inner === "string" ? inner : JSON.stringify(inner, null, 1) ?? "").slice(0, DETAIL_MAX);
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+    const obj = inner as Record<string, unknown>;
+    if (typeof obj.error === "string") return { summary: `error: ${obj.error.slice(0, 80)}`, detail };
+    const list = Object.entries(obj).find(([, v]) => Array.isArray(v)) as [string, unknown[]] | undefined;
+    if (list) return { summary: `${list[1].length} ${list[0]}${typeof obj.total === "number" ? ` de ${obj.total}` : ""}`, detail };
+    return { summary: `${Object.keys(obj).length} campos`, detail };
+  }
+  return { summary: "listo", detail };
+};
 const SAVE_DELAY_MS = 900;
 /** Peso aproximado del prompt de sistema y las definiciones de herramientas (medido con DeepSeek). */
 export const BASE_PROMPT_TOKENS = 2800;
@@ -87,6 +111,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     setTurn({ startedAt: Date.now(), tokens: 0 });
     let current = "";
     let hist = base;
+    const toolArgs = new Map<string, string>();  // id de la llamada -> argumentos, para mostrar «herramienta(args)»
     abort.current = new AbortController();
     const push = (message: ApiMessage) => { hist = [...hist, message]; setHistory(hist); };
     try {
@@ -97,8 +122,15 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           const text = current;
           setTurn((t) => t && { ...t, tokens: t.tokens + Math.ceil(event.delta.length / 4) });  // estimación mientras llega el texto
           setLines((prev) => first ? [...prev, { kind: "assistant", text }] : [...prev.slice(0, -1), { kind: "assistant", text }]);
-        } else if (event.type === "assistant_message") { push(event.message); current = ""; }
-        else if (event.type === "tool_result") { push(event.message); setLines((p) => [...p, { kind: "tool", text: `Consultó ${event.name}` }]); }
+        } else if (event.type === "assistant_message") {
+          for (const call of event.message.tool_calls ?? []) toolArgs.set(call.id, call.function.arguments);
+          push(event.message); current = "";
+        }
+        else if (event.type === "tool_result") {
+          push(event.message);
+          const { summary, detail } = summarizeResult(event.message.content);
+          setLines((p) => [...p, { kind: "tool", text: `${event.name}(${shortArgs(toolArgs.get(event.message.tool_call_id ?? "") ?? "")})`, summary, detail }]);
+        }
         else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, estimated: false }));
         else if (event.type === "pending") {
           const auto = event.actions.filter((a) => alwaysAllow.current.has(a.name));

@@ -12,9 +12,21 @@ import type { useAgentChat } from "./useAgentChat";
 type Chat = ReturnType<typeof useAgentChat>;
 type LineData = Chat["lines"][number];
 
-const TermLine = memo(function TermLine({ line }: { line: LineData }) {
+const TermLine = memo(function TermLine({ line, expanded, streaming }: { line: LineData; expanded: boolean; streaming: boolean }) {
+  if (line.kind === "tool" && line.summary !== undefined) {  // llamada a herramienta: ⏺ nombre(args) / ⎿ resumen (Ctrl+O expande)
+    return (
+      <div className="term-line term-tool term-call">
+        <span className="term-glyph" aria-hidden>⏺</span>
+        <div className="term-body">
+          <div className="term-call-head">{line.text}</div>
+          <div className="term-call-result">⎿ {line.summary}{line.detail && !expanded ? <span className="term-dim"> (ctrl+o)</span> : null}</div>
+          {expanded && line.detail && <pre className="term-call-detail">{line.detail}</pre>}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className={`term-line term-${line.kind}`}>
+    <div className={`term-line term-${line.kind}${streaming ? " is-streaming" : ""}`}>
       <span className="term-glyph" aria-hidden>{line.kind === "user" ? "❯" : line.kind === "tool" ? "⎿" : line.kind === "error" ? "✕" : line.kind === "local" ? "▸" : <RadarMark />}</span>
       <div className="term-body">{line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}{line.durationMs !== undefined && <small className="term-response-meta">{(line.durationMs / 1000).toFixed(1)} s</small>}</div>
     </div>
@@ -39,6 +51,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const [menuOpen, setMenuOpen] = useState(true);
   const [configMenu, setConfigMenu] = useState<"model" | "effort" | null>(null);
   const [resumeOpen, setResumeOpen] = useState(false);
+  const [expandTools, setExpandTools] = useState(false);  // Ctrl+O: mostrar el resultado completo de las herramientas
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
@@ -63,6 +76,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     catch { onSettings(); }
   };
 
+  const lastAssistant = lines.map((l) => l.kind).lastIndexOf("assistant");
   const lastEsc = useRef(0);
   const lastCtrlC = useRef(0);
   const search = useRef<{ query: string; at: number } | null>(null);
@@ -141,6 +155,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     }
     if (input === "" && event.key === "?") { event.preventDefault(); addLocal(SHORTCUTS); return; }
     if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); void toggleReadOnly(); return; }
+    if (event.ctrlKey && event.key.toLowerCase() === "o") { event.preventDefault(); setExpandTools((v) => !v); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "k") { event.preventDefault(); setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off"); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "r") { event.preventDefault(); searchHistory(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "c" && (event.currentTarget.selectionStart === event.currentTarget.selectionEnd)) {
@@ -176,7 +191,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
             <span className="term-dim">escribe <b>/</b> para comandos · <b>?</b> atajos{needsSetup ? " · " : ""}{needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/init</button>}</span>
           </div>
         )}
-        {lines.map((line, index) => <TermLine key={index} line={line} />)}
+        {lines.map((line, index) => <TermLine key={index} line={line} expanded={expandTools} streaming={busy && index === lastAssistant} />)}
         {pending.map((action) => (
           <div className="term-confirm" key={action.id}>
             <div><b>Acción propuesta:</b> {action.description}</div>

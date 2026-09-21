@@ -43,6 +43,7 @@ export const SHORTCUTS = [
   "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
   "| `Shift+Tab` | Alternar modo normal / solo lectura |",
   "| `/resume` → `Ctrl+D` | Borrar la conversación resaltada (pide confirmar) |",
+  "| `Ctrl+O` | Mostrar u ocultar el resultado completo de las herramientas |",
   "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",
   "| `Ctrl+C` | Detener; con el campo vacío, dos veces cierra |",
   "| `1` `2` `3` | Aprobar / aprobar siempre (sesión) / rechazar (`y` y `n` también) |",
