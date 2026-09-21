@@ -15,6 +15,7 @@ export type CommandContext = {
   openResume: () => void;
   rename: (title: string) => void;
   title: string;
+  plan: { active: boolean; set: (on: boolean) => void };
   transcript: () => string;
   usage: { context: number; session: number; estimated: boolean };
   lastAnswer: () => string;
@@ -243,7 +244,14 @@ export const COMMANDS: Command[] = [
       await ctx.send(args.trim() ? `Explícame con datos de Radar: ${args.trim()}` : "Explícame el estado actual de mi búsqueda con datos de Radar.");
       return null;
     } },
-  { name: "plan", hint: "Plan de aprendizaje según el mercado", kind: "prompt", run: async (_a, ctx) => {
+  { name: "plan", aliases: ["planear"], args: "[texto | off]", hint: "Modo plan: el agente investiga y propone sin ejecutar", kind: "local", run: async (args, ctx) => {
+      const text = args.trim();
+      if (text === "off" || text === "salir") { ctx.plan.set(false); return "Modo plan **desactivado**."; }
+      ctx.plan.set(true);
+      if (text) { await ctx.send(text); return null; }  // «/plan reclasifica la BD» activa el modo y lanza la petición
+      return "Modo plan **activado**: el agente investiga y te propone un plan sin ejecutar nada. Escribe tu objetivo, o `/plan off` para salir.";
+    } },
+  { name: "learn", aliases: ["aprender", "learning"], hint: "Plan de aprendizaje según el mercado", kind: "prompt", run: async (_a, ctx) => {
       await ctx.send("Arma mi plan de aprendizaje: usa plan_learning y get_skill_demand, ordena las skills y sé concreto.");
       return null;
     } },

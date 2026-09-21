@@ -172,7 +172,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
       const out = await command.run(rest.join(" "), {
-        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), openResume: () => setResumeOpen(true), rename: renameChat, title, dock, close: onClose,
+        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), openResume: () => setResumeOpen(true), rename: renameChat, title, plan: { active: planMode, set: (on) => { setPlanMode(on); if (!on) setPlanReady(false); } }, dock, close: onClose,
         transcript: () => transcriptOf(lines),
         lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
       });
