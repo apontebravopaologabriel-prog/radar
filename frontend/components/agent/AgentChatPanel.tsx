@@ -292,8 +292,9 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
       <div className="term-footer">
         <span>
-          {settings?.read_only ? "read-only mode on" : planMode ? "plan mode on" : autoMode ? "auto mode on" : "manual mode on"}
+          {planMode ? "plan mode on" : autoMode ? "auto mode on" : "manual mode on"}
           <span className="term-dim"> (shift+tab)</span>
+          {settings?.read_only ? <span className="term-dim"> · read-only (/readonly off)</span> : null}
           {contextMode === "off" ? <span className="term-dim"> · no context</span> : contextMode === "full" ? <span className="term-dim"> · full context</span> : null}
         </span>
       </div>
