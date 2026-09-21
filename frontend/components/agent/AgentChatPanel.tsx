@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { api, type AgentContext } from "../../lib/mobile-api";
-import { findCommand, matchCommands } from "./commands";
+import { SHORTCUTS, findCommand, matchCommands } from "./commands";
 import ConfigPicker from "./ConfigPicker";
 import Markdown from "./Markdown";
 import RadarMark from "./RadarMark";
@@ -19,6 +19,14 @@ const TermLine = memo(function TermLine({ line }: { line: LineData }) {
     </div>
   );
 });
+/** «✻ Analizando… (12 s · ↓1,2k tokens · esc para detener)», como el indicador de Claude Code. */
+function Working({ startedAt, tokens }: { startedAt: number; tokens: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(id); }, []);
+  const seconds = Math.max(0, Math.round((now - startedAt) / 1000));
+  const count = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
+  return <div className="term-line term-tool"><span className="term-glyph"><RadarMark spinning /></span><div className="term-body">Analizando… <span className="term-dim">({seconds} s{tokens > 0 ? ` · ↓${count} tokens` : ""} · esc para detener)</span></div></div>;
+}
 const SETUP_PROMPT = "Ayúdame a configurar Radar";
 const transcriptOf = (lines: { kind: string; text: string }[]) =>
   lines.map((l) => (l.kind === "user" ? `**❯ ${l.text}**` : l.kind === "tool" ? `> ${l.text}` : l.text)).join("\n\n");
@@ -32,7 +40,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, contextMode, setContextMode } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, contextMode, setContextMode, rewind } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -52,10 +60,33 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     catch { onSettings(); }
   };
 
+  const lastEsc = useRef(0);
+  const lastCtrlC = useRef(0);
+  const search = useRef<{ query: string; at: number } | null>(null);
+  /** Ctrl+R: recorre hacia atrás los mensajes que contienen lo escrito; repetir pasa al siguiente. */
+  const searchHistory = () => {
+    const list = recall.current.list;
+    if (!list.length) return;
+    const state = search.current ?? { query: input, at: list.length };
+    for (let i = state.at - 1; i >= 0; i--) {
+      if (list[i].toLowerCase().includes(state.query.toLowerCase()) && list[i] !== input) { search.current = { query: state.query, at: i }; setInput(list[i]); return; }
+    }
+    search.current = null;
+  };
+  const toggleReadOnly = async () => {
+    if (!settings) return;
+    try {
+      await api.saveAgentSettings({ provider: settings.provider, read_only: !settings.read_only });
+      await refreshSettings();
+      addLocal(settings.read_only ? "Modo normal: el agente puede proponer cambios (con tu aprobación)." : "Modo solo lectura: el agente solo consulta.");
+    } catch { onSettings(); }
+  };
+
   const submit = async (raw: string) => {
     const text = raw.trim();
     if (!text || busy) return;
     recall.current = { list: [...recall.current.list, text].slice(-50), at: -1 };
+    search.current = null;
     setInput("");
     if (text.startsWith("#")) {
       // Atajo de memoria: "# prefiero híbrido" lo recuerda en cada conversación.
@@ -96,8 +127,26 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       void submit(input); return;
     }
     if (event.key === "Escape" && busy) { event.preventDefault(); stop(); return; }
-    if (input === "" && pending.length && (event.key === "y" || event.key === "n")) {
-      event.preventDefault(); void decide(pending[0], event.key === "y"); return;
+    if (input === "" && pending.length && ["y", "n", "1", "2", "3"].includes(event.key)) {
+      event.preventDefault();
+      void decide(pending[0], event.key !== "n" && event.key !== "3", event.key === "2"); return;
+    }
+    if (input === "" && event.key === "?") { event.preventDefault(); addLocal(SHORTCUTS); return; }
+    if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); void toggleReadOnly(); return; }
+    if (event.ctrlKey && event.key.toLowerCase() === "k") { event.preventDefault(); setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off"); return; }
+    if (event.ctrlKey && event.key.toLowerCase() === "r") { event.preventDefault(); searchHistory(); return; }
+    if (event.ctrlKey && event.key.toLowerCase() === "c" && (event.currentTarget.selectionStart === event.currentTarget.selectionEnd)) {
+      event.preventDefault();
+      if (busy) { stop(); return; }
+      if (input) { setInput(""); return; }
+      const now = Date.now();
+      if (now - lastCtrlC.current < 1500 && onClose) { onClose(); return; }
+      lastCtrlC.current = now; addLocal("Pulsa Ctrl+C otra vez para salir."); return;
+    }
+    if (event.key === "Escape" && !busy && !input) {
+      const now = Date.now();
+      if (now - lastEsc.current < 600) { lastEsc.current = 0; const text = rewind(); if (text !== null) setInput(text); return; }
+      lastEsc.current = now; return;
     }
     if (event.key === "ArrowUp" && !input) {
       const r = recall.current; const at = r.at < 0 ? r.list.length - 1 : Math.max(r.at - 1, 0);
@@ -129,10 +178,14 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
           <div className="term-confirm" key={action.id}>
             <div><b>Acción propuesta:</b> {action.description}</div>
             <code>{action.name}({JSON.stringify(action.arguments)})</code>
-            <div className="m-actions"><button onClick={() => decide(action, true)}>[y] Aprobar</button><button onClick={() => decide(action, false)}>[n] Rechazar</button></div>
+            <div className="m-actions">
+              <button onClick={() => decide(action, true)}>[1] Sí</button>
+              <button onClick={() => decide(action, true, true)}>[2] Sí, y no preguntar más esta sesión</button>
+              <button onClick={() => decide(action, false)}>[3] No</button>
+            </div>
           </div>
         ))}
-        {busy && <div className="term-line term-tool"><span className="term-glyph"><RadarMark spinning /></span><div className="term-body">trabajando…</div></div>}
+        {busy && <Working startedAt={turn?.startedAt ?? Date.now()} tokens={turn?.tokens ?? 0} />}
         <div ref={bottom} />
       </div>
       {matches.length > 0 && (
@@ -158,7 +211,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         {contextMode !== "off" && <> · {contextLabel}{(context?.districtJobs ?? context?.visibleCount) !== undefined ? ` · ${context?.districtJobs ?? context?.visibleCount} ofertas` : ""}</>}
       </div>
       <div className="term-footer">
-        <span>{busy ? "esc detener" : "/ commands · # memory · ↑ history"}</span>
+        <span>{busy ? "esc detener" : `${settings?.read_only ? "⏸ solo lectura" : "⏵ normal"} (shift+tab) · ? atajos`}</span>
         {settings?.ready ? <span>{settings.model} · {effortLabel(settings.reasoning_effort)} · ctx {usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes {Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%{settings.read_only ? " · lectura" : ""}</span> : <span>sin configurar</span>}
       </div>
     </div>

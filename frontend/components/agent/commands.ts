@@ -28,6 +28,23 @@ export type Command = {
   run: (args: string, ctx: CommandContext) => Promise<string | null>;
 };
 
+export const SHORTCUTS = [
+  "**Atajos de teclado**", "",
+  "| Tecla | Acción |", "|---|---|",
+  "| `Enter` / `Shift+Enter` | Enviar / nueva línea (también `\\` + Enter) |",
+  "| `/` · `Tab` · `↑↓` | Comandos, autocompletar y elegir |",
+  "| `↑` (vacío) | Recuperar mensajes anteriores |",
+  "| `Ctrl+R` | Buscar en el historial (repite para el siguiente) |",
+  "| `Esc` | Detener la respuesta |",
+  "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
+  "| `Shift+Tab` | Alternar modo normal / solo lectura |",
+  "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",
+  "| `Ctrl+C` | Detener; con el campo vacío, dos veces cierra |",
+  "| `1` `2` `3` | Aprobar / aprobar siempre (sesión) / rechazar (`y` y `n` también) |",
+  "| `#` texto | Guardar en memoria |",
+  "| `?` (vacío) | Esta ayuda |",
+].join("\n");
+
 const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 const meter = (pct: number, width = 20) => {
   const filled = Math.min(width, Math.round((pct / 100) * width));
@@ -81,6 +98,7 @@ export const COMMANDS: Command[] = [
       return [`**${profile.name}** · ${profile.education ?? "sin formación"}`, `- Áreas: ${profile.target_roles.join(", ") || "—"}`,
         `- Dónde: ${profile.locations.join(", ") || "—"}`, `- Skills: ${skills}`].join("\n");
     } },
+  { name: "keys", aliases: ["atajos", "shortcuts"], hint: "Atajos de teclado", kind: "local", run: async () => SHORTCUTS },
   { name: "context", aliases: ["contexto"], hint: "Cuánto contexto ocupa esta conversación", kind: "local", run: async (_a, ctx) => {
       const s = await api.agentSettings();
       const window = s.context_window;

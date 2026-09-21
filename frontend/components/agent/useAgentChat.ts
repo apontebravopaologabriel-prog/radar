@@ -38,6 +38,8 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
+  const [turn, setTurn] = useState<{ startedAt: number; tokens: number } | null>(null);
+  const alwaysAllow = useRef<Set<string>>(new Set());  // herramientas aprobadas «siempre» durante esta sesión
   const conversationId = useRef<string | null>(null);
   const loaded = useRef(false);
   const abort = useRef<AbortController | null>(null);
@@ -78,6 +80,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const run = useCallback(async (base: ApiMessage[]) => {
     setBusy(true); setPending([]);
     const startedAt = performance.now();
+    setTurn({ startedAt: Date.now(), tokens: 0 });
     let current = "";
     let hist = base;
     abort.current = new AbortController();
@@ -88,11 +91,17 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           const first = current === "";
           current += event.delta;
           const text = current;
+          setTurn((t) => t && { ...t, tokens: t.tokens + Math.ceil(event.delta.length / 4) });  // estimación mientras llega el texto
           setLines((prev) => first ? [...prev, { kind: "assistant", text }] : [...prev.slice(0, -1), { kind: "assistant", text }]);
         } else if (event.type === "assistant_message") { push(event.message); current = ""; }
         else if (event.type === "tool_result") { push(event.message); setLines((p) => [...p, { kind: "tool", text: `Consultó ${event.name}` }]); }
         else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, estimated: false }));
-        else if (event.type === "pending") setPending(event.actions);
+        else if (event.type === "pending") {
+          const auto = event.actions.filter((a) => alwaysAllow.current.has(a.name));
+          const manual = event.actions.filter((a) => !alwaysAllow.current.has(a.name));
+          setPending(manual);
+          if (auto.length) autoApprove.current(auto, manual.length === 0, hist);
+        }
         else if (event.type === "error") setLines((p) => [...p, { kind: "error", text: event.message }]);
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
       }, abort.current.signal, scopeContext(context, contextMode));
@@ -104,7 +113,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         if (index < 0) return previous;
         return previous.map((line, lineIndex) => lineIndex === index ? { ...line, durationMs } : line);
       });
-      setBusy(false); void refreshSettings();
+      setBusy(false); setTurn(null); void refreshSettings();
     }
   }, [context, contextMode, onError, refreshSettings]);
 
@@ -117,17 +126,45 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     await run(next);
   }, [busy, history, run]);
 
-  const decide = useCallback(async (action: PendingAction, approve: boolean) => {
+  const autoApprove = useRef<(actions: PendingAction[], resume: boolean, base: ApiMessage[]) => void>(() => undefined);
+  const decide = useCallback(async (action: PendingAction, approve: boolean, always = false) => {
+    if (approve && always) alwaysAllow.current.add(action.name);
     try {
       const res = await api.confirm({ tool_call_id: action.id, name: action.name, arguments: action.arguments, approve });
       const rest = pending.filter((p) => p.id !== action.id);
       setPending(rest);
-      setLines((p) => [...p, { kind: "tool", text: `${approve ? "Aprobaste" : "Rechazaste"}: ${action.name}` }]);
+      setLines((p) => [...p, { kind: "tool", text: `${approve ? "Aprobaste" : "Rechazaste"}${always ? " (siempre en esta sesión)" : ""}: ${action.name}` }]);
       const next = [...history, res.message];
       setHistory(next);
       if (rest.length === 0) await run(next);
     } catch (error) { onError(error); }
   }, [history, pending, run, onError]);
+  // Las acciones ya aprobadas «siempre» se confirman solas y el turno continúa.
+  autoApprove.current = (actions, resume, base) => {
+    void (async () => {
+      let next = base;
+      try {
+        for (const action of actions) {
+          const res = await api.confirm({ tool_call_id: action.id, name: action.name, arguments: action.arguments, approve: true });
+          next = [...next, res.message];
+          setLines((p) => [...p, { kind: "tool", text: `Aprobada automáticamente: ${action.name}` }]);
+        }
+        setHistory(next);
+        if (resume) await run(next);
+      } catch (error) { onError(error); }
+    })();
+  };
+  /** Vuelve al último mensaje de la persona (Esc Esc): lo quita de la conversación y devuelve su texto para editarlo. */
+  const rewind = useCallback((): string | null => {
+    const lastLine = [...lines].map((l) => l.kind).lastIndexOf("user");
+    if (lastLine < 0) return null;
+    const text = lines[lastLine].text;
+    const lastMsg = [...history].map((m, i) => (m.role === "user" && m.content === text ? i : -1)).filter((i) => i >= 0).pop();
+    setLines(lines.slice(0, lastLine));
+    if (lastMsg !== undefined) setHistory(history.slice(0, lastMsg));
+    setPending([]);
+    return text;
+  }, [history, lines]);
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
@@ -158,5 +195,5 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   }, [reset]);
   const list = useCallback(async (): Promise<ConversationInfo[]> => (await api.conversations()).conversations, []);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, usage, contextMode, setContextMode, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
+  return { lines, pending, busy, settings, needsSetup, usage, turn, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }
