@@ -275,3 +275,14 @@ def test_repeated_identical_tool_call_is_short_circuited():
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client))
     results = [e["message"]["content"] for e in events if e["type"] == "tool_result"]
     assert "misma consulta" in results[1]
+
+
+def test_large_results_are_shrunk_by_items_and_old_tool_results_are_trimmed():
+    big = {"jobs": [{"id": str(i), "title": "x" * 400} for i in range(40)]}
+    wrapped = json.loads(loop.wrap_untrusted(big))
+    kept = wrapped["datos_externos_no_confiables"]
+    assert 1 <= len(kept["jobs"]) < 40 and "recortado" in kept  # JSON válido, lista abreviada
+    history = [{"role": "user", "content": "a"}, {"role": "tool", "tool_call_id": "1", "content": "y" * 5000},
+               {"role": "assistant", "content": "ok"}, {"role": "user", "content": "b"}, {"role": "tool", "tool_call_id": "2", "content": "z" * 5000}]
+    trimmed = loop._trim_old_tool_results(history)
+    assert len(trimmed[1]["content"]) < 900 and len(trimmed[4]["content"]) == 5000
