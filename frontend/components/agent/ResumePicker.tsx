@@ -17,12 +17,13 @@ type Row = { id: string; title: string; updated_at: string; count?: number; snip
 
 /** Selector de conversaciones al estilo `/resume` de Claude Code: escribe para filtrar (título y contenido),
  *  ↑↓ elige, Enter abre y Esc cierra. */
-export default function ResumePicker({ onOpen, onClose }: { onOpen: (id: string) => Promise<void>; onClose: () => void }) {
+export default function ResumePicker({ onOpen, onDelete, onClose }: { onOpen: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void>; onClose: () => void }) {
   const [items, setItems] = useState<ConversationInfo[] | null>(null);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<ConversationHit[]>([]);
   const [index, setIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);  // Ctrl+D pide confirmar antes de borrar
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
 
@@ -51,7 +52,23 @@ export default function ResumePicker({ onOpen, onClose }: { onOpen: (id: string)
     if (!row) return;
     try { await onOpen(row.id); onClose(); } catch { setError("No se pudo abrir esa conversación."); }
   };
+  const remove = async (row: Row) => {
+    try {
+      await onDelete(row.id);
+      setItems((prev) => (prev ?? []).filter((c) => c.id !== row.id));
+      setHits((prev) => prev.filter((h) => h.id !== row.id));
+      setIndex((i) => Math.max(0, i - 1));
+    } catch { setError("No se pudo borrar esa conversación."); }
+    setConfirmId(null);
+  };
   const onKeyDown = (event: React.KeyboardEvent) => {
+    if (confirmId) {  // confirmación de borrado: Enter borra, cualquier otra tecla cancela
+      event.preventDefault();
+      const row = rows.find((r) => r.id === confirmId);
+      if (event.key === "Enter" && row) void remove(row); else setConfirmId(null);
+      return;
+    }
+    if (event.ctrlKey && event.key.toLowerCase() === "d") { if (rows[index]) { event.preventDefault(); setConfirmId(rows[index].id); } return; }
     if (event.key === "Escape") { event.preventDefault(); onClose(); }
     else if (event.key === "ArrowDown") { event.preventDefault(); setIndex((i) => Math.min(i + 1, Math.max(rows.length - 1, 0))); }
     else if (event.key === "ArrowUp") { event.preventDefault(); setIndex((i) => Math.max(i - 1, 0)); }
@@ -74,7 +91,9 @@ export default function ResumePicker({ onOpen, onClose }: { onOpen: (id: string)
           </li>
         ))}
       </ul>
-      <div className="cfg-picker-hint">escribe para filtrar · ↑↓ elegir · Enter abrir · Esc cerrar</div>
+      {confirmId
+        ? <div className="rs-confirm">¿Borrar «{rows.find((r) => r.id === confirmId)?.title}»? Enter confirma · cualquier otra tecla cancela</div>
+        : <div className="cfg-picker-hint">escribe para filtrar · ↑↓ elegir · Enter abrir · Ctrl+D borrar · Esc cerrar</div>}
     </div>
   );
 }

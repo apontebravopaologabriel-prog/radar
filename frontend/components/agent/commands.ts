@@ -39,6 +39,7 @@ export const SHORTCUTS = [
   "| `Esc` | Detener la respuesta |",
   "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
   "| `Shift+Tab` | Alternar modo normal / solo lectura |",
+  "| `/resume` → `Ctrl+D` | Borrar la conversación resaltada (pide confirmar) |",
   "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",
   "| `Ctrl+C` | Detener; con el campo vacío, dos veces cierra |",
   "| `1` `2` `3` | Aprobar / aprobar siempre (sesión) / rechazar (`y` y `n` también) |",
@@ -172,8 +173,12 @@ export const COMMANDS: Command[] = [
       await ctx.open(target.id);
       return null;
     } },
-  { name: "delete", aliases: ["borrar"], args: "[todo]", hint: "Borra esta conversación (o todo el historial)", kind: "local", run: async (args, ctx) => {
-      if (args.trim() === "todo") { await api.deleteAllConversations(); ctx.reset(); return null; }
+  { name: "delete", aliases: ["borrar"], args: "[todo]", hint: "Borra esta conversación (o todo el historial, con confirmación)", kind: "local", run: async (args, ctx) => {
+      if (args.trim() === "todo") {
+        const total = (await ctx.list()).length;
+        return `Esto borra **${total}** conversaciones y no se puede deshacer. Si estás seguro, escribe \`/delete todo confirmar\`.`;
+      }
+      if (args.trim() === "todo confirmar") { await api.deleteAllConversations(); ctx.reset(); return null; }
       await ctx.remove();
       return null;
     } },

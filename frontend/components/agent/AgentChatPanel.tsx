@@ -205,7 +205,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         <textarea ref={promptRef} rows={1} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
-      {resumeOpen && <ResumePicker onOpen={open} onClose={() => setResumeOpen(false)} />}
+      {resumeOpen && <ResumePicker onOpen={open} onDelete={(id) => remove(id)} onClose={() => setResumeOpen(false)} />}
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
       <div className="term-context" title="Contexto de navegación enviado al agente. Pulsa para cambiar: apagado → selección → completo (incluye filas de análisis)">
         <button type="button" className="term-context-toggle" onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>

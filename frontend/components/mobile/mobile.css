@@ -231,3 +231,4 @@
 .rs-snippet { font-size: 11px; opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rs-meta { font-size: 10px; opacity: .7; white-space: nowrap; }
 .rs-empty { grid-template-columns: 1fr !important; cursor: default !important; }
+.rs-confirm { color: var(--danger); font-size: 11px; }
