@@ -114,7 +114,10 @@
 .term-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
 .term-line { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; }
 .term-glyph { color: var(--muted); line-height: 1.5; display: inline-flex; align-items: center; height: 1.5em; }
-.term-user .term-body { color: var(--ink); font-weight: 700; }
+/* Mensaje de la persona: bloque gris como en Claude Code. */
+.term-line.term-user { background: #2b2b2b; border-radius: 3px; padding: 4px 8px; margin: 2px 0; }
+.term-user .term-body { color: var(--ink); font-weight: 400; }
+.term-user .term-glyph { color: var(--muted); }
 .term-assistant .term-glyph, .term-assistant .radar-mark { color: var(--ink); }
 .term-local .term-body { border-left: 1px solid var(--line); padding-left: 10px; }
 .term-tool .term-body, .term-tool .term-glyph { color: var(--dim); font-size: 12px; }

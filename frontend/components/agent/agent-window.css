@@ -100,3 +100,4 @@ html .terminal-toast { right: calc(18px + var(--agent-dock-w, 0px)); }
 .agent-window .term-context-toggle, .agent-pinned .term-context-toggle { text-decoration: none; }
 .agent-window .term-context-toggle:hover, .agent-pinned .term-context-toggle:hover { color: var(--ink); }
 .agent-window .m-callout, .agent-pinned .m-callout { padding: 6px 8px; font-size: 11px; }
+.agent-window .term-line.term-user, .agent-pinned .term-line.term-user { padding: 2px 6px; margin: 1px 0; border-radius: 2px; }
