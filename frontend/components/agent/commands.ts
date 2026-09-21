@@ -12,6 +12,7 @@ export type CommandContext = {
   list: () => Promise<ConversationInfo[]>;
   compact: (focus?: string) => Promise<string>;
   openConfigMenu: (section?: "model" | "effort") => void;
+  openResume: () => void;
   transcript: () => string;
   usage: { context: number; session: number; estimated: boolean };
   lastAnswer: () => string;
@@ -163,14 +164,11 @@ export const COMMANDS: Command[] = [
       await api.saveAgentSettings({ provider: current.provider, enabled: false });
       return "Agente **apagado**. Recarga la página para ocultar la ventana; reactívalo en Ajustes.";
     } },
-  { name: "resume", aliases: ["historial", "history"], hint: "Conversaciones guardadas", kind: "local", run: async (_a, ctx) => {
-      lastList = (await ctx.list()).slice(0, 10);
-      if (!lastList.length) return "Aún no hay conversaciones guardadas.";
-      return ["Abre una con `/open <n>`:", "", ...lastList.map((c, i) => `${i + 1}. ${c.title} _(${c.updated_at.slice(0, 10)})_`)].join("\n");
-    } },
+  { name: "resume", aliases: ["historial", "history"], hint: "Elige una conversación anterior", kind: "local", run: async (_a, ctx) => { ctx.openResume(); return null; } },
   { name: "open", aliases: ["abrir"], args: "<n>", hint: "Abre una conversación del historial", kind: "local", run: async (args, ctx) => {
+      if (!lastList.length) lastList = (await ctx.list()).slice(0, 10);
       const target = lastList[Number(args.trim()) - 1];
-      if (!target) return "Primero usa `/resume` y elige un número.";
+      if (!target) return "Usa `/resume` para elegir una conversación, o `/open <n>` con un número de 1 a " + lastList.length + ".";
       await ctx.open(target.id);
       return null;
     } },

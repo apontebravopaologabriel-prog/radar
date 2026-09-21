@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import create_model
 
 from radar import cv_baseline, cv_edit, cv_targets, insights, maintenance, system
+from radar.agent.history import search_conversations
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
 from radar.db.queries import (
@@ -331,6 +332,13 @@ def update_cv(section: str, action: str, item: dict | None = None, match: str | 
 def get_user_memory(query: str = "", limit: int = 8) -> dict:
     """Busca memoria durable aprobada por la persona. No incluye el historial completo del chat."""
     return {"memories": search_memories(query, min(max(limit, 1), 20))}
+
+
+@tool()
+def search_past_conversations(query: str, limit: int = 5) -> dict:
+    """Busca en tus conversaciones anteriores con el agente (todas las palabras de `query`) y devuelve título, fecha y
+    fragmentos. Úsala cuando digan «como hablamos», «lo de ayer» o pidan retomar algo; no cargues conversaciones enteras."""
+    return {"conversations": search_conversations(query, limit)}
 
 
 @tool(write=True)

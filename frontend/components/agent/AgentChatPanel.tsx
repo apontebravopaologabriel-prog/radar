@@ -5,6 +5,7 @@ import { api, type AgentContext } from "../../lib/mobile-api";
 import { SHORTCUTS, findCommand, matchCommands } from "./commands";
 import ConfigPicker from "./ConfigPicker";
 import Markdown from "./Markdown";
+import ResumePicker from "./ResumePicker";
 import RadarMark from "./RadarMark";
 import type { useAgentChat } from "./useAgentChat";
 
@@ -37,6 +38,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(true);
   const [configMenu, setConfigMenu] = useState<"model" | "effort" | null>(null);
+  const [resumeOpen, setResumeOpen] = useState(false);
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
@@ -50,7 +52,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 132)}px`;  // crece hasta ~6 líneas
   }, [input]);
-  useEffect(() => { if (!configMenu) promptRef.current?.focus(); }, [configMenu]);
+  useEffect(() => { if (!configMenu && !resumeOpen) promptRef.current?.focus(); }, [configMenu, resumeOpen]);
 
   const effortLabel = (value: string) => value === "auto" ? "Auto" : value[0].toUpperCase() + value.slice(1);
   const contextLabel = context?.screen === "analysis" ? "ANÁLISIS" : context?.screen === "cvs" ? "CVs" : context?.mode === "radar" ? `RADAR / ${context.district || "LIMA"} / ${context.radar?.radiusKm ?? 5} KM` : context?.mode === "districts" ? `DISTRITOS / ${context.district || "TODOS"}` : "MAPA / OFERTAS";
@@ -103,7 +105,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     if (!command) { addLocal(`Comando desconocido: \`/${head}\`. Prueba \`/ayuda\`.`, "error"); return; }
     try {
       const out = await command.run(rest.join(" "), {
-        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), dock, close: onClose,
+        send, reset, refreshSettings, open, remove, list, compact, usage, openConfigMenu: (section = "model") => setConfigMenu(section), openResume: () => setResumeOpen(true), dock, close: onClose,
         transcript: () => transcriptOf(lines),
         lastAnswer: () => [...lines].reverse().find((l) => l.kind === "assistant" || l.kind === "local")?.text ?? "",
       });
@@ -203,6 +205,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         <textarea ref={promptRef} rows={1} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
+      {resumeOpen && <ResumePicker onOpen={open} onClose={() => setResumeOpen(false)} />}
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
       <div className="term-context" title="Contexto de navegación enviado al agente. Pulsa para cambiar: apagado → selección → completo (incluye filas de análisis)">
         <button type="button" className="term-context-toggle" onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>

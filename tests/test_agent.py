@@ -286,3 +286,18 @@ def test_large_results_are_shrunk_by_items_and_old_tool_results_are_trimmed():
                {"role": "assistant", "content": "ok"}, {"role": "user", "content": "b"}, {"role": "tool", "tool_call_id": "2", "content": "z" * 5000}]
     trimmed = loop._trim_old_tool_results(history)
     assert len(trimmed[1]["content"]) < 900 and len(trimmed[4]["content"]) == 5000
+
+
+def test_past_conversations_are_searchable_accent_insensitive_and_listed_with_counts():
+    api = TestClient(app)
+    data = {"history": [], "lines": [{"kind": "user", "text": "¿Cuántas ofertas hay en Miraflores para logística?"},
+                                     {"kind": "assistant", "text": "Hay 42 ofertas de logística en Miraflores."},
+                                     {"kind": "tool", "text": "Consultó get_place_profile"}]}
+    api.post("/api/conversations", json={"title": "Miraflores logística", "data": data})
+    api.post("/api/conversations", json={"title": "Otra", "data": {"history": [], "lines": [{"kind": "user", "text": "hola"}]}})
+    hit = api.get("/api/conversations/search", params={"q": "logistica miraflores"}).json()["conversations"]
+    assert len(hit) == 1 and hit[0]["title"] == "Miraflores logística" and "42 ofertas" in " ".join(hit[0]["snippets"])
+    listed = api.get("/api/conversations").json()["conversations"]
+    assert {c["title"]: c["lines"] for c in listed} == {"Miraflores logística": 3, "Otra": 1}
+    assert loop.tools.REGISTRY["search_past_conversations"].write is False
+    assert loop.tools.REGISTRY["search_past_conversations"].call({"query": "logistica"})["conversations"]

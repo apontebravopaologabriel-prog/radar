@@ -39,6 +39,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `get_my_cv` | lee | Tu CV real (cv_master): resumen, experiencia, formación, certificaciones, idiomas, herramientas declaradas y |  |
 | `update_cv` | escribe | Edita tu CV real (lo que ves en CVs). section: certifications {name, issuer, date AAAA-MM}, experience {role, | section: string, action: string, item?: object|null, match?: string|null |
 | `get_user_memory` | lee | Busca memoria durable aprobada por la persona. No incluye el historial completo del chat. | query?: string, limit?: integer |
+| `search_past_conversations` | lee | Busca en tus conversaciones anteriores con el agente (todas las palabras de `query`) y devuelve título, fecha y | query: string, limit?: integer |
 | `remember_user` | escribe | Guarda una preferencia, meta o decisión durable después de que la persona la confirme. | topic_key: string, content: string, memory_type?: string |
 | `update_profile` | escribe | Crea o actualiza el perfil real. `skills` mapea skill -> none\|basic\|intermediate\|advanced. | name: string, areas: array, locations: array, skills: object, education?: string|null, work_modes?: array|null |
 | `get_career_timeline` | lee | Devuelve la evolución del perfil y los eventos profesionales registrados. | limit?: integer |

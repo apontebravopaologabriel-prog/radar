@@ -469,9 +469,18 @@ def list_conversations(limit: int = Query(default=20, ge=1, le=100)) -> dict[str
 
     with connection() as conn:
         rows = conn.execute(
-            "SELECT id, title, updated_at FROM conversations ORDER BY updated_at DESC LIMIT %s", (limit,)
+            "SELECT id, title, updated_at, COALESCE(json_array_length(data, '$.lines'), 0) FROM conversations "
+            "ORDER BY updated_at DESC LIMIT %s", (limit,)
         ).fetchall()
-    return {"conversations": [{"id": r[0], "title": r[1], "updated_at": r[2]} for r in rows]}
+    return {"conversations": [{"id": r[0], "title": r[1], "updated_at": r[2], "lines": r[3]} for r in rows]}
+
+
+@router.get("/conversations/search")
+def search_saved_conversations(q: str = Query(min_length=2, max_length=100), limit: int = Query(default=8, ge=1, le=10)) -> dict[str, Any]:
+    _require_agent()
+    from radar.agent.history import search_conversations
+
+    return {"conversations": search_conversations(q, limit)}
 
 
 @router.post("/conversations", status_code=201)

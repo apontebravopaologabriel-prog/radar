@@ -90,7 +90,8 @@ export const api = {
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
   saveAgentSettings: (body: { provider: string; model?: string; reasoning_effort?: "auto" | "none" | "low" | "high" | "max"; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
     request<AgentSettings>("/api/agent/settings", { method: "PUT", body: JSON.stringify(body) }),
-  conversations: () => request<{ conversations: ConversationInfo[] }>("/api/conversations?limit=20"),
+  conversations: (limit = 20) => request<{ conversations: ConversationInfo[] }>(`/api/conversations?limit=${limit}`),
+  searchConversations: (q: string) => request<{ conversations: ConversationHit[] }>(`/api/conversations/search?q=${encodeURIComponent(q)}`),
   conversation: (id: string) => request<{ id: string; title: string; data: ConversationData }>(`/api/conversations/${id}`),
   createConversation: (title: string, data: ConversationData) =>
     request<{ id: string }>("/api/conversations", { method: "POST", body: JSON.stringify({ title, data }) }),
@@ -108,7 +109,8 @@ export const api = {
     request<{ message: ApiMessage; result: unknown }>("/api/chat/confirm", { method: "POST", body: JSON.stringify(body) }),
 };
 
-export type ConversationInfo = { id: string; title: string; updated_at: string };
+export type ConversationInfo = { id: string; title: string; updated_at: string; lines?: number };
+export type ConversationHit = { id: string; title: string; updated_at: string; messages: number; snippets: string[] };
 export type ConversationData = { history: ApiMessage[]; lines: { kind: string; text: string }[] };
 export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | null; reasoning_content?: string; tool_call_id?: string;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] };
