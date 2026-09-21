@@ -65,6 +65,10 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
+  const [planMode, setPlanModeState] = useState(false);
+  const planRef = useRef(false);  // lectura síncrona: aprobar el plan y enviar ocurren en el mismo instante
+  const setPlanMode = useCallback((value: boolean) => { planRef.current = value; setPlanModeState(value); }, []);  // modo plan: el agente investiga y propone, sin escribir
+  const [planReady, setPlanReady] = useState(false);  // hay un plan esperando aprobación
   const [customTitle, setCustomTitle] = useState<string | null>(null);  // título puesto a mano; null = automático
   const [turn, setTurn] = useState<{ startedAt: number; tokens: number } | null>(null);
   const alwaysAllow = useRef<Set<string>>(new Set());  // herramientas aprobadas «siempre» durante esta sesión
@@ -106,7 +110,9 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
 
   /** Ejecuta un turno con el historial dado. */
   const run = useCallback(async (base: ApiMessage[], mentions: Mention[] = []) => {
-    setBusy(true); setPending([]);
+    setBusy(true); setPending([]); setPlanReady(false);
+    const planning = planRef.current;
+    let failed = false;
     const startedAt = performance.now();
     setTurn({ startedAt: Date.now(), tokens: 0 });
     let current = "";
@@ -138,9 +144,9 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           setPending(manual);
           if (auto.length) autoApprove.current(auto, manual.length === 0, hist);
         }
-        else if (event.type === "error") setLines((p) => [...p, { kind: "error", text: event.message }]);
+        else if (event.type === "error") { failed = true; setLines((p) => [...p, { kind: "error", text: event.message }]); }
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
-      }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode));
+      }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode), planning);
     } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
     finally {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
@@ -150,6 +156,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         return previous.map((line, lineIndex) => lineIndex === index ? { ...line, durationMs } : line);
       });
       setBusy(false); setTurn(null); void refreshSettings();
+      if (planning && !failed) setPlanReady(true);
     }
   }, [context, contextMode, onError, refreshSettings]);
 
@@ -204,7 +211,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
-  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
+  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setPlanReady(false); setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
   /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
   const compact = useCallback(async (focus = ""): Promise<string> => {
     if (history.length < 2) return "Aún no hay nada que compactar.";
@@ -236,7 +243,12 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     const clean = value.replace(/\s+/g, " ").trim().slice(0, TITLE_MAX);
     setCustomTitle(clean || null);
   }, []);
+  /** Aprueba el plan: sale del modo plan y pide ejecutarlo (cada escritura sigue pidiendo confirmación). */
+  const approvePlan = useCallback(async () => {
+    setPlanMode(false); setPlanReady(false);
+    await send("Apruebo el plan. Ejecútalo paso a paso; confirmaré cada acción que modifique datos.");
+  }, [send, setPlanMode]);
   const title = customTitle ?? autoTitle(lines);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, usage, turn, title, rename, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
+  return { lines, pending, busy, settings, needsSetup, usage, turn, title, rename, planMode, setPlanMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }

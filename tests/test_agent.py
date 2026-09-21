@@ -308,3 +308,20 @@ def test_mentions_endpoint_returns_places_and_is_accent_insensitive():
     data = api.get("/api/mentions", params={"q": "mira"}).json()
     assert any(p["name"] == "Miraflores" for p in data["places"]) and data["jobs"] == []
     assert api.get("/api/mentions").json()["places"]
+
+
+def test_plan_mode_hides_write_tools_and_adds_the_plan_instruction():
+    client, sent = _client(_text("1. Reclasificar..."))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "ordena la BD"}], client, plan=True))
+    names = {t["function"]["name"] for t in sent[0]["tools"]}
+    assert "reclassify_jobs" not in names and "update_cv" not in names and "get_market_breakdown" in names
+    assert "MODO PLAN" in sent[0]["messages"][0]["content"]
+    client, sent = _client(_text("ok"))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client))
+    assert "reclassify_jobs" in {t["function"]["name"] for t in sent[0]["tools"]} and "MODO PLAN" not in sent[0]["messages"][0]["content"]
+
+
+def test_plan_mode_rejects_a_write_call_even_if_the_model_insists():
+    client, _ = _client(_call("reclassify_jobs", {}), _text("no puedo"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client, plan=True))
+    assert not any(e["type"] == "pending" for e in events)

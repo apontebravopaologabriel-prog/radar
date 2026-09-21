@@ -127,11 +127,11 @@ export type ChatEvent =
   | { type: "done" };
 
 /** Lee el SSE de /api/chat y entrega cada evento; termina cuando el servidor cierra el stream. */
-export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext | (Partial<AgentContext> & { mentions?: Mention[] })): Promise<void> {
+export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext | (Partial<AgentContext> & { mentions?: Mention[] }), plan = false): Promise<void> {
   const response = await fetch(`${API_URL}/api/chat`, {
     method: "POST", credentials: "include", signal,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, context }),
+    body: JSON.stringify({ messages, context, plan }),
   });
   if (response.status === 401) throw new AuthRequired();
   if (!response.ok || !response.body) throw new Error(`La API respondió ${response.status}`);

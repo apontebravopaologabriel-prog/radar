@@ -41,7 +41,7 @@ export const SHORTCUTS = [
   "| `Esc` | Detener la respuesta |",
   "| `PgUp` / `PgDn` | Recorrer la conversación (sin barra de desplazamiento) |",
   "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
-  "| `Shift+Tab` | Alternar modo normal / solo lectura |",
+  "| `Shift+Tab` | Modo: normal → plan → solo lectura |",
   "| `/resume` → `Ctrl+D` | Borrar la conversación resaltada (pide confirmar) |",
   "| `Ctrl+O` | Mostrar u ocultar el resultado completo de las herramientas |",
   "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",

@@ -60,7 +60,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, contextMode, setContextMode, rewind } = chat;
+  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, planMode, setPlanMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -109,12 +109,23 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     }
     search.current = null;
   };
-  const toggleReadOnly = async () => {
+  /** Shift+Tab: normal → plan → solo lectura → normal. */
+  const cycleMode = async () => {
     if (!settings) return;
     try {
-      await api.saveAgentSettings({ provider: settings.provider, read_only: !settings.read_only });
+      if (settings.read_only) {
+        await api.saveAgentSettings({ provider: settings.provider, read_only: false });
+        setPlanMode(false);
+        addLocal("Modo normal: las acciones que cambian datos piden tu aprobación.");
+      } else if (planMode) {
+        setPlanMode(false); setPlanReady(false);
+        await api.saveAgentSettings({ provider: settings.provider, read_only: true });
+        addLocal("Modo solo lectura: el agente solo consulta.");
+      } else {
+        setPlanMode(true);
+        addLocal("Modo plan: el agente investiga y te propone un plan; no ejecuta nada hasta que lo apruebes.");
+      }
       await refreshSettings();
-      addLocal(settings.read_only ? "Modo normal: el agente puede proponer cambios (con tu aprobación)." : "Modo solo lectura: el agente solo consulta.");
     } catch { onSettings(); }
   };
 
@@ -200,8 +211,13 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       event.preventDefault();
       void decide(pending[0], event.key !== "n" && event.key !== "3", event.key === "2"); return;
     }
+    if (input === "" && planReady && !pending.length && (event.key === "1" || event.key === "2")) {
+      event.preventDefault();
+      if (event.key === "1") void approvePlan(); else setPlanReady(false);
+      return;
+    }
     if (input === "" && event.key === "?") { event.preventDefault(); addLocal(SHORTCUTS); return; }
-    if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); void toggleReadOnly(); return; }
+    if (event.key === "Tab" && event.shiftKey) { event.preventDefault(); void cycleMode(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "o") { event.preventDefault(); setExpandTools((v) => !v); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "k") { event.preventDefault(); setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off"); return; }
     if (event.ctrlKey && event.key.toLowerCase() === "r") { event.preventDefault(); searchHistory(); return; }
@@ -250,6 +266,15 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
             </div>
           </div>
         ))}
+        {planReady && !busy && !pending.length && (
+          <div className="term-confirm">
+            <div><b>Plan listo.</b> ¿Lo ejecuto?</div>
+            <div className="m-actions">
+              <button onClick={() => void approvePlan()}>[1] Aprobar y ejecutar</button>
+              <button onClick={() => setPlanReady(false)}>[2] Seguir planificando</button>
+            </div>
+          </div>
+        )}
         {busy && <Working startedAt={turn?.startedAt ?? Date.now()} tokens={turn?.tokens ?? 0} />}
         <div ref={bottom} />
       </div>
@@ -282,8 +307,8 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
       <div className="term-footer">
         <span>
-          {busy ? "esc detener" : "? atajos"}
-          {settings?.read_only ? " · ⏸ lectura" : ""}
+          {busy ? "esc detener" : "? atajos · shift+tab modo"}
+          {settings?.read_only ? " · ⏸ lectura" : planMode ? " · ◇ plan" : ""}
           {" · "}
           <button type="button" className="term-context-toggle" title="Contexto de pantalla que recibe el agente (Ctrl+K): apagado → selección → completo"
             onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
