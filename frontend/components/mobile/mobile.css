@@ -272,3 +272,11 @@
 /* Panel de información (/help, /status…). */
 .info-panel { border-color: var(--line); }
 .info-body { max-height: min(56vh, 420px); overflow-y: auto; }
+
+/* Banner de bienvenida. */
+.term-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.term-banner .radar-mark { color: var(--brand); flex: none; }
+.term-banner b { color: var(--ink); }
+.term-banner-model { color: var(--muted); }
+.radar-mark.is-intro .radar-mark-sweep { animation: radar-sweep 2.6s cubic-bezier(.2, .7, .3, 1) 1; }
+@media (prefers-reduced-motion: reduce) { .radar-mark.is-intro .radar-mark-sweep { animation: none; } }

@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { api, type AgentContext, type Mention } from "../../lib/mobile-api";
+import { api, type AgentContext, type AgentSettings, type Doctor, type Mention } from "../../lib/mobile-api";
 import { SHORTCUTS, findCommand, matchCommands } from "./commands";
 import ConfigPicker from "./ConfigPicker";
 import Markdown from "./Markdown";
@@ -33,6 +33,25 @@ const TermLine = memo(function TermLine({ line, expanded, streaming }: { line: L
     </div>
   );
 });
+const EFFORT_NAME: Record<string, string> = { auto: "Auto", none: "Sin razonar", low: "Bajo", high: "Alto", max: "Máximo" };
+
+/** Cabecera de la conversación vacía, como la de Claude Code: marca quieta (una vuelta al abrir), versión, modelo y datos. */
+function Banner({ settings }: { settings: AgentSettings | null }) {
+  const [info, setInfo] = useState<Doctor | null>(null);
+  useEffect(() => { api.doctor().then(setInfo).catch(() => undefined); }, []);
+  const model = settings ? (settings.providers[settings.provider]?.model_names?.[settings.model] ?? settings.model) : null;
+  return (
+    <div className="term-banner">
+      <RadarMark size={30} intro />
+      <div>
+        <div><b>radar</b> <span className="term-dim">{info ? `v${info.version}` : ""}</span></div>
+        <div className="term-banner-model">{settings?.ready && model ? `${model} · ${EFFORT_NAME[settings.reasoning_effort] ?? settings.reasoning_effort}` : "agente sin configurar"}</div>
+        <div className="term-dim">{info ? `${info.career} · ${info.jobs.active.toLocaleString("es-PE")} ofertas` : ""}</div>
+      </div>
+    </div>
+  );
+}
+
 /** «✻ Analizando… (12 s · ↓1,2k tokens · esc para detener)», como el indicador de Claude Code. */
 function Working({ startedAt, tokens }: { startedAt: number; tokens: number }) {
   const [now, setNow] = useState(() => Date.now());
@@ -249,6 +268,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       <div className="term-log" aria-live="polite" ref={logRef}>
         {lines.length === 0 && (
           <div className="term-welcome">
+            <Banner settings={settings} />
             <span className="term-dim">escribe <b>/</b> para comandos · <b>?</b> atajos{needsSetup ? " · " : ""}{needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/init</button>}</span>
           </div>
         )}
