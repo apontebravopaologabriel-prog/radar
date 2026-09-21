@@ -14,8 +14,9 @@ import unicodedata
 from datetime import UTC, date, datetime
 from typing import Any
 
-from radar import cv_targets
+from radar import careers, cv_targets, insights
 from radar.db.database import connection
+from radar.db.queries import get_profile
 from radar.geolocation import infer_location
 
 _ALIASES = {
@@ -60,9 +61,23 @@ def _contains(text: str, term: str) -> bool:
     return re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", _norm(text)) is not None
 
 
+def _terms(name: str) -> list[str]:
+    """Formas en que puede aparecer una skill en el CV: los alias de la carrera activa (los mismos con los
+    que se detectó en la oferta) más los propios de este módulo. Así ambos lados hablan el mismo vocabulario."""
+    key = _norm(name)
+    terms = set(_ALIASES.get(key, [key]))
+    try:
+        for skill in careers.active_pack().skills.values():
+            if _norm(skill.name) == key:
+                terms.update(_norm(alias) for alias in skill.aliases)
+    except careers.CareerPackError:
+        pass  # sin pack legible se usan solo los alias locales
+    return sorted(terms, key=len, reverse=True)
+
+
 def _evidence(name: str, profile: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Evidencia fuerte (certificados, experiencia) y débil (aptitudes de estudios, autodeclaración)."""
-    terms = _ALIASES.get(_norm(name), [_norm(name)])
+    terms = _terms(name)
     strong: list[str] = []
     weak: list[str] = []
     for cert in profile.get("certifications", []):
@@ -71,7 +86,13 @@ def _evidence(name: str, profile: dict[str, Any]) -> tuple[list[str], list[str]]
     for job in profile.get("experience", []):
         haystack = " ".join([*job.get("bullets", []), *job.get("skills", [])])
         if any(_contains(haystack, t) for t in terms):
-            strong.append(f"experiencia: {job.get('role')} en {job.get('company')}")
+            months = _months(job.get("from"), job.get("to"))
+            span = f" (~{months} {'mes' if months == 1 else 'meses'})" if months else ""
+            strong.append(f"experiencia: {job.get('role')} en {job.get('company')}{span}")
+    for project in profile.get("projects", []):
+        haystack = " ".join([project.get("name") or "", project.get("description") or "", *project.get("skills", [])])
+        if any(_contains(haystack, t) for t in terms):
+            strong.append(f"proyecto: {project.get('name')}")
     for school in profile.get("education", []):
         if any(_contains(" ".join(school.get("skills", [])), t) for t in terms):
             weak.append(f"aptitud en {school.get('institution')}")
@@ -91,21 +112,39 @@ def _months(start: str | None, end: str | None) -> int:
     return max(0, (last.year - first.year) * 12 + last.month - first.month + 1) if first else 0
 
 
-def _experience_item(description: str, profile: dict[str, Any]) -> dict[str, Any] | None:
+def _relevant_months(profile: dict[str, Any], skill_names: list[str]) -> int:
+    """Meses de experiencias cuyo rol, viñetas o skills mencionan alguna de las skills de la oferta."""
+    terms = {term for name in skill_names for term in _terms(name)}
+    total = 0
+    for job in profile.get("experience", []):
+        haystack = " ".join([job.get("role") or "", *job.get("bullets", []), *job.get("skills", [])])
+        if any(_contains(haystack, term) for term in terms):
+            total += _months(job.get("from"), job.get("to"))
+    return total
+
+
+def _experience_item(description: str, profile: dict[str, Any], skill_names: list[str] | None = None) -> dict[str, Any] | None:
     for pattern in _YEARS:
         match = pattern.search(description)
         if match:
             required = int(match.group(1))
             quote = description[max(0, match.start() - 20) : match.end() + 20].strip()
             years = sum(_months(j.get("from"), j.get("to")) for j in profile.get("experience", [])) / 12
-            missing = required > years
+            related = _relevant_months(profile, skill_names or []) / 12
+            if required > years:
+                status, blocker = "falta", True
+                reason = f"Suman ~{years:.1f} años entre todas tus experiencias"
+            elif related >= required:
+                status, blocker = "cubierto", False
+                reason = f"~{related:.1f} años en experiencias que mencionan las skills de la oferta"
+            else:
+                status, blocker = "parcial", False
+                reason = (f"Sumas ~{years:.1f} años, pero solo ~{related:.1f} en experiencias que mencionan "
+                          "las skills de la oferta")
             return {
                 "key": "experiencia-previa", "label": f"Experiencia previa (mín. {required} {'año' if required == 1 else 'años'})",
-                "requirement": "required", "category": "experience", "blocker": missing,
-                "status": "falta" if missing else "parcial",
-                "reason": f"Suman ~{years:.1f} años entre tus experiencias, en cualquier rol"
-                          + ("" if missing else "; no se verifica que sean del área"),
-                "quote": quote,
+                "requirement": "required", "category": "experience", "blocker": blocker,
+                "status": status, "reason": reason, "quote": quote,
             }
     return None
 
@@ -160,7 +199,8 @@ def baseline(job_id: str, profile: dict[str, Any] | None = None) -> list[dict[st
             "quote": _clean_quote(quote),
         })
     description = job.get("description") or ""
-    for extra in (_experience_item(description, profile), _education_item(description, profile)):
+    skill_names = [row[0] for row in rows if row[3] != "soft"]
+    for extra in (_experience_item(description, profile, skill_names), _education_item(description, profile)):
         if extra:
             items.append(extra)
     for item in items:
@@ -250,15 +290,41 @@ def combined_target(job_id: str, profile: dict[str, Any] | None = None) -> dict[
     }
 
 
+def _fit_total(job_id: str, profile_id: str | None) -> float | None:
+    """Encaje de la oferta con tus preferencias (el puntaje del mapa), o ``None`` si no hay perfil."""
+    if profile_id is None:
+        return None
+    fit = insights._fit(job_id, profile_id)
+    return fit["total"] if fit else None
+
+
+def read_of(fit: float | None, percent: int | None, low_data: bool) -> str | None:
+    """Frase que reconcilia las dos cifras: encaje (preferencias) y cercanía (evidencia en tu CV)."""
+    if fit is None or percent is None or low_data:
+        return None
+    if fit >= 60 and percent < 50:
+        return "Encaja con lo que buscas, pero te falta evidencia: buen candidato para cerrar brechas."
+    if fit < 45 and percent >= 60:
+        return "Cumples los requisitos, pero encaja poco con tus preferencias."
+    if fit >= 60 and percent >= 60:
+        return "Encaja y cumples: candidato para postular ya."
+    return None
+
+
 def ranked_selection() -> list[dict[str, Any]]:
     """Todos los objetivos, del más al menos alcanzable, sin el cuerpo del candidato ideal."""
     profile = cv_targets.load_profile() or {}
+    account = get_profile()
+    profile_id = account["id"] if account else None
     ranked = []
     for job_id in selected_job_ids():
         target = combined_target(job_id, profile)
         if target:
-            ranked.append({k: target[k] for k in
-                           ("id", "title", "company", "location", "readiness", "has_enrichment")})
+            item = {k: target[k] for k in ("id", "title", "company", "location", "readiness", "has_enrichment")}
+            item["fit_total"] = _fit_total(job_id, profile_id)
+            readiness_ = item["readiness"]
+            item["read"] = read_of(item["fit_total"], readiness_["percent"], readiness_["low_data"])
+            ranked.append(item)
     # Con datos suficientes primero, luego sin bloqueadores, luego por cercanía.
     ranked.sort(key=lambda t: (t["readiness"]["low_data"], t["readiness"]["blockers"],
                                -(t["readiness"]["percent"] or 0)))

@@ -32,8 +32,12 @@ reordena lo que ya existe; esa adaptación queda como fase posterior y mínima (
    `key` con la brecha base, prevalece el del código. Lo que el código no cubre queda marcado
    `estado: agente` (`ᵃ` en la matriz). Las habilidades blandas se listan pero no puntúan. La
    cercanía es ponderada y, con pocas señales, se muestra "datos insuficientes" en lugar de un
-   porcentaje. Límite conocido: los años de experiencia suman cualquier rol; no se verifica que
-   sean del área.
+   porcentaje. Los años de experiencia se cuentan en total y por separado los de roles que mencionan las skills
+   de la oferta: si solo llegas sumando todos, queda `parcial`. Las skills del CV se buscan con los mismos alias que la
+   carrera activa usa para detectarlas en la oferta, y los proyectos cuentan como evidencia fuerte.
+   **Cercanía y encaje no son lo mismo.** La cercanía mide si tu CV demuestra los requisitos de la oferta; el
+   encaje (el puntaje del mapa) mide si la oferta calza con tus preferencias (área, ubicación, nivel). La vista
+   muestra las dos y una frase que las reconcilia («encaja pero te falta evidencia», «cumples pero encaja poco»).
 4. **El plan de cierre es honesto.** Cada brecha se clasifica por lo que cuesta cerrarla:
 
    | Tipo | Ejemplo | Cierre |
@@ -153,7 +157,8 @@ sesiones ni lee perfiles de LinkedIn.
 3. Prototipo con 3 ofertas reales. **Hecho** (generado a mano; falta probar la generación por el agente).
 4. Matriz de brechas. **Hecho.**
 5. Vista Comparar. **Hecho.**
-6. Render con foto y marca hipotética. **Hecho.** Plan de cierre agregado entre puestos: pendiente.
+6. Render con foto y marca hipotética. **Hecho.** Plan de cierre agregado entre puestos: **hecho** (pestaña `Plan`, `get_closure_plan`).
 7. Vínculo con el mapa (resaltar la oferta del CV abierto): pendiente.
-8. (Posterior, mínima) Ayuda para destacar en el CV real lo que el usuario ya cerró como brecha.
+8. Cierre del ciclo: **hecho** (`close_gap` guarda certificado o proyecto en el CV real, anota el hito y recalcula).
+9. (Posterior, mínima) Ayuda para destacar en el CV real lo que el usuario ya cerró como brecha.
    Solo reordena y resalta; no inventa.

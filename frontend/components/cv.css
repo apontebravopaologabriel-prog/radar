@@ -21,3 +21,9 @@
 .cv-baseline th { color: #8c8c8c; font-size: 9px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
 .cv-baseline td.reason { color: #8c8c8c; font-size: 10px; }
 @media (max-width: 720px) { .cv-rank-row { grid-template-columns: auto minmax(0, 1fr); } .cv-rank-meter, .cv-rank-actions { grid-column: 2; } }
+
+/* Cercanía + encaje juntos, y la lectura que las reconcilia */
+.cv-rank-scores { display: grid; gap: 4px; justify-items: end; }
+.cv-fit { color: #8a8a8a; font-size: 10px; letter-spacing: .06em; }
+.cv-read { display: block; margin-top: 3px; color: #b8b8b8; font-size: 10px; line-height: 1.4; }
+.cv-plan h4 { margin: 18px 0 8px; }

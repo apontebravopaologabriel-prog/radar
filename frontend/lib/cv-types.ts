@@ -49,6 +49,8 @@ export type CvSelectionItem = {
   location: CvLocation;
   readiness: CvReadiness;
   has_enrichment: boolean;
+  fit_total?: number | null;
+  read?: string | null;
 };
 
 export type CvTarget = CvSelectionItem & {
@@ -65,6 +67,27 @@ export type CvMatrix = {
   rows: { key: string; label: string; cells: Record<string, CvStatus>; agent_cells: string[]; open_count: number }[];
 };
 
+export type CvPlanRow = {
+  key: string;
+  skill: string;
+  status: CvStatus;
+  targets: string[];
+  unlocks: number;
+  gain_points: number;
+  required_in: number;
+  market_share_pct: number | null;
+  market_jobs: number | null;
+  proposal: { kind?: CvGap["kind"] | null; action?: string | null; estimate_days?: number | null; evidence_to_produce?: string | null } | null;
+};
+
+export type CvPlan = {
+  targets: number;
+  market_days: number;
+  plan: CvPlanRow[];
+  structural: { key: string; label: string; status: CvStatus; targets: string[]; reason: string }[];
+  closed: { title: string; type: string; detail: string; date: string | null }[];
+};
+
 export type CvProfile = {
   name: string;
   headline: string;
@@ -74,5 +97,6 @@ export type CvProfile = {
   education?: { institution: string; program: string; status: string }[];
   experience?: { role: string; company: string; from: string; to: string }[];
   certifications?: { name: string; issuer: string; date: string }[];
+  projects?: { name: string; description?: string; date?: string }[];
   tools_declared_in_db?: Record<string, string>;
 };

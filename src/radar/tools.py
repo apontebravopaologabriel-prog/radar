@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import create_model
 
-from radar import cv_baseline, cv_edit, cv_targets, insights, maintenance, system
+from radar import cv_baseline, cv_edit, cv_plan, cv_targets, insights, maintenance, system
 from radar.agent.history import search_conversations
 from radar.agent.memory import save_memory, search_memories
 from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pack
@@ -479,6 +479,25 @@ def save_target_profile(job_id: str, profile: dict) -> dict:
     esquema no valida; el estado de los requisitos que Radar ya calculó (`baseline`, con su `key`) no
     se puede reasignar: prevalece el del código; la empresa, el título y la distancia los calcula Radar."""
     return cv_targets.save_target(job_id, profile)
+
+
+@tool()
+def get_closure_plan(limit: int = 10) -> dict:
+    """Plan para cerrar brechas entre tus objetivos (ofertas con estrella): qué skills cerrar primero, cuántos
+    puntos de cercanía sube cada una en cada puesto, en cuántos objetivos aparece y qué % del mercado reciente
+    la pide. Incluye lo estructural (años de experiencia, grado), que un curso no cierra, y lo cerrado
+    recientemente. Úsala cuando pregunten qué aprender o demostrar primero."""
+    return cv_plan.closure_plan(limit)
+
+
+@tool(write=True)
+def close_gap(skill: str, kind: str, name: str, issuer: str | None = None, date: str | None = None,
+              description: str | None = None, link: str | None = None) -> dict:
+    """Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha
+    (ej. «SQL»). kind: certificado (name debe mencionar la skill; issuer, date AAAA-MM) o proyecto (name y
+    description de lo que hizo, mín. 15 caracteres; link opcional). Lo guarda en el CV, quita la nota de brecha
+    equivalente, lo anota en la línea de tiempo y devuelve la cercanía de cada objetivo antes y después."""
+    return cv_plan.close_gap(skill, kind, name, issuer, date, description, link)
 
 
 @tool(chat=False)

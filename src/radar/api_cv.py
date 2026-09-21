@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from radar import cv_baseline, cv_targets
+from radar import cv_baseline, cv_plan, cv_targets
 
 router = APIRouter(prefix="/api/cv")
 MAX_COMPARED = 4
@@ -22,6 +22,12 @@ def cv_profile() -> dict[str, Any]:
 def cv_selection() -> dict[str, Any]:
     """Favoritos activos ordenados por cercanía al perfil real."""
     return {"targets": cv_baseline.ranked_selection()}
+
+
+@router.get("/plan")
+def cv_closure_plan(limit: int = Query(default=10, ge=1, le=30)) -> dict[str, Any]:
+    """Skills a cerrar primero entre todos los objetivos, ponderadas por demanda del mercado."""
+    return cv_plan.closure_plan(limit)
 
 
 @router.get("/targets")

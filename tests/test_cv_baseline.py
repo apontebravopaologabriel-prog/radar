@@ -92,3 +92,30 @@ def test_soft_skills_are_listed_but_not_scored_and_quotes_are_clean(job):
     assert cv_baseline.soft_skills(job)
     quote = cv_baseline._clean_quote("**texto** ---------- sucio " * 20)
     assert "*" not in quote and "--" not in quote and len(quote) <= 141
+
+
+def test_cv_mentions_use_the_same_aliases_as_the_offer(job):
+    # "Microsoft 365" es alias de Excel en el pack de carrera: el CV que solo dice eso debe contar.
+    profile = {**PROFILE, "certifications": [], "tools_declared_in_db": {},
+               "experience": [{"role": "Auxiliar", "company": "JAS", "from": "2023-01", "to": "2024-12",
+                               "bullets": ["Reportes en Microsoft 365"], "skills": []}]}
+    items = {i["key"]: i for i in cv_baseline.baseline(job, profile)}
+    assert items["excel"]["status"] == "cubierto"
+    assert "24 meses" in items["excel"]["reason"]
+
+
+def _years_item(job, experience):
+    profile = {**PROFILE, "experience": experience}
+    return {i["key"]: i for i in cv_baseline.baseline(job, profile)}["experiencia-previa"]
+
+
+def test_years_only_fully_count_when_related_to_the_offer_skills(job):
+    unrelated = [{"role": "Cajero", "company": "Tienda", "from": "2020-01", "to": "2024-12",
+                  "bullets": ["Atención al cliente"], "skills": []}]
+    item = _years_item(job, unrelated)
+    assert item["status"] == "parcial" and item["blocker"] is False
+    assert "solo ~0.0" in item["reason"]
+    related = [{"role": "Analista", "company": "ACME", "from": "2020-01", "to": "2024-12",
+                "bullets": ["Reportes en Excel"], "skills": []}]
+    item = _years_item(job, related)
+    assert item["status"] == "cubierto" and item["blocker"] is False

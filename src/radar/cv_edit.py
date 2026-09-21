@@ -24,6 +24,7 @@ LIST_SECTIONS: dict[str, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]
     "experience": (("role", "company", "location", "from", "to", "bullets"), ("role", "company"), ("role", "company")),
     "education": (("institution", "program", "from", "to", "status", "skills"), ("institution", "program"), ("program", "institution")),
     "languages": (("name", "level", "evidence"), ("name",), ("name",)),
+    "projects": (("name", "description", "skills", "date", "link"), ("name",), ("name",)),
 }
 TEXT_SECTIONS = {"summary", "headline"}
 SECTIONS = (*LIST_SECTIONS, "gaps", *TEXT_SECTIONS)

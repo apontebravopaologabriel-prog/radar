@@ -39,7 +39,7 @@ hipotéticos redactados por el agente; no son CVs enviables (ver
   `/effort` comparten un selector, y `?` muestra los atajos. Usa tu propia clave de API (DeepSeek por defecto;
   también OpenAI, OpenRouter, Ollama o un endpoint compatible) con tope mensual de tokens. Recibe el contexto
   explícito de la pantalla (vista, distrito, filtros, oferta abierta), que se puede apagar con `Ctrl+K`. Comparte
-  las 52 herramientas del MCP (40 visibles en el chat, `src/radar/tools.py`); las que escriben piden confirmación.
+  las 54 herramientas del MCP (42 visibles en el chat, `src/radar/tools.py`); las que escriben piden confirmación.
   Guía completa: [docs/agente.md](docs/agente.md).
 - **Acceso desde el celular:** ver [Acceso remoto](docs/operations.md#acceso-remoto-desde-el-celular).
 

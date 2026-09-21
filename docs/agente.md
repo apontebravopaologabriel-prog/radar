@@ -21,7 +21,7 @@ visionario e independiente, cuya lealtad es con los datos y con el futuro de la 
 
 Cualquier cambio de personalidad se hace en `soul.md` (se empaqueta con el paquete `radar`).
 
-## Herramientas (52 en total, 40 en el chat)
+## Herramientas (54 en total, 42 en el chat)
 
 `src/radar/tools.py` es el único registro. Cada herramienta declara `write` (pide confirmación) y `chat`
 (visible para el agente de la app). Las marcadas **MCP** solo están en el servidor MCP.
@@ -30,6 +30,7 @@ Cualquier cambio de personalidad se hace en `soul.md` (se empaqueta con el paque
 |---|---|
 | Mercado y ofertas | `search_saved_jobs` (filtros por área, sector, exclusión de sectores y texto), `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (por área, lugar, empresa, modalidad, seniority, sector o portal, con filtros), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`; **MCP:** `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |
 | Perfil, CV y memoria | `get_user_profile`, `get_my_cv`, `update_cv`\*, `update_profile`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
+| Plan de cierre | `get_closure_plan`, `close_gap`\* |
 | Seguimiento | `favorite_job`\*, `track_job_application`\*, `list_job_applications` |
 | Captura y sistema | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`; **MCP:** `ingest_jobs`\*, `capture_market_history`\* |
 | CVs objetivo (**MCP**) | `get_target_context`, `list_targets`, `save_target_profile`\*, `get_target_matrix`, `resolve_nearest_districts` |
@@ -117,7 +118,7 @@ silencio, sin citarlo. Las menciones con `@` viajan siempre y tienen prioridad.
 ## CV por texto
 
 `update_cv(section, action, item, match)` edita `cv_master.json`, la misma fuente que lee la vista de CVs. Secciones:
-`certifications`, `experience`, `education`, `languages`, `gaps` (brechas de evidencia), `summary` y `headline`.
+`certifications`, `experience`, `education`, `languages`, `projects`, `gaps` (brechas de evidencia), `summary` y `headline`.
 Acciones: `add`, `update`, `remove`. Valida los campos permitidos y las fechas `AAAA-MM`, rechaza duplicados y
 coincidencias ambiguas, conserva las claves que no toca, guarda `cv_master.json.bak-<fecha>` (últimas 5) y escribe de
 forma atómica. Solo con lo que la persona dicta. Las skills y herramientas se cambian con `update_profile`, y la vista
@@ -150,3 +151,14 @@ consumo se cuenta en `agent_usage`.
 - **Comando nuevo:** una entrada en `COMMANDS` de `frontend/components/agent/commands.ts` (y en `VIEWS` si debe abrir
   ventana o aviso).
 - **Personalidad o reglas:** `soul.md` y `SYSTEM_PROMPT`; actualiza `help.md` si cambia algo visible.
+
+## Plan de cierre y cierre del ciclo
+
+- `get_closure_plan` responde «qué aprendo o demuestro primero». Toma tus objetivos (ofertas con ★), simula cubrir cada
+  skill abierta y suma los puntos de cercanía que ganaría cada puesto; después cruza con el % de ofertas de los últimos
+  30 días que la piden. Lo estructural (años de experiencia, grado) va aparte: un curso no lo cierra.
+- `close_gap(skill, kind, name, ...)` registra evidencia que la persona ya tiene: un `certificado` (su nombre debe
+  mencionar la skill) o un `proyecto` (con descripción de lo que hizo). La guarda en el CV real, retira la nota de brecha
+  equivalente, la anota en la línea de tiempo y devuelve la cercanía de cada objetivo antes y después. Si no cambia nada,
+  lo dice y explica por qué. Nunca inventa: solo con lo que la persona aporta.
+- La vista `CVs` tiene una pestaña **Plan** con el mismo cálculo (`GET /api/cv/plan`), que se recalcula al abrirla.

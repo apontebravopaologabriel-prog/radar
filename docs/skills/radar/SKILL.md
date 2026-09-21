@@ -53,6 +53,8 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `get_target_context` | lee | Contexto para redactar CVs objetivo hipotéticos: ofertas (requisitos, skills, descripción, | job_ids: array |
 | `list_targets` | lee | Objetivos actuales (ofertas con estrella) ordenados por cercanía al perfil real, con su brecha |  |
 | `save_target_profile` | escribe | Guarda un CV objetivo HIPOTÉTICO (nunca el CV real ni enviable). `profile` lleva `sections` | job_id: string, profile: object |
+| `get_closure_plan` | lee | Plan para cerrar brechas entre tus objetivos (ofertas con estrella): qué skills cerrar primero, cuántos | limit?: integer |
+| `close_gap` | escribe | Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha | skill: string, kind: string, name: string, issuer?: string|null, date?: string|null, description?: string|null, link?: string|null |
 | `get_target_matrix` | lee | Matriz de brechas entre los CVs objetivo guardados (requisitos con `key` por puesto). |  |
 | `resolve_nearest_districts` | lee | Distritos más cercanos a una zona mencionada en una oferta, con km aproximados. | reference: string, limit?: integer |
 | `audit_classification` | lee | Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes. | sample?: integer |
