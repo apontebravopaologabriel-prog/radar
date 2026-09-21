@@ -167,12 +167,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       <div className="term-log" aria-live="polite">
         {lines.length === 0 && (
           <div className="term-welcome">
-            <div><RadarMark size={16} /> <b>radar</b> <span className="term-dim">agente</span></div>
-            <p className="term-dim">Pregunta lo que quieras sobre tus ofertas, o escribe / para comandos.</p>
-            <div className="term-suggest">
-              {needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/init</button>}
-              {["/today", "/map", "/skills", "/context", "/help"].map((c) => <button key={c} onClick={() => submit(c)}>{c}</button>)}
-            </div>
+            <span className="term-dim">escribe <b>/</b> para comandos · <b>?</b> atajos{needsSetup ? " · " : ""}{needsSetup && <button onClick={() => send(SETUP_PROMPT)}>/init</button>}</span>
           </div>
         )}
         {lines.map((line, index) => <TermLine key={index} line={line} />)}
@@ -207,15 +202,18 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       </form>
       {resumeOpen && <ResumePicker onOpen={open} onDelete={(id) => remove(id)} onClose={() => setResumeOpen(false)} />}
       {configMenu && settings && <ConfigPicker settings={settings} focus={configMenu} onApply={applyConfig} onClose={() => setConfigMenu(null)} />}
-      <div className="term-context" title="Contexto de navegación enviado al agente. Pulsa para cambiar: apagado → selección → completo (incluye filas de análisis)">
-        <button type="button" className="term-context-toggle" onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
-          CONTEXTO · {contextMode === "off" ? "APAGADO" : contextMode === "selection" ? "SELECCIÓN" : "COMPLETO"}
-        </button>
-        {contextMode !== "off" && <> · {contextLabel}{(context?.districtJobs ?? context?.visibleCount) !== undefined ? ` · ${context?.districtJobs ?? context?.visibleCount} ofertas` : ""}</>}
-      </div>
       <div className="term-footer">
-        <span>{busy ? "esc detener" : `${settings?.read_only ? "⏸ solo lectura" : "⏵ normal"} (shift+tab) · ? atajos`}</span>
-        {settings?.ready ? <span>{settings.model} · {effortLabel(settings.reasoning_effort)} · ctx {usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes {Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%{settings.read_only ? " · lectura" : ""}</span> : <span>sin configurar</span>}
+        <span>
+          {busy ? "esc detener" : "? atajos"}
+          {settings?.read_only ? " · ⏸ lectura" : ""}
+          {" · "}
+          <button type="button" className="term-context-toggle" title="Contexto de pantalla que recibe el agente (Ctrl+K): apagado → selección → completo"
+            onClick={() => setContextMode(contextMode === "off" ? "selection" : contextMode === "selection" ? "full" : "off")}>
+            {contextMode === "off" ? "○ sin contexto" : `◉ ${contextMode === "full" ? "completo" : "selección"}`}
+          </button>
+          {contextMode !== "off" && <> · {contextLabel.toLowerCase()}{(context?.districtJobs ?? context?.visibleCount) !== undefined ? ` · ${context?.districtJobs ?? context?.visibleCount}` : ""}</>}
+        </span>
+        {settings?.ready ? <span>{settings.model} · {effortLabel(settings.reasoning_effort)} · {usage.context && settings ? Math.min(100, Math.round((usage.context / settings.context_window) * 100)) : 0}% · mes {Math.round((settings.tokens_used_this_month / Math.max(settings.monthly_token_cap, 1)) * 100)}%</span> : <span>sin configurar</span>}
       </div>
     </div>
   );
