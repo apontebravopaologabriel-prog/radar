@@ -287,7 +287,7 @@ def test_market_breakdown_supports_sector_and_filters():
 
 
 def test_refresh_market_is_a_confirmed_write_and_builds_place_focused_steps(monkeypatch):
-    import radar.refresh as refresh
+    from radar import refresh
 
     assert tools.REGISTRY["refresh_market"].write is True and tools.REGISTRY["get_refresh_status"].write is False
     monkeypatch.setattr(refresh, "_binaries", lambda: {"computrabajo": ["radar", "ingest", "--source", "computrabajo"],

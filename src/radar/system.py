@@ -50,7 +50,7 @@ def schedule_status() -> dict[str, Any]:
     listing = _systemctl("list-timers", TIMER_UNIT, "--output=json", "--no-pager").stdout
     try:
         row = next(iter(json.loads(listing) or []), {})
-        stamp = lambda us: datetime.fromtimestamp(us / 1e6).astimezone().isoformat(timespec="minutes") if us else None  # noqa: E731
+        stamp = lambda us: datetime.fromtimestamp(us / 1e6).astimezone().isoformat(timespec="minutes") if us else None
         next_run, last_run = stamp(row.get("next")), stamp(row.get("last"))
     except (ValueError, TypeError):
         pass

@@ -40,7 +40,7 @@ def _load() -> dict[str, Any]:
     except (OSError, ValueError) as exc:
         raise ValueError("No hay CV cargado (cv_master.json) o está dañado; créalo antes de editarlo por texto.") from exc
     if not isinstance(cv, dict):
-        raise ValueError("cv_master.json no tiene el formato esperado")
+        raise ValueError("cv_master.json no tiene el formato esperado")  # noqa: TRY004 - el agente captura ValueError
     return cv
 
 
