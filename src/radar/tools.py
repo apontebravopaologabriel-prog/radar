@@ -76,6 +76,9 @@ class Tool:
         schema.pop("title", None)
         for prop in schema.get("properties", {}).values():
             prop.pop("title", None)
+            # El modelo decide qué omitir por `required` (o su ausencia), no por el valor por defecto:
+            # Tool.call() ya lo aplica al ejecutar. Quitarlo ahorra bytes en cada mensaje sin cambiar nada.
+            prop.pop("default", None)
         return schema
 
     def call(self, arguments: dict[str, Any]) -> dict:

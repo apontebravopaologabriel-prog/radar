@@ -27,8 +27,19 @@ def test_write_tools_are_classified_and_chat_excludes_risky_ones():
 def test_schemas_derive_from_signatures():
     schema = tools.REGISTRY["track_job_application"].json_schema()
     assert schema["required"] == ["job_id"]
-    assert schema["properties"]["status"]["default"] == "saved"
     assert "skills" in tools.REGISTRY["update_profile"].json_schema()["properties"]
+
+
+def test_schemas_omit_default_values_the_model_never_needs():
+    # El esquema que ve el modelo no necesita el valor por defecto (la opcionalidad ya la marca `required`);
+    # Tool.call() lo sigue aplicando al ejecutar, sin cambios. Quitarlo del esquema ahorra bytes en cada mensaje.
+    for t in tools.chat_tools():
+        for prop in t.json_schema().get("properties", {}).values():
+            assert "default" not in prop, f"{t.name} todavía manda un default al modelo"
+    import inspect
+
+    status_default = inspect.signature(tools.REGISTRY["track_job_application"].fn).parameters["status"].default
+    assert status_default == "saved"
 
 
 def test_profile_feed_and_skill_impact_roundtrip():

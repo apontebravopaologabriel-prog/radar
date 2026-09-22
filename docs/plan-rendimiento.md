@@ -55,7 +55,7 @@ no conviene "optimizar" eso sin evidencia.
 |---|---|---|
 | `React.memo` en líneas y Markdown; propiedades estables | Escribir/arrastrar no re-analiza el historial | Hecho |
 | Resumir contexto (`/compact`) y avisar al 70 % | Menos tokens y latencia por turno | Hecho (aviso manual); automático pendiente |
-| Definiciones de herramientas: ~2 700 tokens por llamada; agruparlas por intención y exponer solo las relevantes | −30–40 % de prompt por turno | Pendiente |
+| Definiciones de herramientas: ~5 600 tokens por llamada (45 en el chat; crece con cada herramienta nueva); quitar del esquema el `default` que el modelo no usa | −5 % ya hecho (~5 340 tokens); agruparlas por intención y exponer solo las relevantes bajaría 30–40 % más, pero exige probarlo contra un proveedor real para no arriesgar la fiabilidad de las llamadas | Parcial: el ahorro mecánico está hecho; agrupar por intención sigue pendiente |
 | Móvil: `/api/map/places` ya agrega por lugar; añadir caché del service worker de 60 s | Mapa instantáneo al volver | Pendiente |
 
 ## 3. Presupuesto de rendimiento (para no volver atrás)
