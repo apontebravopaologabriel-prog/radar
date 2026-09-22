@@ -44,9 +44,9 @@ no conviene "optimizar" eso sin evidencia.
 |---|---|---|
 | Arrastre y estirado del agente sin relayout ni re-render | Ver medidas | Hecho |
 | `content-visibility: auto` en tarjetas | Menos layout/pintura de lo que no se ve | Hecho |
-| Lista de ofertas por tramos de 60 (incluye la oferta seleccionada para `j/k`) | De 52 000 a ~3 800 nodos al abrir | Hecho. Pendiente: desmontar las tarjetas que salen de pantalla (al llegar al final vuelve a haber ~50 000 nodos, aunque `content-visibility` evita su layout) |
-| Cargar `maplibre-gl` bajo demanda y no en la primera pintura | −1 MB en la carga inicial | Pendiente |
-| Partir `RadarClient` en componentes con `memo` y estado local | Menos re-renders al filtrar | Pendiente |
+| Lista de ofertas por tramos de 60 (incluye la oferta seleccionada para `j/k`) | De 52 000 a ~3 800 nodos al abrir | Hecho al abrir. **Medido de nuevo:** `useProgressiveList` solo crece (nunca desmonta lo que ya se mostró), así que tras recorrer toda la lista quedan 47 229 nodos (`node scripts/perf/measure.mjs scroll`), casi 6× el presupuesto. Pendiente: ventana deslizante real (desmontar tarjetas lejos del scroll). Las tarjetas tienen alto variable (sin altura fija), así que necesita una librería de virtualización o spacers medidos, no una franja fija; no se intentó esta vez por el riesgo de romper la selección con `j/k` sin poder probar cada modo (mapa, favoritos, ocultas) a fondo |
+| Cargar `maplibre-gl` bajo demanda y no en la primera pintura | −1 MB en la carga inicial | **Hecho** (ya estaba, vía `next/dynamic`): medido con Chromium por CDP, el chunk se pide a los 207 ms, después de que el shell ya es interactivo (144 ms) y antes de que terminen de pintarse las tarjetas (411 ms); no bloquea nada. En la red pesa ~270 KB comprimido, no el ~1 MB sin comprimir que decía esta fila |
+| Partir `RadarClient` en componentes con `memo` y estado local | Menos re-renders al filtrar | Parcial: `OfferSignalCard` y `JobCard` (las piezas caras, una por oferta) ya están con `memo`, y `visibleJobs` y los conteos derivados ya usan `useMemo`. El archivo en sí (880 líneas) sigue sin dividirse; sin una regresión medida que lo pida, no es la prioridad ahora |
 | Intro de arranque completa solo la primera vez de la sesión (y no con «reducir movimiento») | −1,5 s en cada recarga | Hecho |
 | Bajar el número de filtros CSS (`filter`, sombras con desenfoque) en superficies grandes | Menos coste de pintura | Pendiente, con medición previa |
 
