@@ -41,8 +41,8 @@ function Chips({ label, items, suggestions, onAdd, onRemove, placeholder }: {
     <div className="set-field">
       <span>{label}</span>
       <ul className="set-chips">
-        {items.map((item) => <li key={item}>{item}<button type="button" aria-label={`Quitar ${item}`} onClick={() => onRemove(item)}>✕</button></li>)}
-        {items.length === 0 && <li className="set-empty">Ninguno todavía</li>}
+        {items.map((item) => <li key={item}>[{item} <button type="button" aria-label={`Quitar ${item}`} onClick={() => onRemove(item)}>×</button>]</li>)}
+        {items.length === 0 && <li className="set-empty">ninguno todavía</li>}
       </ul>
       <input value={draft} list={suggestions ? id : undefined} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} onBlur={add} />
@@ -106,7 +106,7 @@ export default function ProfileTab({ career, onError }: { career: Career; onErro
 
       <div className="set-progress" role="status" aria-label={`Perfil completo al ${me.completeness.percent}%`}>
         <div className="set-progress-bar"><i style={{ width: `${me.completeness.percent}%` }} /></div>
-        <p>{me.completeness.percent === 100 ? "Perfil completo." : `Perfil al ${me.completeness.percent}%. Falta: ${me.completeness.missing.map((item) => item.label).join(", ")}.`}</p>
+        <p className="set-log">{me.completeness.percent === 100 ? "perfil completo" : `perfil ${me.completeness.percent}% — falta: ${me.completeness.missing.map((item) => item.label.toLowerCase()).join(", ")}`}</p>
         {me.completeness.missing.slice(0, 2).map((item) => <p key={item.key} className="set-why">{item.label}: {item.why}</p>)}
       </div>
 

@@ -182,24 +182,6 @@
 .term-suggest button { border: 0; padding: 0 2px; min-height: 24px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .term-suggest button:hover { color: var(--ink); border: 0; }
 
-/* Ajustes de escritorio: panel de configuración, no formulario móvil. */
-@media (min-width: 700px) {
-  .m-main:has(.settings-stack) { max-width: 1220px; padding: 34px 42px 48px; }
-  .settings-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
-  .settings-stack > .m-head, .settings-stack > .m-card:nth-of-type(4), .settings-stack > .m-card:nth-of-type(5) { grid-column: 1 / -1; }
-  .settings-stack > .m-head { padding: 4px 2px 8px; border-bottom: 1px solid var(--line); }
-  .settings-stack > .m-card { min-width: 0; padding: 18px 20px; }
-  .settings-stack > .m-card h2 { font-size: 15px; }
-  .settings-stack > .m-card:nth-of-type(3) { grid-column: 1 / -1; }
-  .settings-stack .m-sub { max-width: 760px; }
-  .settings-stack .m-primary { width: auto; min-width: 210px; }
-  .settings-agent-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
-  .settings-agent-fields label:last-child { grid-column: 1 / -1; }
-  .settings-stack .m-slider { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 18px; margin-top: 14px; }
-  .settings-stack .m-slider input[type="range"] { height: 28px; }
-  .settings-stack .m-card:nth-of-type(3) .m-primary { margin-top: 18px; }
-}
-
 /* Selector de modelo y effort: panel en línea (no popover), adaptable al ancho del chat. */
 .term { container-type: inline-size; }
 .cfg-picker { border: 1px solid var(--muted); border-radius: 4px; background: var(--card); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; outline: none; }

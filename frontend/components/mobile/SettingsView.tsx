@@ -60,9 +60,11 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   return (
     <div className="m-stack settings-stack">
       <header className="m-head"><span className="m-eyebrow">[AJUSTES]</span><h1>Ajustes</h1>{note && <p role="status">{note}</p>}</header>
-      <nav className="set-tabs" role="tablist" aria-label="Secciones de ajustes">
+      <div className="set-shell">
+      <nav className="set-rail" role="tablist" aria-label="Secciones de ajustes">
         {TABS.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
       </nav>
+      <div className="set-content">
       {tab === "perfil" && <ProfileTab career={career} onError={onError} />}
 
       {tab === "busqueda" && (<>
@@ -154,6 +156,8 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         <a className="m-link" href="/radar">Abrir mapa, análisis y CVs</a>
         {authRequired && <button className="m-link" onClick={onLogout}>Cerrar sesión</button>}
       </footer>
+      </div>
+      </div>
     </div>
   );
 }
