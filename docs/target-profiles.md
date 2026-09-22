@@ -134,8 +134,10 @@ Implementado: los pasos 1 y 2 (`src/radar/cv_targets.py`, endpoints `/api/cv/*`,
 
 Pasos:
 
-1. API: `GET /api/cv/profile`, `GET /api/cv/targets`, `GET /api/cv/photo`. La foto se copia una vez a
-   `~/.local/share/radar/photo.jpg`; la API sirve solo esa ruta fija, nunca una ruta recibida.
+1. API: `GET /api/cv/profile`, `GET /api/cv/targets`, `GET /api/cv/photo`. La foto se sube desde Ajustes
+   (`POST /api/me/photo`, `DELETE /api/me/photo`): se valida con Pillow, se limpia de metadatos EXIF (pueden
+   llevar ubicación GPS), se redimensiona a 640 px de lado mayor y se guarda como `~/.local/share/radar/photo.jpg`;
+   la API sirve solo esa ruta fija, nunca una recibida del cliente.
 2. Herramienta flotante **CVs** con el panel: cabecera con foto, nombre y distrito; debajo,
    pestañas `Matriz` y `Comparar`; al elegir una columna se abre el CV objetivo.
 3. Herramientas MCP (`get_target_context`, `save_target_profile`, `get_target_matrix`,

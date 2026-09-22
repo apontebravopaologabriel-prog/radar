@@ -31,8 +31,12 @@
 /* Perfil */
 .set-profile { display: flex; flex-direction: column; }
 .set-identity { display: flex; flex-direction: column; gap: 20px; align-items: flex-start; padding-bottom: 6px; }
-.set-photo { flex: none; width: 76px; height: 76px; border: 1px solid var(--line); object-fit: cover; }
+.set-photo-wrap { flex: none; display: flex; flex-direction: column; gap: 2px; }
+.set-photo { width: 76px; height: 76px; border: 1px solid var(--line); object-fit: cover; }
 .set-photo-empty { display: grid; place-items: center; background: var(--card); color: var(--dim); font-size: 22px; letter-spacing: .04em; }
+.set-photo-actions { display: flex; gap: 8px; }
+.set-photo-actions .m-link { min-height: 0; padding: 0; font-size: 11px; }
+.set-photo-actions .m-link:disabled { color: var(--dim); cursor: progress; text-decoration: none; }
 .set-identity-fields { display: grid; flex: 1; width: 100%; gap: 2px; min-width: 0; }
 .set-identity-fields .set-field:first-child input { font-size: 16px; }
 .set-field { display: block; margin-top: 10px; }
@@ -93,4 +97,4 @@
 }
 
 /* Etiquetas planas de Búsqueda/Agente (select, input) con el mismo prefijo de comentario que .set-field. */
-.set-section > div > label:not(.m-check)::before, .set-content label:not(.m-check):not(.set-field)::before { content: "# "; color: var(--dim); }
+.set-section > div > label:not(.m-check):not(.set-field)::before, .set-content label:not(.m-check):not(.set-field)::before { content: "# "; color: var(--dim); }

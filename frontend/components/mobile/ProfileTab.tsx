@@ -51,6 +51,9 @@ function Chips({ label, items, suggestions, onAdd, onRemove, placeholder }: {
   );
 }
 
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export default function ProfileTab({ career, onError }: { career: Career; onError: (e: unknown) => void }) {
   const [me, setMe] = useState<MeProfile | null>(null);
   const [places, setPlaces] = useState<string[]>([]);
@@ -58,7 +61,10 @@ export default function ProfileTab({ career, onError }: { career: Career; onErro
   const [version, setVersion] = useState(0);
   const [newSkill, setNewSkill] = useState("");
   const [newLevel, setNewLevel] = useState("basic");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoVersion, setPhotoVersion] = useState(0);
   const timer = useRef<number | undefined>(undefined);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => api.me().then(setMe).catch(onError), [onError]);
   useEffect(() => {
@@ -85,6 +91,29 @@ export default function ProfileTab({ career, onError }: { career: Career; onErro
     }
   };
 
+  const pickPhoto = async (file: File | undefined) => {
+    if (fileInput.current) fileInput.current.value = ""; // permite volver a elegir el mismo archivo
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) { onError(new Error("Usa una imagen JPG, PNG o WEBP")); return; }
+    if (file.size > MAX_PHOTO_BYTES) { onError(new Error(`La imagen pesa más de ${MAX_PHOTO_BYTES / (1024 * 1024)} MB`)); return; }
+    setPhotoBusy(true);
+    try {
+      await api.uploadPhoto(file);
+      setPhotoVersion((v) => v + 1);
+      setMe((current) => current && { ...current, has_photo: true });
+      flash({ text: "Guardado", warnings: [] });
+    } catch (error) { onError(error); } finally { setPhotoBusy(false); }
+  };
+  const removePhoto = async () => {
+    setPhotoBusy(true);
+    try {
+      await api.removePhoto();
+      setPhotoVersion((v) => v + 1);
+      setMe((current) => current && { ...current, has_photo: false });
+      flash({ text: "Foto quitada", warnings: [] });
+    } catch (error) { onError(error); } finally { setPhotoBusy(false); }
+  };
+
   if (!me) return <p className="m-empty">Cargando…</p>;
   const skillNames = career.skills.filter((skill) => skill.type !== "soft").map((skill) => skill.name).filter((name) => !(name in me.skills));
   const areaOptions = [...career.areas.core, ...career.areas.adjacent].filter((area) => !me.areas.includes(area));
@@ -95,8 +124,15 @@ export default function ProfileTab({ career, onError }: { career: Career; onErro
   return (
     <div className="set-profile" key={version}>
       <header className="set-identity">
-        {/* eslint-disable-next-line @next/next/no-img-element -- export estático sin optimizador de imágenes */}
-        {me.has_photo ? <img className="set-photo" src={CV_PHOTO_URL} alt={`Foto de ${me.name}`} /> : <div className="set-photo set-photo-empty" aria-hidden="true">{initials}</div>}
+        <div className="set-photo-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element -- export estático sin optimizador de imágenes */}
+          {me.has_photo ? <img className="set-photo" src={`${CV_PHOTO_URL}?v=${photoVersion}`} alt={`Foto de ${me.name}`} /> : <div className="set-photo set-photo-empty" aria-hidden="true">{initials}</div>}
+          <div className="set-photo-actions">
+            <button type="button" className="m-link" disabled={photoBusy} onClick={() => fileInput.current?.click()}>[{photoBusy ? "subiendo…" : "cambiar"}]</button>
+            {me.has_photo && <button type="button" className="m-link" disabled={photoBusy} onClick={() => void removePhoto()}>[quitar]</button>}
+          </div>
+          <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => void pickPhoto(e.target.files?.[0])} />
+        </div>
         <div className="set-identity-fields">
           <Field label="Nombre" value={me.name} maxLength={80} onCommit={(value) => void save({ name: value })} />
           <Field label="Titular" value={me.headline} maxLength={200} placeholder="Ej. Ingeniería Industrial · Datos y procesos" onCommit={(value) => void save({ headline: value })} />

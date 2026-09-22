@@ -53,7 +53,9 @@ def current() -> dict[str, Any]:
         "locations": list(account.get("locations") or []),
         "work_modes": list(account.get("work_modes") or []),
         "skills": dict(account.get("skills") or {}),
-        "has_photo": bool(cv.get("has_photo")),
+        # No se lee de cv.get("has_photo"): esa clave solo existe si cv_master.json ya existe, y la foto
+        # se puede subir antes de escribir cualquier otro dato del perfil.
+        "has_photo": cv_targets.photo_path() is not None,
     }
 
 

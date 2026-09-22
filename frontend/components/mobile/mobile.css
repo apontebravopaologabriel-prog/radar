@@ -52,7 +52,7 @@
 .m-app textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .m-app label.m-check input[type="checkbox"] { display: inline-block; width: 22px; height: 22px; min-height: 0; margin: 0 10px 0 0; padding: 0; flex: none; accent-color: var(--accent); }
 .m-app label.m-check { display: flex; align-items: center; margin-top: 12px; color: var(--ink); }
-.m-app input:not([type="range"]), .m-app select { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; }
+.m-app input:not([type="range"]):not([hidden]), .m-app select { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; }
 .m-app ::placeholder { color: var(--dim); }
 .m-app select { margin-top: 10px; }
 .m-app input:focus-visible, .m-app select:focus-visible, .m-app button:focus-visible, .m-app a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

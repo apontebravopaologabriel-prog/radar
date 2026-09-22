@@ -98,6 +98,19 @@ export const api = {
   refreshStatus: () => request<RefreshState>("/api/refresh/status"),
   me: () => request<{ profile: MeProfile }>("/api/me").then((r) => r.profile),
   patchMe: (fields: Record<string, unknown>) => request<MePatchResult>("/api/me", { method: "PATCH", body: JSON.stringify(fields) }),
+  // Sin request(): el navegador debe fijar su propio Content-Type (con el boundary) para multipart/form-data.
+  uploadPhoto: async (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch(`${API_URL}/api/me/photo`, { method: "POST", credentials: "include", body });
+    if (response.status === 401) throw new AuthRequired();
+    if (!response.ok) {
+      const detail = await response.json().then((b: { detail?: string }) => b.detail).catch(() => undefined);
+      throw new Error(detail ?? `La API respondió ${response.status}`);
+    }
+    return (await response.json()) as { has_photo: boolean };
+  },
+  removePhoto: () => request<{ has_photo: boolean }>("/api/me/photo", { method: "DELETE" }),
   saveProfile: (profile: ProfileInput) => request<{ profile_id: string }>("/api/profile", { method: "PUT", body: JSON.stringify(profile) }),
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
   saveAgentSettings: (body: { provider: string; model?: string; reasoning_effort?: "auto" | "none" | "low" | "high" | "max"; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
