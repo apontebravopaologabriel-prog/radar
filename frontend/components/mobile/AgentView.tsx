@@ -3,9 +3,10 @@
 import AgentChatPanel from "../agent/AgentChatPanel";
 import ChatTitle from "../agent/ChatTitle";
 import { useAgentChat } from "../agent/useAgentChat";
+import type { AgentContext } from "../../lib/mobile-api";
 
-export default function AgentView({ onSettings, onError }: { onSettings: () => void; onError: (e: unknown) => void }) {
-  const chat = useAgentChat(onError);
+export default function AgentView({ onSettings, onError, context }: { onSettings: () => void; onError: (e: unknown) => void; context?: AgentContext }) {
+  const chat = useAgentChat(onError, context);
   const { settings, lines, reset } = chat;
   const cap = settings?.monthly_token_cap ?? 0;
   const used = settings?.tokens_used_this_month ?? 0;

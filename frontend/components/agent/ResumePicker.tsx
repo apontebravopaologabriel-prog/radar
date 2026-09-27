@@ -78,7 +78,10 @@ export default function ResumePicker({ onOpen, onDelete, onClose }: { onOpen: (i
   return (
     <div className="cfg-picker rs-picker" role="dialog" aria-label="Reanudar una conversación" onKeyDown={onKeyDown}>
       <div className="cfg-picker-title">Reanudar conversación</div>
-      <input ref={input} className="rs-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por título o contenido…" aria-label="Buscar conversaciones" autoComplete="off" spellCheck={false} />
+      <div className="rs-search-row">
+        <span className="term-glyph" aria-hidden>❯</span>
+        <input ref={input} className="rs-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por título o contenido…" aria-label="Buscar conversaciones" autoComplete="off" spellCheck={false} />
+      </div>
       {error && <div className="term-error">{error}</div>}
       <ul ref={list} className="rs-list" role="listbox" aria-label="Conversaciones">
         {items === null && !error && <li className="rs-empty">Cargando…</li>}

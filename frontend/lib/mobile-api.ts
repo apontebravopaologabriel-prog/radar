@@ -44,12 +44,12 @@ export type AgentSettings = { provider: string; base_url: string; model: string;
   providers: Record<string, { base_url: string; model: string; models?: string[]; model_names?: Record<string, string>; reasoning_efforts?: string[] }> };
 export type Mention = { type: "place"; name: string } | { type: "job"; id: string; name: string; company?: string | null };
 export type AgentContext = {
-  screen: "map" | "analysis" | "cvs";
+  screen: "map" | "analysis" | "cvs" | "today" | "pipeline";
   mode?: "jobs" | "districts" | "radar";
   district?: string;
   radar?: { center: string; radiusKm: number };
   filters?: Record<string, string>;
-  selectedJob?: { id: string; title: string; company?: string };
+  selectedJob?: { id: string; title: string; company?: string; district?: string };
   visibleCount?: number;
   districtJobs?: number;
   analysis?: { ready: boolean; updatedAt: string; windows: { title: string; sql: string; columns: string[]; rows: (string | number | null)[][]; rowCount: number }[]; recentQueries: string[] };

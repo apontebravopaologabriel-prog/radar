@@ -192,13 +192,17 @@ def nearby(place: str, radius_km: float = 5.0, limit: int = 30) -> dict[str, Any
                 "is_favorite": row["is_favorite"],
             })
     found.sort(key=lambda j: (j["km"], j["published_at"] or ""))
-    by_place: dict[str, int] = {}
+    # `precision` distingue un distrito real ("district") de una etiqueta genérica sin distrito preciso
+    # ("city"/"department", p.ej. "Lima" cuando la oferta solo dice la ciudad): sin esto, "Lima" se veía
+    # como un distrito más en la tabla, cuando en realidad es la bolsa de lo que no se pudo ubicar mejor.
+    by_place: dict[str, dict[str, Any]] = {}
     for job in found:
-        by_place[job["place"]] = by_place.get(job["place"], 0) + 1
+        entry = by_place.setdefault(job["place"], {"place": job["place"], "count": 0, "precision": job["precision"]})
+        entry["count"] += 1
     return {
         "origin": origin.label, "radius_km": radius_km, "total": len(found),
         "jobs": found[: min(max(limit, 1), 60)],
-        "by_place": [{"place": d, "count": c} for d, c in sorted(by_place.items(), key=lambda x: -x[1])],
+        "by_place": sorted(by_place.values(), key=lambda x: -x["count"]),
         "precision": "centroides de distrito o ciudad (aproximado)",
     }
 

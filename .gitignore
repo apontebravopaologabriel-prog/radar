@@ -16,3 +16,4 @@ backups/
 *.bak.*
 *.db
 frontend/tsconfig.tsbuildinfo
+frontend/out/

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, STATUS_LABELS, STATUS_ORDER, type Application } from "../../lib/mobile-api";
+import { api, STATUS_LABELS, STATUS_ORDER, type AgentContext, type Application } from "../../lib/mobile-api";
 
 const NEXT: Record<string, string | null> = { saved: "applied", applied: "interview", interview: "offer", offer: null, rejected: "saved" };
 const NEXT_LABEL: Record<string, string> = { applied: "Ya postulé", interview: "Me citaron", offer: "Recibí oferta", saved: "Reabrir" };
@@ -10,7 +10,7 @@ function daysSince(iso: string | null): number | null {
   return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null;
 }
 
-export default function PipelineView({ onError }: { onError: (e: unknown) => void }) {
+export default function PipelineView({ onError, onContextChange }: { onError: (e: unknown) => void; onContextChange?: (context: AgentContext) => void }) {
   const [items, setItems] = useState<Application[] | null>(null);
   const [tab, setTab] = useState("saved");
 
@@ -18,6 +18,10 @@ export default function PipelineView({ onError }: { onError: (e: unknown) => voi
     try { setItems((await api.applications()).applications); } catch (error) { onError(error); }
   }, [onError]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!items) return;
+    onContextChange?.({ screen: "pipeline", filters: { status: tab }, visibleCount: items.filter((i) => i.status === tab).length });
+  }, [items, tab, onContextChange]);
 
   const move = async (item: Application, status: string) => {
     try { await api.setApplication(item.job_id, status); await load(); } catch (error) { onError(error); }

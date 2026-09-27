@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 
 from dotenv import load_dotenv
@@ -7,14 +8,38 @@ from mcp.server.fastmcp import FastMCP
 
 from radar.help import help_topics, read_help
 from radar.insights import data_schema
+from radar.settings import get_setting
 from radar.tools import REGISTRY
 
 load_dotenv()
 mcp = FastMCP("radar")
 
+
+def _read_only() -> bool:
+    return get_setting("agent_read_only") == "1"
+
+
+def _guarded(fn, name: str):
+    """Respeta el modo solo lectura también aquí: en el chat de la app lo aplica `execute_tool`,
+    pero el servidor MCP llama la función directo y un cliente externo podría ignorar ese ajuste."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if _read_only():
+            raise ValueError(f"Modo solo lectura activo en Radar: {name} no puede escribir.")
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
 # Las herramientas viven en radar.tools y son las mismas que usa el agente de chat de la app.
+# Las de escritura marcadas `chat=False` (ingest_jobs, update_profile...) quedan fuera: se excluyeron
+# del chat a propósito por no pasar por una confirmación previa, y aquí tampoco hay dónde pedirla.
 for _tool in REGISTRY.values():
-    mcp.tool(name=_tool.name, description=_tool.description)(_tool.fn)
+    if _tool.write and not _tool.chat:
+        continue
+    _fn = _guarded(_tool.fn, _tool.name) if _tool.write else _tool.fn
+    mcp.tool(name=_tool.name, description=_tool.description)(_fn)
 
 
 @mcp.resource("radar://help/{topic}")

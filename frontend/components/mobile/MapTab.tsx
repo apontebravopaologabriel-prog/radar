@@ -2,14 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
-import { api, type MapPlaces, type Nearby, type NearbyJob } from "../../lib/mobile-api";
+import { api, type AgentContext, type MapPlaces, type Nearby, type NearbyJob } from "../../lib/mobile-api";
 
 const PlacesMap = dynamic(() => import("./PlacesMap"), { ssr: false, loading: () => <div className="m-map m-map-loading">Cargando mapa…</div> });
 
 const RADII: [number, string][] = [[2, "2 km"], [5, "5 km"], [10, "10 km"], [25, "25 km"], [100, "100 km"], [2500, "Todo Perú"]];
 const KEY = "radar.map.v1";
 
-export default function MapTab({ onError }: { onError: (e: unknown) => void }) {
+export default function MapTab({ onError, onContextChange }: { onError: (e: unknown) => void; onContextChange?: (context: AgentContext) => void }) {
   const [groups, setGroups] = useState<{ label: string; places: string[] }[]>([]);
   const [place, setPlace] = useState("");
   const [radius, setRadius] = useState(10);
@@ -44,6 +44,11 @@ export default function MapTab({ onError }: { onError: (e: unknown) => void }) {
     } catch (error) { onError(error); }
   };
   const save = async (job: NearbyJob) => { try { await api.setApplication(job.id, "saved"); } catch (error) { onError(error); } };
+
+  useEffect(() => {
+    if (!place) return;
+    onContextChange?.({ screen: "map", district: place, radar: { center: place, radiusKm: radius }, visibleCount: data?.jobs.length });
+  }, [place, radius, data, onContextChange]);
 
   const height = typeof window === "undefined" ? 320 : Math.round(window.innerHeight * (tall ? 0.62 : 0.4));
   return (

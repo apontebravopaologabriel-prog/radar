@@ -31,6 +31,13 @@ const summarizeResult = (content: string | null): { summary: string; detail: str
   return { summary: "listo", detail };
 };
 const SAVE_DELAY_MS = 900;
+/** Qué conversación está activa, para que sobreviva a que la ventana del agente se cierre y se reabra
+ *  (se desmonta y el estado en memoria se pierde). "new" = recién limpiada, aún sin guardar. */
+const ACTIVE_CONVERSATION_KEY = "radar.agent.activeConversation";
+const readActiveConversation = (): string | null => { try { return localStorage.getItem(ACTIVE_CONVERSATION_KEY); } catch { return null; } };
+const writeActiveConversation = (value: string | null) => {
+  try { if (value) localStorage.setItem(ACTIVE_CONVERSATION_KEY, value); else localStorage.removeItem(ACTIVE_CONVERSATION_KEY); } catch { /* sin almacenamiento */ }
+};
 /** Peso aproximado del prompt de sistema y las definiciones de herramientas (medido con DeepSeek). */
 export const BASE_PROMPT_TOKENS = 2800;
 
@@ -92,17 +99,22 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   useEffect(() => {
     api.agentSettings().then(setSettings).catch(onError);
     api.setupStatus().then((st) => setNeedsSetup(!st.complete)).catch(() => undefined);
-    // Retoma la conversación más reciente.
-    api.conversations().then(async ({ conversations }) => {
-      const latest = conversations[0];
-      if (latest) {
-        const saved = await api.conversation(latest.id);
-        conversationId.current = saved.id;
-        setHistory(saved.data.history ?? []);
-        setLines((saved.data.lines ?? []) as Line[]);
-        setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
-      }
-    }).catch(() => undefined).finally(() => { loaded.current = true; });
+    // Retoma la conversación activa (la que dejó la sesión anterior de esta ventana), no siempre "la más reciente":
+    // si el usuario la limpió con /clear, debe seguir en blanco aunque cierre y reabra la ventana del agente.
+    const active = readActiveConversation();
+    if (active === "new") { loaded.current = true; return; }
+    (async () => {
+      // Si había una conversación activa marcada, esa; si no (primera vez), la más reciente guardada.
+      let id = active;
+      if (!id) { const { conversations } = await api.conversations(); id = conversations[0]?.id ?? null; }
+      if (!id) return;
+      const saved = await api.conversation(id);
+      conversationId.current = saved.id;
+      writeActiveConversation(saved.id);
+      setHistory(saved.data.history ?? []);
+      setLines((saved.data.lines ?? []) as Line[]);
+      setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
+    })().catch(() => undefined).finally(() => { loaded.current = true; });
   }, [onError]);
 
   // Guardado con retraso: solo cuando hay algo que conservar y ya se cargó el historial.
@@ -113,7 +125,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
       const data = { history: history.slice(-60), lines: lines.slice(-100) };
       try {
         if (conversationId.current) await api.saveConversation(conversationId.current, title, data);
-        else conversationId.current = (await api.createConversation(title, data)).id;
+        else { conversationId.current = (await api.createConversation(title, data)).id; writeActiveConversation(conversationId.current); }
       } catch { /* no interrumpe el chat si no se pudo guardar */ }
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
@@ -223,7 +235,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
-  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; setPlanReady(false); setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
+  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; writeActiveConversation("new"); setPlanReady(false); setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
   /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
   const compact = useCallback(async (focus = ""): Promise<string> => {
     if (history.length < 2) return "Aún no hay nada que compactar.";
@@ -240,6 +252,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     abort.current?.abort();
     const saved = await api.conversation(id);
     conversationId.current = saved.id;
+    writeActiveConversation(saved.id);
     setHistory(saved.data.history ?? []); setLines((saved.data.lines ?? []) as Line[]); setPending([]);
     setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
   }, []);

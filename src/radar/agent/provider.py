@@ -7,6 +7,7 @@ se guarda fuera de la base (`radar.settings.write_secret`).
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -32,6 +33,11 @@ REASONING_EFFORTS = ("none", "low", "high", "max")
 
 class ProviderError(RuntimeError):
     """Fallo del proveedor mostrable al usuario (sin secretos)."""
+
+    def __init__(self, message: str, *, transient: bool = False) -> None:
+        super().__init__(message)
+        # Transitorio = vale la pena reintentar solas (caída de red, 429, 5xx); una clave mala o sin saldo no.
+        self.transient = transient
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,13 +65,46 @@ def load_config() -> LLMConfig:
     )
 
 
+RETRY_BACKOFF_S = 0.7
+
+
 def stream_chat(
     config: LLMConfig,
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
     client: httpx.Client | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """Emite {"text": str} por fragmento, luego {"tool_calls": [...]} y {"usage": {...}}."""
+    """Emite {"text": str} por fragmento, luego {"tool_calls": [...]} y {"usage": {...}}.
+
+    Ante una caída transitoria (red, 429, 5xx) reintenta una vez, pero solo si aún no se emitió
+    nada de la respuesta: una vez que el modelo empezó a hablar, reintentar duplicaría texto.
+    """
+    owns = client is None
+    client = client or httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0))
+    try:
+        for attempt in range(2):
+            produced = False
+            try:
+                for event in _stream_once(config, messages, tools, client):
+                    if "text" in event or "reasoning" in event or "tool_calls" in event:
+                        produced = True
+                    yield event
+                return
+            except ProviderError as exc:
+                if produced or attempt == 1 or not exc.transient:
+                    raise
+                time.sleep(RETRY_BACKOFF_S)
+    finally:
+        if owns:
+            client.close()
+
+
+def _stream_once(
+    config: LLMConfig,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    client: httpx.Client,
+) -> Iterator[dict[str, Any]]:
     body: dict[str, Any] = {
         "model": config.model,
         "messages": messages,
@@ -79,8 +118,6 @@ def stream_chat(
     headers = {"Content-Type": "application/json"}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
-    owns = client is None
-    client = client or httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0))
     calls: dict[int, dict[str, Any]] = {}
     try:
         with client.stream(
@@ -93,7 +130,9 @@ def stream_chat(
                 if response.status_code == 402:
                     raise ProviderError("Saldo insuficiente en el proveedor.")
                 if response.status_code == 429:
-                    raise ProviderError("Límite de uso del proveedor alcanzado; reintenta luego.")
+                    raise ProviderError("Límite de uso del proveedor alcanzado; reintenta luego.", transient=True)
+                if response.status_code >= 500:
+                    raise ProviderError(f"Error {response.status_code} del proveedor: {detail}", transient=True)
                 raise ProviderError(f"Error {response.status_code} del proveedor: {detail}")
             for line in response.iter_lines():
                 if not line.startswith("data:"):
@@ -119,10 +158,8 @@ def stream_chat(
                         slot["name"] += fn.get("name") or ""
                         slot["arguments"] += fn.get("arguments") or ""
     except httpx.HTTPError as exc:
-        raise ProviderError(f"No se pudo contactar al proveedor: {type(exc).__name__}") from exc
-    finally:
-        if owns:
-            client.close()
+        # Conexión, timeout o DNS: transitorio, vale la pena reintentar una vez.
+        raise ProviderError(f"No se pudo contactar al proveedor: {type(exc).__name__}", transient=True) from exc
     if calls:
         yield {
             "tool_calls": [

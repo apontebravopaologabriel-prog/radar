@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type SkillImpact, type Today, type TodayJob } from "../../lib/mobile-api";
+import { api, type AgentContext, type SkillImpact, type Today, type TodayJob } from "../../lib/mobile-api";
 
 function ago(iso: string | null): string {
   if (!iso) return "";
@@ -9,7 +9,7 @@ function ago(iso: string | null): string {
   return days <= 0 ? "hoy" : days === 1 ? "ayer" : `hace ${days} d`;
 }
 
-export default function TodayView({ onSetup, onError }: { onSetup: () => void; onError: (e: unknown) => void }) {
+export default function TodayView({ onSetup, onError, onContextChange }: { onSetup: () => void; onError: (e: unknown) => void; onContextChange?: (context: AgentContext) => void }) {
   const [today, setToday] = useState<Today | null>(null);
   const [impact, setImpact] = useState<SkillImpact | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -21,6 +21,7 @@ export default function TodayView({ onSetup, onError }: { onSetup: () => void; o
     } catch (error) { onError(error); }
   }, [onError]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (today) onContextChange?.({ screen: "today", visibleCount: today.jobs.length }); }, [today, onContextChange]);
 
   const act = async (job: TodayJob, action: "save" | "hide" | "star") => {
     setBusy(job.id);

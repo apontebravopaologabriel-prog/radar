@@ -9,11 +9,24 @@ def _db(tmp_path, monkeypatch):
     monkeypatch.setenv("RADAR_DB_PATH", str(tmp_path / "radar.db"))
 
 
-def test_mcp_exposes_the_shared_registry():
+def test_mcp_exposes_the_shared_registry_minus_unconfirmed_writes():
     import asyncio
 
     exposed = {t.name for t in asyncio.run(server.mcp.list_tools())}
-    assert exposed == set(tools.REGISTRY)
+    risky = {n for n, t in tools.REGISTRY.items() if t.write and not t.chat}
+    assert risky  # si esto queda vacío, el resto del test no prueba nada
+    assert exposed == set(tools.REGISTRY) - risky
+
+
+def test_mcp_write_tools_respect_read_only():
+    from radar.settings import set_setting
+
+    fn = server.mcp._tool_manager._tools["record_career_event"].fn
+    set_setting("agent_read_only", "1")
+    with pytest.raises(ValueError, match="solo lectura"):
+        fn(event_type="note", title="x")
+    set_setting("agent_read_only", None)
+    fn(event_type="note", title="x")  # sin el ajuste, escribe normalmente
 
 
 def test_write_tools_are_classified_and_chat_excludes_risky_ones():

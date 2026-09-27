@@ -399,17 +399,21 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   );
   const selectedDistrict = districtStats.find((district) => district.key === selectedDistrictKey) || null;
   const radarDistrict = districtStats.find((district) => district.key === radarDistrictKey) || null;
+  // En modo "jobs" no hay distrito elegido en el mapa (se limpia al entrar a esa vista): el distrito de contexto
+  // pasa a ser el de la oferta abierta, para no dejar al agente sin saberlo mientras la lee.
+  const jobDistrict = mode === "jobs" && selectedJob?.district ? districtStats.find((district) => district.key === districtKey(selectedJob.district)) || null : null;
+  const browsedDistrict = selectedDistrict || jobDistrict;
   const agentContext = useMemo<AgentContext>(() => ({
     screen: activeView,
     mode: activeView === "map" ? (mode === "heatmap" ? "districts" : mode === "radar" ? "radar" : "jobs") : undefined,
-    district: (mode === "radar" ? radarDistrict?.district : selectedDistrict?.district) || undefined,
+    district: (mode === "radar" ? radarDistrict?.district : browsedDistrict?.district) || undefined,
     radar: mode === "radar" && radarDistrict ? { center: radarDistrict.district, radiusKm: radarRadiusKm } : undefined,
     filters: Object.fromEntries(Object.entries(filters).filter(([, value]) => Boolean(value))),
-    selectedJob: selectedJob ? { id: selectedJob.id, title: selectedJob.title, company: selectedJob.company || undefined } : undefined,
+    selectedJob: selectedJob ? { id: selectedJob.id, title: selectedJob.title, company: selectedJob.company || undefined, district: selectedJob.district || undefined } : undefined,
     visibleCount: visibleJobs.length,
-    districtJobs: mode === "radar" ? undefined : selectedDistrict?.count,
+    districtJobs: mode === "radar" ? undefined : browsedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
-  }), [activeView, analysisContext, filters, mode, radarDistrict, radarRadiusKm, selectedDistrict, selectedJob, visibleJobs.length]);
+  }), [activeView, analysisContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),

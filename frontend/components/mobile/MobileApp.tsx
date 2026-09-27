@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, AuthRequired } from "../../lib/mobile-api";
+import { api, AuthRequired, type AgentContext } from "../../lib/mobile-api";
 import "./mobile.css";
 import AgentView from "./AgentView";
 import Onboarding from "./Onboarding";
@@ -27,6 +27,8 @@ export default function MobileApp() {
   const [token, setToken] = useState("");
   const [agentOn, setAgentOn] = useState(false);
   const [epoch, setEpoch] = useState(0); // fuerza recarga de las vistas tras cambios de perfil
+  // Vive aquí (no en cada vista) para que sobreviva al cambio de pestaña: las vistas se desmontan al salir de ellas.
+  const [agentContext, setAgentContext] = useState<AgentContext>({ screen: "today" });
 
   const onError = useCallback((e: unknown) => {
     if (e instanceof AuthRequired) setAuth({ required: true, authenticated: false });
@@ -70,10 +72,10 @@ export default function MobileApp() {
       <main className="m-main">
         {setup ? (
           <Onboarding onError={onError} onDone={() => { setSetup(false); setEpoch((n) => n + 1); setTab("today"); }} />
-        ) : tab === "today" ? <TodayView key={epoch} onSetup={() => setSetup(true)} onError={onError} />
-        : tab === "map" ? <MapTab onError={onError} />
-        : tab === "pipeline" ? <PipelineView onError={onError} />
-        : tab === "agent" && agentOn ? <AgentView onSettings={() => setTab("settings")} onError={onError} />
+        ) : tab === "today" ? <TodayView key={epoch} onSetup={() => setSetup(true)} onError={onError} onContextChange={setAgentContext} />
+        : tab === "map" ? <MapTab onError={onError} onContextChange={setAgentContext} />
+        : tab === "pipeline" ? <PipelineView onError={onError} onContextChange={setAgentContext} />
+        : tab === "agent" && agentOn ? <AgentView onSettings={() => setTab("settings")} onError={onError} context={agentContext} />
         : <SettingsView authRequired={auth.required} onLogout={logout} onError={onError} onAgentChange={setAgentOn} />}
       </main>
       {error && <p className="m-toast" role="alert">{error}</p>}

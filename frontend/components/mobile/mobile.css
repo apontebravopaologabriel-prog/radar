@@ -52,7 +52,7 @@
 .m-app textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .m-app label.m-check input[type="checkbox"] { display: inline-block; width: 22px; height: 22px; min-height: 0; margin: 0 10px 0 0; padding: 0; flex: none; accent-color: var(--accent); }
 .m-app label.m-check { display: flex; align-items: center; margin-top: 12px; color: var(--ink); }
-.m-app input:not([type="range"]):not([hidden]), .m-app select { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; }
+.m-app input:not([type="range"]):not([hidden]):not(.rs-search), .m-app select { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; }
 .m-app ::placeholder { color: var(--dim); }
 .m-app select { margin-top: 10px; }
 .m-app input:focus-visible, .m-app select:focus-visible, .m-app button:focus-visible, .m-app a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -207,9 +207,11 @@
   .cfg-effort { flex: 1 1 50%; }
 }
 
-/* Selector de conversaciones (/resume). */
-.rs-search { margin: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 13px; width: 100%; box-sizing: border-box; }
-.rs-search:focus-visible { outline: none; border-color: var(--muted); }
+/* Selector de conversaciones (/resume): mismo trazo plano que el prompt del chat, no un recuadro aparte. */
+.rs-search-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+.rs-search-row .term-glyph { color: var(--ink); }
+.rs-search { margin: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); padding: 6px 0; font: inherit; font-size: 13px; width: 100%; box-sizing: border-box; }
+.rs-search:focus-visible { outline: none; }
 .rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
 .rs-list li { display: grid; grid-template-columns: 14px 1fr auto; gap: 6px; align-items: start; padding: 6px 8px; border-radius: 3px; color: var(--muted); cursor: pointer; }
 .rs-list li.on { background: var(--accent); color: var(--accent-ink); }

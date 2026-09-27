@@ -163,18 +163,29 @@ def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: i
                 return wanted in " ".join((job["location"] or "").lower().split()) or bool(point and point.label.lower() == wanted)
             jobs = [job for job in jobs if in_place(job)]
         total = len(jobs)
+        place_precision: dict[str, str] = {}
         for job in jobs:
             if by == "place":
                 point = infer_location(job["location"])
                 key = point.label if point else None
+                if point and key:
+                    place_precision[key] = point.precision
             else:
                 key = {"area": job["primary_area"], "company": job["company"], "work_mode": job["work_mode"],
                        "seniority": job["seniority"], "sector": job["sector"], "source": job.get("source")}[by]
             counter[key or "sin dato"] += 1
+    rows = []
+    for k, n in counter.most_common(min(max(limit, 1), 30)):
+        row = {"value": k, "jobs": n}
+        # "district" es un distrito real; "city"/"department" (p.ej. "Lima" sin distrito) es una oferta
+        # sin ubicación precisa, no un distrito más — se marca para que no se compare como si lo fuera.
+        if by == "place" and place_precision.get(k) not in (None, "district"):
+            row["precision"] = place_precision[k]
+        rows.append(row)
     return {"by": by, "max_age_days": max_age_days, "total": total,
             "filters": {k: v for k, v in {"area": area, "place": place, "sector": sector, "exclude_sector": exclude_sector,
                                           "search": search}.items() if v},
-            "rows": [{"value": k, "jobs": n} for k, n in counter.most_common(min(max(limit, 1), 30))]}
+            "rows": rows}
 
 
 PRODUCTION_TERMS = ("producción", "produccion", "manufactura", "planta", "operario", "operaria",
