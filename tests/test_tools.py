@@ -272,6 +272,24 @@ def test_slim_lists_drop_descriptions_and_detail_endpoint_returns_them():
     assert detail["description"] and api.get("/api/jobs/no-existe/description").status_code == 404
 
 
+def test_jobs_endpoint_paginates_without_changing_the_default():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    _seed_market()
+    api = TestClient(app)
+    everything = api.get("/api/jobs").json()
+    total = everything["total"]
+    assert total >= 1 and len(everything["jobs"]) == total
+    first = api.get("/api/jobs?limit=1").json()
+    assert len(first["jobs"]) == 1 and first["total"] == total and first["offset"] == 0
+    rest = api.get("/api/jobs?limit=1&offset=1").json()
+    assert rest["total"] == total and [j["id"] for j in rest["jobs"]] == [j["id"] for j in everything["jobs"][1:2]]
+    assert api.get(f"/api/jobs?offset={total}").json()["jobs"] == []
+    assert api.get("/api/jobs?limit=0").status_code == 422
+
+
 def test_compare_places_is_multidimensional_and_hidden_duplicates_stay_out_of_chat():
     result = tools.compare_places("Ate", "Miraflores")
     assert {"top_areas", "work_mode", "seniority", "salary_pen", "production"} <= set(result["places"][0])

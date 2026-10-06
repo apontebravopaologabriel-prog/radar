@@ -146,7 +146,10 @@ def jobs(
     max_age_days: int = Query(default=14, ge=1, le=365),
     include_hidden: bool = False,
     slim: bool = False,
+    limit: int | None = Query(default=None, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
+    """Sin `limit` devuelve todo (lo que usa el mapa); con `limit`/`offset` pagina y `total` sigue siendo el conteo completo."""
     rows = list_jobs(
         limit=None,
         seniority=seniority,
@@ -160,7 +163,8 @@ def jobs(
         skill=skill,
         relevance_tier=relevance_tier,
     )
-    return {"jobs": [_slimmed(_with_location(row), slim) for row in rows], "total": len(rows)}
+    page = rows[offset : offset + limit] if limit is not None else rows[offset:]
+    return {"jobs": [_slimmed(_with_location(row), slim) for row in page], "total": len(rows), "offset": offset}
 
 
 @app.get("/api/jobs/{job_id}/description")
