@@ -7,12 +7,12 @@ un archivo `.db` nuevo; `_ensure_runtime_schema()` en
 NOTHING`) los índices y el catálogo en cada conexión, para que una base creada antes de un cambio de
 esquema quede al día automáticamente.
 
-El directorio [`migrations/`](../migrations/) conserva los `.sql` originales de la era PostgreSQL
+El directorio [`legacy/postgres/`](../legacy/postgres/) agrupa lo heredado de PostgreSQL: `migrations/` conserva los `.sql` originales de la era PostgreSQL
 del proyecto (sintaxis `UUID`, `JSONB`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`). Ya no se
 ejecutan contra SQLite ni contra ninguna base activa; quedan como referencia histórica del diseño y
-para quien necesite levantar el `docker-compose.yml` heredado. Un cambio de esquema SQLite se hace
+para quien necesite levantar el `docker-compose.yml` heredado (también ahí, junto con `migrate_postgres_to_sqlite.py`). Un cambio de esquema SQLite se hace
 directamente en `schema_sqlite.sql` (y, si aplica a bases existentes, también en
-`_ensure_runtime_schema()`), no agregando un archivo a `migrations/`.
+`_ensure_runtime_schema()`), no agregando un archivo a `legacy/postgres/migrations/`.
 
 | Tabla | Propósito |
 |---|---|

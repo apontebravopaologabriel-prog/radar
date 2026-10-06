@@ -3,7 +3,7 @@
 - No guardes `.env` en Git.
 - No guardes cookies de Computrabajo en el repositorio.
 - La base de datos activa es un archivo SQLite local, sin puerto de red expuesto. El
-  `docker-compose.yml` con PostgreSQL es infraestructura heredada de antes de la migración a SQLite;
+  `legacy/postgres/docker-compose.yml` con PostgreSQL es infraestructura heredada de antes de la migración a SQLite;
   si se levanta por algún motivo, debe seguir expuesto solo en `127.0.0.1`.
 - No expongas el MCP stdio públicamente sin autenticación.
 

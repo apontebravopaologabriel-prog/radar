@@ -109,7 +109,7 @@ de alineación, preferir la forma compatible `flex-start`/`flex-end`.
 - No usar un LLM para decidir silenciosamente scores, niveles de competencia o vigencia.
 - El esquema SQLite vive en `src/radar/db/schema_sqlite.sql`; un cambio de esquema se hace ahí (y en
   `_ensure_runtime_schema()` si debe aplicarse a bases ya creadas), no borrando el archivo `.db` ni
-  añadiendo un `.sql` a `migrations/` (ese directorio es un artefacto histórico de PostgreSQL, ya no
+  añadiendo un `.sql` a `legacy/postgres/migrations/` (ese directorio es un artefacto histórico de PostgreSQL, ya no
   se ejecuta). Ver `docs/database.md`.
 
 
