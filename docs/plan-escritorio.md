@@ -21,7 +21,7 @@ opcional y desactivable, como ventana; después mejorar el resto de la versión 
 | `RadarClient.tsx` concentra estado, filtros, lista, detalle y atajos | 841 líneas, 57 hooks, JSX de una sola línea de más de 1000 caracteres | Difícil de modificar y de probar; añadir una ventana de agente lo empeora |
 | Ya existe un sistema de ventanas arrastrables y redimensionables | `AnalysisView.tsx` (`windows`, arrastre con `requestAnimationFrame`, persistencia en `localStorage`) | Se puede reutilizar para la ventana del agente |
 | No hay pruebas de frontend | `package.json` solo tiene `lint` y `build` | Cada cambio de UI se verifica a mano |
-| `frontend/out/` está versionado | 28 archivos en git | Diffs ruidosos y conflictos con el trabajo en curso |
+| `frontend/out/` estaba versionado (ya no: se ignora en git) | 28 archivos en git | Diffs ruidosos y conflictos con el trabajo en curso |
 | El mapa de escritorio está centrado en Lima | Etiqueta `LIMA METROPOLITANA`, polígonos solo de Lima/Callao | No refleja el objetivo "todo el Perú" |
 | El respaldo Leaflet usa teselas de CARTO | `LeafletMapView.tsx` | CARTO ahora exige clave: aparece "API KEY REQUIRED" |
 | El seguimiento (kanban) solo existe en móvil | `PipelineView` está en `/m` | Escritorio no puede gestionar postulaciones |
@@ -94,7 +94,7 @@ y tienen deshacer. Ejemplo: "muéstrame logística a 5 km de Surco" mueve el map
   (`OfferList`, `JobDetail`, `ToolRail`, `RadarPanel`), sin cambiar el aspecto.
 - Pruebas: Vitest + Testing Library para hooks y componentes, y un humo con Playwright contra una API simulada.
 - Generar los tipos TypeScript desde el OpenAPI de FastAPI.
-- Decidir si `frontend/out/` deja de versionarse (se compilaría en el lanzador y en CI).
+- ~~Decidir si `frontend/out/` deja de versionarse~~: hecho, se ignora y el lanzador lo compila.
 - Limpiar `globals.css` (1065 líneas) y los usos de verde que contradicen el contrato monocromático.
 - Arreglar el `ruff` previo para que el CI de Python vuelva a estar en verde.
 

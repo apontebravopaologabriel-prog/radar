@@ -10,6 +10,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+# Adaptadores explícitos: los predeterminados están obsoletos desde Python 3.12 (mismo formato).
+sqlite3.register_adapter(datetime.datetime, lambda value: value.isoformat(" "))
+sqlite3.register_adapter(datetime.date, lambda value: value.isoformat())
+
 DEFAULT_DB_PATH = Path.home() / ".local/share/radar/radar.db"
 
 

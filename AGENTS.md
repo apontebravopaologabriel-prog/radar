@@ -40,7 +40,7 @@ Antes de cambiar comportamiento, leer en este orden:
 - `frontend/components/LeafletMapView.tsx`: fallback cuando no existe WebGL2.
 - `frontend/app/globals.css`: layout, tema grafito, popups y scrolls.
 - `frontend/lib/api.ts`: cliente HTTP del frontend.
-- `frontend/out/`: export estático servido por FastAPI; se regenera con el build y se versiona.
+- `frontend/out/`: export estático servido por FastAPI; se regenera con el build y **no se versiona** (está en `.gitignore`); el launcher lo compila si falta.
 
 ## Contratos de interfaz actuales
 
@@ -80,7 +80,7 @@ Antes de cambiar comportamiento, leer en este orden:
 2. Editar código fuente; no editar manualmente `frontend/out`.
 3. Para cambios visuales, ejecutar `cd frontend && npm run build` para regenerar el export.
 4. Ejecutar `git diff --check`, `pytest` y `ruff check` cuando las dependencias estén instaladas.
-5. Revisar el diff incluyendo los cambios generados en `frontend/out`.
+5. Revisar el diff (`frontend/out` no aparece: es un artefacto ignorado).
 6. Documentar cambios de comportamiento en `README.md` o en el documento específico de `docs/`.
 
 ## Comandos de verificación
