@@ -154,8 +154,23 @@ plan numerado, breve y concreto: cada paso con la acción, la herramienta y los 
 supuestos. Cierra preguntando si la persona aprueba el plan; al aprobarlo saldrá del modo plan y ejecutarás paso a paso."""
 
 
-def _tool_specs(plan: bool = False) -> list[dict[str, Any]]:
-    return [
+LOAD_TOOLS = "load_tools"
+
+
+def _load_tools_spec() -> dict[str, Any]:
+    groups = "; ".join(f"{name}: {desc}" for name, (desc, _) in tools.TOOL_GROUPS.items())
+    return {"type": "function", "function": {
+        "name": LOAD_TOOLS,
+        "description": f"Activa más herramientas para este turno. Grupos: {groups}.",
+        "parameters": {"type": "object", "properties": {
+            "groups": {"type": "array", "items": {"type": "string", "enum": list(tools.TOOL_GROUPS)}}},
+            "required": ["groups"]},
+    }}
+
+
+def _tool_specs(plan: bool = False, loaded: frozenset[str] | set[str] = frozenset()) -> list[dict[str, Any]]:
+    """Herramientas siempre disponibles más las de los grupos ya cargados, y `load_tools` para pedir el resto."""
+    specs = [
         {
             "type": "function",
             "function": {
@@ -165,7 +180,23 @@ def _tool_specs(plan: bool = False) -> list[dict[str, Any]]:
             },
         }
         for t in _allowed_tools(plan)
+        if tools.group_of(t.name) in (None, *loaded)
     ]
+    return [*specs, _load_tools_spec()]
+
+
+def _groups_in_history(history: list[dict[str, Any]]) -> set[str]:
+    """Grupos que el modelo ya cargó antes en esta conversación (quedan en las llamadas del historial)."""
+    found: set[str] = set()
+    for message in history:
+        for call in message.get("tool_calls") or []:
+            function = call.get("function") or {}
+            if function.get("name") == LOAD_TOOLS:
+                try:
+                    found.update(json.loads(function.get("arguments") or "{}").get("groups") or [])
+                except (json.JSONDecodeError, AttributeError, TypeError):
+                    pass
+    return found & set(tools.TOOL_GROUPS)
 
 
 def month_usage() -> int:
@@ -331,7 +362,8 @@ def run_turn(
     if plan:
         prompt += "\n\n" + PLAN_PROMPT
     messages = [{"role": "system", "content": prompt}, *_trim_old_tool_results(history)]
-    specs = _tool_specs(plan)
+    loaded = _groups_in_history(history)
+    specs = _tool_specs(plan, loaded)
     seen_calls: set[tuple[str, str]] = set()
     for step in range(MAX_STEPS):
         final_step = step == MAX_STEPS - 1
@@ -385,7 +417,15 @@ def run_turn(
             except json.JSONDecodeError:
                 args = None
             signature = (call["name"], json.dumps(args, sort_keys=True, default=str))
-            if entry is None or not entry.chat or not isinstance(args, dict) or ((read_only() or plan) and entry.write):
+            if call["name"] == LOAD_TOOLS:
+                wanted = [g for g in (args or {}).get("groups", []) if g in tools.TOOL_GROUPS] if isinstance(args, dict) else []
+                loaded.update(wanted)
+                specs[:] = _tool_specs(plan, loaded)
+                names = [t.name for t in _allowed_tools(plan) if tools.group_of(t.name) in wanted]
+                results[index] = {"loaded": wanted, "tools": names} if wanted else {"error": "Grupo desconocido"}
+            elif entry is not None and tools.group_of(entry.name) not in (None, *loaded):
+                results[index] = {"error": f"Primero activa el grupo «{tools.group_of(entry.name)}» con load_tools."}
+            elif entry is None or not entry.chat or not isinstance(args, dict) or ((read_only() or plan) and entry.write):
                 results[index] = {"error": "Herramienta o argumentos inválidos"}
             elif signature in seen_calls:
                 results[index] = {"error": "Ya hiciste esta misma consulta; usa el resultado anterior o cambia el enfoque."}

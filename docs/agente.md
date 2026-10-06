@@ -26,6 +26,11 @@ Cualquier cambio de personalidad se hace en `soul.md` (se empaqueta con el paque
 `src/radar/tools.py` es el único registro. Cada herramienta declara `write` (pide confirmación) y `chat`
 (visible para el agente de la app). Las marcadas **MCP** solo están en el servidor MCP.
 
+**Carga bajo demanda:** para no pagar el esquema de todas en cada mensaje, las herramientas de los grupos `cv`, `perfil` y
+`sistema` (`TOOL_GROUPS` en `tools.py`) solo se ofrecen tras llamar a `load_tools` (meta-herramienta del bucle, no está en el
+registro). Los grupos cargados se recuerdan por las llamadas del historial; llamar a una herramienta no cargada devuelve
+un aviso. Una herramienta nueva sin grupo está siempre disponible: añádela a un grupo si es pesada y de uso raro.
+
 | Grupo | Herramientas |
 |---|---|
 | Mercado y ofertas | `search_saved_jobs` (filtros por área, sector, exclusión de sectores y texto), `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (por área, lugar, empresa, modalidad, seniority, sector o portal, con filtros), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`; **MCP:** `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |

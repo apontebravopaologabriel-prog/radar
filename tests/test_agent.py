@@ -318,7 +318,8 @@ def test_plan_mode_hides_write_tools_and_adds_the_plan_instruction():
     assert "MODO PLAN" in sent[0]["messages"][0]["content"]
     client, sent = _client(_text("ok"))
     list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client))
-    assert "reclassify_jobs" in {t["function"]["name"] for t in sent[0]["tools"]} and "MODO PLAN" not in sent[0]["messages"][0]["content"]
+    assert "MODO PLAN" not in sent[0]["messages"][0]["content"]
+    assert "load_tools" in {t["function"]["name"] for t in sent[0]["tools"]}
 
 
 def test_plan_mode_rejects_a_write_call_even_if_the_model_insists():
@@ -330,13 +331,47 @@ def test_plan_mode_rejects_a_write_call_even_if_the_model_insists():
 def test_profile_edit_confirmation_shows_before_and_after_and_writes_nothing(tmp_path):
     cv = tmp_path / "cv_master.json"
     cv.write_text(json.dumps({"name": "Ana", "home_district": "La Victoria"}), encoding="utf-8")
-    client, _ = _client(_call("update_profile_fields", {"home_district": "Surco", "skills": {"Klingon": "basic"}}))
+    client, _ = _client(_call("load_tools", {"groups": ["perfil"]}),
+                        _call("update_profile_fields", {"home_district": "Surco", "skills": {"Klingon": "basic"}}))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "me mudé a Surco"}], client))
     [action] = next(e for e in events if e["type"] == "pending")["actions"]
     assert action["name"] == "update_profile_fields"
     assert action["preview"][0].startswith("No se puede aplicar")  # la skill desconocida se detecta antes de aprobar
-    client, _ = _client(_call("update_profile_fields", {"home_district": "Surco"}))
+    client, _ = _client(_call("load_tools", {"groups": ["perfil"]}),
+                        _call("update_profile_fields", {"home_district": "Surco"}))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "me mudé a Surco"}], client))
     [action] = next(e for e in events if e["type"] == "pending")["actions"]
     assert action["preview"] == ["Distrito: La Victoria → Surco"]
     assert json.loads(cv.read_text(encoding="utf-8"))["home_district"] == "La Victoria"  # nada se escribe sin aprobar
+
+
+def _names(request):
+    return {t["function"]["name"] for t in request["tools"]}
+
+
+def test_grouped_tools_are_loaded_on_demand_and_cut_the_schema_size():
+    client, sent = _client(_call("load_tools", {"groups": ["sistema"]}), _text("listo"))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "¿cómo está el sistema?"}], client))
+    assert "get_system_status" not in _names(sent[0]) and "load_tools" in _names(sent[0])
+    assert "get_system_status" in _names(sent[1]) and "update_cv" not in _names(sent[1])
+    assert len(json.dumps(sent[0]["tools"])) < 12_000  # antes ~19.500 caracteres siempre
+
+
+def test_calling_an_unloaded_group_tool_is_refused_with_a_hint():
+    client, _ = _client(_call("get_system_status", {}), _text("ok"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "estado"}], client))
+    result = next(e for e in events if e["type"] == "tool_result")
+    assert "load_tools" in result["message"]["content"]
+
+
+def test_loaded_groups_persist_through_the_conversation_history():
+    history = [
+        {"role": "user", "content": "estado"},
+        {"role": "assistant", "content": None, "tool_calls": [
+            {"id": "c0", "type": "function", "function": {"name": "load_tools", "arguments": '{"groups": ["cv"]}'}}]},
+        {"role": "tool", "tool_call_id": "c0", "content": "{}"},
+        {"role": "user", "content": "ahora el CV"},
+    ]
+    client, sent = _client(_text("ok"))
+    list(loop.run_turn(CONFIG, history, client))
+    assert "get_my_cv" in _names(sent[0]) and "get_system_status" not in _names(sent[0])

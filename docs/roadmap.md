@@ -60,7 +60,8 @@
 - Interfaz estilo terminal (selectores, atajos, ventanas temporales, herramientas plegables); ver [agente.md](agente.md).
 - Mantenimiento desde el agente: auditoría y reclasificación de áreas, respaldos, temporizador de captura, pesos y edición del CV por texto.
 - Captura enfocada en un distrito (`refresh_market`) y captura automática cada 7 días.
-- Pendiente: carga de herramientas bajo demanda (hoy 40 en el chat, unos 5.000 tokens por mensaje), streaming por líneas y vocabulario más rico para las áreas con pocas ofertas (trabajo, producto, sistemas).
+- Herramientas bajo demanda: el chat ofrece siempre las de mercado, ofertas, seguimiento y memoria, y el modelo activa los grupos `cv`, `perfil` y `sistema` con `load_tools` (`TOOL_GROUPS` en `tools.py`); el esquema enviado por mensaje baja aproximadamente a la mitad.
+- Pendiente: medir con `scripts/agent_eval.py` que el agente sigue eligiendo bien las herramientas, streaming por líneas y vocabulario más rico para las áreas con pocas ofertas (trabajo, producto, sistemas).
 
 ## V2 — siguiente etapa
 - Snapshots automáticos por semana/mes/año y reportes comparativos.

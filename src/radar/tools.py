@@ -111,6 +111,24 @@ def chat_tools() -> list[Tool]:
     return [t for t in REGISTRY.values() if t.chat]
 
 
+# Grupos que el chat carga bajo demanda con `load_tools`: sus esquemas pesan en cada mensaje y casi nunca
+# se usan. Las herramientas fuera de estos grupos (mercado, ofertas, seguimiento, memoria) van siempre.
+TOOL_GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "cv": ("ver o editar el CV, brecha y plan de cierre, previsualizar o generar CVs objetivo",
+           ("get_my_cv", "update_cv", "get_closure_plan", "preview_cv", "build_cv", "close_gap")),
+    "perfil": ("editar el perfil, la línea de carrera, las carreras y paquetes de carrera",
+               ("update_profile_fields", "record_career_event", "get_career_timeline", "list_career_tracks",
+                "set_career_track", "create_career_pack")),
+    "sistema": ("estado y mantenimiento del sistema, captura de mercado, auditoría de áreas y pesos del score",
+                ("audit_classification", "reclassify_jobs", "refresh_market", "get_refresh_status",
+                 "get_system_status", "set_refresh_schedule", "run_maintenance", "set_score_weights")),
+}
+
+
+def group_of(name: str) -> str | None:
+    return next((group for group, (_, names) in TOOL_GROUPS.items() if name in names), None)
+
+
 # --- Mercado y ofertas -------------------------------------------------------------------------
 
 
