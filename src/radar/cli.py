@@ -60,6 +60,7 @@ def main() -> None:
     skill = sub.add_parser("skill", help="Genera la skill de agente (SKILL.md) para clientes MCP")
     skill.add_argument("action", choices=["export"])
     skill.add_argument("--out", default="skills", help="Directorio de salida (por defecto: ./skills)")
+    sub.add_parser("backup", help="Copia consistente de la base en backups/ (conserva las últimas)")
     sub.add_parser("repair-data", help="Repara modalidad, sector, salario y horario incompletos")
     sub.add_parser("audit-data", help="Audita duplicados, clasificación comercial y consistencia SQL")
     expire = sub.add_parser("expire-stale", help="Desactiva ofertas que ninguna fuente volvió a ver")
@@ -106,6 +107,10 @@ def main() -> None:
         from radar.skill_export import export
 
         print({"skill": str(export(Path(args.out)))})
+    elif args.command == "backup":
+        from radar.system import backup_database
+
+        print(backup_database())
     elif args.command == "repair-data":
         print(repair_data_quality())
     elif args.command == "audit-data":

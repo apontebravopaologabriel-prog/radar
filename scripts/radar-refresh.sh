@@ -104,6 +104,7 @@ run_step() {
     run_step "quality: expire-stale" "$RADAR_BIN" expire-stale --days "$STALE_AFTER_DAYS"
     run_step "quality: check-applications" "$RADAR_BIN" check-applications --limit "$LIVENESS_CHECK_LIMIT"
     run_step "market: snapshot" "$RADAR_BIN" market-snapshot
+    run_step "backup: sqlite" "$RADAR_BIN" backup
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
         echo "SUMMARY: ${#FAILED_STEPS[@]} step(s) failed: ${FAILED_STEPS[*]}"
