@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 
 from dotenv import load_dotenv
 
@@ -20,6 +21,9 @@ from radar.pipeline import run_ingestion
 
 
 def main() -> None:
+    from radar.security import restrict_umask
+
+    restrict_umask()
     load_dotenv()
     parser = argparse.ArgumentParser(prog="radar")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -60,6 +64,16 @@ def main() -> None:
     skill = sub.add_parser("skill", help="Genera la skill de agente (SKILL.md) para clientes MCP")
     skill.add_argument("action", choices=["export"])
     skill.add_argument("--out", default="skills", help="Directorio de salida (por defecto: ./skills)")
+    refresh = sub.add_parser("refresh", help="Captura programada del mercado con las búsquedas de la carrera activa")
+    refresh.add_argument("--cities", default=None, help="Ciudades extra separadas por comas (por defecto RADAR_CITIES)")
+    refresh.add_argument("--max-age-days", type=int, default=None, help="Ventana de frescura (por defecto RADAR_MAX_AGE_DAYS o 10)")
+    refresh.add_argument("--no-computrabajo", action="store_true", help="Omite Computrabajo en esta corrida")
+    career = sub.add_parser("career", help="Herramientas para paquetes de carrera")
+    career.add_argument("action", choices=["validate", "list"])
+    career.add_argument("target", nargs="?", help="Ruta del JSON o id del paquete (validate)")
+    mcp = sub.add_parser("mcp", help="Conecta un cliente de IA al servidor MCP de Radar")
+    mcp.add_argument("action", choices=["config", "install"])
+    mcp.add_argument("client", nargs="?", choices=["claude_desktop", "cursor", "gemini_cli"], help="Cliente (install)")
     sub.add_parser("backup", help="Copia consistente de la base en backups/ (conserva las últimas)")
     sub.add_parser("repair-data", help="Repara modalidad, sector, salario y horario incompletos")
     sub.add_parser("audit-data", help="Audita duplicados, clasificación comercial y consistencia SQL")
@@ -107,6 +121,38 @@ def main() -> None:
         from radar.skill_export import export
 
         print({"skill": str(export(Path(args.out)))})
+    elif args.command == "mcp":
+        from radar import mcp_config
+
+        if args.action == "config":
+            print(json.dumps(mcp_config.describe(), indent=2, ensure_ascii=False))
+        else:
+            if not args.client:
+                parser.error("install necesita el cliente: claude_desktop, cursor o gemini_cli")
+            print(json.dumps(mcp_config.install(args.client), indent=2, ensure_ascii=False))
+    elif args.command == "career":
+        from pathlib import Path
+
+        from radar.careers import PACKS_DIR, list_packs, user_packs_dir, validate_pack_file
+
+        if args.action == "list":
+            for pack in list_packs():
+                print(f"{pack.id}\t{pack.name}\t{len(pack.all_areas)} áreas\t{len(pack.skills)} skills")
+            raise SystemExit(0)
+        if not args.target:
+            parser.error("validate necesita la ruta del JSON o el id del paquete")
+        candidates = [Path(args.target), PACKS_DIR / f"{args.target}.json", user_packs_dir() / f"{args.target}.json"]
+        path = next((c for c in candidates if c.is_file()), None)
+        if path is None:
+            parser.error(f"No existe el paquete: {args.target}")
+        report = validate_pack_file(path)
+        print(report)
+        raise SystemExit(1 if report["errors"] else 0)
+    elif args.command == "refresh":
+        from radar.capture import run_capture
+
+        summary = run_capture(args.cities, args.max_age_days, False if args.no_computrabajo else None)
+        raise SystemExit(1 if summary["failed"] else 0)
     elif args.command == "backup":
         from radar.system import backup_database
 

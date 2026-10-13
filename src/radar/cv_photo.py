@@ -3,7 +3,7 @@
 Se decodifica con Pillow (nunca se confía en la extensión ni en el content-type declarado), se recorta al
 lado mayor y se vuelve a codificar sin metadatos EXIF (pueden llevar ubicación GPS: es una foto personal).
 El archivo final siempre es ``photo.jpg`` bajo el directorio de datos; cualquier otro nombre de foto vieja
-(``photo.png``) se borra para que no quede un archivo huérfano. Ver ``docs/target-profiles.md``.
+(``photo.png``) se borra para que no quede un archivo huérfano. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations

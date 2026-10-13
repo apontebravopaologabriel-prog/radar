@@ -3,7 +3,7 @@
 Nada se inventa ni se reformula: solo se **eligen y ordenan** hechos de ``cv_master.json`` según su relación con
 las skills de la oferta, dentro de un presupuesto de página. Cada línea conserva un ``id`` derivado de su
 contenido (rastreable sin migrar el archivo). Las skills en ``falta`` nunca entran. El resultado se escribe
-junto a un ``manifest.json`` que permite auditar y regenerar. Ver ``docs/cv-word-plan.md``.
+junto a un ``manifest.json`` que permite auditar y regenerar. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from radar import cv_baseline, cv_docx, cv_targets
+from radar import cv_baseline, cv_docx, cv_pdf, cv_targets
 from radar.normalize import normalize_text
 
 TEMPLATE = "ats-clasico-v1"
@@ -332,14 +332,23 @@ def build(job_id: str, formats: list[str] | None = None) -> dict[str, Any]:
     notes: list[str] = []
     check: dict[str, Any] = {}
     if "pdf" in wanted_formats:
-        pdf, problem = _to_pdf(docx)
+        try:
+            pdf, pages = cv_pdf.write_pdf(directory / f"{stem}.pdf", to_blocks(selection),
+                                          title=f"CV {selection['header']['name']}", author=selection["header"]["name"],
+                                          lang="en-US" if selection["language"] == "en" else "es-PE")
+        except Exception as exc:  # noqa: BLE001 - el DOCX ya existe; se intenta el conversor externo
+            pdf, pages = None, None
+            notes.append(f"El PDF nativo falló ({type(exc).__name__}); se intenta con LibreOffice.")
+            pdf, problem = _to_pdf(docx)
+            if problem:
+                notes.append(problem)
         if pdf:
             files.append({"format": "pdf", "name": pdf.name, "path": f"{pdf.parent.name}/{pdf.name}"})
             check = check_pdf(pdf, selection["pages_budget"])
+            if check.get("pages") is None and pages is not None:  # sin pdfinfo (p. ej. Windows): se usa el recuento del escritor
+                check = {"pages": pages, "text_extractable": True, "within_budget": pages <= selection["pages_budget"]}
             if check.get("within_budget") is False:
                 notes.append(f"El PDF tiene {check['pages']} páginas y el presupuesto era {selection['pages_budget']}.")
-        if problem:
-            notes.append(problem)
     profile_file = cv_targets.data_dir() / "cv_master.json"
     manifest = {
         "created_at": stamp.isoformat(timespec="seconds"), "job": selection["job"], "template": TEMPLATE,

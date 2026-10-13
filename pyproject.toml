@@ -1,6 +1,6 @@
 [project]
 name = "radar-career-intelligence"
-version = "0.1.0"
+version = "0.9.0"
 description = "Career Intelligence para ofertas de Ingeniería Industrial en Perú"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,17 +9,29 @@ dependencies = [
   "python-dotenv>=1.0,<2",
   "mcp>=1.9,<2",
   "Pillow>=10,<12",
+  "platformdirs>=4,<5",
+  "fpdf2>=2.7,<3",
+  "uvicorn>=0.30",
 ]
 
 [project.scripts]
 radar = "radar.cli:main"
 radar-api = "radar.api:main"
 radar-mcp = "radar.mcp.server:main"
+radar-app = "radar.app:main"
+
+[project.gui-scripts]
+radar-desktop = "radar.app:main"
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8,<9",
   "ruff>=0.9,<1",
+]
+desktop = [
+  "pywebview>=5; sys_platform == 'win32'",
+  "keyring>=25",
+  "pyinstaller>=6",
 ]
 jobspy = [
   "python-jobspy>=1.1.82",

@@ -4,7 +4,7 @@ Cruza las skills que Radar ya detectó en la oferta (``job_skills``), los años 
 nivel de estudios pedidos en la descripción contra ``cv_master.json``. Cada resultado conserva su
 evidencia. Las ofertas marcadas con estrella (favoritos) son los objetivos. El agente puede
 enriquecer un objetivo con un candidato ideal, pero el estado de lo que el código ya calculó no se
-lo puede reasignar el agente. Ver ``docs/target-profiles.md``.
+lo puede reasignar el agente. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations

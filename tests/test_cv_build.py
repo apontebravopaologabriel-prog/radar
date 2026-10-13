@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 
 import pytest
 
-from radar import cv_build, cv_edit, tools
+from radar import cv_build, cv_edit, cv_pdf, tools
 from radar.db.database import connection
 from radar.db.repository import ingest_jobs
 from radar.domain.models import RawJob
@@ -97,15 +97,26 @@ def test_docx_is_valid_single_column_and_never_overwritten(job):
     assert manifest["template"] == cv_build.TEMPLATE and manifest["included_ids"] and manifest["profile_sha256"]
 
 
-@pytest.mark.skipif(not shutil.which("soffice"), reason="LibreOffice no está instalado")
-def test_pdf_respects_page_budget_and_has_extractable_text(job):
+def test_native_pdf_respects_page_budget_and_has_extractable_text(job):
     result = cv_build.build(job, ["docx", "pdf"])
     assert [f["format"] for f in result["files"]] == ["docx", "pdf"]
     check = result["check"]
-    if check["pages"] is not None:
-        assert check["pages"] <= result["selection"]["pages_budget"] and check["within_budget"] is True
-    if check["text_extractable"] is not None:
-        assert check["text_extractable"] is True
+    assert check["pages"] is not None and check["pages"] <= result["selection"]["pages_budget"] and check["within_budget"] is True
+    assert check["text_extractable"] is True
+    pdf = cv_build.resolve_file(result["files"][1]["path"])
+    assert pdf.read_bytes().startswith(b"%PDF")
+    if shutil.which("pdftotext"):  # verificación independiente cuando hay poppler
+        import subprocess
+
+        text = subprocess.run(["pdftotext", str(pdf), "-"], capture_output=True, text=True, check=True).stdout
+        assert "Ana" in text and "Power BI" in text
+
+
+def test_pdf_falls_back_to_helvetica_when_no_truetype_font_is_found(job, monkeypatch):
+    monkeypatch.setattr(cv_pdf, "find_fonts", lambda: None)
+    result = cv_build.build(job, ["pdf"])
+    assert result["files"][-1]["format"] == "pdf" and result["check"]["pages"] >= 1
+    assert cv_pdf._latin1("a • b – “c” ñ → ✓") == 'a - b - "c" ñ -> ?'
 
 
 def test_generated_files_can_only_be_served_from_the_cvs_folder(job, tmp_path):

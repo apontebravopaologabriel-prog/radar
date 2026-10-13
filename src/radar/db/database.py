@@ -10,11 +10,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from radar.paths import default_data_dir
+from radar.security import harden_data_dir
+
 # Adaptadores explícitos: los predeterminados están obsoletos desde Python 3.12 (mismo formato).
 sqlite3.register_adapter(datetime.datetime, lambda value: value.isoformat(" "))
 sqlite3.register_adapter(datetime.date, lambda value: value.isoformat())
 
-DEFAULT_DB_PATH = Path.home() / ".local/share/radar/radar.db"
+DEFAULT_DB_PATH = default_data_dir() / "radar.db"
 
 
 def database_path() -> Path:
@@ -190,6 +193,7 @@ def _configure_connection(conn: RadarConnection) -> None:
 @contextmanager
 def connection() -> Iterator[RadarConnection]:
     db_file = database_path()
+    created_dir = not db_file.parent.exists()
     db_file.parent.mkdir(parents=True, exist_ok=True)
     is_new = not db_file.exists()
     conn = sqlite3.connect(str(db_file), factory=RadarConnection, timeout=10.0)
@@ -201,6 +205,7 @@ def connection() -> Iterator[RadarConnection]:
     if key not in _SCHEMA_READY:  # las garantías del esquema se aplican una vez por proceso y base
         _ensure_runtime_schema(conn)
         _SCHEMA_READY.add(key)
+        harden_data_dir(db_file, owned_dir=created_dir or db_file.parent == DEFAULT_DB_PATH.parent)
     try:
         yield conn
         conn.commit()

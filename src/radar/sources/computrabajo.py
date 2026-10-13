@@ -4,14 +4,17 @@ import json
 import os
 import re
 import selectors
+import shutil
 import subprocess
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from radar import __version__
 from radar.domain.models import RawJob
 
 RPC_TIMEOUT_SECONDS = 30.0
+PINNED_VERSION = "1.0.0"  # versión fija: `@latest` ejecutaría código remoto sin revisar en cada corrida
 
 
 class ComputrabajoSource:
@@ -20,9 +23,10 @@ class ComputrabajoSource:
     name = "Computrabajo"
 
     def __init__(self, command: str | None = None, args: list[str] | None = None):
-        self.command = command or os.getenv("RADAR_COMPUTRABAJO_COMMAND", "npx")
+        configured = command or os.getenv("RADAR_COMPUTRABAJO_COMMAND", "npx")
+        self.command = shutil.which(configured) or configured  # en Windows `npx` es `npx.cmd`
         self.args = args or os.getenv(
-            "RADAR_COMPUTRABAJO_ARGS", "-y,mcp-computrabajo@latest"
+            "RADAR_COMPUTRABAJO_ARGS", f"-y,mcp-computrabajo@{PINNED_VERSION}"
         ).split(",")
 
     def search(self, query: str, location: str | None = None, limit: int = 25) -> list[RawJob]:
@@ -39,7 +43,7 @@ class ComputrabajoSource:
                 {
                     "protocolVersion": "2025-06-18",
                     "capabilities": {},
-                    "clientInfo": {"name": "radar", "version": "0.1.0"},
+                    "clientInfo": {"name": "radar", "version": __version__},
                 },
             )
             self._notify(proc, "notifications/initialized", {})

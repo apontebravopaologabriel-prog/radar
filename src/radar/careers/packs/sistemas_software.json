@@ -1,0 +1,770 @@
+{
+ "id": "sistemas_software",
+ "name": "Ingeniería de Sistemas y Software",
+ "country": "PE",
+ "language": "es",
+ "areas": {
+  "core": [
+   "Desarrollo de software",
+   "Datos e inteligencia artificial",
+   "Infraestructura y cloud",
+   "DevOps y SRE",
+   "Ciberseguridad",
+   "Calidad y pruebas (QA)",
+   "Análisis de sistemas y producto"
+  ],
+  "adjacent": [
+   "Data / BI",
+   "Soporte TI y redes",
+   "Diseño UX/UI",
+   "Gestión de proyectos TI"
+  ],
+  "out_of_focus": [
+   "Ventas / Comercial",
+   "Otras"
+  ]
+ },
+ "area_slugs": {
+  "Desarrollo de software": "desarrollo-software",
+  "Datos e inteligencia artificial": "datos-ia",
+  "Infraestructura y cloud": "infraestructura-cloud",
+  "DevOps y SRE": "devops-sre",
+  "Ciberseguridad": "ciberseguridad",
+  "Calidad y pruebas (QA)": "calidad-pruebas-qa",
+  "Análisis de sistemas y producto": "analisis-sistemas-producto",
+  "Data / BI": "data-bi",
+  "Soporte TI y redes": "soporte-ti-redes",
+  "Diseño UX/UI": "diseno-ux-ui",
+  "Gestión de proyectos TI": "gestion-proyectos-ti",
+  "Ventas / Comercial": "ventas-comercial",
+  "Otras": "otras"
+ },
+ "area_rules": {
+  "Desarrollo de software": [
+   "desarrollador",
+   "developer",
+   "programador",
+   "software engineer",
+   "ingeniero de software",
+   "backend",
+   "frontend",
+   "front end",
+   "full stack",
+   "fullstack",
+   "desarrollo de software",
+   "desarrollo web",
+   "desarrollo movil",
+   "mobile developer",
+   "java",
+   "python",
+   "javascript",
+   "typescript",
+   "react",
+   "angular",
+   "vue",
+   "node.js",
+   "nodejs",
+   ".net",
+   "c#",
+   "php",
+   "golang",
+   "kotlin",
+   "swift",
+   "flutter",
+   "spring boot",
+   "django",
+   "laravel",
+   "api rest",
+   "microservicios"
+  ],
+  "Datos e inteligencia artificial": [
+   "data engineer",
+   "ingeniero de datos",
+   "data scientist",
+   "cientifico de datos",
+   "machine learning",
+   "aprendizaje automatico",
+   "inteligencia artificial",
+   "ia generativa",
+   "llm",
+   "mlops",
+   "deep learning",
+   "etl",
+   "data pipeline",
+   "pipelines de datos",
+   "big data",
+   "spark",
+   "airflow",
+   "databricks",
+   "nlp",
+   "visión computacional",
+   "vision por computadora",
+   "analitica avanzada"
+  ],
+  "Infraestructura y cloud": [
+   "cloud engineer",
+   "ingeniero cloud",
+   "arquitecto cloud",
+   "aws",
+   "azure",
+   "google cloud",
+   "gcp",
+   "infraestructura",
+   "administrador de sistemas",
+   "sysadmin",
+   "linux",
+   "windows server",
+   "virtualizacion",
+   "vmware",
+   "nube",
+   "arquitecto de soluciones",
+   "solutions architect",
+   "kubernetes",
+   "terraform"
+  ],
+  "DevOps y SRE": [
+   "devops",
+   "sre",
+   "site reliability",
+   "ci/cd",
+   "cicd",
+   "jenkins",
+   "gitlab ci",
+   "github actions",
+   "docker",
+   "contenedores",
+   "infraestructura como codigo",
+   "observabilidad",
+   "automatizacion de despliegues",
+   "release engineer"
+  ],
+  "Ciberseguridad": [
+   "ciberseguridad",
+   "seguridad informatica",
+   "seguridad de la informacion",
+   "soc analyst",
+   "analista soc",
+   "pentesting",
+   "pentester",
+   "hacking etico",
+   "iso 27001",
+   "siem",
+   "vulnerabilidades",
+   "oficial de seguridad",
+   "ciso",
+   "gestion de identidades",
+   "seguridad cloud"
+  ],
+  "Calidad y pruebas (QA)": [
+   "qa",
+   "quality assurance",
+   "tester",
+   "analista de pruebas",
+   "analista qa",
+   "automatizacion de pruebas",
+   "test automation",
+   "selenium",
+   "cypress",
+   "pruebas funcionales",
+   "pruebas de software",
+   "aseguramiento de la calidad de software",
+   "sdet",
+   "testing"
+  ],
+  "Análisis de sistemas y producto": [
+   "analista de sistemas",
+   "analista funcional",
+   "analista programador",
+   "business analyst",
+   "analista de negocios",
+   "product owner",
+   "product manager",
+   "gerente de producto",
+   "levantamiento de requerimientos",
+   "historias de usuario",
+   "erp",
+   "sap",
+   "consultor funcional",
+   "consultor sap",
+   "dynamics 365",
+   "oracle ebs",
+   "implementacion de sistemas",
+   "practicante de sistemas",
+   "practicante de ti",
+   "practicante de tecnologia",
+   "practicante de informatica",
+   "asistente de sistemas",
+   "ingeniero de sistemas",
+   "trainee de sistemas",
+   "trainee de tecnologia"
+  ],
+  "Data / BI": [
+   "power bi",
+   "tableau",
+   "business intelligence",
+   "analista bi",
+   "analista de datos",
+   "data analyst",
+   "analista de informacion",
+   "reportes",
+   "dashboards",
+   "looker",
+   "qlik",
+   "sql server reporting",
+   "analitica de datos"
+  ],
+  "Soporte TI y redes": [
+   "soporte tecnico",
+   "soporte ti",
+   "soporte informatico",
+   "help desk",
+   "mesa de ayuda",
+   "service desk",
+   "soporte funcional",
+   "analista de soporte",
+   "administrador de redes",
+   "ingeniero de redes",
+   "cisco",
+   "ccna",
+   "telecomunicaciones",
+   "noc",
+   "mantenimiento de equipos de computo",
+   "tecnico informatico",
+   "itil",
+   "base de datos",
+   "dba",
+   "administrador de base de datos"
+  ],
+  "Diseño UX/UI": [
+   "ux",
+   "ui",
+   "ux/ui",
+   "disenador ux",
+   "disenador ui",
+   "diseno de experiencia",
+   "diseno de interfaces",
+   "figma",
+   "product designer",
+   "investigacion de usuarios",
+   "user research"
+  ],
+  "Gestión de proyectos TI": [
+   "project manager",
+   "jefe de proyectos ti",
+   "gestor de proyectos",
+   "scrum master",
+   "agile coach",
+   "pmp",
+   "gestion de proyectos de ti",
+   "coordinador de proyectos ti",
+   "pmo ti",
+   "transformacion digital",
+   "scrum",
+   "kanban",
+   "lider tecnico",
+   "tech lead",
+   "jefe de sistemas",
+   "gerente de ti",
+   "gerente de tecnologia",
+   "cto"
+  ]
+ },
+ "out_of_focus_rules": {
+  "Ventas / Comercial": [
+   "ventas",
+   "venta",
+   "vendedor",
+   "asesor comercial",
+   "ejecutivo comercial",
+   "promotor",
+   "televentas",
+   "business development",
+   "preventa comercial",
+   "account executive"
+  ]
+ },
+ "skills": {
+  "Python": {
+   "aliases": [
+    "python"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "Java": {
+   "aliases": [
+    "java"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "JavaScript": {
+   "aliases": [
+    "javascript",
+    "js"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "TypeScript": {
+   "aliases": [
+    "typescript"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "C#": {
+   "aliases": [
+    "c#"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  ".NET": {
+   "aliases": [
+    ".net",
+    "dotnet",
+    "asp.net"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "PHP": {
+   "aliases": [
+    "php"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "Go": {
+   "aliases": [
+    "golang"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "SQL": {
+   "aliases": [
+    "sql"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "PostgreSQL": {
+   "aliases": [
+    "postgresql",
+    "postgres"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "MySQL": {
+   "aliases": [
+    "mysql"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "MongoDB": {
+   "aliases": [
+    "mongodb"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "React": {
+   "aliases": [
+    "react",
+    "reactjs"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Angular": {
+   "aliases": [
+    "angular"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Vue": {
+   "aliases": [
+    "vue",
+    "vuejs"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Node.js": {
+   "aliases": [
+    "node.js",
+    "nodejs"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Spring Boot": {
+   "aliases": [
+    "spring boot",
+    "spring"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Django": {
+   "aliases": [
+    "django"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Laravel": {
+   "aliases": [
+    "laravel"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "APIs REST": {
+   "aliases": [
+    "api rest",
+    "apis rest",
+    "rest api",
+    "restful"
+   ],
+   "category": "arquitectura",
+   "type": "technical"
+  },
+  "Microservicios": {
+   "aliases": [
+    "microservicios",
+    "microservices"
+   ],
+   "category": "arquitectura",
+   "type": "technical"
+  },
+  "Git": {
+   "aliases": [
+    "git",
+    "github",
+    "gitlab"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Docker": {
+   "aliases": [
+    "docker"
+   ],
+   "category": "devops",
+   "type": "technical"
+  },
+  "Kubernetes": {
+   "aliases": [
+    "kubernetes",
+    "k8s"
+   ],
+   "category": "devops",
+   "type": "technical"
+  },
+  "AWS": {
+   "aliases": [
+    "aws",
+    "amazon web services"
+   ],
+   "category": "cloud",
+   "type": "technical"
+  },
+  "Azure": {
+   "aliases": [
+    "azure"
+   ],
+   "category": "cloud",
+   "type": "technical"
+  },
+  "Google Cloud": {
+   "aliases": [
+    "google cloud",
+    "gcp"
+   ],
+   "category": "cloud",
+   "type": "technical"
+  },
+  "Terraform": {
+   "aliases": [
+    "terraform"
+   ],
+   "category": "devops",
+   "type": "technical"
+  },
+  "CI/CD": {
+   "aliases": [
+    "ci/cd",
+    "cicd",
+    "jenkins",
+    "github actions",
+    "gitlab ci"
+   ],
+   "category": "devops",
+   "type": "technical"
+  },
+  "Linux": {
+   "aliases": [
+    "linux"
+   ],
+   "category": "sistemas",
+   "type": "technical"
+  },
+  "Power BI": {
+   "aliases": [
+    "power bi"
+   ],
+   "category": "bi",
+   "type": "technical"
+  },
+  "Tableau": {
+   "aliases": [
+    "tableau"
+   ],
+   "category": "bi",
+   "type": "technical"
+  },
+  "Excel": {
+   "aliases": [
+    "excel"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Spark": {
+   "aliases": [
+    "spark",
+    "pyspark"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Airflow": {
+   "aliases": [
+    "airflow"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "ETL": {
+   "aliases": [
+    "etl"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Machine Learning": {
+   "aliases": [
+    "machine learning",
+    "aprendizaje automatico"
+   ],
+   "category": "ia",
+   "type": "technical"
+  },
+  "SAP": {
+   "aliases": [
+    "sap"
+   ],
+   "category": "erp",
+   "type": "technical"
+  },
+  "Selenium": {
+   "aliases": [
+    "selenium"
+   ],
+   "category": "pruebas",
+   "type": "technical"
+  },
+  "Cypress": {
+   "aliases": [
+    "cypress"
+   ],
+   "category": "pruebas",
+   "type": "technical"
+  },
+  "Figma": {
+   "aliases": [
+    "figma"
+   ],
+   "category": "diseno",
+   "type": "technical"
+  },
+  "Scrum": {
+   "aliases": [
+    "scrum"
+   ],
+   "category": "metodologia",
+   "type": "methodology"
+  },
+  "Agile": {
+   "aliases": [
+    "agile",
+    "agil",
+    "metodologias agiles"
+   ],
+   "category": "metodologia",
+   "type": "methodology"
+  },
+  "ITIL": {
+   "aliases": [
+    "itil"
+   ],
+   "category": "metodologia",
+   "type": "methodology"
+  },
+  "Jira": {
+   "aliases": [
+    "jira"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "ISO 27001": {
+   "aliases": [
+    "iso 27001"
+   ],
+   "category": "seguridad",
+   "type": "domain"
+  },
+  "English": {
+   "aliases": [
+    "ingles",
+    "english"
+   ],
+   "category": "idioma",
+   "type": "language"
+  },
+  "Comunicación": {
+   "aliases": [
+    "comunicacion efectiva",
+    "comunicacion"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Trabajo en equipo": {
+   "aliases": [
+    "trabajo en equipo",
+    "teamwork"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Resolución de problemas": {
+   "aliases": [
+    "resolucion de problemas",
+    "problem solving"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  },
+  "Proactividad": {
+   "aliases": [
+    "proactividad",
+    "proactivo",
+    "iniciativa"
+   ],
+   "category": "habilidad",
+   "type": "soft"
+  }
+ },
+ "excluded_title_signals": [
+  "auxiliar de limpieza",
+  "asesor comercial",
+  "ejecutivo comercial",
+  "vendedor",
+  "promotor de ventas",
+  "televentas",
+  "operario",
+  "chofer",
+  "conductor",
+  "cajero",
+  "atencion al cliente",
+  "community manager",
+  "contador"
+ ],
+ "education_only": [
+  "ingenieria de sistemas",
+  "ingeniero de sistemas",
+  "ingenieria de software",
+  "ciencias de la computacion",
+  "ingenieria informatica",
+  "computer science"
+ ],
+ "context_terms": [
+  "software",
+  "sistemas",
+  "desarrollo",
+  "programacion",
+  "datos",
+  "cloud",
+  "infraestructura",
+  "devops",
+  "seguridad informatica",
+  "ti",
+  "tecnologia",
+  "aplicaciones",
+  "base de datos",
+  "api",
+  "erp"
+ ],
+ "weak_terms": [
+  "sistemas",
+  "tecnologia",
+  "proyectos",
+  "proyecto",
+  "requerimientos",
+  "requerimiento",
+  "reportes",
+  "soporte",
+  "analisis",
+  "excel",
+  "sql",
+  "erp",
+  "sap",
+  "git",
+  "ui",
+  "ux",
+  "qa",
+  "nube"
+ ],
+ "scoring": {
+  "area": 0.3,
+  "skills": 0.3,
+  "seniority": 0.15,
+  "education": 0.05,
+  "location": 0.1,
+  "preference": 0.1
+ },
+ "queries": [
+  "practicante de sistemas",
+  "desarrollador junior",
+  "analista de datos",
+  "soporte ti"
+ ],
+ "market_queries": [
+  "desarrollador backend Java Spring",
+  "desarrollador frontend React Angular",
+  "desarrollador full stack",
+  "desarrollador Python",
+  "desarrollador .NET C#",
+  "desarrollador mobile Android iOS Flutter",
+  "ingeniero de datos ETL SQL",
+  "data scientist machine learning",
+  "analista de datos Power BI SQL",
+  "cloud engineer AWS Azure",
+  "devops Kubernetes Docker",
+  "analista de ciberseguridad SOC",
+  "QA tester automatizacion de pruebas",
+  "analista funcional de sistemas ERP SAP",
+  "product owner scrum master",
+  "soporte técnico TI mesa de ayuda",
+  "practicante de sistemas tecnología",
+  "administrador de base de datos DBA"
+ ]
+}

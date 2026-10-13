@@ -51,6 +51,7 @@ class CareerPack:
     context_terms: tuple[str, ...]
     weights: dict[str, float]
     queries: tuple[str, ...] = field(default_factory=tuple)
+    market_queries: tuple[str, ...] = field(default_factory=tuple)  # búsquedas amplias de la captura programada
     weak_terms: frozenset[str] = frozenset()  # genéricas: solo puntúan fuertes en el título
 
     @property
@@ -102,8 +103,40 @@ def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
         context_terms=tuple(raw.get("context_terms", [])),
         weights=dict(raw["scoring"]),
         queries=tuple(raw.get("queries", [])),
+        market_queries=tuple(raw.get("market_queries") or raw.get("queries", [])),
         weak_terms=frozenset(normalize_text(t) for t in raw.get("weak_terms", [])),
     )
+
+
+def validate_pack_file(path: Path) -> dict:
+    """Revisa un paquete sin cargarlo en la app. Devuelve `errors` (impiden usarlo) y `warnings` (conviene corregir)."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"path": str(path), "errors": [f"No se puede leer el JSON: {exc}"], "warnings": []}
+    try:
+        pack = parse_pack(raw, Path(path).name)
+    except (CareerPackError, KeyError, TypeError, AttributeError) as exc:
+        return {"path": str(path), "errors": [str(exc)], "warnings": []}
+    if Path(path).stem != pack.id:
+        warnings.append(f"el archivo se llama {Path(path).stem}.json pero el id es '{pack.id}'")
+    if "Otras" not in pack.out_of_focus_areas:
+        warnings.append("falta el área 'Otras' en out_of_focus (recibe lo que no encaja)")
+    for area in pack.all_areas:
+        if area not in pack.area_slugs:
+            warnings.append(f"el área '{area}' no tiene slug")
+        if area not in pack.area_rules and area not in pack.out_of_focus_rules and area != "Otras":
+            warnings.append(f"el área '{area}' no tiene reglas: nunca se asignará")
+    if not pack.queries:
+        warnings.append("sin 'queries': 'Actualizar mercado' no sabrá qué buscar")
+    if not pack.core_areas:
+        warnings.append("sin áreas core: ninguna oferta será de núcleo")
+    for name, skill in pack.skills.items():
+        if not skill.aliases:
+            warnings.append(f"la skill '{name}' no tiene aliases: no se detectará")
+    return {"path": str(path), "id": pack.id, "areas": len(pack.all_areas), "skills": len(pack.skills), "errors": errors, "warnings": warnings}
 
 
 def user_packs_dir() -> Path:

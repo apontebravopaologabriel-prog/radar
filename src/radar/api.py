@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from pathlib import Path
+from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn
@@ -13,8 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.gzip import GZipMiddleware
 
+from radar import __version__
 from radar.api_agent import router as agent_router
 from radar.api_cv import router as cv_router
+from radar.api_mcp import router as mcp_router
 from radar.api_me import router as me_router
 from radar.auth import AccessMiddleware
 from radar.auth import router as auth_router
@@ -33,10 +35,21 @@ from radar.db.queries import (
     skill_overview,
 )
 from radar.geolocation import infer_location
+from radar.paths import frontend_dir
+from radar.security import LocalGuardMiddleware, restrict_umask
 
-FRONTEND_OUT = Path(__file__).resolve().parent.parent.parent / "frontend/out"
+FRONTEND_OUT = frontend_dir()
 
-app = FastAPI(title="Radar Career Intelligence API", version="0.1.0")
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    from radar import scheduler
+
+    scheduler.start()  # solo si no hay temporizador de systemd (Windows, macOS, instalador)
+    yield
+    scheduler.stop()
+
+
+app = FastAPI(title="Radar Career Intelligence API", version=__version__, lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("RADAR_API_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:8100").split(","),
@@ -56,9 +69,11 @@ class _SelectiveGZip(GZipMiddleware):
 
 app.add_middleware(_SelectiveGZip, minimum_size=1024, compresslevel=5)
 app.add_middleware(AccessMiddleware)
+app.add_middleware(LocalGuardMiddleware)
 app.include_router(auth_router)
 app.include_router(cv_router)
 app.include_router(me_router)
+app.include_router(mcp_router)
 app.include_router(agent_router)
 
 if FRONTEND_OUT.exists():
@@ -130,7 +145,7 @@ def _with_location(job: dict[str, Any]) -> dict[str, Any]:
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": __version__}
 
 
 @app.get("/api/jobs")
@@ -311,6 +326,7 @@ def analytics_schema() -> dict[str, Any]:
 
 
 def main() -> None:
+    restrict_umask()
     uvicorn.run(
         "radar.api:app",
         host=os.getenv("RADAR_API_HOST", "127.0.0.1"),

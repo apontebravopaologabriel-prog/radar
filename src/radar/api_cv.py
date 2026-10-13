@@ -1,4 +1,4 @@
-"""Endpoints de solo lectura de la vista CVs (objetivos = favoritos). Ver docs/target-profiles.md."""
+"""Endpoints de solo lectura de la vista CVs (objetivos = favoritos). Ver docs/cv.md."""
 
 from __future__ import annotations
 

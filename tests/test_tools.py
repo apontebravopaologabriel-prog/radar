@@ -332,14 +332,14 @@ def test_refresh_market_is_a_confirmed_write_and_builds_place_focused_steps(monk
     from radar import refresh
 
     assert tools.REGISTRY["refresh_market"].write is True and tools.REGISTRY["get_refresh_status"].write is False
-    monkeypatch.setattr(refresh, "_binaries", lambda: {"computrabajo": ["radar", "ingest", "--source", "computrabajo"],
-                                                      "jobspy": ["radar", "ingest", "--source", "jobspy"]})
+    monkeypatch.setattr(refresh, "_sources", lambda: ["computrabajo", "jobspy"])
     captured = []
     monkeypatch.setattr(refresh, "_work", lambda steps: captured.extend(steps))
     monkeypatch.setattr(refresh.threading, "Thread", lambda target, args, **k: type("T", (), {"start": lambda self: target(*args)})())
     state = refresh.start_place_refresh("Miraflores")
     assert state["place"] == "Miraflores" and captured
-    assert any("Miraflores, Lima" in step for step in captured) and any("Lima" in step and "Miraflores" in " ".join(step) for step in captured)
+    assert any(step["source"] == "jobspy" and step["location"] == "Miraflores, Lima" for step in captured)
+    assert any(step["source"] == "computrabajo" and step["location"] == "Lima" and "Miraflores" in step["query"] for step in captured)
     refresh._state["running"] = False
     with pytest.raises(ValueError):
         refresh.start_place_refresh("Marte")

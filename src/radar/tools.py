@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import create_model
 
 from radar import (
+    __version__,
     cv_baseline,
     cv_build,
     cv_edit,
@@ -149,7 +150,7 @@ def ingest_jobs(
 @tool(chat=False)
 def health() -> dict:
     """Indica que Radar está disponible."""
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": __version__}
 
 
 @tool()

@@ -31,6 +31,13 @@ def _systemctl(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=20, check=False)
 
 
+def _use_internal() -> bool:
+    """Sin temporizador de systemd (Windows, macOS, instalador) manda el planificador interno."""
+    from radar import scheduler
+
+    return not scheduler.systemd_timer_installed()
+
+
 def _require_systemd() -> None:
     if not shutil.which("systemctl"):
         raise ValueError("Este equipo no usa systemd: el temporizador solo se administra en Linux con systemd.")
@@ -40,8 +47,10 @@ def _require_systemd() -> None:
 
 def schedule_status() -> dict[str, Any]:
     """Cada cuánto corre la captura automática y cuándo fue/será la próxima."""
-    if not shutil.which("systemctl") or not timer_path().exists():
-        return {"available": False, "note": "Sin temporizador systemd de Radar."}
+    if _use_internal():
+        from radar import scheduler
+
+        return scheduler.status()
     text = timer_path().read_text(encoding="utf-8")
     interval = re.search(r"^OnUnitActiveSec=(\S+)", text, re.MULTILINE)
     on_boot = re.search(r"^OnBootSec=(\S+)", text, re.MULTILINE)
@@ -61,6 +70,11 @@ def schedule_status() -> dict[str, Any]:
 def set_schedule(days: int, on_boot: bool | None = None) -> dict[str, Any]:
     """Cambia la frecuencia de la captura automática (`days` 1-30; 0 la desactiva). `on_boot` añade o quita el
     disparo 5 min después de cada arranque."""
+    if _use_internal():
+        from radar import scheduler
+
+        scheduler.set_days(days)
+        return {"changed": "desactivada" if days == 0 else f"cada {days} día(s)", **scheduler.status()}
     _require_systemd()
     if days == 0:
         _systemctl("disable", "--now", TIMER_UNIT)
