@@ -43,8 +43,9 @@ jobs:
       - name: Build installer
         run: |
           choco install innosetup -y --no-progress
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          if (-not $version -or $version -eq "main") { $version = "0.0.0" }
+          # La versión sale del código (no del nombre de la rama: "1/merge" no es un nombre de archivo válido).
+          $version = (python -c "import radar; print(radar.__version__)").Trim()
+          if ("${{ github.ref_type }}" -eq "tag") { $tag = "${{ github.ref_name }}".TrimStart("v"); if ($tag -ne $version) { throw "La etiqueta $tag no coincide con radar.__version__ $version" } }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging\radar.iss
         shell: pwsh
       # Firma de código: define WINDOWS_CERT_PFX_BASE64 y WINDOWS_CERT_PASSWORD en los secretos del repositorio.
