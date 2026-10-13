@@ -638,8 +638,10 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       setRailPeek(value);
       document.documentElement.classList.toggle("radar-rail-peek", value);
     };
+    // La franja sensible llega hasta debajo del último botón del riel y del AgentDock (agente y ajustes).
+    const zoneBottom = () => (document.querySelector(".agent-dock")?.getBoundingClientRect().bottom ?? 290) + 48;
     function onMove(event: MouseEvent) {
-      const inside = event.clientX <= (railPeekRef.current ? 180 : 120) && event.clientY >= 0 && event.clientY <= 330;
+      const inside = event.clientX <= (railPeekRef.current ? 180 : 120) && event.clientY >= 0 && event.clientY <= zoneBottom();
       if (inside) {
         window.clearTimeout(timer);
         timer = undefined;

@@ -552,8 +552,11 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 }
 
 /* Three quiet square tools keep each popup focused on one task. */
-.mode-rail { position: absolute; z-index: 17; top: 70px; left: 16px; display: grid; gap: 6px; }
-.mode-rail button { display: grid; width: 39px; height: 39px; place-items: center; padding: 0; border: 1px solid #444444; border-radius: 0; color: #858585; background: #080808c9; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px); font: inherit; cursor: pointer; }
+/* Geometría única del riel de vistas y de los botones del agente/ajustes (AgentDock): ambos leen estas variables
+   para que nunca queden desacoplados. --rail-count es el número de botones de vistas que tiene el riel. */
+:root { --rail-top: 70px; --rail-left: 16px; --rail-btn: 39px; --rail-gap: 6px; --rail-count: 3; }
+.mode-rail { position: absolute; z-index: 17; top: var(--rail-top); left: var(--rail-left); display: grid; gap: var(--rail-gap); }
+.mode-rail button { display: grid; width: var(--rail-btn); height: var(--rail-btn); place-items: center; padding: 0; border: 1px solid #444444; border-radius: 0; color: #858585; background: #080808c9; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px); font: inherit; cursor: pointer; }
 .mode-rail button span { font-size: 19px; line-height: 1; }
 .mode-rail button:hover, .mode-rail button.active { border-color: #eeeeee; color: #ffffff; background: #272727e6; }
 .mode-rail button.active { box-shadow: inset 3px 0 0 #eeeeee, 0 10px 24px #00000066; }
@@ -587,8 +590,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 .sidebar.tool-analysis, .sidebar.tool-cvs { display: none; }
 
 @media (max-width: 680px) {
-  .mode-rail { top: 59px; left: 12px; gap: 5px; }
-  .mode-rail button { width: 35px; height: 35px; }
+  :root { --rail-top: 59px; --rail-left: 12px; --rail-btn: 35px; --rail-gap: 5px; }
   .sidebar.tool-jobs .job-list { max-height: calc(100vh - 125px); }
   .workspace, .map-panel { min-height: 100vh; }
   .map-panel { height: 100vh; }
@@ -1048,10 +1050,11 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 /* Riel de vistas y botón de Filtros: se ocultan y aparecen al acercar el mouse al borde izquierdo.
    Solo con puntero real; en pantallas táctiles se quedan visibles. */
 @media (hover: hover) {
-  .mode-rail.is-autohide { top: 60px; left: 0; width: 14px; min-height: 130px; pointer-events: none; }
+  :root { --rail-top: 60px; }
+  .mode-rail.is-autohide { top: var(--rail-top); left: 0; width: 14px; min-height: calc(var(--rail-count) * var(--rail-btn) + (var(--rail-count) - 1) * var(--rail-gap)); pointer-events: none; }
   .mode-rail.is-autohide::before { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; content: ""; background: #ffffff26; }
   .mode-rail.is-autohide button, .edge-menu-toggle.is-autohide { transform: translateX(-56px); opacity: 0; pointer-events: none; transition: transform .16s ease, opacity .16s ease, border-color .12s, background .12s; }
-  .radar-rail-peek .mode-rail.is-autohide button, .mode-rail.is-autohide.is-peek button, .mode-rail.is-autohide:focus-within button { transform: translateX(16px); opacity: 1; pointer-events: auto; }
+  .radar-rail-peek .mode-rail.is-autohide button, .mode-rail.is-autohide.is-peek button, .mode-rail.is-autohide:focus-within button { transform: translateX(var(--rail-left)); opacity: 1; pointer-events: auto; }
   .radar-rail-peek .edge-menu-toggle.is-autohide, .edge-menu-toggle.is-autohide.is-peek, .edge-menu-toggle.is-autohide.is-open, .edge-menu-toggle.is-autohide:focus-visible { transform: none; opacity: 1; pointer-events: auto; }
 }
 
