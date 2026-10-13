@@ -4,6 +4,8 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  pull_request:  # construye (sin publicar) cuando cambia el empaquetado, para verlo antes de etiquetar
+    paths: ["packaging/**", ".github/workflows/release.yml", "src/radar/app.py", "pyproject.toml"]
 
 jobs:
   windows:
