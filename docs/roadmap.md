@@ -1,100 +1,92 @@
-# Roadmap
+# Roadmap and status
 
-## V1 — implementada
+Updated 2026-10-13. Single source of status; completed designs are not kept as separate plans. The code is
+**v0.9.0** (v0.8.0 was the base; the table below lists what landed after it).
 
-- PostgreSQL y migraciones (migrado posteriormente a SQLite nativo; ver `docs/database.md`).
-- Computrabajo MCP.
-- JobSpy/Indeed opcional.
-- Normalización y deduplicación.
-- Clasificación heurística.
-- Perfil separado.
-- Score trazable.
-- Consultas MCP para agentes (opcional, para agentes externos).
-- Sin postulaciones automáticas; el frontend geográfico se documenta en la sección correspondiente.
+## Direction
 
-## V2 — implementada en esta iteración
+- **v1.0 is the first public release:** a Windows installer anyone can download, with the MCP server included so
+  people can try Radar from external AI clients (Claude Desktop, Claude Code, Cursor, Gemini CLI).
+- **Until 1.0 the work is improving and polishing what exists, plus several careers** (the tool must be useful beyond
+  Industrial Engineering at launch). New product surface waits for 1.1+.
+- **Mobile (`/m`) is frozen** and ships as experimental; it gets no new work before 1.0.
+- Stays personal and local-first: one installation, one person, one database. Hosted multi-user is not planned.
+- Non-goals: automatic applications, messages to companies, automating personal portal sessions, exporting a
+  hypothetical CV, inventing competency levels without evidence, bypassing CAPTCHAs.
 
-- Candidatos de duplicado ambiguo.
-- Requisitos estructurados más ricos.
-- Observaciones históricas por oferta.
-- Versionado del perfil profesional.
-- Línea de carrera y eventos de aprendizaje.
-- Herramientas MCP `get_job_history` y `get_career_timeline`.
-- Extracción conservadora de salario desde descripciones con moneda explícita.
-- Snapshots de mercado y seguimiento de postulaciones por MCP.
-- Estado de aceptación de la oferta (`application_status`) y fecha de verificación, con requisitos estrictos para recomendaciones de LinkedIn.
-- Frescura configurable de 7 o 14 días y exclusión de ofertas no accionables en las consultas.
+## Done since v0.8
 
-## Frontend geográfico — primera entrega implementada
+| Area | What landed |
+| --- | --- |
+| Focus feature | **Automatic context summarization**: auto-compaction at a configurable % of the context window with a structured summary, verbatim tail, preference candidates, optional cheaper model ([design](design-auto-compaction.md)) |
+| Security | Host/Origin guard (DNS rebinding), security headers, `umask 077` + `600/700` permissions, pinned Computrabajo version, desktop login screen, OS credential store for keys on Windows, pip/npm audit job, Dependabot |
+| Portability | `radar.paths` (platformdirs), `radar refresh` (in-process capture replacing the bash script), pack-driven queries, in-process scheduler (no systemd needed), `radar-app` desktop entry, Windows in CI, native PDF writer (no LibreOffice) |
+| Careers | Systems/Software pack (51 skills, 13 areas) replaces Accounting; `radar career validate/list`; classification regression samples per pack |
+| MCP | "Conectar IA" (Settings, `radar mcp config/install`) for Claude Desktop, Cursor, Gemini CLI, Claude Code command |
+| Packaging | PyInstaller spec (verified on Linux), Inno Setup script, release workflow with smoke test and optional signing, LICENSE, Spanish user guide |
+| Docs | Rewritten in English without redundancy; versions and design docs |
 
-- Aplicación Next.js independiente en `frontend/`.
-- API HTTP FastAPI para consultas de mercado y estado personal de ofertas.
-- Mapa de Lima con MapLibre y datos GeoJSON.
-- Filtros por búsqueda, área, seniority, modalidad, salario y frescura.
-- Clusters, heatmap y Radar funcional con centro fijo por distrito, zoom automático, radios de 2,
-  5 y 10 km, filtro Haversine y barrido visual.
-- Ubicaciones aproximadas por distrito o ciudad, con precisión visible.
-- Vista `Distritos` con coropleta real de Lima/Callao, etiquetas de cantidad y
-  resaltado del distrito seleccionado.
-- Tema grafito oscuro para toda la interfaz, con scroll del explorador en ventanas
-  reducidas.
-- Fallback automático a Leaflet cuando el navegador no soporta WebGL2.
-- Launcher `.desktop` que inicia servicios y abre Radar como web app independiente
-  de Chromium.
-- Ocultar/restaurar ofertas desde la interfaz, con motivo persistido en `job_user_status`.
-- Vista `Skills` con demanda de mercado desde SQLite, cruce contra el perfil y
-  ruta visual de aprendizaje por etapas (reemplazada después por `Análisis`; el endpoint
-  `/api/skills/overview` se conserva).
+## Remaining for v1.0 (ordered)
 
-## Frontend geográfico — siguiente etapa
+1. **First Windows build** through the release workflow and fixes it reveals ([packaging.md](packaging.md#not-verified-yet-needs-a-windows-machine)).
+2. **Native Computrabajo adapter in Python** (no Node/`npx` on the user's machine); JobSpy (Indeed/LinkedIn) as an
+   opt-in "advanced sources" switch because of portal terms.
+3. **More careers** (the v1 promise): Administration, Marketing, Health (nursing) and Law as built-in packs, each passing
+   `radar career validate` and 10+ sample titles; a pack picker with a preview of what a career classifies.
+4. **First-run experience:** wizard (career, city, profile) → automatic first capture with progress → map never empty.
+5. **Auto-compaction retention eval** in `scripts/agent_eval.py` and a "restore full history" action.
+6. **Agent/UI polish:** split `RadarClient.tsx` (887 lines), frontend tests for the CVs view and filters, remove green
+   accents, tidy `globals.css`; performance budget re-measured with 5 000 offers ([architecture.md](architecture.md#performance-budget)).
+7. **Data quality:** companies without data (~140 offers), doubtful area classifications, share of `Otras` per pack.
+8. **Release hygiene:** code-signing certificate, `CHANGELOG.md`, privacy statement shipped in the installer,
+   README with screenshots and download link, bump to 1.0.0.
 
-- Persistir latitud, longitud, distrito y precisión en SQLite.
-- Geocodificación controlada durante la ingesta.
-- Persistencia de coordenadas precisas y geocodificación controlada para que el radio de distancia
-  deje de depender de centroides aproximados por distrito/ciudad.
-- Detalle completo de oferta y cambio de estado desde la interfaz.
+## v1.1: data you can trust
 
-## Agente — implementado
+- Persist coordinates, district and precision at ingestion; controlled geocoding with cache.
+- More sources through official APIs and public ATS feeds (Greenhouse, Lever, Ashby; aggregator APIs where terms allow).
+- Classification quality gate in CI with per-pack accuracy on labeled samples.
+- Server-side pagination, ETag cache and aggregated map points for large databases.
 
-- Identidad basada en el ISE BoK, modos manual/auto/plan, menciones con `@`, memoria durable y búsqueda en conversaciones.
-- Interfaz estilo terminal (selectores, atajos, ventanas temporales, herramientas plegables); ver [agente.md](agente.md).
-- Mantenimiento desde el agente: auditoría y reclasificación de áreas, respaldos, temporizador de captura, pesos y edición del CV por texto.
-- Captura enfocada en un distrito (`refresh_market`) y captura automática cada 7 días.
-- Herramientas bajo demanda: el chat ofrece siempre las de mercado, ofertas, seguimiento y memoria, y el modelo activa los grupos `cv`, `perfil` y `sistema` con `load_tools` (`TOOL_GROUPS` en `tools.py`); el esquema enviado por mensaje baja aproximadamente a la mitad.
-- Pendiente: medir con `scripts/agent_eval.py` que el agente sigue eligiendo bien las herramientas, streaming por líneas y vocabulario más rico para las áreas con pocas ofertas (trabajo, producto, sistemas).
+## v1.2: market intelligence
 
-## V2 — siguiente etapa
-- Snapshots automáticos por semana/mes/año y reportes comparativos.
-- Métricas por área, empresa y skill.
-- Skill Gap priorizado con evidencias de proyectos, cursos y eventos de carrera.
-- Competencias (la vista `Skills` fue retirada; su rol lo cubren `Análisis` y `CVs`): separar skill de mercado, capacidad humana,
-  asistencia de IA y evidencia verificable.
-- Añadir career tracks y roles adyacentes sin ampliar inicialmente el foco más allá de
-  Ingeniería Industrial y sus áreas cercanas.
-- Mejorar el flujo de estados de aplicaciones y su auditoría desde CLI/MCP seguro.
-- Pruebas de contrato por fuente.
+- Automatic weekly snapshots and comparative reports (what changed in demand, salaries, skills, companies).
+- The chain skill → human competency → evidence → project, with the gap prioritized by evidence.
+- Export of a market report (Markdown/PDF) per career and city.
 
-## CVs objetivo — V0 de solo lectura implementada
+## v1.3: the desktop workflow
 
-- Perfil real estructurado y esquema JSON del CV ideal por oferta.
-- Herramientas MCP: contexto, guardado, brechas, agregación y distrito más cercano.
-- Objetivos = favoritos, con brecha base por código y ranking de cercanía (implementado).
-- Vista `CVs`: matriz de brechas, comparación de 2 a 4 puestos, render con foto y plan de cierre.
-- Detalle en `docs/target-profiles.md`.
+- Pipeline (kanban) on desktop, notes and reminders per offer, saved searches, "new since last visit".
+- Desktop notifications for matching new offers; compare offers side by side; command palette.
+- TypeScript types generated from the OpenAPI schema.
 
-## V3 — opcional
+## v1.4: agent maturity
 
-- Dashboard Power BI.
-- Reportes semanales.
-- Exportación curada a Obsidian.
-- Alertas programadas.
-- Fuentes adicionales mediante API, RSS o ATS públicos.
+- Agent evaluation suite in CI with a simulated provider (tool choice, injection resistance, compaction retention) plus
+  the real-provider script before releases.
+- Sub-agent delegation for heavy read-only analysis with a fresh context, model routing (cheap model for summaries and
+  classification), cost estimation in money.
+- Richer MCP surface (more resources and prompts); `docs/skills/radar/SKILL.md` stays generated.
+- Onboarding by CV upload with line-by-line confirmation.
 
-## Fuera de alcance
+## v1.5: beyond one country
 
-- Postulación automática.
-- Envío automático de mensajes.
-- Bypass de CAPTCHA o controles de acceso.
-- Geocodificación exacta persistida antes de incorporar coordenadas confiables en SQL.
+- Pack authoring tools and a public pack gallery; country/locale packs (geography, currencies, portals) and UI i18n.
+- Source plugin interface (documented, sandboxed subprocess) so new portals ship outside the core.
+- Auto-update channel; evaluate Tauri with a Python sidecar if an updater is wanted.
+- National map (country → department → city) with licensed geometries.
+- Optional: hosted multi-user, only if there is real demand.
 
-El CV real en Word (plantillas, verificación y edición) está diseñado en `docs/cv-word-plan.md`.
+## Cross-cutting rules
+
+- Every release: `pytest`, `ruff`, `npm test`, `npm run build`, Windows smoke test, regenerated skill.
+- Deterministic scoring and traceable classification never move into an LLM.
+- Anything that writes asks the person first; the agent never applies or sends messages.
+
+## Known limitations
+
+- Outside Lima, location is the city centroid; a bare "Perú" search returns mostly Lima.
+- The desktop map is Lima/Callao only; coordinates are inferred per request, not stored.
+- The internal scheduler only runs while Radar is open.
+- Keyword classification is weaker for careers with ambiguous vocabulary.
+- The mobile UI was verified with screenshots and builds, not automated interaction tests.

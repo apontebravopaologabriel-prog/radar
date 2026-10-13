@@ -1,25 +1,33 @@
-# MCP de Radar (opcional)
+# MCP server (optional)
 
-Radar funciona completo y aislado con su **agente integrado** (chat de la app, ver [agente.md](agente.md)):
-no necesita ningún cliente externo. Este servidor MCP es una puerta opcional para quien prefiera usar el
-agente externo de su elección (Claude Code, Antigravity, Hermes o cualquier cliente compatible con MCP).
+Radar works fully on its own with the integrated agent ([agent.md](agent.md)). The MCP server is an optional
+door for people who prefer an external agent (Claude Code, Antigravity, Hermes, any MCP client). It exposes
+the same registry (`src/radar/tools.py`, 58 tools, 19 write tools) over stdio (`radar-mcp`, FastMCP). Nothing
+is registered or exposed unless you configure a client.
 
-**Cuándo tiene sentido:** el agente externo puede combinar Radar con otros servidores MCP suyos (calendario,
-correo, notas...), algo que el agente integrado no hace. **Cuándo no:** si prefieres mantener Radar aislado, no
-hagas nada; nada se registra ni se expone por defecto.
+An external agent can combine Radar with other MCP servers (calendar, mail, notes); the integrated agent cannot.
 
-Radar expone un servidor MCP estándar por stdio (`radar-mcp`, FastMCP), independiente del cliente, con las
-mismas herramientas que el agente integrado.
+## Connect a client (one step)
 
-## Configuración
+Settings → **Conectar IA** shows, per client (Claude Desktop, Claude Code, Cursor, Gemini CLI), the exact JSON to paste
+or the exact command, and can write it for you after an explicit confirmation. The same from the terminal:
 
-Comando del servidor, igual para todos los clientes (ajusta la ruta a tu instalación):
-
-```text
-/home/paolo/Projects/Radar/.venv/bin/radar-mcp
+```bash
+radar mcp config                     # prints every snippet and config path
+radar mcp install claude_desktop     # also: cursor, gemini_cli
 ```
 
-Bloque JSON estándar (`mcpServers`), que acepta la mayoría de clientes:
+`install` merges Radar into the client's `mcpServers` without touching other servers, saves the previous file as
+`<name>.radar-bak`, writes atomically and refuses files that are not valid JSON. Claude Code has no config file to edit:
+copy its `claude mcp add ...` command. Restart the client afterwards. Endpoints: `GET /api/mcp/config`,
+`POST /api/mcp/install` (closed client list). In the packaged app the command points to `radar-mcp.exe` next to
+`Radar.exe`. Config file locations used: Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json` on Windows,
+`~/Library/Application Support/Claude/` on macOS, `~/.config/Claude/` on Linux), Cursor `~/.cursor/mcp.json`, Gemini CLI
+`~/.gemini/settings.json`; verify them against each client's current documentation.
+
+## Manual configuration
+
+Command (adjust the path): `/home/paolo/Projects/Radar/.venv/bin/radar-mcp`
 
 ```json
 {
@@ -32,82 +40,44 @@ Bloque JSON estándar (`mcpServers`), que acepta la mayoría de clientes:
 }
 ```
 
-El proceso necesita acceso de lectura/escritura al archivo SQLite local (por defecto
-`~/.local/share/radar/radar.db`, configurable con `RADAR_DB_PATH`) y, para los CVs objetivo, al mismo
-directorio de datos.
+The process needs read/write access to the SQLite file and its folder (target CVs, `cv_master.json`).
 
-### Clientes
+| Client | Setup |
+| --- | --- |
+| Claude Code | `claude mcp add radar -- /home/paolo/Projects/Radar/.venv/bin/radar-mcp` |
+| Antigravity | Add the block to `~/.gemini/config/mcp_config.json` and reload servers (`Additional Options > MCP Servers`) |
+| Hermes / others | Paste the JSON block into the client's server config |
 
-- **Claude Code:** `claude mcp add radar -- /home/paolo/Projects/Radar/.venv/bin/radar-mcp`.
-- **Antigravity:** añade el bloque anterior a `~/.gemini/config/mcp_config.json` y recarga los servidores en
-  `Additional Options (...) > MCP Servers`.
-- **Hermes u otro cliente MCP:** pega el bloque JSON en su configuración de servidores.
+Also copy the generated skill (`radar skill export --out docs/skills` → `docs/skills/radar/SKILL.md`) so the
+client knows when and how to use each tool; it is the always-current tool list (name, read/write, parameters).
+Reload the client's MCP server after Radar gains tools.
 
-Además puedes copiar la skill generada (`radar skill export --out docs/skills`) al cliente para que sepa cuándo
-y cómo usar las herramientas. Un cliente nuevo no requiere cambios en Radar. Tras añadir herramientas al
-servidor, hay que recargar el servidor MCP del cliente para que las vea.
+## What it publishes
 
-## Herramientas
+- **Tools:** the registry. Group overview in [agent.md](agent.md#tools-58-in-the-registry-45-in-the-chat-19-that-write).
+- **Resources:** `radar://topics`, `radar://help/{topic}`, `radar://schema`.
+- **Prompts:** `configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`.
+- **Transport:** stdio by default (`RADAR_MCP_TRANSPORT`).
 
-> La lista completa y siempre al día está en la **skill de agente** generada: `radar skill export --out docs/skills`
-> produce `docs/skills/radar/SKILL.md` (copiable a un cliente MCP externo) a partir del mismo registro que usa
-> el servidor y el chat de la app. El registro tiene **58 herramientas** (45 visibles en el chat); las que escriben
-> piden confirmación a la persona. Agrupadas (detalle en [agente.md](agente.md#herramientas-58-en-total-45-en-el-chat)):
->
-> - **Mercado:** `search_saved_jobs` (filtros por área, sector y exclusión de sectores), `get_today_feed`,
->   `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`,
->   `get_market_breakdown` (por área, lugar, empresa, modalidad, seniority, sector o portal, con filtros),
->   `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`,
->   `get_data_schema` y `run_readonly_sql` (solo SELECT/WITH, máx. 50 filas).
-> - **Perfil, CV y memoria:** `get_my_profile`, `update_profile_fields` (edición parcial con antes/después), `get_user_profile`, `get_my_cv`, `update_cv`, `update_profile`, `get_user_memory`,
->   `remember_user`, `search_past_conversations`, `list_career_tracks`, `set_career_track`, `create_career_pack`.
-> - **Plan de cierre:** `get_closure_plan` (qué cerrar primero, ponderado por el mercado) y `close_gap` (registra evidencia real y mide el efecto).
-> - **CV descargable:** `preview_cv` (qué entra y qué se omite) y `build_cv` (DOCX y PDF).
-> - **Captura y sistema:** `refresh_market`, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`,
->   `run_maintenance`, `set_score_weights`, `audit_classification`, `reclassify_jobs`, `get_setup_status`, `get_help`.
->
-> El servidor también publica **recursos** (`radar://topics`, `radar://help/{topic}`, `radar://schema`) y **prompts**
-> (`configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`). Tras añadir herramientas hay que recargar el
-> servidor MCP del cliente.
+## MCP-only tools worth knowing
 
-- `health()`: comprueba disponibilidad; no cambia datos.
-- `ingest_jobs(source, query, location="Lima", limit=25, max_age_days=14)`: busca, clasifica, deduplica y guarda únicamente ofertas fechadas dentro del rango reciente. El límite operativo es 100. Usa `max_age_days=7` para una búsqueda de la última semana.
-- `search_saved_jobs(limit=20, seniority=null, area=null, max_age_days=14, search=null, sector=null, exclude_sector=null)`: consulta ofertas recientes guardadas y excluye las ocultadas en la instalación local. Devuelve un extracto de la descripción (la ficha completa está en `get_job_details`), modalidad, sector y salario.
-- `get_market_summary()` (solo MCP): total activo, áreas primarias y skills frecuentes.
-- `get_user_profile()`: devuelve el perfil separado; puede devolver `profile: null`.
-- `list_recommended_jobs(limit=10, max_age_days=14)`: devuelve solo recomendaciones activas y fechadas dentro del rango, con enlace directo, fecha de publicación, modalidad, sector, salario y horas cuando existen; requiere perfil configurado.
-- Las ofertas sin fecha o antiguas se conservan como historial, pero no se recomiendan.
-- En recomendaciones de LinkedIn, `application_status=open` y una verificación reciente son requisitos de calidad. La vista web general usa la antigüedad y el estado personal de ocultamiento, sin un filtro especial por fuente.
-- `get_job_history(job_id, limit=20)`: devuelve las observaciones temporales de una oferta.
-- `get_career_timeline(limit=50)`: devuelve versiones del perfil y eventos profesionales.
-- `record_career_event(event_type, title, description=null, started_on=null, ended_on=null)`: registra un evento profesional con confirmación explícita.
-- `capture_market_history(snapshot_date=null)`: guarda métricas del mercado para comparar periodos.
-- `get_market_history(limit=90)`: consulta snapshots históricos.
-- `track_job_application(job_id, status="saved", notes=null)`: registra o actualiza una postulación.
-- `list_job_applications(limit=50)`: lista postulaciones y enlaces.
+| Tool | Notes |
+| --- | --- |
+| `health()` | Availability check; changes nothing |
+| `ingest_jobs(source, query, location="Lima", limit=25, max_age_days=14)` | Fetch, classify, deduplicate and save only dated, recent offers. Operational limit 100 |
+| `get_market_summary()` | Active total, primary areas, frequent skills |
+| `list_recommended_jobs(limit=10, max_age_days=14)` | Active, dated, within range, with link, date, mode, sector, salary, hours; needs a profile. LinkedIn offers additionally need `application_status=open` and a recent check |
+| `get_job_history(job_id, limit=20)` | Time series of one offer |
+| `capture_market_history(snapshot_date=null)` | Store market metrics |
+| `list_targets()`, `get_target_context(job_ids)`, `save_target_profile(job_id, profile)`, `get_target_matrix()`, `resolve_nearest_districts(reference, limit=3)` | Target CV workflow: [cv.md](cv.md#mcp-tools) |
 
-LinkedIn, Bumeran, Laborum y Empleos Perú se incorporan inicialmente mediante archivos CSV/JSON preparados por el usuario; Radar no automatiza sesiones ni cuentas personales.
+`search_saved_jobs(limit, seniority, area, max_age_days=14, search, sector, exclude_sector)` excludes hidden
+offers and returns a description excerpt. `run_readonly_sql` accepts only a single `SELECT`/`WITH` (max 50 rows).
+LinkedIn, Bumeran, Laborum and Empleos Perú enter through CSV/JSON import, never through account automation.
 
-## CVs objetivo (hipotéticos)
+## Policy for external agents
 
-Detalle y principios en `docs/target-profiles.md`. Los archivos viven junto a la base de datos
-(`cv_master.json`, `targets/*.json`, `photo.jpg`), fuera de Git.
-
-- `list_targets()`: los objetivos actuales (ofertas con ★ elegidas por el usuario en la interfaz),
-  ordenados por cercanía al perfil real, con su brecha base calculada por código.
-- `get_target_context(job_ids)`: ofertas (requisitos, skills, descripción, distancia desde el distrito
-  real), su brecha base (`baseline`, con `key` y estado) y el perfil real. Máximo 10 ofertas.
-- `save_target_profile(job_id, profile)`: valida y guarda un CV objetivo hipotético. Exige `quote` o
-  `reason` en ítems explícitos, `reason` en inferidos y en `cubierto`, y valida `origin`, `status` y
-  `kind`. Empresa, título, marca hipotética y distancia los fija Radar; si un ítem comparte `key` con la brecha
-  base, el estado del código prevalece sobre el del agente. Devuelve `errors` si no valida.
-- `get_target_matrix()`: matriz de brechas entre los CVs guardados.
-- `resolve_nearest_districts(reference, limit=3)`: distritos más cercanos a una zona (km aproximados).
-
-El estado de los requisitos detectados por Radar (skills, años de experiencia, estudios) lo calcula
-el código. El agente solo asigna estado a lo demás, citando el perfil real, y esos ítems se marcan
-como asignados por el agente en la matriz.
-
-## Política para el agente
-
-Cualquier agente externo conectado debe declarar fuente y filtros, distinguir `NULL` de datos confirmados, respetar scores/evidencias y pedir confirmación antes de escribir (perfil, CV, temporizador, mantenimiento, reclasificación, pesos). No existen herramientas de postulación ni de envío de mensajes. Los detalles del agente de la app (modos, memoria, límites) están en [agente.md](agente.md).
+An external agent must: declare source and filters, distinguish `NULL` from confirmed data, respect scores and
+evidence, and ask the person before writing (profile, CV, timer, maintenance, reclassification, weights). There
+are no tools to apply to jobs or send messages. Do not expose the stdio server over a network without
+authentication.

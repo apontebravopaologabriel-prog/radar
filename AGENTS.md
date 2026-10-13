@@ -1,123 +1,107 @@
-# Guía para agentes de Radar
+# Radar: guide for coding agents
 
-## Contexto
+## Context
 
-Radar es una aplicación local de Career Intelligence para explorar ofertas de empleo en el Perú (Lima como mercado principal, más ciudades del país).
-La fuente de verdad es SQLite (archivo local, sin servidor); FastAPI expone la API y Next.js genera
-el frontend estático que FastAPI sirve en `/radar`.
+Radar is a local Career Intelligence app for exploring job offers in Peru (Lima is the main market, plus other
+cities). SQLite (a local file, no server) is the source of truth; FastAPI exposes the API; Next.js builds the
+static frontend that FastAPI serves at `/radar`. UI strings, help text and the agent persona are in Spanish;
+code, comments for new code and docs are in English.
 
-Antes de cambiar comportamiento, leer en este orden:
+Read before changing behavior, in this order:
 
-1. `README.md` para el flujo de instalación y uso.
-2. `docs/architecture.md` para límites y responsabilidades.
-3. `docs/operations.md` para launcher, ingesta y verificación.
-4. `docs/troubleshooting.md` si el problema es de ejecución.
+1. `README.md` (install and use)
+2. `docs/architecture.md` (boundaries and responsibilities)
+3. `docs/operations.md` (launcher, ingestion, verification)
+4. `docs/troubleshooting.md` (when the problem is at runtime)
 
-## Mapa del código
+## Code map
 
-- `src/radar/api.py`: endpoints HTTP y montaje del frontend estático.
-- `src/radar/db/`: conexión, repositorio y consultas SQLite.
-- `src/radar/cv_targets.py`: lectura de CVs objetivo hipotéticos (`docs/target-profiles.md`).
-- `src/radar/cv_baseline.py`: brecha base determinista, ranking y combinación con el enriquecimiento.
-- `src/radar/api_cv.py`: endpoints `/api/cv/*` (solo lectura).
-- `frontend/components/CvView.tsx`: vista `CVs` (objetivos = favoritos ★, ranking, matriz, comparación, detalle); sus tipos y cliente están en `frontend/lib/cv-types.ts` y `cv-api.ts`, y sus estilos en `components/cv.css`.
-- `src/radar/careers/`: paquetes de carrera (`packs/*.json`): áreas, competencias, señales y pesos del
-  score. `classify.py` y `taxonomy.py` son motores que los leen; no hay reglas de una carrera en Python.
-- `src/radar/tools.py`: registro único de herramientas (MCP y chat). Declara `write` y `chat` por herramienta.
-- `src/radar/agent/`: proveedor OpenAI-compatible, bucle del agente (escrituras siempre pendientes; en modo plan o solo lectura no se ofrecen), memoria (`memory.py`), búsqueda en conversaciones (`history.py`) y el carácter (`soul.md`, marco ISE BoK). Referencia completa: `docs/agente.md`.
-- `src/radar/maintenance.py`, `system.py`, `cv_edit.py`: auditoría/reclasificación de áreas, estado del sistema y temporizador systemd, y edición por texto de `cv_master.json`. Todas con listas cerradas de acciones, confirmación y copia previa; nunca borran ofertas.
-- `src/radar/help.md` + `help.py`: ayuda curada; el agente explica el producto solo desde ahí (`get_help`). Actualízala al cambiar una función visible.
-- `src/radar/geolocation.py`: distritos de Lima/Callao, ciudades y departamentos del Perú. Orden de resolución: ciudad (palabra completa) → distrito de Lima → departamento → Lima; "Perú" a secas no ubica. Añade ciudades en `_CITIES`.
-- `src/radar/api_agent.py`, `auth.py`, `feed.py`, `settings.py`: API móvil, acceso, feed Hoy y ajustes.
-- `frontend/components/agent/`: chat compartido (`useAgentChat`, `AgentChatPanel`) y la ventana flotante de escritorio (`AgentDock`), montada en `app/radar/page.tsx`. Tiene dos modos (ventana flotante y panel fijado a la derecha vía `--agent-dock-w` y el contenedor `.radar-stage` de `app/radar/page.tsx`). Solo existe si el agente está activado; no reintroducir un botón permanente cuando está apagado (queda solo el acceso a `/ajustes`).
-- `src/radar/insights.py`: consultas de solo lectura que responden preguntas abiertas (ficha, encaje, demanda, desgloses, salarios, SQL). `skill_export.py` genera `docs/skills/radar/SKILL.md` (`radar skill export --out docs/skills`); regenerarlo al cambiar herramientas o `help.md`.
-- `frontend/components/agent/commands.ts`: comandos `/` del chat. Los `local` usan la API sin gastar tokens; añadir uno = una entrada en `COMMANDS`. `Markdown.tsx` es el renderizador seguro (sin HTML crudo, solo enlaces http/https/mailto) y `RadarMark.tsx` el símbolo del agente.
-- `src/radar/refresh.py`: actualización del mercado desde la app; `careers/` también carga carreras propias desde `<carpeta de la base>/careers/`.
-- `frontend/components/mobile/` y `app/m/`: PWA móvil (`/m`); `frontend/public/` guarda manifest y service worker.
-- `src/radar/classify.py`: áreas, seniority y competencias detectadas.
-- `frontend/components/RadarClient.tsx`: estado, filtros, ofertas, popups y herramientas del mapa.
-- `frontend/components/MapView.tsx`: mapa MapLibre, distritos, etiquetas y radar.
-- `frontend/components/LeafletMapView.tsx`: fallback cuando no existe WebGL2.
-- `frontend/app/globals.css`: layout, tema grafito, popups y scrolls.
-- `frontend/lib/api.ts`: cliente HTTP del frontend.
-- `frontend/out/`: export estático servido por FastAPI; se regenera con el build y **no se versiona** (está en `.gitignore`); el launcher lo compila si falta.
+Backend (`src/radar/`):
 
-## Contratos de interfaz actuales
+- `api.py`: HTTP endpoints, static frontend mount. `api_cv.py` (`/api/cv/*`, read-only), `api_me.py` (profile, photo), `api_agent.py` (chat, mobile API, settings), `auth.py` (access token), `feed.py` (Today feed), `settings.py` (settings, `secrets.json`).
+- `db/`: connection, repository, queries, read-only analytics. Schema: `db/schema_sqlite.sql`.
+- `careers/`: career packs (`packs/*.json`) plus the loader. `classify.py` and `taxonomy.py` are engines that read the active pack; no career-specific rules in Python.
+- `classify.py`, `normalize.py`, `scoring.py`, `enrichment.py`, `salary.py`, `freshness.py`, `liveness.py`: the deterministic pipeline.
+- `sources/`: portal adapters (`jobspy.py`, `computrabajo.py`). `pipeline.py` and `importers.py` run them; `refresh.py` is the in-app market refresh.
+- `geolocation.py`: Lima/Callao districts, cities, departments. Resolution order: city (whole word) → Lima district → department → Lima. A bare "Perú" does not locate. Add cities in `_CITIES`.
+- `tools.py`: the single tool registry (MCP and chat). Each tool declares `write` and `chat`. `TOOL_GROUPS` defines on-demand groups (`cv`, `perfil`, `sistema`).
+- `agent/`: OpenAI-compatible provider, agent loop, memory (`memory.py`), conversation search (`history.py`), persona (`soul.md`, ISE BoK framework). Reference: `docs/agent.md`.
+- `mcp/server.py`: stdio MCP server over the registry. `mcp_config.py` + `api_mcp.py`: "Connect an AI client" (snippets and confirmed install for Claude Desktop, Cursor, Gemini CLI).
+- `capture.py` (`radar refresh`): the scheduled market capture, cross-platform and driven by the active pack. `scheduler.py`: in-process scheduler used where there is no systemd timer. `refresh.py`: the in-app "update now" run (same ingestion, in-process).
+- `app.py` (`radar-app`): desktop entry (API + window + scheduler, `--smoke`). `paths.py`: OS-specific data/state/frontend folders. `security.py`: Host/Origin guard, headers, file permissions. `settings.py`: settings and secrets (OS credential store on Windows).
+- `insights.py`: read-only queries behind open questions (job card, fit, demand, breakdowns, salaries, SQL). `skill_export.py` generates `docs/skills/radar/SKILL.md`.
+- `cv_targets.py`, `cv_baseline.py`, `cv_plan.py`, `cv_build.py`, `cv_docx.py`, `cv_pdf.py`, `cv_edit.py`, `cv_photo.py`, `profile_edit.py`: CV and profile logic. See `docs/cv.md`.
+- `maintenance.py`, `system.py`: classification audit/reclassification, system status, systemd timer. Closed action lists, confirmation, backup first; they never delete offers.
+- `help.md` + `help.py`: curated product help; the agent explains the product only from it (`get_help`). Update it when a visible feature changes.
 
-- La pantalla principal es `/radar`, centrada por defecto en Lima/Callao y en la vista Distritos.
-- El mapa ocupa el fondo completo; los controles son herramientas flotantes: Filtros, Radar,
-  Análisis y CVs. No reintroducir barra superior, barra inferior ni controles de zoom del mapa.
-- El diseño es monocromático: negro, grafito y grises. No añadir acentos verdes salvo una decisión
-  explícita de producto.
-- El refresco automático consulta Indeed mediante JobSpy y Computrabajo mediante su adaptador MCP;
-  cada portal debe ejecutarse de forma aislada para que un fallo no detenga la actualización.
-- Distritos muestra etiquetas compactas `Distrito · cantidad`; evita círculos superpuestos.
-- Radar requiere seleccionar un distrito y ofrece radios de 2, 5 y 10 km. Su selector puede abrirse
-  hacia arriba y el panel queda flotante en la zona inferior derecha.
-- Análisis y CVs reemplazan el mapa por su propia vista a pantalla completa (sin panel lateral). CVs
-  deja libre el margen izquierdo para la barra de herramientas, marca todo CV objetivo como
-  `HIPOTÉTICO — no enviar` y no ofrece exportarlo. Los objetivos son las ofertas con ★: no crear otro mecanismo de selección.
-- Las ofertas se presentan en una bandeja flotante redimensionable desde el tirador superior y
-  con scroll interno. Las tarjetas deben conservar una altura compacta aunque haya pocas ofertas.
-  La bandeja también expone iconos compactos para alternar favoritos y ofertas ocultas.
-- En cada señal, la fuente (`Indeed`, `LinkedIn`, etc.) aparece junto al área al pasar el mouse o
-  enfocar la tarjeta; el título es el enlace directo a la oferta original y no debe abrir el detalle
-  accidentalmente.
-- La empresa puede mostrar un icono `⌖` discreto que abre una búsqueda externa de Google Maps con
-  empresa + ubicación; no convertirlo en una integración de API ni dibujar sedes automáticamente
-  en el mapa.
-- El panel de filtros incluye selectores de portal (`Indeed`, `Computrabajo`, etc.) y competencia;
-  ambos deben reutilizar los filtros de la API y mantener la selección sincronizada con el mapa.
-- En el detalle, el botón de ocultar es únicamente un icono de ojo junto a la `X` de cierre. Al
-  activarlo, el motivo aparece en un popup independiente a la izquierda del detalle; no volver a
-  convertirlo en un formulario inline dentro de la tarjeta.
-- Las descripciones se renderizan con el renderer Markdown local y no deben usar `dangerouslySetInnerHTML`
-  con contenido de una fuente externa.
+Frontend (`frontend/`):
 
-## Flujo de trabajo para cambios
+- `components/RadarClient.tsx`: state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx`, `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
+- `components/agent/`: shared chat (`useAgentChat`, `AgentChatPanel`) and the desktop window (`AgentDock`, mounted in `app/radar/page.tsx`). Two modes: floating window and panel pinned right (`--agent-dock-w`, container `.radar-stage`). It exists only when the agent is enabled; do not reintroduce a permanent button when it is off (only the link to `/ajustes` remains). `commands.ts` holds the `/` commands (`local` ones use the API and spend no tokens; add one = one entry in `COMMANDS`). `Markdown.tsx` is the safe renderer (no raw HTML, only http/https/mailto links). `RadarMark.tsx` is the agent symbol.
+- `components/mobile/` and `app/m/`: the PWA at `/m`. `public/` holds manifest and service worker.
+- `app/globals.css` (layout, graphite theme, popups, scrolls), `lib/api.ts` (HTTP client).
+- `frontend/out/`: static export served by FastAPI. Built by `npm run build`, **not versioned** (gitignored); the launcher builds it if missing. Never edit it by hand.
 
-1. Revisar `git status` y conservar cambios existentes que no pertenezcan a la tarea.
-2. Editar código fuente; no editar manualmente `frontend/out`.
-3. Para cambios visuales, ejecutar `cd frontend && npm run build` para regenerar el export.
-4. Ejecutar `git diff --check`, `pytest` y `ruff check` cuando las dependencias estén instaladas.
-5. Revisar el diff (`frontend/out` no aparece: es un artefacto ignorado).
-6. Documentar cambios de comportamiento en `README.md` o en el documento específico de `docs/`.
+`packaging/` (PyInstaller spec, Inno Setup script) and `.github/workflows/release.yml` build the Windows installer; see `docs/packaging.md`. `legacy/postgres/` is a historical artifact (old PostgreSQL migrations, compose file, migration script). It is never executed; do not add files there.
 
-## Comandos de verificación
+## Desktop interface contracts
+
+- The main screen is `/radar`, centered on Lima/Callao and the `Districts` view by default.
+- The map fills the background. Controls are floating tools: Filters, Radar, Analysis and CVs. Do not reintroduce a top bar, a bottom bar or map zoom controls.
+- Monochrome design: black, graphite, grays. No green accents without an explicit product decision.
+- Auto-refresh queries Indeed and LinkedIn through JobSpy and Computrabajo through its MCP adapter; each portal runs isolated so one failure does not stop the refresh.
+- Districts shows compact labels `District · count`; avoid overlapping circles.
+- Radar requires a selected district and offers 2, 5 and 10 km radii. Its selector may open upward and the panel floats bottom-right.
+- Analysis and CVs replace the map with a full-screen view (no side panel). CVs leaves the left margin free for the toolbar, marks every target CV `HIPOTÉTICO — no enviar` and offers no export. Targets are the ★ offers: do not create another selection mechanism.
+- Offers appear in a floating tray, resizable from the top handle, with internal scroll. Cards keep a compact height even with few offers. The tray also exposes compact icons to toggle favorites and hidden offers.
+- Per signal, the source (`Indeed`, `LinkedIn`, …) appears next to the area on hover or focus; the title is the direct link to the original offer and must not open the detail by accident.
+- The company may show a discreet `⌖` icon that opens an external Google Maps search (company + location). Do not turn it into an API integration or auto-draw sites on the map.
+- The filter panel has portal and competency selectors; both reuse the API filters and stay in sync with the map.
+- In the detail, hide is only an eye icon next to the close `X`. The reason appears in a separate popup to the left of the detail; do not turn it back into an inline form.
+- Descriptions render with the local Markdown renderer. Never use `dangerouslySetInnerHTML` with external content.
+
+## Mobile contracts (`/m`)
+
+- A separate interface from the map: the desktop floating-bar rules do not apply.
+- Gray and black terminal look: monospaced, dark only, no color accents (deliberate exception: the agent chat uses the accent palette of `mobile.css`, Claude Code style), `>` on titles and `[SECTION]` labels, 44 px touch targets.
+- The mobile map uses Leaflet with OpenStreetMap tiles (CARTO now requires a key) and one point per place; no polygons or per-offer layers.
+- The service worker never caches `/api/chat`, `/api/agent` or `/api/auth`.
+
+## Tools and agent contracts
+
+- Every new tool is registered in `tools.py`; if it writes, `write=True` (it appears as a confirmation card). Add it to the table in `docs/agent.md`, regenerate the skill (`radar skill export --out docs/skills`) and cover it in `tests/test_tools.py`.
+- Each chat tool costs tokens on every message: set `chat=False` for MCP-only tools, keep descriptions short, and put heavy rarely-used tools in a `TOOL_GROUPS` group.
+- Do not expose to the chat any tool that sends messages, applies to jobs or runs free-form SQL against writable data.
+
+## Change workflow
+
+1. Check `git status`; keep existing changes that are not part of the task.
+2. Edit source; never edit `frontend/out`.
+3. For visual changes run `cd frontend && npm run build`.
+4. Run `git diff --check`, `pytest`, `ruff check` (and `npm test`, `npm run lint` for the frontend).
+5. Review the diff.
+6. Document behavior changes in the matching doc (`README.md` or `docs/`), and in `help.md` if user-visible.
+
+## Verification commands
 
 ```bash
 cd /home/paolo/Projects/Radar
-pytest
-ruff check
+.venv/bin/pytest
+.venv/bin/ruff check
 git diff --check
 
 cd frontend
-npm run build
+npm run lint && npm test && npm run build
 ```
 
-El build debe terminar con código 0 y sin warnings nuevos. Si Autoprefixer vuelve a señalar valores
-de alineación, preferir la forma compatible `flex-start`/`flex-end`.
+The build must exit 0 without new warnings. If Autoprefixer flags alignment values, prefer `flex-start`/`flex-end`.
+CI (`.github/workflows/ci.yml`) runs Python 3.11, 3.12 and 3.14 on Linux, 3.12 on Windows, the frontend job and an informational dependency audit. Do not use POSIX-only APIs without an `os.name` guard: the code must run on Windows.
 
-## Límites y seguridad
+## Limits and safety
 
-- No automatizar postulaciones, mensajes ni sesiones personales de portales.
-- No borrar ofertas históricas ni modificar `jobs` para ocultar el estado personal; usar las tablas
-  de estado/favoritos y sus endpoints.
-- Mantener la inferencia de coordenadas como aproximada y no presentarla como ubicación exacta.
-- Los CVs objetivo son hipotéticos: no presentarlos ni exportarlos como CV real. El perfil real, los
-  CVs objetivo y la foto viven fuera del repositorio (`~/.local/share/radar/`); no versionarlos.
-- No usar un LLM para decidir silenciosamente scores, niveles de competencia o vigencia.
-- El esquema SQLite vive en `src/radar/db/schema_sqlite.sql`; un cambio de esquema se hace ahí (y en
-  `_ensure_runtime_schema()` si debe aplicarse a bases ya creadas), no borrando el archivo `.db` ni
-  añadiendo un `.sql` a `legacy/postgres/migrations/` (ese directorio es un artefacto histórico de PostgreSQL, ya no
-  se ejecuta). Ver `docs/database.md`.
-
-
-## Contratos de la app móvil (`/m`)
-
-- Es una interfaz aparte del mapa: no aplican las reglas de barra flotante del explorador de escritorio.
-- Terminal gris y negro: monoespaciada, solo modo oscuro, sin acentos de color (excepción deliberada: el chat del agente usa la paleta de acento de `mobile.css`, al estilo de Claude Code), `>` en títulos y etiquetas `[SECCIÓN]`, objetivos táctiles de 44 px.
-- Toda herramienta nueva se registra en `tools.py`; si escribe, `write=True` (aparece como tarjeta de confirmación). Añádela a la tabla de `docs/agente.md`, regenera la skill (`radar skill export --out docs/skills`) y cubre con una prueba en `tests/test_tools.py`; cada herramienta del chat cuesta tokens en cada mensaje, así que marca `chat=False` las que solo sirvan al MCP y mantén sus descripciones cortas. No exponer al chat
-  herramientas que envíen mensajes, postulen o ejecuten SQL libre.
-- El mapa móvil usa Leaflet con teselas de OpenStreetMap (CARTO ya exige clave) y un punto por lugar; no cargar polígonos ni una capa por oferta.
-- El service worker no cachea `/api/chat`, `/api/agent` ni `/api/auth`.
+- Do not automate applications, messages or personal portal sessions.
+- Never delete historical offers or modify `jobs` to hide personal state; use the status/favorites tables and endpoints.
+- Keep coordinate inference approximate and never present it as an exact location.
+- Target CVs are hypothetical: never present or export them as a real CV. The real profile, target CVs and photo live outside the repo (`~/.local/share/radar/`); never version them.
+- Never use an LLM to silently decide scores, competency levels or offer validity.
+- Schema changes go in `src/radar/db/schema_sqlite.sql` (and in `_ensure_runtime_schema()` if they must apply to existing databases); never delete the `.db` file and never add a `.sql` under `legacy/postgres/migrations/`. See `docs/database.md`.
