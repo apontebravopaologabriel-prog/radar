@@ -87,3 +87,27 @@ def test_expire_stale_jobs_deactivates_only_unseen_jobs():
     with connection() as conn:
         still_active = conn.execute("SELECT count(*) FROM jobs WHERE is_active=1").fetchone()[0]
     assert still_active == 0
+
+
+def test_repair_data_only_rewrites_what_changed_and_is_idempotent():
+    from radar.db.database import connection
+    from radar.db.repository import ingest_jobs, repair_data_quality
+    from radar.domain.models import RawJob
+
+    ingest_jobs([
+        RawJob("t", "Practicante de Logística", "ACME", "https://e.com/1", location="Lima",
+               description="Gestión de inventarios con Excel y SQL. Modalidad híbrida. Sueldo S/ 1500 mensual."),
+        RawJob("t", "Analista de Calidad", "ACME", "https://e.com/2", location="Lima", description="Lean Six Sigma y Power BI"),
+    ])
+    total = repair_data_quality()["jobs_checked"]  # la base de la prueba ya trae una oferta sembrada
+    second = repair_data_quality()
+    assert second["jobs_unchanged"] == total and second["classifications_rebuilt"] == 0
+    with connection() as conn:  # dañar los datos derivados de una oferta: el siguiente repair los reconstruye
+        job_id = conn.execute("SELECT id FROM jobs WHERE title = 'Practicante de Logística'").fetchone()[0]
+        conn.execute("DELETE FROM job_skills WHERE job_id=%s", (job_id,))
+        conn.execute("UPDATE jobs SET work_mode='unknown', sector=NULL WHERE id=%s", (job_id,))
+    third = repair_data_quality()
+    assert third["classifications_rebuilt"] == 1 and third["jobs_unchanged"] == total - 1
+    with connection() as conn:
+        assert conn.execute("SELECT count(*) FROM job_skills WHERE job_id=%s", (job_id,)).fetchone()[0] >= 1
+        assert conn.execute("SELECT work_mode FROM jobs WHERE id=%s", (job_id,)).fetchone()[0] == "hybrid"

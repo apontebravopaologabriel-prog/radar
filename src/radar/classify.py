@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import re
+from functools import cache
 
 from radar.careers import CareerPack, default_pack
 from radar.domain.models import ClassifiedJob, Evidence, RawJob
 from radar.normalize import normalize_text
 
 
+@cache
+def _word(phrase: str, suffix: str = "", flags: int = 0) -> re.Pattern[str]:
+    """Patrón compilado «palabra completa». El paquete tiene cientos de frases: sin esta memoización la caché de `re`
+    (512 entradas) se desborda y casi todo el tiempo de clasificar se iba en recompilar (103 ms por oferta)."""
+    return re.compile(rf"(?<!\w){re.escape(phrase)}{suffix}(?!\w)", flags)
+
+
 def _evidence(text: str, phrase: str) -> str:
-    match = re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, flags=re.IGNORECASE)
+    match = _word(phrase, "", re.IGNORECASE).search(text)
     if not match:
         return phrase
     start = max(0, match.start() - 70)
@@ -17,11 +25,11 @@ def _evidence(text: str, phrase: str) -> str:
 
 
 def _contains(text: str, phrase: str) -> bool:
-    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
+    return _word(phrase).search(text) is not None
 
 
 def _match(text: str, phrase: str) -> re.Match[str] | None:
-    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text)
+    return _word(phrase).search(text)
 
 
 def _requirement_type(text: str, start: int) -> str:
@@ -39,7 +47,7 @@ MIN_AREA_SCORE = 1.5  # un solo término débil o una mención suelta en la desc
 def _title_contains(title: str, phrase: str) -> bool:
     """En el título se admiten derivados cortos («almacenero», «almacenes») para no depender de cada variante."""
     suffix = r"\w{0,5}" if len(phrase) >= 6 else ""  # las siglas cortas («bi», «sig») deben coincidir exactas
-    return re.search(rf"(?<!\w){re.escape(phrase)}{suffix}(?!\w)", title) is not None
+    return _word(phrase, suffix).search(title) is not None
 
 
 def _area_score(title: str, description: str, phrases: tuple[str, ...], weak: frozenset[str]) -> tuple[float, str | None, bool]:
@@ -51,7 +59,7 @@ def _area_score(title: str, description: str, phrases: tuple[str, ...], weak: fr
             score += 3.0 + len(phrase) / 100
             best, in_title = best or phrase, True
             continue
-        hits = len(re.findall(rf"(?<!\w){re.escape(phrase)}(?!\w)", description))
+        hits = len(_word(phrase).findall(description))
         if hits:
             score += (0.25 * min(hits, 2)) if phrase in weak else (0.8 * min(hits, 3))
             best = best or phrase
@@ -68,7 +76,7 @@ def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     matched: list[tuple[float, int, Evidence]] = []
     commercial_title = next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(title, phrase)), None)
     commercial_text = commercial_title or next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(description, phrase)), None)
-    if commercial_text and not commercial_title and len(re.findall(rf"(?<!\w){re.escape(commercial_text)}(?!\w)", description)) < 3:
+    if commercial_text and not commercial_title and len(_word(commercial_text).findall(description)) < 3:
         commercial_text = None  # una mención suelta en la descripción no vuelve comercial a una oferta
     if commercial_text and commercial_area:
         weight = 4.0 if commercial_title else 0.5
