@@ -84,10 +84,12 @@ def run_capture(
     failed: list[str] = []
     created = 0
 
-    def run_step(label: str, fn: Callable[[], Any]) -> Any:
+    def run_step(label: str, fn: Callable[[], Any], *, limited: bool = True) -> Any:
+        """`limited`: solo las consultas a portales tienen límite de tiempo. El mantenimiento local (reparar, expirar,
+        comprobar, respaldar) corre sin límite: abandonarlo a medias dejaría un hilo reteniendo la base de datos."""
         log(f"[{label}]")
         try:
-            return _run_with_timeout(fn, step_timeout)
+            return _run_with_timeout(fn, step_timeout) if limited else fn()
         except Exception as exc:  # noqa: BLE001
             log(f"[{label}] FAILED: {str(exc)[:200]}")
             failed.append(label)
@@ -102,11 +104,11 @@ def run_capture(
         )
         if isinstance(stats, dict):
             created += int(stats.get("created", 0))
-    run_step("quality: repair-data", repair_data_quality)
-    run_step("quality: expire-stale", lambda: expire_stale_jobs(int(os.getenv("RADAR_STALE_AFTER_DAYS", DEFAULT_STALE_DAYS))))
-    run_step("quality: check-applications", lambda: check_application_status(int(os.getenv("RADAR_LIVENESS_CHECK_LIMIT", DEFAULT_LIVENESS_LIMIT))))
-    run_step("market: snapshot", capture_market_snapshot)
-    run_step("backup: sqlite", backup_database)
+    run_step("quality: repair-data", repair_data_quality, limited=False)
+    run_step("quality: expire-stale", lambda: expire_stale_jobs(int(os.getenv("RADAR_STALE_AFTER_DAYS", DEFAULT_STALE_DAYS))), limited=False)
+    run_step("quality: check-applications", lambda: check_application_status(int(os.getenv("RADAR_LIVENESS_CHECK_LIMIT", DEFAULT_LIVENESS_LIMIT))), limited=False)
+    run_step("market: snapshot", capture_market_snapshot, limited=False)
+    run_step("backup: sqlite", backup_database, limited=False)
     summary = {"steps": len(steps), "failed": failed, "created": created}
     log(f"SUMMARY: {len(failed)} step(s) failed: {', '.join(failed)}" if failed else "SUMMARY: all steps completed")
     log(datetime.now(UTC).isoformat(timespec="seconds"))

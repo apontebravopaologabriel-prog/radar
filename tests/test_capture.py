@@ -59,3 +59,21 @@ def test_computrabajo_can_be_disabled_by_environment(monkeypatch):
     monkeypatch.setenv("RADAR_COMPUTRABAJO_ENABLED", "0")
     capture.run_capture(log=lambda _: None)
     assert seen == {"jobspy"}
+
+
+def test_local_maintenance_is_never_abandoned_by_the_step_timeout(monkeypatch):
+    """Regresión: repair-data tardó más que el límite, se abandonó y su hilo siguió bloqueando la base."""
+    import time as _time
+
+    monkeypatch.setattr("radar.pipeline.run_ingestion", lambda *a: {"created": 0})
+    finished = []
+
+    def slow_repair():
+        _time.sleep(0.5)
+        finished.append(True)
+        return {}
+
+    monkeypatch.setattr("radar.db.repository.repair_data_quality", slow_repair)
+    logs: list[str] = []
+    summary = capture.run_capture(log=logs.append, step_timeout=0.1, computrabajo=False)
+    assert finished == [True] and not any("repair-data" in item for item in summary["failed"])
