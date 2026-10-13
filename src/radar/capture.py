@@ -69,7 +69,7 @@ def run_capture(
     cities: str | list[str] | None = None,
     max_age_days: int | None = None,
     computrabajo: bool | None = None,
-    log: Callable[[str], None] = print,
+    log: Callable[[str], None] = lambda line: print(line, flush=True),  # sin búfer: `tail -f refresh.log` ve el avance
     step_timeout: float = STEP_TIMEOUT,
 ) -> dict[str, Any]:
     from radar.db.repository import capture_market_snapshot, expire_stale_jobs, repair_data_quality
