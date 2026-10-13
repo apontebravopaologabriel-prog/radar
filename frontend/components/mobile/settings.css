@@ -98,3 +98,5 @@
 
 /* Etiquetas planas de Búsqueda/Agente (select, input) con el mismo prefijo de comentario que .set-field. */
 .set-section > div > label:not(.m-check):not(.set-field)::before, .set-content label:not(.m-check):not(.set-field)::before { content: "# "; color: var(--dim); }
+
+.m-code { background: #171717; border: 1px solid #333; padding: 8px 10px; overflow-x: auto; font-size: 12px; white-space: pre; margin: 8px 0; }
