@@ -115,7 +115,8 @@ def test_api_settings_never_return_the_key_and_file_is_private():
     res = api.put("/api/agent/settings", json={"provider": "deepseek", "api_key": "sk-abc"})
     assert res.status_code == 200 and res.json()["has_key"] is True
     assert "sk-abc" not in res.text and "sk-abc" not in api.get("/api/agent/settings").text
-    assert oct(secrets_path().stat().st_mode & 0o777) == "0o600"
+    if __import__("os").name != "nt":  # en Windows no hay permisos POSIX; ahí las claves van al almacén del sistema
+        assert oct(secrets_path().stat().st_mode & 0o777) == "0o600"
     assert read_secrets()["llm_key_deepseek"] == "sk-abc"
     api.put("/api/agent/settings", json={"provider": "deepseek", "api_key": ""})
     assert api.get("/api/agent/settings").json()["has_key"] is False
