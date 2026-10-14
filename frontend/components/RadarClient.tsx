@@ -2,11 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { FormEvent, memo, PointerEvent as ReactPointerEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchAppliedJobs, fetchFavoriteJobs, fetchHiddenJobs, fetchJobDescription, fetchJobs, fetchSkillOverview, updateApplication, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { fetchAppliedJobs, fetchFavoriteJobs, fetchHiddenJobs, fetchJob, fetchJobDescription, fetchJobs, fetchSkillOverview, updateApplication, updateJobFavorite, updateJobStatus } from "../lib/api";
 import { useProgressiveList } from "./useProgressiveList";
 import { districtKey } from "../lib/districts";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
 import AnalysisView from "./AnalysisView";
+import { OPEN_JOB_EVENT } from "./agent/Markdown";
 import ApplicationsView from "./ApplicationsView";
 import CvView from "./CvView";
 import BootScreen from "./BootScreen";
@@ -296,6 +297,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [showFavorites, setShowFavorites] = useState(false);
   const [showApplied, setShowApplied] = useState(false);
   const [appliedJobs, setAppliedJobs] = useState<Job[]>([]);
+  const [chatJobs, setChatJobs] = useState<Job[]>([]); // ofertas abiertas desde el chat que no estaban en ningún listado
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
   const [studioJobId, setStudioJobId] = useState<string | null>(null);
@@ -321,7 +323,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [radarLabel, setRadarLabel] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string; undo?: () => void } | null>(null);
   const [descriptions, setDescriptions] = useState<Record<string, string | null>>({});
-  const baseJob = useMemo(() => [...jobs, ...hiddenJobs, ...favoriteJobs, ...appliedJobs].find((job) => job.id === selectedId) || null, [appliedJobs, favoriteJobs, hiddenJobs, jobs, selectedId]);
+  const baseJob = useMemo(() => [...jobs, ...hiddenJobs, ...favoriteJobs, ...appliedJobs, ...chatJobs].find((job) => job.id === selectedId) || null, [appliedJobs, chatJobs, favoriteJobs, hiddenJobs, jobs, selectedId]);
   // Los listados llegan sin descripción (slim): se pide la de la oferta abierta y se guarda en memoria.
   useEffect(() => {
     if (!baseJob || baseJob.description !== undefined || descriptions[baseJob.id] !== undefined) return;
@@ -689,6 +691,28 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     setFiltersOpen(false);
     changeMode(view);
   }
+
+  // Un enlace del chat (`radar:job:<id>`) abre la oferta en el detalle del mapa, aunque no esté en la vista actual.
+  const openJobFromChat = useCallback(async (id: string) => {
+    let job = [...jobs, ...hiddenJobs, ...favoriteJobs, ...appliedJobs, ...chatJobs].find((item) => item.id === id) ?? null;
+    if (!job) {
+      try { job = await fetchJob(id); } catch { job = null; }
+      if (!job) { setStatusError("No se encontró esa oferta (pudo haber sido eliminada)."); return; }
+      const found = job;
+      setChatJobs((current) => [found, ...current.filter((item) => item.id !== found.id)]);
+    }
+    selectViewRef.current("map");
+    setSelectedId(job.id);
+    if (job.district) setSelectedDistrictKey(districtKey(job.district));
+    setExpandedDescriptionId(null);
+  }, [appliedJobs, chatJobs, favoriteJobs, hiddenJobs, jobs]);
+  const selectViewRef = useRef(selectView);
+  useEffect(() => { selectViewRef.current = selectView; });
+  useEffect(() => {
+    const onOpen = (event: Event) => { const id = (event as CustomEvent<{ id?: string }>).detail?.id; if (id) void openJobFromChat(id); };
+    window.addEventListener(OPEN_JOB_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_JOB_EVENT, onOpen);
+  }, [openJobFromChat]);
 
   // Filtros es una capa global: abrirla o cerrarla no cambia de vista ni pierde estado.
   const filtersAvailable = activeView === "map";

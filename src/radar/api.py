@@ -22,6 +22,7 @@ from radar.auth import AccessMiddleware
 from radar.auth import router as auth_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
 from radar.db.queries import (
+    get_job,
     get_profile,
     list_applied_jobs,
     list_favorite_jobs,
@@ -285,6 +286,15 @@ def favorite_jobs() -> dict[str, Any]:
 def applied_jobs() -> dict[str, Any]:
     rows = list_applied_jobs()
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
+
+
+@app.get("/api/jobs/{job_id}")
+def job_by_id(job_id: str) -> dict[str, Any]:
+    """Una oferta por id: lo usa el chat para abrir en el mapa una oferta que no está en la vista actual."""
+    row = get_job(job_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Oferta no encontrada")
+    return {"job": _slimmed(_with_location(row), True)}
 
 
 @app.put("/api/jobs/{job_id}/favorite")

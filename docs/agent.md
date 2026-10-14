@@ -49,7 +49,7 @@ Design decisions:
   include the schema so no step is spent on `get_data_schema`.
 - **No limits that break the answer:** at most 8 steps per turn; the last step removes the tools. An identical
   repeated query is cut. Large results are trimmed per item (always valid JSON); older turns keep an excerpt.
-- **Format and speed:** the prompt asks for offers as a numbered list with the title as a link to the portal (never a table; tables only for 2-4 short columns), 5 offers by default, ~120 words, and independent tools in the same step. `search_saved_jobs` returns `url` and `relevance_score`, so ranking offers needs no `get_job_details` per offer.
+- **Format and speed:** the prompt asks for offers as a numbered list with the title as a link to the portal (never a table; tables only for 2-4 short columns), the title being an internal link `radar:job:<id>` that opens the offer in the map detail (`Markdown.tsx` dispatches `radar:open-job`; `RadarClient` handles it, fetching `GET /api/jobs/{id}` when the offer is not in the current lists) plus a `[portal ↗]` link to the original, 5 offers by default, ~120 words, and independent tools in the same step. `search_saved_jobs` returns `url` and `relevance_score`, so ranking offers needs no `get_job_details` per offer.
 - **Light tools:** `search_saved_jobs` returns a description excerpt; the full card is `get_job_details`.
 - **Not changeable by the agent:** API key, read-only mode and token cap (the person changes them in Settings).
   It never applies to jobs or sends messages.

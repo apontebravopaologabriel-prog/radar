@@ -46,3 +46,17 @@ describe("Markdown seguro", () => {
     expect(html("**a** y *b* y `c`")).toBe('<div class="md"><p><strong>a</strong> y <em>b</em> y <code>c</code></p></div>');
   });
 });
+
+describe("enlace interno a una oferta", () => {
+  it("radar:job:<id> abre la oferta en el mapa y no navega", () => {
+    const out = html("[Analista](radar:job:abc-123)");
+    expect(out).toContain('class="md-job-link"');
+    expect(out).toContain("Analista");
+    expect(out).not.toContain("radar:job");
+  });
+
+  it("un esquema interno inválido se queda como texto", () => {
+    const out = html("[x](radar:job:../../etc)");
+    expect(out).not.toContain("<a");
+  });
+});

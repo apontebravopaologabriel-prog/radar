@@ -266,3 +266,4 @@
 .term-banner-model { color: var(--muted); }
 .radar-mark.is-intro .radar-mark-sweep { animation: radar-sweep 2.6s cubic-bezier(.2, .7, .3, 1) 1; }
 @media (prefers-reduced-motion: reduce) { .radar-mark.is-intro .radar-mark-sweep { animation: none; } }
+.md a.md-job-link { cursor: pointer; }

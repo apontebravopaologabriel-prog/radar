@@ -3,6 +3,9 @@ import { memo, type ReactNode } from "react";
 /** Markdown seguro para el chat: se construye con elementos de React (sin HTML crudo) y solo enlaza http(s) y mailto. */
 
 const SAFE_LINK = /^(https?:\/\/|mailto:)/i;
+/** Enlace interno `radar:job:<id>`: pide a la pantalla del mapa abrir esa oferta (no navega a ningún sitio). */
+const JOB_LINK = /^radar:job:([\w-]{6,64})$/;
+export const OPEN_JOB_EVENT = "radar:open-job";
 
 function inline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -22,7 +25,9 @@ function inline(text: string, keyBase: string): ReactNode[] {
     else if (match[2]) out.push(<strong key={key}>{inline(token.slice(2, -2), key)}</strong>);
     else if (match[3]) {
       const [, label, href] = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token) ?? [];
-      out.push(SAFE_LINK.test(href ?? "")
+      const jobId = JOB_LINK.exec(href ?? "")?.[1];
+      if (jobId) out.push(<a key={key} href="#" className="md-job-link" title="Abrir en el mapa" onClick={(event) => { event.preventDefault(); window.dispatchEvent(new CustomEvent(OPEN_JOB_EVENT, { detail: { id: jobId } })); }}>{label}</a>);
+      else out.push(SAFE_LINK.test(href ?? "")
         ? <a key={key} href={href} target="_blank" rel="noopener noreferrer">{label}</a>
         : <span key={key}>{label}</span>);
     } else if (useBareUrl) {

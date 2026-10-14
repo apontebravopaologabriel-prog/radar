@@ -35,6 +35,13 @@ export async function fetchFavoriteJobs(signal?: AbortSignal): Promise<Job[]> {
   return payload.jobs;
 }
 
+export async function fetchJob(id: string, signal?: AbortSignal): Promise<Job | null> {
+  const response = await fetch(`${API_URL}/api/jobs/${encodeURIComponent(id)}`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { job: Job }).job;
+}
+
 export async function fetchAppliedJobs(signal?: AbortSignal): Promise<Job[]> {
   const response = await fetch(`${API_URL}/api/jobs/applied`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);

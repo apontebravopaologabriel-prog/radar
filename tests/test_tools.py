@@ -414,3 +414,16 @@ def test_update_cv_edits_the_master_cv_safely(tmp_path, monkeypatch):
     tools.update_cv("gaps", "remove", match="python")
     tools.update_cv("certifications", "remove", match="sql")
     assert [c["name"] for c in json.loads(cv_file.read_text(encoding="utf-8"))["certifications"]] == ["Lean Six Sigma Green Belt"]
+
+
+def test_job_by_id_endpoint_returns_one_job_and_does_not_shadow_lists():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    jobs = _seed_market()
+    api = TestClient(app)
+    job = api.get(f"/api/jobs/{jobs[0]['id']}").json()["job"]
+    assert job["id"] == jobs[0]["id"] and "latitude" in job
+    assert api.get("/api/jobs/no-existe").status_code == 404
+    assert "jobs" in api.get("/api/jobs/favorites").json()
