@@ -1096,3 +1096,7 @@ html[data-perf="lite"] .job-popover, html[data-perf="lite"] .maplibregl-ctrl-gro
 html[data-perf="lite"] .edge-menu-toggle, html[data-perf="lite"] .agent-dock button, html[data-perf="lite"] .agent-dock a,
 html[data-perf="lite"] .offer-scroll { backdrop-filter: none; }
 html[data-perf="lite"] .job-card, html[data-perf="lite"] .offer-scroll-card { animation: none; }
+
+/* Acceso directo al Estudio de CV desde el detalle de una oferta. */
+.studio-link { display: inline-block; margin: 0 0 6px; padding: 3px 8px; border: 1px solid #5a5a5a; border-radius: 0; background: #151515; color: #d4d4d4; font: inherit; font-size: 10.5px; letter-spacing: .03em; cursor: pointer; }
+.studio-link:hover { border-color: #eeeeee; color: #ffffff; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { studioApi, type StudioOp, type StudioPackage, type StudioSettings, type StudioState, type StudioSuggestion } from "../lib/cv-studio-api";
+import { studioApi, type StudioCandidate, type StudioOp, type StudioPackage, type StudioSettings, type StudioState, type StudioSuggestion } from "../lib/cv-studio-api";
 import "./cv-studio.css";
 
 export type StudioContext = { jobId: string; title: string; company: string | null; selectedLine: { id: string; text: string } | null; pendingSuggestions: number };
@@ -307,6 +307,36 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
           </details>
         </section>
       </div>
+    </section>
+  );
+}
+
+/** Entrada al Estudio sin tener que marcar una ★ antes: busca una oferta reciente y ábrela. */
+export function CvStudioPicker({ onOpen }: { onOpen: (jobId: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [items, setItems] = useState<StudioCandidate[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      studioApi.candidates(query, controller.signal).then(setItems).catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "No se pudieron cargar las ofertas"); });
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [query]);
+  return (
+    <section className="cvs-picker" aria-label="Elegir una oferta para el Estudio">
+      <p className="cvs-note">Elige la oferta para la que quieres preparar tu CV. No hace falta marcarla con ★ antes. {items === null ? "" : query.trim() ? "Resultados de la búsqueda:" : "Ofertas recientes de tu carrera:"}</p>
+      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por puesto o empresa…" aria-label="Buscar oferta" />
+      {error && <p className="cvs-flag" role="alert">{error}</p>}
+      {items !== null && items.length === 0 && <p className="cvs-note">No hay ofertas que coincidan.</p>}
+      <ul className="cvs-picker-list">
+        {(items ?? []).map((job) => (
+          <li key={job.id}>
+            <div><strong>{job.company ?? "Empresa no indicada"}</strong><small>{job.title}{job.location ? ` · ${job.location}` : ""}{job.is_favorite ? " · ★" : ""}</small></div>
+            <button type="button" onClick={() => onOpen(job.id)}>Abrir en el Estudio</button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -294,6 +294,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [showFavorites, setShowFavorites] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
+  const [studioJobId, setStudioJobId] = useState<string | null>(null);
   const [studioContext, setStudioContext] = useState<AgentContext["cvStudio"] | null>(null);
   const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
@@ -838,7 +839,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           ) : mode === "analysis" ? (
             <AnalysisView onApplyFilter={applyAnalysisFilter} onContextChange={setAnalysisContext} />
           ) : mode === "cvs" ? (
-            <CvView onStudioContext={setStudioContext} />
+            <CvView onStudioContext={setStudioContext} openJobId={studioJobId} onOpenJobConsumed={() => setStudioJobId(null)} />
           ) : (
             <>
               <div className="map-header">
@@ -861,6 +862,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                 {selectedJob && <article className={`job-popover ${expandedDescriptionId === selectedJob.id ? "is-description-expanded" : ""}`}>
                   {selectedJob.user_status !== "hidden" && <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><IconEyeOff /></button>}
                   <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }} aria-label="Cerrar detalle" type="button">×</button>
+                  <button className="studio-link" type="button" onClick={() => { setStudioJobId(selectedJob.id); selectView("cvs"); }} title="Prepara tu CV para esta oferta en el Estudio">Estudio de CV →</button>
                   <span className="job-area">{selectedJob.primary_area || "Sin área"}<span className="job-source"> · {sourceName(selectedJob.url)}</span></span>
                   <h3>{selectedJob.url ? <a className="job-popover-title" href={selectedJob.url} target="_blank" rel="noreferrer">{selectedJob.title}</a> : selectedJob.title}</h3>
                   <p className="popover-company">

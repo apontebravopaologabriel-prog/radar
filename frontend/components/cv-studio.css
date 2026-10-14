@@ -58,3 +58,12 @@
 .cvs-settings label { display: grid; gap: 3px; margin: 8px 0; color: #bdbdbd; }
 .cvs-settings label.inline { display: flex; align-items: center; gap: 6px; }
 @media (max-width: 900px) { .cvs { grid-template-columns: 1fr; } .cvs-side { position: static; max-height: none; } }
+
+.cvs-picker { max-width: 760px; display: grid; gap: 8px; }
+.cvs-picker input[type="search"] { font: inherit; font-size: 13px; color: #e5e5e5; background: #101010; border: 1px solid #444; padding: 7px 9px; }
+.cvs-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cvs-picker-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid #2c2c2c; background: #0a0a0a; }
+.cvs-picker-list strong { display: block; font-size: 12px; color: #f0f0f0; }
+.cvs-picker-list small { color: #8c8c8c; font-size: 10.5px; }
+.cvs-picker-list button { font: inherit; font-size: 11px; color: #d4d4d4; background: #1f1f1f; border: 1px solid #444; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.cvs-picker-list button:hover { border-color: #eeeeee; color: #fff; }

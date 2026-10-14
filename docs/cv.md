@@ -132,8 +132,8 @@ says nothing changed and why). It never invents anything.
 
 ## CV Studio (tab `Estudio` of the CVs view)
 
-Implemented in v0.9; the design and the reasons are in [design-cv-studio.md](design-cv-studio.md). From a target (★ offer), `Estudio`
-opens your real CV for that offer: outline on the left, the page in the center, the agent pinned on the right.
+Implemented in v0.9; the design and the reasons are in [design-cv-studio.md](design-cv-studio.md). You can open it three ways: the `Estudio` button on a target (★) row, the `Estudio` tab (an offer picker with search; no ★ needed),
+or the "Estudio de CV →" button in an offer's detail on the map. It opens your real CV for that offer: outline on the left, the page in the center, the agent pinned on the right.
 
 - **Document = operations over the deterministic selection** (`cv_doc.py`). Omit, include, move and edit a line are stored per offer in
   `cv_documents` with undo/redo; `cv_master.json` is never modified. Template, photo and page budget are options.

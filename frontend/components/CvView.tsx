@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { updateJobFavorite } from "../lib/api";
 import { CV_PHOTO_URL, fetchCvPlan, fetchCvProfile, fetchCvSelection, fetchCvTargets } from "../lib/cv-api";
 import type { CvBaselineItem, CvGap, CvItem, CvMatrix, CvPlan, CvProfile, CvReadiness, CvSelectionItem, CvStatus, CvTarget } from "../lib/cv-types";
-import CvStudio, { type StudioContext } from "./CvStudio";
+import CvStudio, { CvStudioPicker, type StudioContext } from "./CvStudio";
 import "./cv.css";
 
 const MAX_COMPARED = 4;
@@ -18,7 +18,7 @@ const SECTION_ORDER = ["summary", "experience", "tools", "projects", "education"
 
 type Tab = "objetivos" | "plan" | "matriz" | "comparar" | "cv" | "estudio";
 
-export default function CvView({ onStudioContext }: { onStudioContext?: (context: StudioContext | null) => void }) {
+export default function CvView({ onStudioContext, openJobId, onOpenJobConsumed }: { onStudioContext?: (context: StudioContext | null) => void; openJobId?: string | null; onOpenJobConsumed?: () => void }) {
   const [profile, setProfile] = useState<CvProfile | null>(null);
   const [selection, setSelection] = useState<CvSelectionItem[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -101,6 +101,11 @@ export default function CvView({ onStudioContext }: { onStudioContext?: (context
 
   function openTargetTab(id: string) { setOpenId(id); setTab("cv"); }
   function openStudioTab(id: string) { setOpenId(id); setTab("estudio"); }
+  useEffect(() => {
+    if (!openJobId) return;
+    setOpenId(openJobId); setTab("estudio");
+    onOpenJobConsumed?.();
+  }, [openJobId, onOpenJobConsumed]);
 
   return (
     <div className="cv-view">
@@ -117,18 +122,23 @@ export default function CvView({ onStudioContext }: { onStudioContext?: (context
             <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>
           ))}
           {openId && <button type="button" role="tab" aria-selected={tab === "cv"} className={tab === "cv" ? "active" : ""} onClick={() => setTab("cv")}>{openTarget?.company ?? "CV"}</button>}
-          {openId && <button type="button" role="tab" aria-selected={tab === "estudio"} className={tab === "estudio" ? "active" : ""} onClick={() => setTab("estudio")}>Estudio</button>}
+          <button type="button" role="tab" aria-selected={tab === "estudio"} className={tab === "estudio" ? "active" : ""} onClick={() => setTab("estudio")}>Estudio</button>
         </nav>
       </header>
       <div className="cv-body">
         {error && <p className="cv-note">{error}</p>}
-        {loaded && !error && selection.length === 0 && <p className="cv-note">Aún no hay objetivos. Marca ofertas con ★ en el mapa y aparecerán aquí, ordenadas por cercanía a tu perfil.</p>}
+        {loaded && !error && selection.length === 0 && tab === "objetivos" && (
+          <p className="cv-note">Aún no hay objetivos: marca ofertas con ★ en el mapa y aparecerán aquí, ordenadas por cercanía a tu perfil. Si solo quieres preparar tu CV para una oferta, <button type="button" className="cv-link" onClick={() => setTab("estudio")}>ábrela directamente en el Estudio</button>.</p>
+        )}
         {tab === "objetivos" && selection.length > 0 && <Ranking items={selection} picked={compareIds} onPick={togglePick} onOpen={openTargetTab} onStudio={openStudioTab} onRemove={(id) => void removeTarget(id)} />}
         {tab === "plan" && <PlanView plan={plan} onOpenTarget={() => setTab("objetivos")} />}
         {tab === "matriz" && (details.matrix && details.matrix.rows.length > 0 ? <MatrixTable matrix={details.matrix} onOpen={openTargetTab} /> : <p className="cv-note">Elige de 1 a {MAX_COMPARED} objetivos en la pestaña Objetivos.</p>)}
         {tab === "comparar" && (details.targets.length > 0 ? <CompareGrid profile={profile} targets={details.targets} /> : <p className="cv-note">Elige de 1 a {MAX_COMPARED} objetivos en la pestaña Objetivos.</p>)}
         {tab === "cv" && openTarget && <TargetCv target={openTarget} onOpenStudio={() => setTab("estudio")} />}
-        {tab === "estudio" && openId && <CvStudio jobId={openId} onContext={onStudioContext} />}
+        {tab === "estudio" && openId && <p className="cvs-switch"><button type="button" className="cv-action" onClick={() => setOpenId(null)}>← Elegir otra oferta</button></p>}
+        {tab === "estudio" && (openId
+          ? <CvStudio jobId={openId} onContext={onStudioContext} />
+          : <CvStudioPicker onOpen={(id) => { setOpenId(id); setTab("estudio"); }} />)}
       </div>
     </div>
   );

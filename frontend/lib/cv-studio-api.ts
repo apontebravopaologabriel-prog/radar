@@ -31,6 +31,7 @@ export type StudioState = {
   render: { pages: number; boxes: StudioBox[]; over_budget: boolean; page_mm: [number, number] };
   warnings: string[]; suggestions: StudioSuggestion[]; photo_available: boolean; templates: Record<string, string>;
 };
+export type StudioCandidate = { id: string; title: string; company: string | null; location: string | null; is_favorite?: boolean; published_at?: string | null };
 export type StudioSettings = { export_dir: string; default_export_dir: string; filename_pattern: string; ascii_filenames: boolean; placeholders: string[]; example: string };
 
 async function call<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
@@ -47,6 +48,12 @@ async function call<T>(path: string, init?: RequestInit, signal?: AbortSignal): 
 const post = <T,>(path: string, body?: unknown) => call<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 
 export const studioApi = {
+  candidates: async (search: string, signal?: AbortSignal): Promise<StudioCandidate[]> => {
+    const params = new URLSearchParams({ slim: "1", limit: "25", max_age_days: "30" });
+    if (search.trim()) params.set("search", search.trim());
+    else params.set("relevance_tier", "core");
+    return (await call<{ jobs: StudioCandidate[] }>(`/api/jobs?${params.toString()}`, undefined, signal)).jobs;
+  },
   state: (jobId: string, signal?: AbortSignal) => call<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}`, undefined, signal),
   pageUrl: (jobId: string, page: number, version: string) => `${API_URL}/api/cv/studio/${encodeURIComponent(jobId)}/page/${page}.png?v=${encodeURIComponent(version)}`,
   ops: (jobId: string, ops: StudioOp[]) => post<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}/ops`, { ops }),
