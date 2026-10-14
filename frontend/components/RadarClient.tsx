@@ -643,6 +643,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     // La franja sensible llega hasta debajo del último botón del riel y del AgentDock (agente y ajustes).
     const zoneBottom = () => (document.querySelector(".agent-dock")?.getBoundingClientRect().bottom ?? 290) + 48;
     function onMove(event: MouseEvent) {
+      if (document.querySelector(".boot-screen")) return;  // durante el arranque no se asoma nada
       const inside = event.clientX <= (railPeekRef.current ? 180 : 120) && event.clientY >= 0 && event.clientY <= zoneBottom();
       if (inside) {
         window.clearTimeout(timer);

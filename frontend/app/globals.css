@@ -784,7 +784,7 @@ body.is-resizing .offer-scroll, body.is-resizing .offer-resize-handle { pointer-
 }
 
 /* ---- Boot / connecting screen shown once on load ---- */
-.boot-screen { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; justify-content: center; padding: 8vh 9vw; background: #030303; color: #cfcfcf; font-family: "JetBrains Mono", "IBM Plex Mono", "Cascadia Code", Consolas, monospace; overflow: hidden; }
+.boot-screen { position: fixed; inset: 0; z-index: 10000; /* por encima del dock del agente (900) y de las ventanas: nada se asoma durante el arranque */ display: flex; flex-direction: column; justify-content: center; padding: 8vh 9vw; background: #030303; color: #cfcfcf; font-family: "JetBrains Mono", "IBM Plex Mono", "Cascadia Code", Consolas, monospace; overflow: hidden; }
 .boot-screen::before { position: absolute; inset: 0; content: ""; pointer-events: none; background: repeating-linear-gradient(0deg, #ffffff08 0px, transparent 1px, transparent 3px); }
 @keyframes boot-exit { to { opacity: 0; visibility: hidden; } }
 .boot-screen { will-change: opacity; }
