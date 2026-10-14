@@ -18,6 +18,54 @@ Updated 2026-10-14. Single source of status; completed designs are not kept as s
 - Non-goals: automatic applications, messages sent on the user's behalf, automating personal portal sessions,
   exporting a hypothetical CV, inventing experience or competency levels, bypassing CAPTCHAs.
 
+## Priority order (what matters most for the author, highest first)
+
+Ranked by value to a Lima student who sends CVs, then by what blocks everyone else. Effort: S = days, M = 1–2 weeks,
+L = several weeks (one person, part time).
+
+**Now: v1.0 core**
+
+| # | Item | Why it ranks here | Effort |
+| --- | --- | --- | --- |
+| 1 | Import your CV from Word/PDF with line-by-line confirmation | Biggest friction today; everything in the CV flow depends on `cv_master.json` being right | M |
+| 2 | Fill your own `.docx` template, with your photo, with/without-photo variants | The "my exact Word" promise; the reason to use Radar over a generic CV builder | M |
+| 3 | Trace view, versions per role, sent-CV log | Keeps the "only real experience" guarantee visible; shows which CV converts | M |
+| 4 | Installer validated in a Windows VM (`dockur/windows`) + first-run wizard with automatic first capture | Nothing else matters if a second person cannot get to a populated map | S–M |
+| 5 | Schema versioning and migrations | A public database that cannot upgrade is a broken release | S |
+| 6 | Native Computrabajo adapter | Removes the Node.js requirement on Windows | M |
+
+**Next: v1.0 hygiene (cheap, protects the release)**
+
+| # | Item | Effort |
+| --- | --- | --- |
+| 7 | `docs/data-sources.md` (terms, limits, attribution per source) and the privacy statement | S |
+| 8 | `npm audit` high findings, code signing, CHANGELOG, `radar doctor`, `KNOWN-ISSUES.md` | S–M |
+| 9 | Third career pack, picked with peers; all packs pass validation on 10+ labeled titles | M |
+| 10 | Incremental classification (repair-data from ~2 min to seconds) and the compaction retention eval | M |
+| 11 | Split `RadarClient.tsx` enough to stop being a risk; backup/restore and export in the UI | M |
+| 12 | **Peer pilot gate:** 3–5 people, four weeks, publish only if some use it unprompted | calendar time |
+
+**Then: v1.1–v1.2 (high personal value, after the release)**
+
+| # | Item | Effort |
+| --- | --- | --- |
+| 13 | Commute stage 0: "Cómo llegar" link and your own door-to-door times; mobility profile (walk, bike, own vehicle, public transport) and fares you enter | S–M |
+| 14 | Pipeline on desktop, reminders, `record_application_event`, `.ics` export, notifications | M |
+| 15 | Saved searches and shareable view links; honest labels for estimates and stale sources | S–M |
+| 16 | Interview preparation and cover-letter drafts (always marked draft) | M |
+| 17 | Commute feasibility spike, then a district matrix and a "≤ N minutes" filter | M–L |
+| 18 | Persisted coordinates, public ATS sources, company enrichment | L |
+
+**Later: v1.3+ (valuable, not urgent)**
+
+Class-timetable compatibility and net value after transport (needs 13 and 17), reachable-area isochrones, market reports and
+salary brief, CV-version outcome analytics, connected agent with mail/calendar through OpenClaw/Hermes (spike first), local
+HTTP MCP transport, agent evaluation in CI and sub-agents, pack gallery, UI i18n, source plugins, auto-update, national map,
+a second distribution path (Pinokio).
+
+**Deliberately not planned:** automatic applications, sending messages, scraping consumer transit apps, a 3D globe, hosted
+multi-user, reading mail inside Radar.
+
 ## Layers: what exists, what to improve, what to add
 
 | Layer | Today | Improve now (before 1.0) | Add later |
