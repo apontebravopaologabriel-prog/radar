@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { FormEvent, memo, PointerEvent as ReactPointerEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchAppliedJobs, fetchFavoriteJobs, fetchHiddenJobs, fetchJob, fetchJobDescription, fetchJobs, fetchSkillOverview, updateApplication, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { fetchAppliedJobs, fetchFavoriteJobs, fetchHiddenJobs, fetchJob, fetchJobDescription, fetchJobs, fetchSkillOverview, removeApplication, updateApplication, updateJobFavorite, updateJobStatus } from "../lib/api";
 import { useProgressiveList } from "./useProgressiveList";
 import { districtKey } from "../lib/districts";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
@@ -673,13 +673,14 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     fetchAppliedJobs().then((list) => setAppliedJobIds(new Set(list.map((job) => job.id)))).catch(() => undefined);
   }, []);
 
-  async function markApplied(jobId: string) {
+  async function setApplied(jobId: string, on: boolean, withUndo = true) {
     try {
-      await updateApplication(jobId, "applied");
-      setAppliedJobIds((current) => new Set(current).add(jobId));
+      if (on) await updateApplication(jobId, "applied"); else await removeApplication(jobId);
+      setAppliedJobIds((current) => { const next = new Set(current); if (on) next.add(jobId); else next.delete(jobId); return next; });
       if (showApplied) setAppliedJobs(await fetchAppliedJobs());
+      notify(on ? "Postulación registrada" : "Postulación quitada", withUndo ? () => { void setApplied(jobId, !on, false); } : undefined);
     } catch {
-      setStatusError("No se pudo registrar la postulación.");
+      setStatusError(on ? "No se pudo registrar la postulación." : "No se pudo quitar la postulación.");
     }
   }
 
@@ -913,7 +914,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                   {selectedJob.user_status !== "hidden" && <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><IconEyeOff /></button>}
                   <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }} aria-label="Cerrar detalle" type="button">×</button>
                   <button className="popover-icon" style={{ right: 98 }} type="button" onClick={() => { setStudioJobId(selectedJob.id); selectView("cvs"); }} aria-label="Estudio de CV" title="Estudio de CV: prepara tu CV para esta oferta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19l-4 1zM14 7l3 3" /></svg></button>
-                  <button className={`popover-icon ${appliedJobIds.has(selectedJob.id) ? "is-done" : ""}`} style={{ right: 68 }} type="button" disabled={appliedJobIds.has(selectedJob.id)} onClick={() => void markApplied(selectedJob.id)} aria-label={appliedJobIds.has(selectedJob.id) ? "Postulación registrada" : "Ya postulé"} title={appliedJobIds.has(selectedJob.id) ? "Postulación registrada" : "Ya postulé (solo lo registra; Radar no envía nada)"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></button>
+                  <button className={`popover-icon ${appliedJobIds.has(selectedJob.id) ? "is-done" : ""}`} style={{ right: 68 }} type="button" onClick={() => void setApplied(selectedJob.id, !appliedJobIds.has(selectedJob.id))} aria-pressed={appliedJobIds.has(selectedJob.id)} aria-label={appliedJobIds.has(selectedJob.id) ? "Quitar postulación" : "Ya postulé"} title={appliedJobIds.has(selectedJob.id) ? "Postulación registrada: pulsa para quitarla (fue un error)" : "Ya postulé (solo lo registra; Radar no envía nada)"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></button>
                   <span className="job-area">{selectedJob.primary_area || "Sin área"}<span className="job-source"> · {sourceName(selectedJob.url)}</span></span>
                   <h3>{selectedJob.url ? <a className="job-popover-title" href={selectedJob.url} target="_blank" rel="noreferrer">{selectedJob.title}</a> : selectedJob.title}</h3>
                   <p className="popover-company">

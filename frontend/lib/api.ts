@@ -125,3 +125,8 @@ export async function updateApplication(jobId: string, status: string, notes?: s
   });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }
+
+export async function removeApplication(jobId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/applications/${encodeURIComponent(jobId)}`, { method: "DELETE", credentials: "include" });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+}

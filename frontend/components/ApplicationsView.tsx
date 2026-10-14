@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchApplications, updateApplication, type TrackedApplication } from "../lib/api";
+import { fetchApplications, removeApplication, updateApplication, type TrackedApplication } from "../lib/api";
 import { studioApi, type StudioPackage } from "../lib/cv-studio-api";
 import "./applications.css";
 
@@ -55,6 +55,13 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
     try { await updateApplication(item.job_id, status, item.notes); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo actualizar"); }
   }
 
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  async function remove(item: TrackedApplication) {
+    if (confirmRemove !== item.job_id) { setConfirmRemove(item.job_id); return; }
+    setConfirmRemove(null);
+    try { await removeApplication(item.job_id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo quitar"); }
+  }
+
   async function openFolder(jobId: string) {
     try { await studioApi.openFolder(jobId); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo abrir la carpeta"); }
   }
@@ -97,6 +104,7 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
               </div>
               <div className="applications-actions">
                 {(MOVES[item.status] ?? []).map(([status, label]) => <button key={status} type="button" onClick={() => void move(item, status)}>{label}</button>)}
+                <button type="button" className="applications-remove" title="Quita esta oferta del seguimiento (por ejemplo, si la marcaste por error). No borra la oferta." onClick={() => void remove(item)} onBlur={() => setConfirmRemove(null)}>{confirmRemove === item.job_id ? "¿Seguro?" : "Quitar"}</button>
               </div>
             </li>
           );

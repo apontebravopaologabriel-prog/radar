@@ -36,7 +36,7 @@ from radar.careers import (
     load_pack,
 )
 from radar.db.queries import applications, get_profile
-from radar.db.repository import recompute_scores, track_application
+from radar.db.repository import recompute_scores, track_application, untrack_application
 from radar.feed import (
     default_place,
     map_places,
@@ -116,6 +116,12 @@ def update_application(job_id: str, payload: ApplicationUpdate) -> dict[str, str
     except sqlite3.IntegrityError as exc:
         raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
     return {"application_id": application_id, "status": payload.status}
+
+
+@router.delete("/applications/{job_id}")
+def remove_application(job_id: str) -> dict[str, bool]:
+    """Quita el seguimiento de una oferta (error al marcar «postulé»). No toca la oferta."""
+    return {"removed": untrack_application(job_id)}
 
 
 # --- Perfil y carrera -----------------------------------------------------------------------------

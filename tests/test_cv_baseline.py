@@ -132,3 +132,15 @@ def test_applied_jobs_list_follows_application_status(job):
     assert [row["id"] for row in list_applied_jobs()] == [job]
     track_application(job, "rejected")
     assert list_applied_jobs() == []
+
+
+def test_untrack_application_removes_only_the_tracking(job):
+    from radar.db.queries import list_applied_jobs
+    from radar.db.repository import track_application, untrack_application
+
+    track_application(job, "applied")
+    assert untrack_application(job) is True and list_applied_jobs() == []
+    assert untrack_application(job) is False
+    with connection() as conn:
+        assert conn.execute("SELECT count(*) FROM jobs WHERE id=%s", (job,)).fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM application_events").fetchone()[0] == 0

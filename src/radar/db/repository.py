@@ -605,6 +605,20 @@ def capture_market_snapshot(snapshot_date: str | None = None) -> int:
     return len(metrics)
 
 
+def untrack_application(job_id: str) -> bool:
+    """Quita el seguimiento de una oferta (p. ej. «Ya postulé» marcado por error). Solo borra tu registro personal,
+    nunca la oferta; si había carpeta de postulación, queda como preparada y sin fecha de envío."""
+    with connection() as conn:
+        row = conn.execute("SELECT id FROM applications WHERE job_id=%s", (job_id,)).fetchone()
+        if row is None:
+            return False
+        conn.execute("DELETE FROM application_events WHERE application_id=%s", (row[0],))
+        conn.execute("DELETE FROM applications WHERE id=%s", (row[0],))
+        conn.execute("UPDATE application_packages SET status='prepared', applied_at=NULL, updated_at=now() WHERE job_id=%s", (job_id,))
+        conn.commit()
+    return True
+
+
 def track_application(job_id: str, status: str = "saved", notes: str | None = None) -> str:
     statuses = {"new", "reviewed", "saved", "ignored", "applied", "interview", "offer", "rejected", "expired"}
     if status not in statuses:
