@@ -120,7 +120,8 @@ export const COMMANDS: Command[] = [
         `${k(used)} de ${k(window)} tokens (ventana configurada; ajústala en Ajustes)`,
         `- Sistema y herramientas: ~${k(base)}`, `- Conversación: ~${k(Math.max(used - base, 0))}`,
         `- Sesión (todas las llamadas): ${k(ctx.usage.session)}`,
-        pct >= 70 ? "\n**Se está llenando: usa `/compact`.**" : ""].join("\n");
+        s.autocompact_pct ? `- Se compacta sola al llegar a ${s.autocompact_pct}% (Ajustes → Agente)` : "- Compactación automática apagada: usa `/compact` cuando se llene",
+        pct >= 70 && !s.autocompact_pct ? "\n**Se está llenando: usa `/compact`.**" : ""].join("\n");
     } },
   { name: "compact", aliases: ["compactar"], args: "[foco]", hint: "Resume la conversación para liberar contexto", kind: "local", run: async (args, ctx) => ctx.compact(args.trim()) },
   { name: "cost", aliases: ["costo", "tokens", "usage"], hint: "Modelo y tokens usados este mes", kind: "local", run: async () => {

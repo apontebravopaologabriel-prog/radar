@@ -268,6 +268,42 @@ CREATE TABLE IF NOT EXISTS job_user_favorites (
 );
 CREATE INDEX IF NOT EXISTS job_user_favorites_created_idx ON job_user_favorites (created_at DESC);
 
+-- CV Studio: un documento por oferta (operaciones sobre la selección determinista), sugerencias del agente y la carpeta de cada postulación.
+CREATE TABLE IF NOT EXISTS cv_documents (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
+    template TEXT NOT NULL DEFAULT 'ats',
+    photo INTEGER NOT NULL DEFAULT 0,
+    pages INTEGER,
+    ops TEXT NOT NULL DEFAULT '[]',
+    redo TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (now()),
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE TABLE IF NOT EXISTS cv_suggestions (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    note TEXT,
+    ops TEXT NOT NULL,
+    flags TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (now()),
+    decided_at TEXT
+);
+CREATE INDEX IF NOT EXISTS cv_suggestions_job_idx ON cv_suggestions (job_id, status);
+CREATE TABLE IF NOT EXISTS application_packages (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
+    folder TEXT NOT NULL,
+    files TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'prepared',
+    notes TEXT,
+    exported_at TEXT,
+    applied_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (now()),
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+
 CREATE TABLE IF NOT EXISTS market_snapshots (
     id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
     snapshot_date TEXT NOT NULL,

@@ -10,7 +10,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB_PATH = Path.home() / ".local/share/radar/radar.db"
+from radar.paths import default_data_dir
+from radar.security import harden_data_dir
+
+# Adaptadores explícitos: los predeterminados están obsoletos desde Python 3.12 (mismo formato).
+sqlite3.register_adapter(datetime.datetime, lambda value: value.isoformat(" "))
+sqlite3.register_adapter(datetime.date, lambda value: value.isoformat())
+
+DEFAULT_DB_PATH = default_data_dir() / "radar.db"
 
 
 def database_path() -> Path:
@@ -122,6 +129,13 @@ def _pack_skills() -> list[tuple[str, str, str | None, str]]:
     ]
 
 
+def _schema_section(start_marker: str, end_marker: str) -> str:
+    """Tramo del esquema que las bases ya creadas deben recibir de forma aditiva (una sola fuente: schema_sqlite.sql)."""
+    text = (Path(__file__).resolve().parent / "schema_sqlite.sql").read_text(encoding="utf-8")
+    start = text.index(start_marker)
+    return text[start : text.index(end_marker, start)]
+
+
 def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     """Apply small additive guarantees to databases created before migrations."""
     columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
@@ -154,6 +168,7 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
     conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); END")
     conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
+    conn.executescript(_schema_section("-- CV Studio", "CREATE TABLE IF NOT EXISTS market_snapshots"))
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),
@@ -186,6 +201,7 @@ def _configure_connection(conn: RadarConnection) -> None:
 @contextmanager
 def connection() -> Iterator[RadarConnection]:
     db_file = database_path()
+    created_dir = not db_file.parent.exists()
     db_file.parent.mkdir(parents=True, exist_ok=True)
     is_new = not db_file.exists()
     conn = sqlite3.connect(str(db_file), factory=RadarConnection, timeout=10.0)
@@ -197,6 +213,7 @@ def connection() -> Iterator[RadarConnection]:
     if key not in _SCHEMA_READY:  # las garantías del esquema se aplican una vez por proceso y base
         _ensure_runtime_schema(conn)
         _SCHEMA_READY.add(key)
+        harden_data_dir(db_file, owned_dir=created_dir or db_file.parent == DEFAULT_DB_PATH.parent)
     try:
         yield conn
         conn.commit()

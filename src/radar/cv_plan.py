@@ -3,7 +3,7 @@
 Todo es determinista y local. ``closure_plan`` agrega las brechas de tus objetivos (ofertas con ★), estima
 cuánto sube la cercanía de cada uno si cierras una skill y la cruza con su demanda real en el mercado.
 ``close_gap`` registra la evidencia que la persona aporta (certificado o proyecto) en su CV, la anota en
-la línea de tiempo y devuelve la cercanía antes y después. Ver ``docs/target-profiles.md``.
+la línea de tiempo y devuelve la cercanía antes y después. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations

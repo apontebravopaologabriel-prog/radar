@@ -1,0 +1,69 @@
+/* Estudio de CV: esquema, página y panel del agente (el panel del agente es el global, fijado a la derecha). */
+.cvs { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.cvs-side { position: sticky; top: 0; max-height: calc(100vh - 120px); overflow: auto; padding-right: 6px; scrollbar-width: thin; }
+.cvs-side h3 { margin: 2px 0 10px; font-size: 14px; line-height: 1.3; }
+.cvs-side h4, .cvs-package h4 { margin: 14px 0 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8a8a8a; font-weight: 400; }
+.cvs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.cvs-row { display: flex; align-items: flex-start; gap: 6px; padding: 3px 4px; border: 1px solid transparent; }
+.cvs-row.selected { border-color: #eeeeee; background: #272727; }
+.cvs-row.omitted { opacity: .75; }
+.cvs-role .cvs-text { font-weight: 600; }
+.cvs-list .cvs-list { margin-left: 14px; }
+.cvs-label { min-width: 46px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #8a8a8a; padding-top: 3px; }
+.cvs .cvs-text { flex: 1; border: 0;  text-align: left; background: none; color: inherit; font: inherit; font-size: 12px; line-height: 1.35; padding: 1px 0; cursor: pointer; }
+.cvs .cvs-text small { display: block; color: #8a8a8a; font-size: 10.5px; }
+.cvs .cvs-text:hover { text-decoration: underline; }
+.cvs-move { display: flex; flex-direction: column; }
+.cvs .cvs-move button { width: 20px; height: 14px; line-height: 10px; font-size: 10px; padding: 0; background: none; color: #8a8a8a; border: 1px solid #333; cursor: pointer; }
+.cvs .cvs-move button:disabled { opacity: .3; cursor: default; }
+.cvs-tag { margin-left: 6px; font-size: 9.5px; font-style: normal; letter-spacing: .05em; text-transform: uppercase; color: #bdbdbd; border: 1px solid #555; padding: 0 4px; }
+.cvs-tag.warn { color: #e3b341; border-color: #e3b341; }
+.cvs .cvs-toggle { margin-top: 10px; background: none; border: 0; color: #bdbdbd; font: inherit; font-size: 12px; cursor: pointer; padding: 2px 0; }
+.cvs-note { font-size: 11.5px; color: #a3a3a3; line-height: 1.45; margin: 4px 0; }
+.cvs-flag { font-size: 12px; color: #ff8a80; margin: 3px 0; }
+.cvs-ok { font-size: 12px; color: #d4d4d4; margin: 3px 0; }
+.cvs-suggestions { border: 1px solid #5a5a5a; padding: 8px; margin: 10px 0; background: #1c1c1c; }
+.cvs-suggestions-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+.cvs-suggestion { border-top: 1px solid #333; margin-top: 8px; padding-top: 6px; }
+.cvs-suggestion.unsafe { border-top-color: #ff8a80; }
+.cvs-suggestion ul { margin: 4px 0 4px 16px; padding: 0; font-size: 12px; }
+.cvs-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cvs button, .cvs .cvs-button { font: inherit; font-size: 12px; color: #d4d4d4; background: #1f1f1f; border: 1px solid #444; padding: 4px 10px; cursor: pointer; text-decoration: none; }
+.cvs button:hover:not(:disabled), .cvs .cvs-button:hover { border-color: #eeeeee; color: #ffffff; }
+.cvs button:disabled { opacity: .4; cursor: default; }
+.cvs button.primary { background: #eeeeee; color: #101010; border-color: #eeeeee; }
+.cvs-main { min-width: 0; }
+.cvs-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; position: sticky; top: 0; z-index: 3; background: #171717; }
+.cvs-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #bdbdbd; }
+.cvs-toolbar label.off { opacity: .5; }
+.cvs-toolbar select, .cvs-settings input:not([type="checkbox"]), .cvs-editor textarea { font: inherit; font-size: 12px; color: #e5e5e5; background: #101010; border: 1px solid #444; padding: 4px 6px; }
+.cvs-spacer { flex: 1; }
+.cvs-messages { margin: 4px 0 8px; }
+.cvs-editor { border: 1px solid #5a5a5a; background: #1c1c1c; padding: 8px 10px; margin: 6px 0 12px; max-width: 640px; }
+.cvs-editor-head { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.cvs-editor-head small { color: #8a8a8a; flex: 1; }
+.cvs .cvs-editor-head button { padding: 0 8px; }
+.cvs-editor textarea { width: 100%; margin-top: 6px; resize: vertical; box-sizing: border-box; }
+.cvs-pages { display: grid; gap: 14px; justify-items: start; }
+.cvs-page { position: relative; width: min(100%, 640px); background: #ffffff; box-shadow: 0 10px 30px #000000aa; }
+.cvs-page img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; }
+.cvs .cvs-hit { position: absolute; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; }
+.cvs .cvs-hit:hover:not(:disabled) { border-color: #3b82f6aa; background: #3b82f61a; }
+.cvs .cvs-hit.selected { border-color: #3b82f6; background: #3b82f62e; }
+.cvs-page-number { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #7a7a7a; }
+.cvs-package { margin-top: 18px; max-width: 640px; }
+.cvs-files { margin: 4px 0; padding-left: 16px; font-size: 12px; }
+.cvs-files a { color: #e5e5e5; }
+.cvs-settings { margin-top: 10px; font-size: 12px; }
+.cvs-settings label { display: grid; gap: 3px; margin: 8px 0; color: #bdbdbd; }
+.cvs-settings label.inline { display: flex; align-items: center; gap: 6px; }
+@media (max-width: 900px) { .cvs { grid-template-columns: 1fr; } .cvs-side { position: static; max-height: none; } }
+
+.cvs-picker { max-width: 760px; display: grid; gap: 8px; }
+.cvs-picker input[type="search"] { font: inherit; font-size: 13px; color: #e5e5e5; background: #101010; border: 1px solid #444; padding: 7px 9px; }
+.cvs-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cvs-picker-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid #2c2c2c; background: #0a0a0a; }
+.cvs-picker-list strong { display: block; font-size: 12px; color: #f0f0f0; }
+.cvs-picker-list small { color: #8c8c8c; font-size: 10.5px; }
+.cvs-picker-list button { font: inherit; font-size: 11px; color: #d4d4d4; background: #1f1f1f; border: 1px solid #444; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.cvs-picker-list button:hover { border-color: #eeeeee; color: #fff; }

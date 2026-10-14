@@ -11,9 +11,10 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from radar import tools
+from radar import __version__, tools
 from radar.agent.loop import (
     agent_enabled,
+    autocompact_pct,
     compact,
     context_window,
     execute_tool,
@@ -245,6 +246,7 @@ def _agent_settings() -> dict[str, Any]:
         "enabled": agent_enabled(),
         "read_only": read_only(),
         "context_window": context_window(),
+        "autocompact_pct": autocompact_pct(),
         "monthly_token_cap": monthly_cap(),
         "tokens_used_this_month": month_usage(),
         "providers": {k: v for k, v in PROVIDERS.items()},
@@ -266,6 +268,7 @@ class AgentSettingsUpdate(BaseModel):
     enabled: bool | None = None
     read_only: bool | None = None
     context_window: int | None = Field(default=None, ge=2000, le=2_000_000)
+    autocompact_pct: int | None = Field(default=None, ge=0, le=90)  # 0 = apagado
 
 
 @router.put("/agent/settings")
@@ -276,6 +279,8 @@ def update_agent_settings(payload: AgentSettingsUpdate) -> dict[str, Any]:
         set_setting("agent_read_only", "1" if payload.read_only else "0")
     if payload.context_window is not None:
         set_setting("agent_context_window", str(payload.context_window))
+    if payload.autocompact_pct is not None:
+        set_setting("agent_autocompact_pct", str(payload.autocompact_pct))
     set_setting("llm_provider", payload.provider)
     set_setting("llm_model", payload.model or None)
     set_setting("llm_reasoning_effort", None if payload.reasoning_effort == "auto" else payload.reasoning_effort)
@@ -292,6 +297,7 @@ class ChatRequest(BaseModel):
     focus: str = Field(default="", max_length=200)
     context: dict[str, Any] = Field(default_factory=dict)
     plan: bool = False
+    last_prompt_tokens: int = Field(default=0, ge=0, le=5_000_000)
 
 
 def _valid_history(messages: list[dict[str, Any]]) -> bool:
@@ -309,7 +315,8 @@ def chat(payload: ChatRequest) -> StreamingResponse:
         raise HTTPException(status_code=422, detail="Historial inválido")
 
     def events() -> Iterator[str]:
-        for event in run_turn(load_config(), payload.messages, context=payload.context, plan=payload.plan):
+        for event in run_turn(load_config(), payload.messages, context=payload.context, plan=payload.plan,
+                          last_prompt_tokens=payload.last_prompt_tokens):
             yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
 
     return StreamingResponse(
@@ -382,7 +389,7 @@ def doctor() -> dict[str, Any]:
         conversations = conn.execute("SELECT count(*) FROM conversations").fetchone()[0]
     config = load_config()
     return {
-        "version": "0.1.0",
+        "version": __version__,
         "database": {"path": str(path), "size_mb": round(path.stat().st_size / 1e6, 1) if path.exists() else 0},
         "jobs": {"active": jobs, "last_14_days": fresh, "newest_published": str(newest) if newest else None},
         "career": active_pack().name,

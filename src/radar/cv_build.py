@@ -3,7 +3,7 @@
 Nada se inventa ni se reformula: solo se **eligen y ordenan** hechos de ``cv_master.json`` según su relación con
 las skills de la oferta, dentro de un presupuesto de página. Cada línea conserva un ``id`` derivado de su
 contenido (rastreable sin migrar el archivo). Las skills en ``falta`` nunca entran. El resultado se escribe
-junto a un ``manifest.json`` que permite auditar y regenerar. Ver ``docs/cv-word-plan.md``.
+junto a un ``manifest.json`` que permite auditar y regenerar. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from radar import cv_baseline, cv_docx, cv_targets
+from radar import cv_baseline, cv_docx, cv_pdf, cv_targets
 from radar.normalize import normalize_text
 
 TEMPLATE = "ats-clasico-v1"
@@ -100,6 +100,11 @@ def _wanted(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def select(job_id: str, profile: dict[str, Any] | None = None) -> dict[str, Any]:
     """Qué entra y qué se omite (con motivo) en el CV para esta oferta. No escribe archivos."""
+    return select_full(job_id, profile)[0]
+
+
+def select_full(job_id: str, profile: dict[str, Any] | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Como ``select`` pero devuelve también las skills pedidas por la oferta (las usa el estudio para recalcular la cobertura)."""
     profile = profile if profile is not None else cv_targets.load_profile()
     if not profile:
         raise ValueError("No hay CV cargado (cv_master.json): créalo antes de generar un CV.")
@@ -113,13 +118,16 @@ def select(job_id: str, profile: dict[str, Any] | None = None) -> dict[str, Any]
     caps = CAPS[pages]
     omitted: list[dict[str, Any]] = []
 
-    def leave_out(kind: str, section: str, text: str, reason: str) -> None:
-        omitted.append({"id": _item_id(kind, section, text), "section": section, "text": text, "reason": reason})
+    def leave_out(item_id: str, section: str, text: str, reason: str, owner: str | None = None,
+                  item: dict[str, Any] | None = None) -> None:
+        """``owner`` (id del cargo) e ``item`` permiten que el estudio vuelva a incluir la línea tal como estaba."""
+        omitted.append({"id": item_id, "section": section, "text": text, "reason": reason, "owner": owner, "item": item})
 
     experience = []
     roles = sorted(profile.get("experience", []), key=lambda j: j.get("from") or "", reverse=True)
     for role in roles:
         owner = f"{role.get('role')}|{role.get('company')}"
+        role_id = _item_id("role", owner, "")
         ranked = sorted(enumerate(role.get("bullets", [])),
                         key=lambda pair: (-_score(pair[1], wanted)[0], pair[0]))
         kept = []
@@ -128,10 +136,12 @@ def select(job_id: str, profile: dict[str, Any] | None = None) -> dict[str, Any]
             if position < caps["bullets"]:
                 kept.append({"id": _item_id("exp", owner, bullet), "text": bullet, "score": score, "matched": matched})
             else:
-                leave_out("exp", "experience", bullet,
-                          "Menos relacionada con la oferta que las elegidas" if score else "No menciona skills de la oferta")
+                bullet_id = _item_id("exp", owner, bullet)
+                leave_out(bullet_id, "experience", bullet,
+                          "Menos relacionada con la oferta que las elegidas" if score else "No menciona skills de la oferta",
+                          owner=role_id, item={"id": bullet_id, "text": bullet, "score": score, "matched": matched})
         experience.append({
-            "id": _item_id("role", owner, ""), "title": f"{role.get('role')} — {role.get('company')}",
+            "id": role_id, "title": f"{role.get('role')} — {role.get('company')}",
             "detail": " · ".join(x for x in (role.get("location"), _span(role.get("from"), role.get("to"), lang)) if x),
             "text": " ".join([role.get("role") or "", role.get("company") or "", *role.get("bullets", []), *role.get("skills", [])]),
             "bullets": kept,
@@ -142,25 +152,28 @@ def select(job_id: str, profile: dict[str, Any] | None = None) -> dict[str, Any]
                      for p in profile.get("projects", [])), key=lambda pair: -pair[0][0])
     for (score, matched), project in scored:
         text = project.get("name") or ""
+        built = {"id": _item_id("proj", "proyecto", text), "title": text, "detail": _date(project.get("date"), lang),
+                 "bullets": [{"id": _item_id("projd", text, project.get("description") or ""),
+                              "text": project.get("description") or "", "score": score, "matched": matched}]
+                 if project.get("description") else [], "matched": matched, "score": score}
         if score > 0 and len(projects) < caps["projects"]:
-            projects.append({"id": _item_id("proj", "proyecto", text), "title": text, "detail": _date(project.get("date"), lang),
-                             "bullets": [{"id": _item_id("projd", text, project.get("description") or ""),
-                                          "text": project.get("description") or "", "score": score, "matched": matched}]
-                             if project.get("description") else [], "matched": matched, "score": score})
+            projects.append(built)
         else:
-            leave_out("proj", "projects", text, "No se relaciona con la oferta" if score == 0 else "Fuera del presupuesto de página")
+            leave_out(built["id"], "projects", text, "No se relaciona con la oferta" if score == 0 else "Fuera del presupuesto de página",
+                      item=built)
 
     ranked_certs = sorted(profile.get("certifications", []),
                           key=lambda c: (-_score(c.get("name") or "", wanted)[0], _recency(c.get("date"))))
     certs = []
     for cert in ranked_certs:
         score, matched = _score(cert.get("name") or "", wanted)
+        built = {"id": _item_id("cert", "certificado", cert.get("name") or ""), "title": cert.get("name") or "",
+                 "detail": " · ".join(x for x in (cert.get("issuer"), _date(cert.get("date"), lang)) if x),
+                 "score": score, "matched": matched}
         if len(certs) < caps["certs"] and (score > 0 or len(certs) < MIN_CERTS):
-            certs.append({"id": _item_id("cert", "certificado", cert.get("name") or ""), "title": cert.get("name") or "",
-                          "detail": " · ".join(x for x in (cert.get("issuer"), _date(cert.get("date"), lang)) if x),
-                          "score": score, "matched": matched})
+            certs.append(built)
         else:
-            leave_out("cert", "certifications", cert.get("name") or "", "No se relaciona con la oferta")
+            leave_out(built["id"], "certifications", cert.get("name") or "", "No se relaciona con la oferta", item=built)
 
     education = [{"id": _item_id("edu", "formacion", f"{s.get('program')}|{s.get('institution')}"),
                   "title": f"{s.get('program')} — {s.get('institution')}",
@@ -186,7 +199,7 @@ def select(job_id: str, profile: dict[str, Any] | None = None) -> dict[str, Any]
     }
     selection["coverage"] = coverage(selection, wanted)
     selection["warnings"] = _warnings(selection, bool(contact.get("email") or contact.get("phone")))
-    return selection
+    return selection, wanted
 
 
 _PLACEHOLDER = re.compile(r"\([^)]*(?:no indicad|no declarad|en pdf|por definir|pendiente)[^)]*\)", re.IGNORECASE)
@@ -332,14 +345,23 @@ def build(job_id: str, formats: list[str] | None = None) -> dict[str, Any]:
     notes: list[str] = []
     check: dict[str, Any] = {}
     if "pdf" in wanted_formats:
-        pdf, problem = _to_pdf(docx)
+        try:
+            pdf, pages = cv_pdf.write_pdf(directory / f"{stem}.pdf", to_blocks(selection),
+                                          title=f"CV {selection['header']['name']}", author=selection["header"]["name"],
+                                          lang="en-US" if selection["language"] == "en" else "es-PE")
+        except Exception as exc:  # noqa: BLE001 - el DOCX ya existe; se intenta el conversor externo
+            pdf, pages = None, None
+            notes.append(f"El PDF nativo falló ({type(exc).__name__}); se intenta con LibreOffice.")
+            pdf, problem = _to_pdf(docx)
+            if problem:
+                notes.append(problem)
         if pdf:
             files.append({"format": "pdf", "name": pdf.name, "path": f"{pdf.parent.name}/{pdf.name}"})
             check = check_pdf(pdf, selection["pages_budget"])
+            if check.get("pages") is None and pages is not None:  # sin pdfinfo (p. ej. Windows): se usa el recuento del escritor
+                check = {"pages": pages, "text_extractable": True, "within_budget": pages <= selection["pages_budget"]}
             if check.get("within_budget") is False:
                 notes.append(f"El PDF tiene {check['pages']} páginas y el presupuesto era {selection['pages_budget']}.")
-        if problem:
-            notes.append(problem)
     profile_file = cv_targets.data_dir() / "cv_master.json"
     manifest = {
         "created_at": stamp.isoformat(timespec="seconds"), "job": selection["job"], "template": TEMPLATE,

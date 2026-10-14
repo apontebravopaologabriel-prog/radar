@@ -1,17 +1,14 @@
 """Actualización del mercado desde la app: captura ofertas de la carrera activa en segundo plano.
 
-Usa los mismos comandos que `scripts/radar-refresh.sh` (Computrabajo y, si existe su entorno
-separado, JobSpy), uno a la vez y sin shell. Solo una actualización a la vez.
+Usa la misma ingesta que `radar refresh` (Computrabajo y, si `python-jobspy` está instalado, Indeed/LinkedIn),
+dentro del proceso y un paso a la vez. Solo una actualización a la vez.
 """
 
 from __future__ import annotations
 
-import ast
-import subprocess
-import sys
+import importlib.util
 import threading
 import time
-from pathlib import Path
 from typing import Any
 
 from radar.careers import active_pack
@@ -19,7 +16,6 @@ from radar.db.queries import get_profile
 from radar.db.repository import recompute_scores
 from radar.geolocation import infer_location
 
-PROJECT_DIR = Path(__file__).resolve().parents[2]
 STEP_TIMEOUT = 150
 MAX_STEPS = 24
 MAX_LOCATIONS = 3
@@ -30,13 +26,9 @@ _state: dict[str, Any] = {"running": False, "done": 0, "total": 0, "created": 0,
                           "started_at": None, "finished_at": None, "current": None}
 
 
-def _binaries() -> dict[str, list[str]]:
-    main = Path(sys.executable).parent / "radar"
-    found = {"computrabajo": [str(main), "ingest", "--source", "computrabajo"]} if main.exists() else {}
-    jobspy = PROJECT_DIR / ".venv-jobspy/bin/radar"
-    if jobspy.exists():
-        found["jobspy"] = [str(jobspy), "ingest", "--source", "jobspy"]
-    return found
+def _sources() -> list[str]:
+    """Fuentes disponibles en esta instalación: Computrabajo siempre; JobSpy solo si está instalado."""
+    return ["computrabajo", *(["jobspy"] if importlib.util.find_spec("jobspy") else [])]
 
 
 def search_locations(places: list[str] | None = None) -> list[str]:
@@ -52,28 +44,27 @@ def search_locations(places: list[str] | None = None) -> list[str]:
     return (names or ["Lima"])[:MAX_LOCATIONS]
 
 
-def _run_step(command: list[str]) -> dict[str, Any]:
-    """Ejecuta un comando de ingesta y devuelve su resumen (última línea, un dict de Python)."""
-    result = subprocess.run(command, capture_output=True, text=True, timeout=STEP_TIMEOUT, check=False)
-    if result.returncode != 0:
-        raise RuntimeError((result.stderr or result.stdout).strip().splitlines()[-1][:200] if (result.stderr or result.stdout).strip() else f"salió con {result.returncode}")
-    last = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "{}"
-    try:
-        parsed = ast.literal_eval(last)
-        return parsed if isinstance(parsed, dict) else {}
-    except (ValueError, SyntaxError):
-        return {}
+def _run_step(step: dict[str, Any]) -> dict[str, Any]:
+    """Ejecuta una búsqueda de ingesta en el proceso y devuelve su resumen; falla si el portal no responde a tiempo."""
+    from radar.capture import _run_with_timeout
+    from radar.pipeline import run_ingestion
+
+    result = _run_with_timeout(
+        lambda: run_ingestion(step["source"], step["query"], step["location"], step["limit"], step["max_age_days"]),
+        STEP_TIMEOUT,
+    )
+    return result if isinstance(result, dict) else {}
 
 
-def _work(steps: list[list[str]]) -> None:
-    for command in steps:
+def _work(steps: list[dict[str, Any]]) -> None:
+    for step in steps:
         with _lock:
-            _state["current"] = f"{command[-6]} · {command[-4]}" if len(command) >= 6 else None
+            _state["current"] = f"{step['query']} · {step['location']}"
         try:
-            summary = _run_step(command)
+            summary = _run_step(step)
             with _lock:
                 _state["created"] += int(summary.get("created", 0))
-        except (RuntimeError, subprocess.TimeoutExpired, OSError) as exc:
+        except Exception as exc:  # noqa: BLE001 - un portal caído no detiene la actualización
             with _lock:
                 _state["errors"].append(str(exc)[:160])
         with _lock:
@@ -95,15 +86,12 @@ def start_refresh(
     limit: int = 15,
     max_age_days: int = 14,
 ) -> dict[str, Any]:
-    binaries = _binaries()
-    if not binaries:
-        raise RuntimeError("No se encontró el comando `radar` para actualizar el mercado.")
+    sources = _sources()
     locations = search_locations(places)
     chosen = [q for q in (queries or list(active_pack().queries)) if q and not q.startswith("-")][:MAX_QUERIES]
     steps = [
-        [*base, "--query", query, "--location", location, "--limit", str(min(max(limit, 1), 50)),
-         "--max-age-days", str(max_age_days)]
-        for location in locations for query in chosen for base in binaries.values()
+        {"source": source, "query": query, "location": location, "limit": min(max(limit, 1), 50), "max_age_days": max_age_days}
+        for location in locations for query in chosen for source in sources
     ][:MAX_STEPS]
     with _lock:
         if _state["running"]:
@@ -123,21 +111,19 @@ def start_place_refresh(place: str, limit: int = 25, max_age_days: int = 14) -> 
     point = infer_location(place)
     if point is None or (point.precision == "department" and point.label == "Lima" and place.strip().lower() != "lima"):
         raise ValueError(f"Lugar desconocido: {place}")
-    binaries = _binaries()
-    if not binaries:
-        raise RuntimeError("No se encontró el comando `radar` para actualizar el mercado.")
+    sources = _sources()
     is_district = point.precision == "district"
     city = "Lima" if is_district else point.label
     chosen = [q for q in list(active_pack().queries) if q and not q.startswith("-")][:MAX_QUERIES]
-    steps: list[list[str]] = []
+    steps: list[dict[str, Any]] = []
     for query in chosen:
-        for name, base in binaries.items():
+        for name in sources:
             if name == "jobspy":
                 where, keyword = (f"{point.label}, Lima" if is_district else city), query
             else:
                 where, keyword = city, (f"{query} {point.label}" if is_district else query)
-            steps.append([*base, "--query", keyword, "--location", where, "--limit", str(min(max(limit, 1), 50)),
-                          "--max-age-days", str(max_age_days)])
+            steps.append({"source": name, "query": keyword, "location": where,
+                          "limit": min(max(limit, 1), 50), "max_age_days": max_age_days})
     steps = steps[:MAX_STEPS]
     with _lock:
         if _state["running"]:

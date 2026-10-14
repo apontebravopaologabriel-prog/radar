@@ -90,4 +90,7 @@ def plan_de_aprendizaje() -> str:
 
 
 def main() -> None:
+    from radar.security import restrict_umask
+
+    restrict_umask()
     mcp.run(transport=os.getenv("RADAR_MCP_TRANSPORT", "stdio"))

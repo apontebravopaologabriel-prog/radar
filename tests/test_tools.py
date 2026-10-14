@@ -272,6 +272,24 @@ def test_slim_lists_drop_descriptions_and_detail_endpoint_returns_them():
     assert detail["description"] and api.get("/api/jobs/no-existe/description").status_code == 404
 
 
+def test_jobs_endpoint_paginates_without_changing_the_default():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    _seed_market()
+    api = TestClient(app)
+    everything = api.get("/api/jobs").json()
+    total = everything["total"]
+    assert total >= 1 and len(everything["jobs"]) == total
+    first = api.get("/api/jobs?limit=1").json()
+    assert len(first["jobs"]) == 1 and first["total"] == total and first["offset"] == 0
+    rest = api.get("/api/jobs?limit=1&offset=1").json()
+    assert rest["total"] == total and [j["id"] for j in rest["jobs"]] == [j["id"] for j in everything["jobs"][1:2]]
+    assert api.get(f"/api/jobs?offset={total}").json()["jobs"] == []
+    assert api.get("/api/jobs?limit=0").status_code == 422
+
+
 def test_compare_places_is_multidimensional_and_hidden_duplicates_stay_out_of_chat():
     result = tools.compare_places("Ate", "Miraflores")
     assert {"top_areas", "work_mode", "seniority", "salary_pen", "production"} <= set(result["places"][0])
@@ -314,14 +332,14 @@ def test_refresh_market_is_a_confirmed_write_and_builds_place_focused_steps(monk
     from radar import refresh
 
     assert tools.REGISTRY["refresh_market"].write is True and tools.REGISTRY["get_refresh_status"].write is False
-    monkeypatch.setattr(refresh, "_binaries", lambda: {"computrabajo": ["radar", "ingest", "--source", "computrabajo"],
-                                                      "jobspy": ["radar", "ingest", "--source", "jobspy"]})
+    monkeypatch.setattr(refresh, "_sources", lambda: ["computrabajo", "jobspy"])
     captured = []
     monkeypatch.setattr(refresh, "_work", lambda steps: captured.extend(steps))
     monkeypatch.setattr(refresh.threading, "Thread", lambda target, args, **k: type("T", (), {"start": lambda self: target(*args)})())
     state = refresh.start_place_refresh("Miraflores")
     assert state["place"] == "Miraflores" and captured
-    assert any("Miraflores, Lima" in step for step in captured) and any("Lima" in step and "Miraflores" in " ".join(step) for step in captured)
+    assert any(step["source"] == "jobspy" and step["location"] == "Miraflores, Lima" for step in captured)
+    assert any(step["source"] == "computrabajo" and step["location"] == "Lima" and "Miraflores" in step["query"] for step in captured)
     refresh._state["running"] = False
     with pytest.raises(ValueError):
         refresh.start_place_refresh("Marte")

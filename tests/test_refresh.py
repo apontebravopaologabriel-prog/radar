@@ -12,7 +12,7 @@ from radar.db.repository import save_profile
 def _db(tmp_path, monkeypatch):
     monkeypatch.setenv("RADAR_DB_PATH", str(tmp_path / "radar.db"))
     monkeypatch.delenv("RADAR_ACCESS_TOKEN", raising=False)
-    monkeypatch.setattr(refresh, "_binaries", lambda: {"computrabajo": ["radar", "ingest", "--source", "computrabajo"]})
+    monkeypatch.setattr(refresh, "_sources", lambda: ["computrabajo"])
 
 
 def _wait():
@@ -33,9 +33,9 @@ def test_locations_map_districts_to_lima_and_cities_to_themselves():
 def test_refresh_runs_steps_collects_errors_and_allows_one_at_a_time(monkeypatch):
     calls = []
 
-    def fake(command):
-        calls.append(command)
-        if "logistica" in command:
+    def fake(step):
+        calls.append(step)
+        if "logistica" in step["query"]:
             raise RuntimeError("fuente caída")
         return {"created": 3}
 
@@ -45,7 +45,7 @@ def test_refresh_runs_steps_collects_errors_and_allows_one_at_a_time(monkeypatch
     assert started.status_code == 202 and started.json()["total"] >= 1
     state = _wait()
     assert state["done"] == state["total"] and state["created"] >= 3
-    assert all("--location" in c and c[c.index("--location") + 1] == "Lima" for c in calls)
+    assert all(c["location"] == "Lima" and c["source"] == "computrabajo" for c in calls)
     assert api.get("/api/refresh/status").json()["running"] is False
 
 
@@ -59,4 +59,4 @@ def test_custom_career_endpoint_activates_it_and_refresh_uses_its_queries(monkey
     monkeypatch.setattr(refresh, "_run_step", lambda c: seen.append(c) or {})
     api.post("/api/refresh", json={})
     _wait()
-    assert seen and all(c[c.index("--query") + 1] == "abogado laboral" for c in seen)
+    assert seen and all(c["query"] == "abogado laboral" for c in seen)

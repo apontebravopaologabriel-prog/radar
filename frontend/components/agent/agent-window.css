@@ -1,13 +1,19 @@
 /* Ventana del agente en escritorio: flotante, sobre el mapa, misma estética terminal. */
-.agent-dock { position: fixed; top: 195px; left: 16px; z-index: 900; display: flex; width: 39px; min-height: 84px; flex-direction: column; gap: 6px; pointer-events: auto; }
+/* Va justo debajo del riel de vistas (mismas variables de globals.css) y se oculta/asoma con él. */
+.agent-dock { position: fixed; top: calc(var(--rail-top) + var(--rail-count) * (var(--rail-btn) + var(--rail-gap))); left: var(--rail-left); z-index: 900;
+  display: flex; width: var(--rail-btn); flex-direction: column; gap: var(--rail-gap); pointer-events: none; }
 .agent-dock button, .agent-dock a {
-  width: 39px; height: 39px; min-height: 39px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: var(--rail-btn); height: var(--rail-btn); min-height: var(--rail-btn); padding: 0; display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid #444; border-radius: 0; color: #858585; background: #080808c9; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px);
-  text-decoration: none; font: inherit; letter-spacing: normal; text-transform: none; cursor: pointer;
-  transform: translateX(-56px); opacity: 0; pointer-events: none; transition: transform .16s ease, opacity .16s ease, border-color .12s, background .12s;
+  text-decoration: none; font: inherit; letter-spacing: normal; text-transform: none; cursor: pointer; pointer-events: auto;
+  transition: transform .16s ease, opacity .16s ease, border-color .12s, background .12s;
 }
-.radar-rail-peek .agent-dock button, .radar-rail-peek .agent-dock a,
-.agent-dock:hover button, .agent-dock:hover a, .agent-dock:focus-within button, .agent-dock:focus-within a { transform: translateX(0); opacity: 1; pointer-events: auto; }
+/* Solo con puntero real se ocultan (igual que el riel); en pantallas táctiles quedan visibles. */
+@media (hover: hover) {
+  .agent-dock button, .agent-dock a { transform: translateX(calc(-1 * var(--rail-left) - var(--rail-btn) - 4px)); opacity: 0; pointer-events: none; }
+  .radar-rail-peek .agent-dock button, .radar-rail-peek .agent-dock a,
+  .agent-dock:hover button, .agent-dock:hover a, .agent-dock:focus-within button, .agent-dock:focus-within a { transform: translateX(0); opacity: 1; pointer-events: auto; }
+}
 .agent-dock .agent-launch { display: grid; place-items: center; }
 .agent-dock .agent-launch .radar-mark { width: 16px; height: 16px; }
 .agent-dock button:hover, .agent-dock a:hover, .agent-dock button:focus-visible, .agent-dock a:focus-visible, .agent-dock button[aria-pressed="true"] {

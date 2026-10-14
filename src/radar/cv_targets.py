@@ -2,7 +2,7 @@
 
 Los datos viven junto a la base SQLite, fuera del repositorio:
 ``cv_master.json`` (perfil real), ``targets/*.json`` (un candidato ideal por oferta)
-y ``photo.jpg``. Ver ``docs/target-profiles.md``.
+y ``photo.jpg``. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations

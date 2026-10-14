@@ -40,7 +40,7 @@ export type Career = { active: string; name: string; areas: { core: string[]; ad
   weights: Record<string, number>; tracks: { id: string; name: string }[] };
 export type AgentSettings = { provider: string; base_url: string; model: string; has_key: boolean; needs_key: boolean;
   ready: boolean; enabled: boolean; read_only: boolean; reasoning_effort: "auto" | "none" | "low" | "high" | "max";
-  context_window: number; monthly_token_cap: number; tokens_used_this_month: number;
+  context_window: number; autocompact_pct: number; monthly_token_cap: number; tokens_used_this_month: number;
   providers: Record<string, { base_url: string; model: string; models?: string[]; model_names?: Record<string, string>; reasoning_efforts?: string[] }> };
 export type Mention = { type: "place"; name: string } | { type: "job"; id: string; name: string; company?: string | null };
 export type AgentContext = {
@@ -52,6 +52,7 @@ export type AgentContext = {
   selectedJob?: { id: string; title: string; company?: string; district?: string };
   visibleCount?: number;
   districtJobs?: number;
+  cvStudio?: { jobId: string; title: string; company: string | null; selectedLine: { id: string; text: string } | null; pendingSuggestions: number };
   analysis?: { ready: boolean; updatedAt: string; windows: { title: string; sql: string; columns: string[]; rows: (string | number | null)[][]; rowCount: number }[]; recentQueries: string[] };
 };
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
@@ -68,7 +69,12 @@ export type MeProfile = {
 };
 export type MePatchResult = { changed: string[]; undo: Record<string, unknown>; warnings: string[]; profile: MeProfile };
 
+export type McpClient = { id: string; label: string; can_install: boolean; exists?: boolean; config_file?: string; snippet?: string; command?: string };
+export type McpConfig = { command: string; clients: McpClient[]; note: string };
+
 export const api = {
+  mcpConfig: () => request<McpConfig>("/api/mcp/config"),
+  mcpInstall: (client: string) => request<{ config_file: string; backup: string | null; restart: string }>("/api/mcp/install", { method: "POST", body: JSON.stringify({ client }) }),
   authStatus: () => request<{ required: boolean; authenticated: boolean }>("/api/auth/status"),
   login: (token: string) => request<{ authenticated: boolean }>("/api/auth/login", { method: "POST", body: JSON.stringify({ token }) }),
   logout: () => request<{ authenticated: boolean }>("/api/auth/logout", { method: "POST" }),
@@ -113,7 +119,7 @@ export const api = {
   removePhoto: () => request<{ has_photo: boolean }>("/api/me/photo", { method: "DELETE" }),
   saveProfile: (profile: ProfileInput) => request<{ profile_id: string }>("/api/profile", { method: "PUT", body: JSON.stringify(profile) }),
   agentSettings: () => request<AgentSettings>("/api/agent/settings"),
-  saveAgentSettings: (body: { provider: string; model?: string; reasoning_effort?: "auto" | "none" | "low" | "high" | "max"; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number }) =>
+  saveAgentSettings: (body: { provider: string; model?: string; reasoning_effort?: "auto" | "none" | "low" | "high" | "max"; base_url?: string; api_key?: string; monthly_token_cap?: number; enabled?: boolean; read_only?: boolean; context_window?: number; autocompact_pct?: number }) =>
     request<AgentSettings>("/api/agent/settings", { method: "PUT", body: JSON.stringify(body) }),
   conversations: (limit = 20) => request<{ conversations: ConversationInfo[] }>(`/api/conversations?limit=${limit}`),
   searchConversations: (q: string) => request<{ conversations: ConversationHit[] }>(`/api/conversations/search?q=${encodeURIComponent(q)}`),
@@ -146,15 +152,17 @@ export type ChatEvent =
   | { type: "tool_result"; message: ApiMessage; name: string }
   | { type: "usage"; prompt_tokens: number; completion_tokens: number }
   | { type: "pending"; actions: PendingAction[] }
+  | { type: "compacted"; history: ApiMessage[]; summary: string; before_tokens: number; memory_candidates: string[] }
+  | { type: "notice"; message: string }
   | { type: "error"; message: string }
   | { type: "done" };
 
 /** Lee el SSE de /api/chat y entrega cada evento; termina cuando el servidor cierra el stream. */
-export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext | (Partial<AgentContext> & { mentions?: Mention[] }), plan = false): Promise<void> {
+export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEvent) => void, signal?: AbortSignal, context?: AgentContext | (Partial<AgentContext> & { mentions?: Mention[] }), plan = false, lastPromptTokens = 0): Promise<void> {
   const response = await fetch(`${API_URL}/api/chat`, {
     method: "POST", credentials: "include", signal,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, context, plan }),
+    body: JSON.stringify({ messages, context, plan, last_prompt_tokens: lastPromptTokens }),
   });
   if (response.status === 401) throw new AuthRequired();
   if (!response.ok || !response.body) throw new Error(`La API respondió ${response.status}`);

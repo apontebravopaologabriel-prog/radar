@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, type AgentSettings, type Career } from "../../lib/mobile-api";
 import CustomCareerForm from "./CustomCareerForm";
+import McpConnect from "./McpConnect";
 import ProfileTab from "./ProfileTab";
 import RefreshPanel from "./RefreshPanel";
 import "./settings.css";
@@ -11,8 +12,8 @@ const WEIGHT_LABELS: Record<string, string> = {
   area: "Área", skills: "Skills", seniority: "Nivel", education: "Formación", location: "Ubicación", preference: "Modalidad",
 };
 
-type SettingsTab = "perfil" | "busqueda" | "agente" | "apariencia";
-const TABS: [SettingsTab, string][] = [["perfil", "Perfil"], ["busqueda", "Búsqueda"], ["agente", "Agente"], ["apariencia", "Apariencia"]];
+type SettingsTab = "perfil" | "busqueda" | "agente" | "conectar" | "apariencia";
+const TABS: [SettingsTab, string][] = [["perfil", "Perfil"], ["busqueda", "Búsqueda"], ["agente", "Agente"], ["conectar", "Conectar IA"], ["apariencia", "Apariencia"]];
 
 export default function SettingsView({ authRequired, onLogout, onError, onAgentChange }: { authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void; onAgentChange?: (enabled: boolean) => void }) {
   const [career, setCareer] = useState<Career | null>(null);
@@ -24,6 +25,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [key, setKey] = useState("");
   const [cap, setCap] = useState(500000);
   const [ctxWindow, setCtxWindow] = useState(64000);
+  const [autoPct, setAutoPct] = useState(65);
   const [enabled, setEnabled] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -39,14 +41,14 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
 
   useEffect(() => {
     Promise.all([api.career(), api.agentSettings()]).then(([c, a]) => {
-      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setReasoningEffort(a.reasoning_effort); setCap(a.monthly_token_cap); setCtxWindow(a.context_window); setEnabled(a.enabled); setReadOnly(a.read_only);
+      setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setReasoningEffort(a.reasoning_effort); setCap(a.monthly_token_cap); setCtxWindow(a.context_window); setAutoPct(a.autocompact_pct); setEnabled(a.enabled); setReadOnly(a.read_only);
     }).catch(onError);
   }, [onError]);
 
   const flash = (text: string) => { setNote(text); setTimeout(() => setNote(""), 2500); };
   const saveAgent = async () => {
     try {
-      const next = await api.saveAgentSettings({ provider, model: model || undefined, reasoning_effort: reasoningEffort, api_key: key || undefined, monthly_token_cap: cap, context_window: ctxWindow, enabled, read_only: readOnly });
+      const next = await api.saveAgentSettings({ provider, model: model || undefined, reasoning_effort: reasoningEffort, api_key: key || undefined, monthly_token_cap: cap, context_window: ctxWindow, autocompact_pct: autoPct, enabled, read_only: readOnly });
       setAgent(next); setKey(""); flash("Guardado"); onAgentChange?.(next.enabled);
     } catch (error) { onError(error); }
   };
@@ -96,6 +98,8 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
       </details>
       </>)}
 
+      {tab === "conectar" && <McpConnect onError={onError} />}
+
       {tab === "apariencia" && (<>
       <section className="set-section">
         <h2>Rendimiento <b>{lite ? "(modo ligero)" : "(efectos retro)"}</b></h2>
@@ -142,8 +146,11 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
           <label>Tope mensual de tokens
             <input type="number" min={1000} step={50000} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
           </label>
-          <label>Ventana de contexto del modelo (tokens; solo para el medidor de /contexto)
+          <label>Ventana de contexto del modelo (tokens; el medidor y la compactación automática la usan)
             <input type="number" min={2000} step={1000} value={ctxWindow} onChange={(e) => setCtxWindow(Number(e.target.value))} />
+          </label>
+          <label>Compactar la conversación sola al llenar este % de la ventana (0 = apagado)
+            <input type="number" min={0} max={90} step={5} value={autoPct} onChange={(e) => setAutoPct(Number(e.target.value))} />
           </label>
           </details>
         </div>

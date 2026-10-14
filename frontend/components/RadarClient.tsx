@@ -294,6 +294,8 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [showFavorites, setShowFavorites] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
+  const [studioJobId, setStudioJobId] = useState<string | null>(null);
+  const [studioContext, setStudioContext] = useState<AgentContext["cvStudio"] | null>(null);
   const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
   const [railPeek, setRailPeek] = useState(false);
@@ -413,7 +415,8 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     visibleCount: visibleJobs.length,
     districtJobs: mode === "radar" ? undefined : browsedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
-  }), [activeView, analysisContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
+    cvStudio: activeView === "cvs" ? studioContext ?? undefined : undefined,
+  }), [activeView, analysisContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
@@ -638,8 +641,11 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       setRailPeek(value);
       document.documentElement.classList.toggle("radar-rail-peek", value);
     };
+    // La franja sensible llega hasta debajo del último botón del riel y del AgentDock (agente y ajustes).
+    const zoneBottom = () => (document.querySelector(".agent-dock")?.getBoundingClientRect().bottom ?? 290) + 48;
     function onMove(event: MouseEvent) {
-      const inside = event.clientX <= (railPeekRef.current ? 180 : 120) && event.clientY >= 0 && event.clientY <= 330;
+      if (document.querySelector(".boot-screen")) return;  // durante el arranque no se asoma nada
+      const inside = event.clientX <= (railPeekRef.current ? 180 : 120) && event.clientY >= 0 && event.clientY <= zoneBottom();
       if (inside) {
         window.clearTimeout(timer);
         timer = undefined;
@@ -833,7 +839,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           ) : mode === "analysis" ? (
             <AnalysisView onApplyFilter={applyAnalysisFilter} onContextChange={setAnalysisContext} />
           ) : mode === "cvs" ? (
-            <CvView />
+            <CvView onStudioContext={setStudioContext} openJobId={studioJobId} onOpenJobConsumed={() => setStudioJobId(null)} />
           ) : (
             <>
               <div className="map-header">
@@ -856,6 +862,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                 {selectedJob && <article className={`job-popover ${expandedDescriptionId === selectedJob.id ? "is-description-expanded" : ""}`}>
                   {selectedJob.user_status !== "hidden" && <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><IconEyeOff /></button>}
                   <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }} aria-label="Cerrar detalle" type="button">×</button>
+                  <button className="studio-link" type="button" onClick={() => { setStudioJobId(selectedJob.id); selectView("cvs"); }} title="Prepara tu CV para esta oferta en el Estudio">Estudio de CV →</button>
                   <span className="job-area">{selectedJob.primary_area || "Sin área"}<span className="job-source"> · {sourceName(selectedJob.url)}</span></span>
                   <h3>{selectedJob.url ? <a className="job-popover-title" href={selectedJob.url} target="_blank" rel="noreferrer">{selectedJob.title}</a> : selectedJob.title}</h3>
                   <p className="popover-company">

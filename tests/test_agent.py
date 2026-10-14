@@ -115,7 +115,8 @@ def test_api_settings_never_return_the_key_and_file_is_private():
     res = api.put("/api/agent/settings", json={"provider": "deepseek", "api_key": "sk-abc"})
     assert res.status_code == 200 and res.json()["has_key"] is True
     assert "sk-abc" not in res.text and "sk-abc" not in api.get("/api/agent/settings").text
-    assert oct(secrets_path().stat().st_mode & 0o777) == "0o600"
+    if __import__("os").name != "nt":  # en Windows no hay permisos POSIX; ahí las claves van al almacén del sistema
+        assert oct(secrets_path().stat().st_mode & 0o777) == "0o600"
     assert read_secrets()["llm_key_deepseek"] == "sk-abc"
     api.put("/api/agent/settings", json={"provider": "deepseek", "api_key": ""})
     assert api.get("/api/agent/settings").json()["has_key"] is False
@@ -126,13 +127,13 @@ def test_confirm_endpoint_only_runs_write_tools_and_can_reject():
     assert api.post("/api/chat/confirm", json={"tool_call_id": "1", "name": "get_market_summary",
                                                "arguments": {}, "approve": True}).status_code == 422
     rejected = api.post("/api/chat/confirm", json={"tool_call_id": "1", "name": "set_career_track",
-                                                   "arguments": {"career_id": "contabilidad"},
+                                                   "arguments": {"career_id": "sistemas_software"},
                                                    "approve": False}).json()
     assert "cancelado" in rejected["message"]["content"]
     assert api.get("/api/career").json()["active"] == "industrial_engineering"
     api.post("/api/chat/confirm", json={"tool_call_id": "2", "name": "set_career_track",
-                                        "arguments": {"career_id": "contabilidad"}, "approve": True})
-    assert api.get("/api/career").json()["active"] == "contabilidad"
+                                        "arguments": {"career_id": "sistemas_software"}, "approve": True})
+    assert api.get("/api/career").json()["active"] == "sistemas_software"
 
 
 def test_access_token_protects_api(monkeypatch):
@@ -181,7 +182,7 @@ def test_read_only_mode_hides_and_blocks_write_tools():
     assert not any(e["type"] == "pending" for e in events)
     api = TestClient(app)
     assert api.post("/api/chat/confirm", json={"tool_call_id": "1", "name": "set_career_track",
-                                               "arguments": {"career_id": "contabilidad"},
+                                               "arguments": {"career_id": "sistemas_software"},
                                                "approve": True}).status_code == 422
 
 
@@ -318,7 +319,8 @@ def test_plan_mode_hides_write_tools_and_adds_the_plan_instruction():
     assert "MODO PLAN" in sent[0]["messages"][0]["content"]
     client, sent = _client(_text("ok"))
     list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client))
-    assert "reclassify_jobs" in {t["function"]["name"] for t in sent[0]["tools"]} and "MODO PLAN" not in sent[0]["messages"][0]["content"]
+    assert "MODO PLAN" not in sent[0]["messages"][0]["content"]
+    assert "load_tools" in {t["function"]["name"] for t in sent[0]["tools"]}
 
 
 def test_plan_mode_rejects_a_write_call_even_if_the_model_insists():
@@ -330,13 +332,168 @@ def test_plan_mode_rejects_a_write_call_even_if_the_model_insists():
 def test_profile_edit_confirmation_shows_before_and_after_and_writes_nothing(tmp_path):
     cv = tmp_path / "cv_master.json"
     cv.write_text(json.dumps({"name": "Ana", "home_district": "La Victoria"}), encoding="utf-8")
-    client, _ = _client(_call("update_profile_fields", {"home_district": "Surco", "skills": {"Klingon": "basic"}}))
+    client, _ = _client(_call("load_tools", {"groups": ["perfil"]}),
+                        _call("update_profile_fields", {"home_district": "Surco", "skills": {"Klingon": "basic"}}))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "me mudé a Surco"}], client))
     [action] = next(e for e in events if e["type"] == "pending")["actions"]
     assert action["name"] == "update_profile_fields"
     assert action["preview"][0].startswith("No se puede aplicar")  # la skill desconocida se detecta antes de aprobar
-    client, _ = _client(_call("update_profile_fields", {"home_district": "Surco"}))
+    client, _ = _client(_call("load_tools", {"groups": ["perfil"]}),
+                        _call("update_profile_fields", {"home_district": "Surco"}))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "me mudé a Surco"}], client))
     [action] = next(e for e in events if e["type"] == "pending")["actions"]
     assert action["preview"] == ["Distrito: La Victoria → Surco"]
     assert json.loads(cv.read_text(encoding="utf-8"))["home_district"] == "La Victoria"  # nada se escribe sin aprobar
+
+
+def _names(request):
+    return {t["function"]["name"] for t in request["tools"]}
+
+
+def test_grouped_tools_are_loaded_on_demand_and_cut_the_schema_size():
+    client, sent = _client(_call("load_tools", {"groups": ["sistema"]}), _text("listo"))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "¿cómo está el sistema?"}], client))
+    assert "get_system_status" not in _names(sent[0]) and "load_tools" in _names(sent[0])
+    assert "get_system_status" in _names(sent[1]) and "update_cv" not in _names(sent[1])
+    assert len(json.dumps(sent[0]["tools"])) < 12_000  # antes ~19.500 caracteres siempre
+
+
+def test_calling_an_unloaded_group_tool_is_refused_with_a_hint():
+    client, _ = _client(_call("get_system_status", {}), _text("ok"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "estado"}], client))
+    result = next(e for e in events if e["type"] == "tool_result")
+    assert "load_tools" in result["message"]["content"]
+
+
+def test_loaded_groups_persist_through_the_conversation_history():
+    history = [
+        {"role": "user", "content": "estado"},
+        {"role": "assistant", "content": None, "tool_calls": [
+            {"id": "c0", "type": "function", "function": {"name": "load_tools", "arguments": '{"groups": ["cv"]}'}}]},
+        {"role": "tool", "tool_call_id": "c0", "content": "{}"},
+        {"role": "user", "content": "ahora el CV"},
+    ]
+    client, sent = _client(_text("ok"))
+    list(loop.run_turn(CONFIG, history, client))
+    assert "get_my_cv" in _names(sent[0]) and "get_system_status" not in _names(sent[0])
+
+
+def _long_history(turns: int) -> list[dict]:
+    history: list[dict] = []
+    for i in range(turns):
+        history.append({"role": "user", "content": f"pregunta {i}"})
+        history.append({"role": "assistant", "content": f"respuesta {i}"})
+    return history
+
+
+def test_split_keeps_tail_starting_at_user_and_requires_enough_history():
+    history = _long_history(8)
+    head, tail = loop.split_for_compaction(history)
+    assert tail[0] == {"role": "user", "content": "pregunta 4"} and len(tail) == 8
+    assert head == history[:8]
+    assert loop.split_for_compaction(_long_history(3)) == ([], _long_history(3))  # poco historial: nada que resumir
+
+
+def test_split_never_cuts_a_tool_call_pair():
+    history = _long_history(4)
+    history += [
+        {"role": "user", "content": "busca"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "1", "type": "function", "function": {"name": "x", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "1", "content": "datos"},
+        {"role": "assistant", "content": "hecho"},
+    ]
+    _, tail = loop.split_for_compaction(history, keep_turns=1)
+    assert tail[0]["role"] == "user" and tail[1]["tool_calls"] and tail[2]["role"] == "tool"
+
+
+def test_should_autocompact_threshold_setting_and_off_switch():
+    history = _long_history(8)
+    set_setting("agent_context_window", "10000")
+    assert not loop.should_autocompact(history, 6000)      # 60 % < 65 %
+    assert loop.should_autocompact(history, 6600)          # 66 %
+    assert not loop.should_autocompact(history, 0)         # sin dato real no se adivina
+    assert not loop.should_autocompact(_long_history(3), 9000)
+    set_setting("agent_autocompact_pct", "0")
+    assert not loop.should_autocompact(history, 9999)
+    set_setting("agent_autocompact_pct", "40")
+    assert loop.should_autocompact(history, 4100)
+
+
+def test_run_turn_autocompacts_then_answers_from_summary_plus_tail():
+    set_setting("agent_context_window", "10000")
+    history = _long_history(8) + [{"role": "user", "content": "¿y ahora?"}]
+    client, sent = _client(_text("OBJETIVO: híbrido\nPREFERENCIAS:\n- Solo híbrido"), _text("Listo."))
+    events = list(loop.run_turn(CONFIG, history, client, last_prompt_tokens=8000))
+    compacted = next(e for e in events if e["type"] == "compacted")
+    assert compacted["history"][0]["content"].startswith(loop.SUMMARY_PREFIX)
+    assert compacted["history"][-1] == {"role": "user", "content": "¿y ahora?"}
+    assert compacted["memory_candidates"] == ["Solo híbrido"]
+    assert len(compacted["history"]) < len(history)
+    answer_messages = sent[1]["messages"]
+    dumped = json.dumps(answer_messages, ensure_ascii=False)
+    assert "pregunta 0" not in dumped and "Solo híbrido" in dumped
+    assert events[-1]["type"] == "done"
+
+
+def test_run_turn_survives_a_failed_compaction():
+    set_setting("agent_context_window", "10000")
+    history = _long_history(8) + [{"role": "user", "content": "hola"}]
+    client, _ = _client((500, b"boom"), (500, b"boom"), _text("Sigo aquí."))
+    events = list(loop.run_turn(CONFIG, history, client, last_prompt_tokens=9000))
+    assert any(e["type"] == "notice" for e in events) and not any(e["type"] == "compacted" for e in events)
+    assert events[-1]["type"] == "done"
+
+
+def test_second_compaction_nests_the_previous_summary():
+    history = [*loop.summary_messages("OBJETIVO: viejo"), *_long_history(7)]
+    head, tail = loop.split_for_compaction(history)
+    assert head[0]["content"].startswith(loop.SUMMARY_PREFIX) and tail[0]["content"] == "pregunta 3"
+    client, sent = _client(_text("OBJETIVO: viejo y nuevo"))
+    loop.compact(CONFIG, head, client)
+    assert "OBJETIVO: viejo" in sent[0]["messages"][1]["content"]
+    assert "Si empieza con un resumen anterior" in sent[0]["messages"][0]["content"]
+
+
+def test_autocompact_setting_roundtrip_and_chat_accepts_last_prompt_tokens():
+    api = TestClient(app)
+    out = api.put("/api/agent/settings", json={"provider": "deepseek", "autocompact_pct": 50}).json()
+    assert out["autocompact_pct"] == 50
+    assert api.put("/api/agent/settings", json={"provider": "deepseek", "autocompact_pct": 95}).status_code == 422
+
+
+def test_secrets_use_the_system_keyring_when_selected_and_migrate_old_files(monkeypatch):
+    from radar import settings
+
+    store: dict[tuple[str, str], str] = {}
+
+    class FakeKeyring:
+        @staticmethod
+        def set_password(service, name, value):
+            store[(service, name)] = value
+
+        @staticmethod
+        def get_password(service, name):
+            return store.get((service, name))
+
+        @staticmethod
+        def delete_password(service, name):
+            store.pop((service, name), None)
+
+    settings._write_file_secret("llm_key_openai", "sk-old")  # clave guardada antes en el archivo
+    monkeypatch.setattr(settings, "_keyring", lambda: FakeKeyring)
+    assert settings.read_secret("llm_key_openai") == "sk-old"
+    assert store[("radar", "llm_key_openai")] == "sk-old" and "llm_key_openai" not in settings.read_secrets()
+    settings.write_secret("llm_key_deepseek", "sk-new")
+    assert store[("radar", "llm_key_deepseek")] == "sk-new" and settings.read_secrets() == {}
+    settings.write_secret("llm_key_deepseek", None)
+    assert settings.read_secret("llm_key_deepseek") is None
+
+
+def test_secrets_default_to_the_protected_file_on_posix(monkeypatch):
+    from radar import settings
+
+    monkeypatch.delenv("RADAR_SECRETS_BACKEND", raising=False)
+    if __import__("os").name != "nt":
+        assert settings._keyring() is None
+    monkeypatch.setenv("RADAR_SECRETS_BACKEND", "file")
+    assert settings._keyring() is None

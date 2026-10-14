@@ -26,19 +26,19 @@ def _job(title, description=""):
 
 def test_packs_are_valid_and_distinct():
     ids = {p.id for p in list_packs()}
-    assert {"industrial_engineering", "contabilidad"} <= ids
+    assert {"industrial_engineering", "sistemas_software"} <= ids
     for pack in list_packs():
         assert abs(sum(pack.weights.values()) - 1) < 1e-9
 
 
 def test_same_engine_classifies_by_pack():
-    accounting = load_pack("contabilidad")
+    systems = load_pack("sistemas_software")
     industrial = load_pack("industrial_engineering")
-    job = _job("Practicante contable", "Conciliaciones bancarias, SUNAT y Excel")
-    result = classify(job, accounting)
-    assert result.primary_area.value == "Contabilidad" or result.primary_area.value == "Tributación"
-    assert {n for n, _ in result.skills} >= {"Excel", "SUNAT", "Conciliaciones bancarias"}
-    assert infer_relevance(job, result.primary_area.value, accounting).tier == "core"
+    job = _job("Desarrollador Backend Java", "Spring Boot, APIs REST, PostgreSQL y Docker")
+    result = classify(job, systems)
+    assert result.primary_area.value == "Desarrollo de software"
+    assert {n for n, _ in result.skills} >= {"Java", "Spring Boot", "APIs REST", "PostgreSQL", "Docker"}
+    assert infer_relevance(job, result.primary_area.value, systems).tier == "core"
     # El mismo texto no es núcleo para Ingeniería Industrial.
     other = classify(job, industrial)
     assert infer_relevance(job, other.primary_area.value, industrial).tier != "core"
@@ -71,9 +71,9 @@ def test_user_weights_are_normalized_and_change_scores():
 def test_ingest_and_score_use_active_career_pack():
     from radar.settings import set_setting
 
-    set_setting("career", "contabilidad")
-    ingest_jobs([_job("Asistente contable", "NIIF y Excel")])
-    profile_id = save_profile("Ana", None, ["Contabilidad"], ["Lima"], [], {"Excel": "advanced"})
+    set_setting("career", "sistemas_software")
+    ingest_jobs([_job("Desarrollador Python", "Django, SQL y Git")])
+    profile_id = save_profile("Ana", None, ["Desarrollo de software"], ["Lima"], [], {"Python": "advanced"})
     assert recompute_scores(profile_id) == 1
 
 
@@ -121,3 +121,63 @@ def test_free_text_profile_areas_match_classified_areas():
     assert area_matches("Data / BI", wanted) and area_matches("Operaciones", wanted)
     assert not area_matches("Logística", wanted) and not area_matches(None, wanted)
     assert area_matches("Procesos", {"procesos"})  # igualdad exacta sigue funcionando
+
+
+# Regresión de clasificación: títulos reales de cada paquete y el área primaria esperada.
+SAMPLES = {
+    "industrial_engineering": [
+        ("Practicante de Mejora Continua", "Lean y Excel", "Operaciones y productividad"),
+    ],
+    "sistemas_software": [
+        ("Desarrollador Backend Java Spring Boot", "APIs REST, microservicios, PostgreSQL", "Desarrollo de software"),
+        ("Desarrollador Full Stack React Node.js", "TypeScript, Git, AWS", "Desarrollo de software"),
+        ("Data Engineer", "Spark, Airflow, AWS, SQL", "Datos e inteligencia artificial"),
+        ("Analista de Ciberseguridad SOC", "SIEM, ISO 27001", "Ciberseguridad"),
+        ("QA Automation Engineer", "Selenium, Cypress", "Calidad y pruebas (QA)"),
+        ("DevOps Engineer", "Kubernetes, Terraform, CI/CD", "DevOps y SRE"),
+        ("Analista Funcional SAP", "levantamiento de requerimientos", "Análisis de sistemas y producto"),
+        ("Practicante de Sistemas", "soporte y Excel", "Análisis de sistemas y producto"),
+        ("Analista de Power BI", "Power BI, SQL, dashboards", "Data / BI"),
+        ("Soporte TI Help Desk", "ITIL", "Soporte TI y redes"),
+        ("Ejecutivo Comercial de Software", "ventas", "Ventas / Comercial"),
+        ("Cajero de tienda", "", "Otras"),
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    ("career", "title", "description", "expected"),
+    [(career, *row) for career, rows in SAMPLES.items() for row in rows],
+)
+def test_pack_classification_samples(career, title, description, expected):
+    assert classify(_job(title, description), load_pack(career)).primary_area.value == expected
+
+
+@pytest.mark.parametrize("pack", list_packs(), ids=lambda p: p.id)
+def test_every_builtin_pack_is_complete(pack):
+    assert pack.queries and pack.market_queries and pack.core_areas and pack.skills
+    assert pack.out_of_focus_areas >= {"Otras"}
+    assert set(pack.area_rules) <= set(pack.all_areas)
+    assert all(pack.area_slugs.get(area) for area in pack.all_areas), "cada área necesita slug"
+
+
+def test_validate_pack_file_reports_problems(tmp_path):
+    import json
+
+    from radar.careers import validate_pack_file
+
+    good = tmp_path / "ok.json"
+    good.write_text(json.dumps({
+        "id": "ok", "name": "Ok", "areas": {"core": ["A"], "out_of_focus": ["Otras"]}, "area_rules": {"A": ["alfa"]},
+        "skills": {"S": {"aliases": ["s"]}}, "scoring": {"area": 0.3, "skills": 0.25, "seniority": 0.15, "education": 0.1,
+                                                           "location": 0.1, "preference": 0.1},
+        "queries": ["alfa"]}), encoding="utf-8")
+    assert validate_pack_file(good)["errors"] == []
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"id": "bad", "name": "Bad", "areas": {"core": ["A"]}, "area_rules": {"B": ["x"]},
+                               "skills": {}, "scoring": {"area": 1}}), encoding="utf-8")
+    report = validate_pack_file(bad)
+    assert report["errors"], report
+    broken = tmp_path / "broken.json"
+    broken.write_text("{", encoding="utf-8")
+    assert validate_pack_file(broken)["errors"]

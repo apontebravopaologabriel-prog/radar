@@ -65,6 +65,25 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
   }, [pinned, pinWidth]);
   useEffect(() => () => { document.documentElement.style.setProperty("--agent-dock-w", "0px"); }, []);
 
+  // El Estudio de CV pide el panel del agente fijado a la derecha mientras está abierto y devuelve el estado anterior al salir.
+  const beforeStudio = useRef<{ open: boolean; mode: Mode } | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const onLayout = (event: Event) => {
+      const wanted = (event as CustomEvent<{ studio: boolean }>).detail?.studio;
+      if (wanted && !beforeStudio.current) {
+        beforeStudio.current = { open, mode };
+        setOpen(true); setMode("pinned"); setMinimized(false);
+      } else if (!wanted && beforeStudio.current) {
+        const previous = beforeStudio.current;
+        beforeStudio.current = null;
+        setOpen(previous.open); setMode(previous.mode);
+      }
+    };
+    window.addEventListener("radar:agent-layout", onLayout);
+    return () => window.removeEventListener("radar:agent-layout", onLayout);
+  }, [enabled, open, mode]);
+
   const toggle = useCallback(() => { setOpen((v) => !v); setMinimized(false); }, []);
   const toggleMode = useCallback(() => setMode((m) => (m === "float" ? "pinned" : "float")), []);
   useEffect(() => {

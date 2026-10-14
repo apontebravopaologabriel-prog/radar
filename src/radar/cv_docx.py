@@ -2,7 +2,7 @@
 
 Produce un documento sobrio y a prueba de ATS: una sola columna, sin tablas ni imágenes, encabezados
 estándar y viñetas reales de Word. Recibe una lista de bloques ya decididos (ver ``cv_build``); aquí no
-hay lógica de contenido. Ver ``docs/cv-word-plan.md``.
+hay lógica de contenido. Ver ``docs/cv.md``.
 """
 
 from __future__ import annotations

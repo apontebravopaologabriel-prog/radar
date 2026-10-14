@@ -1,0 +1,73 @@
+name: Release (Windows)
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:  # construye (sin publicar) cuando cambia el empaquetado, para verlo antes de etiquetar
+    paths: ["packaging/**", ".github/workflows/release.yml", "src/radar/app.py", "pyproject.toml"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      HAS_CERT: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend export
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Python dependencies
+        run: pip install -e ".[desktop,jobspy]"
+      - name: Tests
+        run: |
+          pip install -e ".[dev]"
+          pytest
+      - name: Build executables
+        run: pyinstaller packaging/radar.spec --noconfirm
+      - name: Smoke test of the packaged app
+        env:
+          RADAR_DB_PATH: ${{ runner.temp }}\radar-smoke\radar.db
+        run: dist\Radar\Radar.exe --smoke
+        shell: cmd
+      - name: Build installer
+        run: |
+          choco install innosetup -y --no-progress
+          # La versión sale del código (no del nombre de la rama: "1/merge" no es un nombre de archivo válido).
+          $version = (python -c "import radar; print(radar.__version__)").Trim()
+          if ("${{ github.ref_type }}" -eq "tag") { $tag = "${{ github.ref_name }}".TrimStart("v"); if ($tag -ne $version) { throw "La etiqueta $tag no coincide con radar.__version__ $version" } }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging\radar.iss
+        shell: pwsh
+      # Firma de código: define WINDOWS_CERT_PFX_BASE64 y WINDOWS_CERT_PASSWORD en los secretos del repositorio.
+      - name: Sign installer (if certificate is configured)
+        if: ${{ env.HAS_CERT == 'true' }}
+        env:
+          PFX: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:PFX))
+          & "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe" sign /f cert.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist-installer\*.exe
+          Remove-Item cert.pfx
+        shell: pwsh
+      - name: Checksums
+        run: Get-FileHash dist-installer\*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | Out-File dist-installer\SHA256SUMS.txt -Encoding ascii
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radar-windows
+          path: dist-installer/*
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-installer/*

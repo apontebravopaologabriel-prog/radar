@@ -1,12 +1,13 @@
 {
   "name": "radar-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.9.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.7"
   }
 }

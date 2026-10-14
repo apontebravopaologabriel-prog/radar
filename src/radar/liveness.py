@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from radar.db.database import connection
+from radar.security import UnsafeUrlError, ensure_public_http_url
 
 # 404/410 son señales inequívocas de que la oferta ya no existe. 403/429 casi
 # siempre son bloqueo anti-bot del portal, no que la oferta haya cerrado, así
@@ -42,8 +43,11 @@ def check_application_status(
         ).fetchall()
 
     results: list[tuple[str, str]] = []
+    def guard(request: httpx.Request) -> None:  # también se ejecuta en cada redirección
+        ensure_public_http_url(str(request.url))
+
     with httpx.Client(
-        timeout=timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}
+        timeout=timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}, event_hooks={"request": [guard]}
     ) as client:
         for job_id, url in rows:
             if not url:
@@ -51,7 +55,7 @@ def check_application_status(
             stats["checked"] += 1
             try:
                 response = client.get(url)
-            except httpx.HTTPError:
+            except (httpx.HTTPError, UnsafeUrlError):
                 stats["errors"] += 1
                 continue
             if response.status_code in CLOSED_STATUS_CODES:

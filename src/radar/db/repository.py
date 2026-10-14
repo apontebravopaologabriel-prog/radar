@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from typing import Any
 
 from radar.careers import CareerPack, active_pack, effective_weights
 from radar.classify import classify, infer_seniority
@@ -262,17 +263,42 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
     return stats
 
 
+REPAIR_BATCH = 200  # confirmaciones frecuentes: la base no queda bloqueada para la app durante minutos
+
+
+def _same(old: Any, new: Any) -> bool:
+    if old is None or new is None:
+        return old is None and new is None
+    try:
+        return abs(float(old) - float(new)) < 1e-9
+    except (TypeError, ValueError):
+        return old == new
+
+
 def repair_data_quality() -> dict[str, int]:
-    """Backfill inferred metadata for jobs captured before enrichment existed."""
+    """Backfill inferred metadata for jobs captured before enrichment existed.
+
+    Recalcula todo, pero solo escribe las ofertas cuyo resultado cambió (antes reescribía las ~6 000 en una sola
+    transacción de minutos) y confirma por lotes."""
     pack = active_pack()
-    stats = {"jobs_checked": 0, "work_modes_repaired": 0, "salaries_cleared": 0, "salaries_repaired": 0, "sectors_added": 0, "sectors_reclassified": 0, "schedules_added": 0, "classifications_rebuilt": 0}
+    stats = {"jobs_checked": 0, "work_modes_repaired": 0, "salaries_cleared": 0, "salaries_repaired": 0, "sectors_added": 0,
+             "sectors_reclassified": 0, "schedules_added": 0, "classifications_rebuilt": 0, "jobs_unchanged": 0}
     with connection() as conn:
+        area_ids = {name: area_id for area_id, name in conn.execute("SELECT id, name FROM industrial_areas").fetchall()}
+        skill_ids = {name: skill_id for skill_id, name in conn.execute("SELECT id, name FROM skills").fetchall()}
+        current_areas: dict[str, set[tuple]] = {}
+        for job_id, area_id, primary, evidence in conn.execute("SELECT job_id, area_id, is_primary, evidence FROM job_areas").fetchall():
+            current_areas.setdefault(job_id, set()).add((area_id, bool(primary), evidence))
+        current_skills: dict[str, set[tuple]] = {}
+        for job_id, skill_id, requirement, evidence in conn.execute("SELECT job_id, skill_id, requirement_type, evidence FROM job_skills").fetchall():
+            current_skills.setdefault(job_id, set()).add((skill_id, requirement, evidence))
         rows = conn.execute(
             """SELECT id, title, location, description_raw, work_mode,
             salary_min, salary_max, salary_currency, salary_period, salary_source, sector,
-            hours_per_week, schedule_text
+            hours_per_week, schedule_text, sector_confidence, relevance_tier, relevance_score, relevance_evidence
             FROM jobs"""
         ).fetchall()
+        pending = 0
         for row in rows:
             stats["jobs_checked"] += 1
             raw = RawJob(
@@ -329,37 +355,49 @@ def repair_data_quality() -> dict[str, int]:
             if row[11] is None and hours_per_week is not None:
                 stats["schedules_added"] += 1
             salary_source = "description" if text_salary else (row[9] if salary_min is not None or salary_max is not None else "unknown")
-            conn.execute(
-                """UPDATE jobs SET work_mode=%s, salary_min=%s, salary_max=%s,
-                salary_currency=%s, salary_period=%s, salary_source=%s,
-                sector=%s, sector_confidence=%s, relevance_tier=%s, relevance_score=%s,
-                relevance_evidence=%s, hours_per_week=%s, schedule_text=%s WHERE id=%s""",
-                (mode, salary_min, salary_max, salary_currency, salary_period, salary_source,
-                 sector, 0.75 if sector else None, relevance.tier, relevance.score,
-                 relevance.evidence, hours_per_week, schedule_text, row[0]),
-            )
-            # Rebuild derived areas/skills so classifier fixes apply to old jobs too.
-            conn.execute("DELETE FROM job_areas WHERE job_id=%s", (row[0],))
-            conn.execute("DELETE FROM job_skills WHERE job_id=%s", (row[0],))
-            for idx, area in enumerate([classified.primary_area, *classified.secondary_areas]):
-                area_id = conn.execute(
-                    "SELECT id FROM industrial_areas WHERE name=%s", (area.value,)
-                ).fetchone()
-                if area_id:
-                    conn.execute(
-                        "INSERT INTO job_areas(job_id,area_id,is_primary,confidence,evidence) VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                        (row[0], area_id[0], idx == 0, area.confidence, area.evidence),
-                    )
-            for skill, evidence in classified.skills:
-                skill_id = conn.execute(
-                    "SELECT id FROM skills WHERE name=%s", (skill,)
-                ).fetchone()
-                if skill_id:
-                    conn.execute(
-                        "INSERT INTO job_skills(job_id,skill_id,requirement_type,importance,confidence,evidence) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                        (row[0], skill_id[0], evidence.requirement_type, 0.7, evidence.confidence, evidence.evidence),
-                    )
-            stats["classifications_rebuilt"] += 1
+            sector_confidence = 0.75 if sector else None
+            new_job = (mode, salary_min, salary_max, salary_currency, salary_period, salary_source, sector, sector_confidence,
+                       relevance.tier, relevance.score, relevance.evidence, hours_per_week, schedule_text)
+            old_job = (row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[13], row[14], row[15], row[16], row[11], row[12])
+            new_areas = {(area_ids[a.value], idx == 0, a.evidence)
+                         for idx, a in enumerate([classified.primary_area, *classified.secondary_areas]) if a.value in area_ids}
+            new_skills = {(skill_ids[skill], evidence.requirement_type, evidence.evidence)
+                          for skill, evidence in classified.skills if skill in skill_ids}
+            job_changed = not all(_same(old, new) for old, new in zip(old_job, new_job, strict=True))
+            derived_changed = new_areas != current_areas.get(row[0], set()) or new_skills != current_skills.get(row[0], set())
+            if not job_changed and not derived_changed:
+                stats["jobs_unchanged"] += 1
+                continue
+            if job_changed:
+                conn.execute(
+                    """UPDATE jobs SET work_mode=%s, salary_min=%s, salary_max=%s,
+                    salary_currency=%s, salary_period=%s, salary_source=%s,
+                    sector=%s, sector_confidence=%s, relevance_tier=%s, relevance_score=%s,
+                    relevance_evidence=%s, hours_per_week=%s, schedule_text=%s WHERE id=%s""",
+                    (*new_job[:6], sector, sector_confidence, relevance.tier, relevance.score, relevance.evidence,
+                     hours_per_week, schedule_text, row[0]),
+                )
+            if derived_changed:
+                # Rebuild derived areas/skills so classifier fixes apply to old jobs too.
+                conn.execute("DELETE FROM job_areas WHERE job_id=%s", (row[0],))
+                conn.execute("DELETE FROM job_skills WHERE job_id=%s", (row[0],))
+                for idx, area in enumerate([classified.primary_area, *classified.secondary_areas]):
+                    if area.value in area_ids:
+                        conn.execute(
+                            "INSERT INTO job_areas(job_id,area_id,is_primary,confidence,evidence) VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                            (row[0], area_ids[area.value], idx == 0, area.confidence, area.evidence),
+                        )
+                for skill, evidence in classified.skills:
+                    if skill in skill_ids:
+                        conn.execute(
+                            "INSERT INTO job_skills(job_id,skill_id,requirement_type,importance,confidence,evidence) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                            (row[0], skill_ids[skill], evidence.requirement_type, 0.7, evidence.confidence, evidence.evidence),
+                        )
+                stats["classifications_rebuilt"] += 1
+            pending += 1
+            if pending >= REPAIR_BATCH:
+                conn.commit()
+                pending = 0
         conn.commit()
     return stats
 

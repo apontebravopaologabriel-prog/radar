@@ -74,6 +74,8 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
+  const usageRef = useRef(usage);
+  usageRef.current = usage;  // el turno lee el tamaño real del último prompt sin volver a crear `run`
   const [planMode, setPlanModeState] = useState(false);
   const planRef = useRef(false);  // lectura síncrona: aprobar el plan y enviar ocurren en el mismo instante
   const [autoMode, setAutoModeState] = useState(false);  // modo auto: aprueba solas las acciones de bajo riesgo
@@ -161,6 +163,13 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           setLines((p) => [...p, { kind: "tool", text: `${event.name}(${shortArgs(toolArgs.get(event.message.tool_call_id ?? "") ?? "")})`, summary, detail }]);
         }
         else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, estimated: false }));
+        else if (event.type === "compacted") {
+          hist = event.history; setHistory(hist);
+          setUsage((u) => ({ ...u, context: BASE_PROMPT_TOKENS + Math.ceil(event.summary.length / 4), estimated: true }));
+          const hints = event.memory_candidates.map((c) => `\n  # ${c}`).join("");
+          setLines((p) => [...p, { kind: "local", text: `Contexto compactado automáticamente (~${Math.round(event.before_tokens / 100) / 10}k tokens antes).\n\n${event.summary}${hints ? `\n\nSi quieres que lo recuerde, copia una línea con #:${hints}` : ""}` }]);
+        }
+        else if (event.type === "notice") setLines((p) => [...p, { kind: "local", text: event.message }]);
         else if (event.type === "pending") {
           const isAuto = (a: PendingAction) => alwaysAllow.current.has(a.name) || (autoRef.current && AUTO_SAFE.has(a.name));
           const auto = event.actions.filter(isAuto);
@@ -170,7 +179,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         }
         else if (event.type === "error") { failed = true; setLines((p) => [...p, { kind: "error", text: event.message }]); }
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
-      }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode), planning);
+      }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode), planning, usageRef.current.context);
     } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
     finally {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt));

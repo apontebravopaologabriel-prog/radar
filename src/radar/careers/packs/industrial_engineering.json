@@ -784,6 +784,13 @@
   "location": 0.1,
   "preference": 0.1
  },
+ "market_queries": [
+  "analista datos BI SQL Power BI", "analista data analytics Python", "procesos BPMN mejora continua",
+  "automatizacion Python RPA Power Automate", "transformacion digital industrial", "analista funcional ERP sistemas",
+  "soporte aplicaciones ERP SQL", "planeamiento demanda forecast", "planner supply chain abastecimiento",
+  "logistica inventarios almacenes", "compras procurement abastecimiento", "produccion operaciones industrial",
+  "calidad Lean Six Sigma", "mantenimiento industrial operaciones", "control de gestion indicadores", "proyectos PMO industrial"
+ ],
  "queries": [
   "practicante de procesos",
   "practicante ingeniería industrial",
