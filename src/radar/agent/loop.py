@@ -275,6 +275,33 @@ def _trim_old_tool_results(history: list[dict[str, Any]]) -> list[dict[str, Any]
     return trimmed
 
 
+def sanitize_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Quita lo que el proveedor rechaza con 400: resultados de herramienta sin su llamada (p. ej. un historial
+    guardado cortado a mitad de un turno) y llamadas cuyo resultado falta."""
+    clean: list[dict[str, Any]] = []
+    index = 0
+    while index < len(history):
+        message = history[index]
+        role = message.get("role")
+        if role == "tool":
+            index += 1  # huérfano: ninguna llamada lo precede
+            continue
+        if role == "assistant" and message.get("tool_calls"):
+            wanted = {c.get("id") for c in message["tool_calls"]}
+            end = index + 1
+            while end < len(history) and history[end].get("role") == "tool":
+                end += 1
+            answered = {m.get("tool_call_id") for m in history[index + 1:end]}
+            if wanted <= answered:
+                clean.extend(history[index:end])
+            index = end
+            continue
+        clean.append(message)
+        index += 1
+    first_user = next((i for i, m in enumerate(clean) if m.get("role") == "user"), len(clean))
+    return clean[first_user:]
+
+
 def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
     """Ejecuta una herramienta registrada validando sus argumentos contra su firma."""
     entry = tools.REGISTRY.get(name)
@@ -460,7 +487,7 @@ def run_turn(
                    + json.dumps(context, ensure_ascii=False, separators=(",", ":")))
     if plan:
         prompt += "\n\n" + PLAN_PROMPT
-    messages = [{"role": "system", "content": prompt}, *_trim_old_tool_results(history)]
+    messages = [{"role": "system", "content": prompt}, *_trim_old_tool_results(sanitize_history(history))]
     loaded = _groups_in_history(history)
     specs = _tool_specs(plan, loaded)
     seen_calls: set[tuple[str, str]] = set()

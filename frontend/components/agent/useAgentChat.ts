@@ -48,6 +48,13 @@ const CONTEXT_MODES: ContextMode[] = ["off", "selection", "full"];
 const CONTEXT_KEY = "radar.agent.contextMode";
 const TITLE_MAX = 60;
 /** Título automático: el primer mensaje de la persona. */
+/** Últimos 60 mensajes, empezando siempre en un mensaje de la persona: cortar a mitad de un turno deja resultados de herramienta sin su llamada y el proveedor responde 400. */
+function trimHistory(history: ApiMessage[]): ApiMessage[] {
+  const tail = history.slice(-60);
+  const first = tail.findIndex((m) => m.role === "user");
+  return first < 0 ? [] : tail.slice(first);
+}
+
 const autoTitle = (lines: { kind: string; text: string }[]) => (lines.find((l) => l.kind === "user")?.text ?? "").slice(0, TITLE_MAX);
 
 /** Recorta el contexto según el modo: «selección» omite las filas de los análisis (lo más caro en tokens). */
@@ -124,7 +131,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     if (!loaded.current || lines.length === 0) return;
     const timer = setTimeout(async () => {
       const title = customTitle ?? (autoTitle(lines) || "Conversación");
-      const data = { history: history.slice(-60), lines: lines.slice(-100) };
+      const data = { history: trimHistory(history), lines: lines.slice(-100) };
       try {
         if (conversationId.current) await api.saveConversation(conversationId.current, title, data);
         else { conversationId.current = (await api.createConversation(title, data)).id; writeActiveConversation(conversationId.current); }

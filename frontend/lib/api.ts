@@ -97,3 +97,18 @@ export async function fetchCvTargets(signal?: AbortSignal): Promise<{ targets: C
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as { targets: CvTarget[]; matrix: CvMatrix };
 }
+
+export type TrackedApplication = { id: string; job_id: string; title: string; company: string | null; status: string; notes: string | null; applied_at: string | null; updated_at: string; url: string | null };
+
+export async function fetchApplications(signal?: AbortSignal): Promise<TrackedApplication[]> {
+  const response = await fetch(`${API_URL}/api/applications`, { signal, credentials: "include" });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { applications: TrackedApplication[] }).applications;
+}
+
+export async function updateApplication(jobId: string, status: string, notes?: string | null): Promise<void> {
+  const response = await fetch(`${API_URL}/api/applications/${encodeURIComponent(jobId)}`, {
+    method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, notes: notes ?? null }),
+  });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+}

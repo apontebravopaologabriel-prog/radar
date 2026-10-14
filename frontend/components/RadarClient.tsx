@@ -2,11 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { FormEvent, memo, PointerEvent as ReactPointerEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobDescription, fetchJobs, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
+import { fetchFavoriteJobs, fetchHiddenJobs, fetchJobDescription, fetchJobs, fetchSkillOverview, updateApplication, updateJobFavorite, updateJobStatus } from "../lib/api";
 import { useProgressiveList } from "./useProgressiveList";
 import { districtKey } from "../lib/districts";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
 import AnalysisView from "./AnalysisView";
+import ApplicationsView from "./ApplicationsView";
 import CvView from "./CvView";
 import BootScreen from "./BootScreen";
 import type { AgentContext } from "../lib/mobile-api";
@@ -24,7 +25,7 @@ const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => 
 const AREAS = ["", "Diseño y medición del trabajo", "Investigación de operaciones y optimización", "Ingeniería económica y control", "Facilities, energía y mantenimiento", "Calidad y confiabilidad", "Ergonomía y factores humanos", "Operaciones y productividad", "Supply Chain, logística y compras", "Ingeniería de gestión y proyectos", "Seguridad y riesgos", "Información, analítica y sistemas", "Diseño y manufactura", "Diseño de producto y desarrollo", "Ingeniería de sistemas"];
 const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
 const RADAR_RADII = [2, 5, 10] as const;
-type RadarView = "map" | "analysis" | "cvs";
+type RadarView = "map" | "analysis" | "cvs" | "applications";
 type AnalysisFilterColumn = "area" | "skill" | "seniority" | "work_mode" | "district";
 
 const SENIORITY_VALUES: Record<string, string> = { practicante: "intern", intern: "intern", junior: "junior", intermedio: "mid", mid: "mid", senior: "senior" };
@@ -296,6 +297,9 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [activeView, setActiveView] = useState<RadarView>("map");
   const [studioJobId, setStudioJobId] = useState<string | null>(null);
   const [studioContext, setStudioContext] = useState<AgentContext["cvStudio"] | null>(null);
+  const [applicationsContext, setApplicationsContext] = useState<{ count: number; status: string } | null>(null);
+  const onApplicationsContext = useCallback((count: number, status: string) => setApplicationsContext((current) => (current && current.count === count && current.status === status ? current : { count, status })), []);
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
   const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
   const [railPeek, setRailPeek] = useState(false);
@@ -410,13 +414,13 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     mode: activeView === "map" ? (mode === "heatmap" ? "districts" : mode === "radar" ? "radar" : "jobs") : undefined,
     district: (mode === "radar" ? radarDistrict?.district : browsedDistrict?.district) || undefined,
     radar: mode === "radar" && radarDistrict ? { center: radarDistrict.district, radiusKm: radarRadiusKm } : undefined,
-    filters: Object.fromEntries(Object.entries(filters).filter(([, value]) => Boolean(value))),
+    filters: activeView === "applications" ? (applicationsContext ? { status: applicationsContext.status } : undefined) : Object.fromEntries(Object.entries(filters).filter(([, value]) => Boolean(value))),
     selectedJob: selectedJob ? { id: selectedJob.id, title: selectedJob.title, company: selectedJob.company || undefined, district: selectedJob.district || undefined } : undefined,
-    visibleCount: visibleJobs.length,
+    visibleCount: activeView === "applications" ? applicationsContext?.count : visibleJobs.length,
     districtJobs: mode === "radar" ? undefined : browsedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
     cvStudio: activeView === "cvs" ? studioContext ?? undefined : undefined,
-  }), [activeView, analysisContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
+  }), [activeView, analysisContext, applicationsContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
@@ -658,6 +662,15 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     return () => { window.removeEventListener("mousemove", onMove); window.clearTimeout(timer); document.documentElement.classList.remove("radar-rail-peek"); };
   }, []);
 
+  async function markApplied(jobId: string) {
+    try {
+      await updateApplication(jobId, "applied");
+      setAppliedJobIds((current) => new Set(current).add(jobId));
+    } catch {
+      setStatusError("No se pudo registrar la postulación.");
+    }
+  }
+
   function selectView(view: RadarView) {
     setActiveView(view);
     setRadarCenterOpen(false);
@@ -748,6 +761,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           <button className={activeView === "map" ? "active" : ""} type="button" aria-label="Mapa" title="Mapa" onClick={() => selectView("map")}><span aria-hidden="true">◎</span></button>
           <button className={activeView === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectView("analysis")}><span aria-hidden="true">▦</span></button>
           <button className={activeView === "cvs" ? "active" : ""} type="button" aria-label="CVs objetivo" title="CVs objetivo" onClick={() => selectView("cvs")}><span aria-hidden="true">☰</span></button>
+          <button className={activeView === "applications" ? "active" : ""} type="button" aria-label="Postulaciones" title="Postulaciones" onClick={() => selectView("applications")}><span aria-hidden="true">✓</span></button>
         </nav>
         <aside id="radar-controls-panel" className={`sidebar tool-${activeView !== "map" ? "analysis" : filtersOpen ? "filters" : mode === "radar" ? "radar" : "districts"} ${activeView === "map" && (filtersOpen || mode === "radar") ? "is-open" : ""}`}>
           <div className="sidebar-heading">
@@ -772,7 +786,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           <div className="job-list" ref={containerRef}>{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
         </aside>
 
-        <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" || mode === "cvs" ? "analysis-mode-panel" : ""}`}>
+        <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" || mode === "cvs" || mode === "applications" ? "analysis-mode-panel" : ""}`}>
           {mode === "jobs" ? (
             <div className="job-reading-view">
               {selectedJob ? (
@@ -838,6 +852,8 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
             </div>
           ) : mode === "analysis" ? (
             <AnalysisView onApplyFilter={applyAnalysisFilter} onContextChange={setAnalysisContext} />
+          ) : mode === "applications" ? (
+            <ApplicationsView onContextChange={onApplicationsContext} />
           ) : mode === "cvs" ? (
             <CvView onStudioContext={setStudioContext} openJobId={studioJobId} onOpenJobConsumed={() => setStudioJobId(null)} />
           ) : (
@@ -863,6 +879,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                   {selectedJob.user_status !== "hidden" && <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><IconEyeOff /></button>}
                   <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }} aria-label="Cerrar detalle" type="button">×</button>
                   <button className="studio-link" type="button" onClick={() => { setStudioJobId(selectedJob.id); selectView("cvs"); }} title="Prepara tu CV para esta oferta en el Estudio">Estudio de CV →</button>
+                  <button className="studio-link" type="button" disabled={appliedJobIds.has(selectedJob.id)} onClick={() => void markApplied(selectedJob.id)} title="Registra que ya postulaste en el portal (Radar no envía nada)">{appliedJobIds.has(selectedJob.id) ? "Postulación registrada ✓" : "Ya postulé"}</button>
                   <span className="job-area">{selectedJob.primary_area || "Sin área"}<span className="job-source"> · {sourceName(selectedJob.url)}</span></span>
                   <h3>{selectedJob.url ? <a className="job-popover-title" href={selectedJob.url} target="_blank" rel="noreferrer">{selectedJob.title}</a> : selectedJob.title}</h3>
                   <p className="popover-company">

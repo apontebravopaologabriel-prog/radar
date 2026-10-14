@@ -44,7 +44,7 @@ export type Filters = {
   relevance_tier?: string;
 };
 
-export type MapMode = "jobs" | "heatmap" | "radar" | "analysis" | "cvs";
+export type MapMode = "jobs" | "heatmap" | "radar" | "analysis" | "cvs" | "applications";
 
 export type SkillDemand = {
   name: string;

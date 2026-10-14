@@ -1,0 +1,22 @@
+/* Vista Postulaciones: lista por estado. Monocromo, sin acentos. */
+.applications-view { display: grid; align-content: start; gap: 12px; height: 100%; padding: 22px 24px 24px 84px; overflow-y: auto; }
+.applications-head h2 { margin: 0 0 4px; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #f0f0f0; }
+.applications-head p { margin: 0; color: #8c8c8c; font-size: 11px; }
+.applications-tabs b { margin-left: 4px; color: #8c8c8c; font-weight: 500; }
+.applications-list { display: grid; max-width: 900px; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.applications-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #2c2c2c; background: #0a0a0a; }
+.applications-main { display: grid; min-width: 0; gap: 3px; }
+.applications-main strong { overflow: hidden; color: #f0f0f0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.applications-main strong a { color: inherit; text-decoration: none; }
+.applications-main strong a:hover { text-decoration: underline; }
+.applications-main small { color: #8c8c8c; font-size: 10px; }
+.applications-nudge { color: #d0d0d0 !important; }
+.applications-notes { color: #b8b8b8 !important; font-style: italic; }
+.applications-files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.applications-files a { color: #c8c8c8; }
+.applications-files button, .applications-actions button { padding: 4px 9px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font: inherit; font-size: 10px; cursor: pointer; }
+.applications-files button:hover, .applications-actions button:hover { border-color: #d0d0d0; color: #ffffff; }
+.applications-actions { display: flex; flex-shrink: 0; gap: 4px; }
+.applications-empty, .applications-error { max-width: 900px; margin: 0; color: #8c8c8c; font-size: 11px; }
+.applications-error { color: #d0d0d0; }
+@media (max-width: 720px) { .applications-view { padding-left: 16px; } .applications-row { flex-direction: column; } }

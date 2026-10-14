@@ -44,7 +44,7 @@ export type AgentSettings = { provider: string; base_url: string; model: string;
   providers: Record<string, { base_url: string; model: string; models?: string[]; model_names?: Record<string, string>; reasoning_efforts?: string[] }> };
 export type Mention = { type: "place"; name: string } | { type: "job"; id: string; name: string; company?: string | null };
 export type AgentContext = {
-  screen: "map" | "analysis" | "cvs" | "today" | "pipeline";
+  screen: "map" | "analysis" | "cvs" | "applications" | "today" | "pipeline";
   mode?: "jobs" | "districts" | "radar";
   district?: string;
   radar?: { center: string; radiusKm: number };

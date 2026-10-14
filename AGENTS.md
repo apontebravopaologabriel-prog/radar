@@ -53,6 +53,7 @@ Frontend (`frontend/`):
 - Auto-refresh queries Indeed and LinkedIn through JobSpy and Computrabajo through its MCP adapter; each portal runs isolated so one failure does not stop the refresh.
 - Districts shows compact labels `District · count`; avoid overlapping circles.
 - Radar requires a selected district and offers 2, 5 and 10 km radii. Its selector may open upward and the panel floats bottom-right.
+- Postulaciones (`ApplicationsView.tsx`, ✓ in the rail) is a full-screen view over `/api/applications` and `/api/cv/packages`; the offer detail has a "Ya postulé" button. It only records state; never automate applying.
 - Analysis and CVs replace the map with a full-screen view (no side panel). CVs leaves the left margin free for the toolbar, marks every target CV `HIPOTÉTICO — no enviar` and offers no export. Targets are the ★ offers: do not create another selection mechanism.
 - Offers appear in a floating tray, resizable from the top handle, with internal scroll. Cards keep a compact height even with few offers. The tray also exposes compact icons to toggle favorites and hidden offers.
 - Per signal, the source (`Indeed`, `LinkedIn`, …) appears next to the area on hover or focus; the title is the direct link to the original offer and must not open the detail by accident.

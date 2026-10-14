@@ -497,3 +497,20 @@ def test_secrets_default_to_the_protected_file_on_posix(monkeypatch):
         assert settings._keyring() is None
     monkeypatch.setenv("RADAR_SECRETS_BACKEND", "file")
     assert settings._keyring() is None
+
+
+def test_sanitize_history_drops_orphan_tool_results_and_unanswered_calls():
+    from radar.agent.loop import sanitize_history
+
+    call = {"id": "a", "type": "function", "function": {"name": "x", "arguments": "{}"}}
+    history = [
+        {"role": "tool", "tool_call_id": "z", "content": "huérfano"},
+        {"role": "assistant", "content": "cortado"},
+        {"role": "user", "content": "hola"},
+        {"role": "assistant", "content": None, "tool_calls": [call]},
+        {"role": "tool", "tool_call_id": "a", "content": "ok"},
+        {"role": "assistant", "content": "listo"},
+        {"role": "user", "content": "otra"},
+        {"role": "assistant", "content": None, "tool_calls": [call]},
+    ]
+    assert sanitize_history(history) == history[2:6] + [history[6]]
