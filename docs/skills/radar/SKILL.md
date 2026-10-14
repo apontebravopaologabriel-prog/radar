@@ -13,7 +13,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 |---|---|---|---|
 | `ingest_jobs` | escribe | Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario. | source: string, query: string, location?: string, limit?: integer, max_age_days?: integer |
 | `health` | lee | Indica que Radar está disponible. |  |
-| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, ubicación, área, sector, salario, enlace y un extracto; la ficha completa | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null |
+| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, ubicación, área, sector, salario, `url` del portal, `relevance_score` y un | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null |
 | `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. |  |
 | `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. | limit?: integer, max_age_days?: integer |
 | `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer |
@@ -103,7 +103,7 @@ La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una 
 
 ### seguimiento
 
-Seguimiento lleva cada oferta por: Guardadas, Postulé, Entrevista, Oferta y Descartadas. Los botones mueven la oferta al siguiente estado y conservan el historial. Si llevas 7 días o más en "Postulé" sin novedad, Radar sugiere hacer seguimiento. Radar solo registra: la postulación la haces tú en el portal.
+Seguimiento lleva cada oferta por: Guardadas, Postulé, Entrevista, Oferta y Descartadas. Los botones mueven la oferta al siguiente estado y conservan el historial. Si llevas 7 días o más en "Postulé" sin novedad, Radar sugiere hacer seguimiento. Radar solo registra: la postulación la haces tú en el portal. En el escritorio, la bandeja de ofertas tiene la pestaña ✓ (junto a ◉, ★ y el ojo) con las ofertas a las que ya postulaste, y la vista Postulaciones (icono ✓ de la barra izquierda) lista por estado dónde postulaste, desde cuándo, tus notas y los archivos de la carpeta de cada postulación; ahí mismo mueves la oferta de estado. Para registrar una postulación, abre la oferta en el mapa y pulsa «Ya postulé».
 
 ### perfil
 

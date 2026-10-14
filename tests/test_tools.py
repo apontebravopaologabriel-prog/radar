@@ -147,6 +147,7 @@ def _seed_market():
 
 def test_agent_can_answer_open_questions_about_the_market():
     jobs = _seed_market()
+    assert {j["title"]: j["url"] for j in jobs}["Practicante de Procesos"] == "https://e.com/1"  # el agente enlaza el puesto sin abrir cada ficha
     ids = {j["title"]: j["id"] for j in jobs}
     tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "advanced"})
 

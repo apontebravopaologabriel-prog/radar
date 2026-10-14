@@ -166,8 +166,8 @@ def search_saved_jobs(
     sector: str | None = None,
     exclude_sector: str | None = None,
 ) -> dict:
-    """Ofertas guardadas (título, empresa, ubicación, área, sector, salario, enlace y un extracto; la ficha completa
-    está en get_job_details). `search` busca en título,
+    """Ofertas guardadas (título, empresa, ubicación, área, sector, salario, `url` del portal, `relevance_score` y un
+    extracto; la ficha completa está en get_job_details). `search` busca en título,
     empresa, descripción y lugar; `sector` filtra uno y `exclude_sector` excluye varios separados por coma
     (sectores: ver get_market_breakdown by=sector)."""
     limit = min(max(limit, 1), 30)
@@ -177,7 +177,7 @@ def search_saved_jobs(
     for job in jobs:  # sin la descripción completa (≈3 KB por oferta): eso lo da get_job_details
         item = {k: job.get(k) for k in ("id", "title", "company", "location", "seniority", "work_mode", "salary_min",
                                         "salary_max", "salary_currency", "published_at", "primary_area", "sector",
-                                        "relevance_tier", "is_favorite")}
+                                        "relevance_tier", "relevance_score", "url", "is_favorite")}
         item["snippet"] = (job.get("description_clean") or "")[:110]
         item["google_maps_url"] = google_maps_search_url(job.get("company"), job.get("location"))
         slim.append(item)
