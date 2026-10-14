@@ -7,6 +7,9 @@ on:
   pull_request:  # construye (sin publicar) cuando cambia el empaquetado, para verlo antes de etiquetar
     paths: ["packaging/**", ".github/workflows/release.yml", "src/radar/app.py", "pyproject.toml"]
 
+permissions:
+  contents: write  # publicar el release al etiquetar (GITHUB_TOKEN es de solo lectura por defecto)
+
 jobs:
   windows:
     runs-on: windows-latest
