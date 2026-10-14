@@ -73,5 +73,6 @@ Read in this order when changing behavior:
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom → fix |
 | [docs/roadmap.md](docs/roadmap.md) | Versions v0.8 → v1.5 (single source of status) |
 | [docs/design-auto-compaction.md](docs/design-auto-compaction.md) | Design of the v0.9 focus feature: automatic context summarization |
+| [docs/design-cv-studio.md](docs/design-cv-studio.md) | Design of the v1.0 hero feature: CV editor with agent panel, export and application folders |
 
 `docs/skills/radar/SKILL.md` is generated (`radar skill export --out docs/skills`); never edit it by hand.

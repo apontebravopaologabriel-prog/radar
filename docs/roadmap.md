@@ -21,50 +21,53 @@ Updated 2026-10-14. Single source of status; completed designs are not kept as s
 ## Priority order (what matters most for the author, highest first)
 
 Ranked by value to a Lima student who sends CVs, then by what blocks everyone else. Effort: S = days, M = 1–2 weeks,
-L = several weeks (one person, part time).
+L = several weeks (one person, part time). The CV items are detailed in [design-cv-studio.md](design-cv-studio.md).
 
 **Now: v1.0 core**
 
 | # | Item | Why it ranks here | Effort |
 | --- | --- | --- | --- |
-| 1 | Import your CV from Word/PDF with line-by-line confirmation | Biggest friction today; everything in the CV flow depends on `cv_master.json` being right | M |
-| 2 | Radar-native CV templates (one rebuilt from your current design), your photo, with/without-photo variants, PDF as primary export | Looks like your CV with no Word in the loop; the reason to use Radar over a generic CV builder | M |
-| 3 | Live page preview inside the CVs view, edit requests to the agent as constrained operations, trace view, versions per role, sent-CV log; "Preparar postulación" in two clicks | See the exact result before exporting, keep the "only real experience" guarantee visible, learn which CV converts, remove every step except the final click | M |
-| 4 | Installer validated in a Windows VM (`dockur/windows`) + first-run wizard with automatic first capture | Nothing else matters if a second person cannot get to a populated map | S–M |
-| 5 | Schema versioning and migrations | A public database that cannot upgrade is a broken release | S |
-| 6 | Native Computrabajo adapter | Removes the Node.js requirement on Windows | M |
+| 1 | CV Studio spike: PDF-to-pages preview with hit map, Windows viability, reference template from your current CV | Retires the one technical unknown of the hero feature before building on it | 2 days |
+| 2 | Application packages: one folder per application, professional filename, offer snapshot, Postulaciones view, open-folder/copy-path | Fixes "I lose track of PDFs per job" immediately and is useful on its own | S–M |
+| 3 | CV document model + Radar-native templates (with photo / without), PDF primary, Word secondary | The foundation of the editor and of "no Word in the loop" | M |
+| 4 | CV Studio UI: page canvas, outline, include/omit/reorder, hand editing, undo, export | The "editor inside Radar" experience | M |
+| 5 | Agent panel in the Studio: suggestions as before/after, fact guard, accept/reject | Edit by asking, without ever inventing a fact | M |
+| 6 | Installer validated in a Windows VM (`dockur/windows`) + first-run wizard with automatic first capture | Nothing else matters if a second person cannot get to a populated map | S–M |
+| 7 | Schema versioning and migrations | A public database that cannot upgrade is a broken release | S |
+| 8 | Native Computrabajo adapter | Removes the Node.js requirement on Windows | M |
+| 9 | CV import from Word/PDF with line-by-line confirmation | Your master exists; peers need this before the pilot | M |
 
 **Next: v1.0 hygiene (cheap, protects the release)**
 
 | # | Item | Effort |
 | --- | --- | --- |
-| 7 | `docs/data-sources.md` (terms, limits, attribution per source) and the privacy statement | S |
-| 8 | `npm audit` high findings, code signing, CHANGELOG, `radar doctor`, `KNOWN-ISSUES.md` | S–M |
-| 9 | Third career pack, picked with peers; all packs pass validation on 10+ labeled titles | M |
-| 10 | Incremental classification (repair-data from ~2 min to seconds) and the compaction retention eval | M |
-| 11 | Split `RadarClient.tsx` enough to stop being a risk; backup/restore and export in the UI | M |
-| 12 | **Peer pilot gate:** 3–5 people, four weeks, publish only if some use it unprompted | calendar time |
+| 10 | `docs/data-sources.md` (terms, limits, attribution per source) and the privacy statement | S |
+| 11 | `npm audit` high findings, code signing, CHANGELOG, `radar doctor`, `KNOWN-ISSUES.md` | S–M |
+| 12 | Third career pack, picked with peers; all packs pass validation on 10+ labeled titles | M |
+| 13 | Incremental classification (repair-data from ~2 min to seconds) and the compaction retention eval | M |
+| 14 | Split `RadarClient.tsx` enough to stop being a risk; backup/restore and export in the UI | M |
+| 15 | **Peer pilot gate:** 3–5 people, four weeks, publish only if some use it unprompted | calendar time |
 
 **Then: v1.1–v1.2 (high personal value, after the release)**
 
 | # | Item | Effort |
 | --- | --- | --- |
-| 13 | Commute stage 0: "Cómo llegar" link and your own door-to-door times; mobility profile (walk, bike, own vehicle, public transport) and fares you enter | S–M |
-| 14 | Pipeline on desktop, reminders, `record_application_event`, `.ics` export, notifications | M |
-| 15 | Saved searches and shareable view links; honest labels for estimates and stale sources | S–M |
-| 16 | Interview preparation and cover-letter drafts (always marked draft) | M |
-| 17 | Commute feasibility spike, then a district matrix and a "≤ N minutes" filter | M–L |
-| 18 | Persisted coordinates, public ATS sources, company enrichment | L |
+| 16 | Commute stage 0: "Cómo llegar" link and your own door-to-door times; mobility profile (walk, bike, own vehicle, public transport) and fares you enter | S–M |
+| 17 | Pipeline on desktop, reminders, `record_application_event`, `.ics` export, notifications | M |
+| 18 | Saved searches and shareable view links; honest labels for estimates and stale sources | S–M |
+| 19 | Cover-letter drafts and interview preparation (always marked draft); CV learning loop (which version got replies) | M |
+| 20 | Commute feasibility spike, then a district matrix and a "≤ N minutes" filter | M–L |
+| 21 | Persisted coordinates, public ATS sources, company enrichment | L |
 
 **Later: v1.3+ (valuable, not urgent)**
 
-Class-timetable compatibility and net value after transport (needs 13 and 17), reachable-area isochrones, market reports and
-salary brief, CV-version outcome analytics, connected agent with mail/calendar through OpenClaw/Hermes (spike first), local
-HTTP MCP transport, agent evaluation in CI and sub-agents, pack gallery, UI i18n, source plugins, auto-update, national map,
-a second distribution path (Pinokio).
+Class-timetable compatibility and net value after transport (needs 16 and 20), reachable-area isochrones, market reports and
+salary brief, connected agent with mail/calendar through OpenClaw/Hermes (spike first), local HTTP MCP transport, agent
+evaluation in CI and sub-agents, pack gallery, UI i18n, source plugins, auto-update, national map, a second distribution path
+(Pinokio).
 
 **Deliberately not planned:** automatic applications, sending messages, scraping consumer transit apps, a 3D globe, hosted
-multi-user, reading mail inside Radar.
+multi-user, reading mail inside Radar, embedding another office suite's editor.
 
 ## Layers: what exists, what to improve, what to add
 
@@ -98,32 +101,23 @@ multi-user, reading mail inside Radar.
 
 ## v1.0: your CV, installable (the plan)
 
-Acceptance: you install it on Windows, import your current CV, and for a real offer go from "interesting" to a ready application
-package (your PDF with your photo and your real experience) in two clicks, **without opening Word, GenOffice or any other program**.
-A peer can do the same without help.
+Acceptance: you install it on Windows and, for a real offer, tailor your CV in the Studio with the agent beside it, export the PDF into
+its own application folder and find it again later, **without opening Word, GenOffice or any other program**. A peer can do the same
+without help.
 
-**A. CVs (hero), all inside Radar**
-1. **Import** from Word/PDF into `cv_master.json` with line-by-line confirmation (nothing saved unconfirmed). Radar only
-   reads the file; it never opens Word.
-2. **Radar-native templates, defined as data** (typography, columns, sidebar, photo position). One of them reproduces the
-   design of your current CV, built once from your PDF or a screenshot as the reference. Pixel-exact copies of an arbitrary
-   Word file are not possible without Word, so the design is rebuilt as a Radar template instead of filling a `.docx`.
-3. **Variants:** with photo (people) and without (ATS), chosen per offer.
-4. **Live preview and edit requests inside the CVs view:** the pages are shown before exporting, rendered by Radar itself
-   (the PDF writer plus the webview's PDF viewer; nothing else to install). You or the agent ask for changes such as "drop
-   this project", "move Power BI first", "use the without-photo variant", "make it one page": the agent proposes
-   **operations on included/omitted lines, order and variant**, Radar validates and applies them, and the preview refreshes.
-   The agent cannot type free text into the CV, so nothing can be invented.
-5. **Trace before export:** every bullet shows the source line and why it was selected or omitted.
-6. **Versions per role** and a **sent-CV log** (which CV went to which offer), tied to the application pipeline.
-7. **PDF is the primary export;** DOCX stays available because some portals ask for Word. Optional renderers (GenOffice CLI,
-   LibreOffice) are only used if present, never required. Opening the result in an external editor is optional and the
-   manifest hash flags a file modified after generation.
-8. **"Preparar postulación":** one action produces the file with a clean name, a cover-letter draft (marked draft), opens the
-   original posting in the browser with the file's folder ready, and after you confirm, logs the application in the pipeline.
-   **Radar never submits an application for you** (portal terms, account bans and a CV nobody reviewed are real costs);
-   it removes every step except the final click.
-   Not planned: embedding GenOffice's editor inside Radar (Electron, Rust/WASM engines, a large surface to maintain).
+**A. CV Studio (hero), all inside Radar** (design: [design-cv-studio.md](design-cv-studio.md))
+1. **Application packages:** one folder per application (`2026-10-14 Empresa - Puesto`) with the CV, a cover-letter draft, a snapshot of
+   the posting and a manifest; a professional upload filename (`CV Nombre - Puesto.pdf`); a Postulaciones view; "open folder",
+   "copy path", "open posting"; **Radar never submits an application for you**.
+2. **CV document with revisions** and Radar-native templates defined as data (one rebuilt from your current CV), with/without
+   photo; **PDF is the exact and primary export**, Word is approximate and secondary.
+3. **Editor inside Radar:** page canvas (the real PDF rendered), outline with include/omit/reorder and line trace, hand editing,
+   undo/redo.
+4. **Agent panel on the right:** ask for changes; each one arrives as a before/after suggestion to accept or reject. A
+   **fact guard** written in code blocks any rewording that adds a number, date, organization or tool not in your master.
+5. **Import** from Word/PDF into `cv_master.json` with line-by-line confirmation (Radar only reads the file).
+6. **Versions per role** and a **sent-CV log** tied to the pipeline.
+No GenOffice, LibreOffice or Word is required; they are optional external tools only.
 
 **B. Make it installable by others**
 7. First-run wizard (career, city, profile, CV import) followed by an automatic first capture with progress.
