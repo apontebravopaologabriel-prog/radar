@@ -7,7 +7,9 @@ la complementan.
 
 from __future__ import annotations
 
+import ipaddress
 import os
+import socket
 import stat
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -121,3 +123,28 @@ def harden_data_dir(db_file: Path, *, owned_dir: bool) -> None:
                 _chmod(item, 0o700 if item.is_dir() else 0o600)
     for item in folder.glob(f"{db_file.name}.*"):  # copias manuales (.bak, .pre-…)
         _chmod(item, 0o600)
+
+
+class UnsafeUrlError(ValueError):
+    """La URL apunta a un destino no público (red local, loopback, metadatos de nube) o no es http/https."""
+
+
+def ensure_public_http_url(url: str) -> None:
+    """Rechaza URLs que no sean http(s) hacia direcciones públicas.
+
+    Las URLs de ofertas vienen de portales externos: una oferta maliciosa podría apuntar a `127.0.0.1` (la propia API de
+    Radar), a la red local o a `169.254.169.254` (metadatos de nube). Se resuelve el nombre y se exige que TODAS las
+    direcciones sean globales. No cubre un cambio de DNS entre la comprobación y la conexión (rebinding); reduce el riesgo, no lo anula."""
+    parts = urlsplit(url)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        raise UnsafeUrlError(f"Solo se permiten URLs http(s): {url[:80]}")
+    host = parts.hostname
+    try:
+        addresses = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            addresses = [ipaddress.ip_address(info[4][0]) for info in socket.getaddrinfo(host, parts.port or 443, proto=socket.IPPROTO_TCP)]
+        except OSError as exc:
+            raise UnsafeUrlError(f"No se pudo resolver {host}") from exc
+    if not addresses or any(not address.is_global for address in addresses):
+        raise UnsafeUrlError(f"Destino no público: {host}")

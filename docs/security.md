@@ -55,6 +55,7 @@ offer text ↔ the agent (untrusted input); portals ↔ connectors. The SQLite f
 - **Files:** `GET /api/cv/files/...` serves only `.docx`/`.pdf` inside `cvs/`; paths with `..` or from other
   folders are rejected. The API never accepts a client file path. Photos are verified with Pillow, stripped of
   EXIF and resized.
+- **Outbound URL guard** (`ensure_public_http_url`): the link checker visits URLs that come from external job posts, so every request, redirects included, must be http(s) to a public address; loopback, private ranges, link-local and cloud-metadata addresses are refused. A DNS change between check and connection is not covered.
 - **Subprocesses** use argument lists (no `shell=True`) with timeouts.
 - **CORS** is limited to localhost origins (`RADAR_API_ALLOW_ORIGINS`).
 - The service worker never caches `/api/chat`, `/api/agent` or `/api/auth`.

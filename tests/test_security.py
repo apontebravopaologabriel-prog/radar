@@ -71,3 +71,50 @@ def test_data_files_become_private():
     assert stat.S_IMODE(folder.stat().st_mode) == 0o700
     for path in (db_file, folder / "cv_master.json", folder / "radar.db.bak.old", folder / "backups" / "radar-1.db"):
         assert stat.S_IMODE(path.stat().st_mode) == 0o600, path
+
+
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1:8100/api/health", "http://localhost/", "http://[::1]/", "http://169.254.169.254/latest/meta-data/",
+    "http://10.0.0.5/", "http://192.168.1.1/admin", "file:///etc/passwd", "ftp://example.com/x", "javascript:alert(1)", "http:///nohost",
+])
+def test_private_or_non_http_urls_are_refused(url, monkeypatch):
+    from radar.security import UnsafeUrlError, ensure_public_http_url
+
+    monkeypatch.setattr("radar.security.socket.getaddrinfo", lambda host, *a, **k: [(2, 1, 6, "", ("127.0.0.1", 0))])
+    with pytest.raises(UnsafeUrlError):
+        ensure_public_http_url(url)
+
+
+def test_public_urls_and_hostnames_resolving_to_public_addresses_are_allowed(monkeypatch):
+    from radar.security import UnsafeUrlError, ensure_public_http_url
+
+    ensure_public_http_url("https://8.8.8.8/")
+    monkeypatch.setattr("radar.security.socket.getaddrinfo", lambda host, *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))])
+    ensure_public_http_url("https://portal.example/oferta/1")
+    monkeypatch.setattr("radar.security.socket.getaddrinfo", lambda host, *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0)), (2, 1, 6, "", ("10.0.0.9", 0))])
+    with pytest.raises(UnsafeUrlError):  # basta una dirección privada entre las resueltas
+        ensure_public_http_url("https://mixed.example/")
+
+
+def test_liveness_never_contacts_private_addresses(monkeypatch):
+    from radar.db.database import connection
+    from radar.db.repository import ingest_jobs
+    from radar.domain.models import RawJob
+    from radar.liveness import check_application_status
+
+    ingest_jobs([RawJob("t", "Practicante", "ACME", "http://127.0.0.1:8100/api/health", location="Lima", description="x")])
+    contacted = []
+    monkeypatch.setattr("radar.security.socket.getaddrinfo", lambda *a, **k: [(2, 1, 6, "", ("127.0.0.1", 0))])
+    import httpx
+
+    class Spy(httpx.HTTPTransport):
+        def handle_request(self, request):
+            contacted.append(str(request.url))
+            raise AssertionError("no debía abrir conexión")
+
+    real_client = httpx.Client
+    monkeypatch.setattr("radar.liveness.httpx.Client", lambda **kw: real_client(transport=Spy(), **kw))
+    with connection() as conn:
+        conn.execute("UPDATE jobs SET is_active=1, published_at=now()")
+    stats = check_application_status(limit=5)
+    assert contacted == [] and stats["errors"] >= 1

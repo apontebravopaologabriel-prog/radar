@@ -68,6 +68,8 @@ your photo, your real experience) for a real offer, and a peer can do the same w
 10. Third career pack chosen with your peers; all packs pass `radar career validate` and 10+ labeled titles.
 
 **C. Release hygiene**
+- `docs/data-sources.md`: every source with its terms, rate limits and attribution, plus third-party notices (the legal side of a public release).
+- `radar doctor` (environment and data checks without printing secrets) and a `KNOWN-ISSUES.md`.
 11. Installer validated in a Windows VM; code-signing certificate; `CHANGELOG.md`; privacy statement in the installer.
 12. `npm audit` high findings fixed; `RadarClient` split enough to stop being a risk; compaction retention eval.
 13. **Peer pilot gate:** 3–5 people use it weekly for four weeks. Publish only if at least some of them star offers or
@@ -79,6 +81,8 @@ your photo, your real experience) for a real offer, and a peer can do the same w
 - `record_application_event` tool and `.ics` export of interviews.
 - Interview preparation per offer and cover-letter drafts (always marked draft, never sent).
 - Ghost-job signal from the existing link checks.
+- Shareable view links (filters, district, selected offer in the URL) and saved searches.
+- Honest labels everywhere: estimates marked as estimates, stale or fallback sources flagged in answers and in the UI.
 - **Commute, stage 0:** a "Cómo llegar" link in the offer detail (an external directions search from your home or
   university district at a chosen time, in the same spirit as the existing `⌖` link: no API, no stored third-party data) and
   a way to record your real door-to-door minutes per district pair, which becomes your private commute matrix.
@@ -95,6 +99,12 @@ your photo, your real experience) for a real offer, and a peer can do the same w
   and the user-supplied matrix from stage 0. Then a district-to-district matrix by time of day, a `commute` scoring
   dimension and a "≤ N minutes" filter replacing the straight-line radius as the main proximity signal. Always shown as an
   estimate with a range. Never scrape consumer transit apps (no public API, terms, fragile).
+- **Mobility profile:** how you move (walk, bike, own car or motorbike, public transport, or a mix) decides which times are
+  shown and which costs apply. Car, bike and walk times can come from OSM routing; the public OSRM servers allow fair interactive
+  use only (not a bulk matrix), so use a self-hosted instance or a precomputed matrix, and keep OSM attribution. Routing has no
+  live traffic: car times are free-flow until your own recorded times calibrate a peak-hour factor. For buses, the fare per
+  mode is a value you enter (and can correct), used to estimate cost per trip and per month; Radar ships no fare table it
+  cannot keep current.
 
 ## v1.3: market intelligence
 
@@ -116,6 +126,8 @@ your photo, your real experience) for a real offer, and a peer can do the same w
 
 - Pack authoring tools and a public pack gallery; country/locale packs and UI i18n.
 - Source plugin interface (sandboxed subprocess); auto-update channel; evaluate Tauri with a Python sidecar.
+- A second distribution path through a one-click launcher such as Pinokio (cheap, no code signing, but an AI-hobbyist audience).
+- Importable pack bundles with provenance and license manifest (the career-pack gallery).
 - National map (country → department → city) with licensed geometries.
 
 ## Cross-cutting rules
