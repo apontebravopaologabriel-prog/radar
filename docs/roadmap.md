@@ -1,92 +1,123 @@
 # Roadmap and status
 
-Updated 2026-10-13. Single source of status; completed designs are not kept as separate plans. The code is
-**v0.9.0** (v0.8.0 was the base; the table below lists what landed after it).
+Updated 2026-10-14. Single source of status; completed designs are not kept as separate plans. The code is
+**v0.9.0** (v0.8.0 was the base; "Done since v0.8" lists what landed after it).
 
 ## Direction
 
-- **v1.0 is the first public release:** a Windows installer anyone can download, with the MCP server included so
-  people can try Radar from external AI clients (Claude Desktop, Claude Code, Cursor, Gemini CLI).
-- **Until 1.0 the work is improving and polishing what exists, plus several careers** (the tool must be useful beyond
-  Industrial Engineering at launch). New product surface waits for 1.1+.
-- **Mobile (`/m`) is frozen** and ships as experimental; it gets no new work before 1.0.
-- Stays personal and local-first: one installation, one person, one database. Hosted multi-user is not planned.
-- Non-goals: automatic applications, messages to companies, automating personal portal sessions, exporting a
-  hypothetical CV, inventing competency levels without evidence, bypassing CAPTCHAs.
+- **v1.0 is a CV-first Windows release built around one real user (the author), then validated with 3–5 peers.** The
+  hero feature is the CV: your own Word template, your photo, your exact experience, traceable line by line. Everything
+  else in 1.0 exists so that someone who is not the author can install it and reach that CV.
+- **Careers are not the 1.0 axis.** Ship three packs (Industrial Engineering, Systems/Software and one that looks
+  nothing like them) to prove the engine is general; more careers wait for 1.5.
+- **Mobile (`/m`) is frozen** and ships as experimental.
+- **Local-first, one installation, one person.** Hosted multi-user is not planned.
+- **Radar is the "career brain", not a mail or calendar client.** Persistent connectors (mail, calendar) belong in an
+  agent runtime next to Radar (OpenClaw, Hermes, Claude Desktop...) that talks to Radar over MCP. Reading mail changes the
+  current promise of not touching personal sessions, so it must be an explicit, separate, off-by-default decision.
+- Non-goals: automatic applications, messages sent on the user's behalf, automating personal portal sessions,
+  exporting a hypothetical CV, inventing experience or competency levels, bypassing CAPTCHAs.
+
+## Layers: what exists, what to improve, what to add
+
+| Layer | Today | Improve now (before 1.0) | Add later |
+| --- | --- | --- | --- |
+| **Sources** | JobSpy (Indeed, LinkedIn) in-process; Computrabajo through Node (`npx`); CSV import | Native Python Computrabajo adapter; JobSpy as opt-in "advanced sources"; per-source health in the UI | Public ATS and official APIs (Greenhouse, Lever, Ashby...), source plugin interface |
+| **Ingestion and classification** | Keyword packs, deterministic, with evidence; fingerprint dedupe; classify 18 ms/offer after the regex fix | Incremental classification (a content hash, so only new or changed offers are reprocessed); share of `Otras` per pack in CI | Offline LLM-assisted pack authoring (the LLM proposes terms, the rules decide), fuzzy cross-portal dedupe |
+| **Scoring** | Six traceable weights, editable, breakdown shown | None needed for 1.0 | Suggest weights from your ★ and hidden offers (suggest only, never silent) |
+| **Storage** | SQLite, additive runtime schema, no `user_id`, coordinates inferred per request | **Versioned migrations** (`schema_version` + runner: public users will hold databases that must upgrade), backup/restore UI, data export (JSON/CSV) | Persisted coordinates and precision, full-text search over offers, rename `industrial_areas` |
+| **API and security** | Access key, Host/Origin guard, headers, private files, credential store, audit job | Fix `npm audit` high findings (Next.js, MapLibre, PostCSS); nonce-based CSP | Per-device sessions and token rotation, rate limits on chat |
+| **Interface** | Desktop map, Analysis, CVs, settings; `RadarClient.tsx` is 887 lines; Spanish only | First-run wizard with automatic first capture; honest empty states; split `RadarClient` | i18n (Spanish/English), accessibility pass, saved searches, command palette |
+| **Agent** | Optional chat, modes, memory, confirmed writes, auto-compaction | Retention eval for compaction; "restore full history" | Eval suite in CI with a simulated provider, sub-agent delegation, model routing, interview prep and cover-letter drafts (marked as drafts) |
+| **MCP and integrations** | stdio server, one-click client setup, 58 tools | `record_application_event` (confirmed write) so an external agent can update the pipeline | Local streamable-HTTP transport with token; pairing guide for OpenClaw/Hermes; `.ics` export of interviews (a calendar with no integration); event hooks |
+| **CVs** | Gap by code, plan, generic one-column DOCX + native PDF, no photo, no import | See v1.0: import, own template, photo, trace, versions, sent-CV log | Cover-letter draft, per-offer keyword coverage report, A/B of CV versions by outcome |
+| **Distribution and operations** | Windows build and smoke test pass in CI; installer builds as an artifact; weekly capture verified on real data | Installer tested in a Windows VM (dockur/windows), code signing, CHANGELOG, privacy statement, crash log folder | Auto-update, optional tray/background mode |
 
 ## Done since v0.8
 
 | Area | What landed |
 | --- | --- |
-| Focus feature | **Automatic context summarization**: auto-compaction at a configurable % of the context window with a structured summary, verbatim tail, preference candidates, optional cheaper model ([design](design-auto-compaction.md)) |
-| Security | Host/Origin guard (DNS rebinding), security headers, `umask 077` + `600/700` permissions, pinned Computrabajo version, desktop login screen, OS credential store for keys on Windows, pip/npm audit job, Dependabot |
-| Portability | `radar.paths` (platformdirs), `radar refresh` (in-process capture replacing the bash script), pack-driven queries, in-process scheduler (no systemd needed), `radar-app` desktop entry, Windows in CI, native PDF writer (no LibreOffice) |
-| Careers | Systems/Software pack (51 skills, 13 areas) replaces Accounting; `radar career validate/list`; classification regression samples per pack |
+| Focus feature | **Automatic context summarization** with a structured summary, verbatim tail and preference candidates ([design](design-auto-compaction.md)) |
+| Security | Host/Origin guard, security headers, private files, pinned Computrabajo, desktop login, OS credential store, audit job, Dependabot, Pillow 12.3 (35 known vulnerabilities in 11.x) |
+| Portability | `radar.paths`, `radar refresh` in Python (no bash), pack-driven queries, in-process scheduler, `radar-app`, Windows in CI, native PDF writer |
+| Windows | Frozen app builds on `windows-latest` and passes the smoke test; installer script builds; release workflow |
+| Careers | Systems/Software pack replaces Accounting; `radar career validate/list`; classification regression samples |
 | MCP | "Conectar IA" (Settings, `radar mcp config/install`) for Claude Desktop, Cursor, Gemini CLI, Claude Code command |
-| Packaging | PyInstaller spec (verified on Linux), Inno Setup script, release workflow with smoke test and optional signing, LICENSE, Spanish user guide |
-| Docs | Rewritten in English without redundancy; versions and design docs |
+| Performance | Classification 103 → ~18 ms per offer (compiled-pattern cache), `repair-data` 278 → 116 s and writes only what changed |
+| Reliability | Local maintenance is never abandoned by a timeout (it left the database locked); capture log is unbuffered |
+| UI | Rail and agent/settings buttons share geometry and hide together |
+| Docs | English, no redundancy, versions, design docs, Spanish user guide |
 
-## Remaining for v1.0 (ordered)
+## v1.0: your CV, installable (the plan)
 
-1. **First Windows build** through the release workflow and fixes it reveals ([packaging.md](packaging.md#not-verified-yet-needs-a-windows-machine)).
-2. **Native Computrabajo adapter in Python** (no Node/`npx` on the user's machine); JobSpy (Indeed/LinkedIn) as an
-   opt-in "advanced sources" switch because of portal terms.
-3. **More careers** (the v1 promise): Administration, Marketing, Health (nursing) and Law as built-in packs, each passing
-   `radar career validate` and 10+ sample titles; a pack picker with a preview of what a career classifies.
-4. **First-run experience:** wizard (career, city, profile) → automatic first capture with progress → map never empty.
-5. **Auto-compaction retention eval** in `scripts/agent_eval.py` and a "restore full history" action.
-6. **Agent/UI polish:** split `RadarClient.tsx` (887 lines), frontend tests for the CVs view and filters, remove green
-   accents, tidy `globals.css`; performance budget re-measured with 5 000 offers ([architecture.md](architecture.md#performance-budget)).
-7. **Data quality:** companies without data (~140 offers), doubtful area classifications, share of `Otras` per pack.
-8. **Release hygiene:** code-signing certificate, `CHANGELOG.md`, privacy statement shipped in the installer,
-   README with screenshots and download link, bump to 1.0.0.
+Acceptance: you install it on Windows from the installer, import your current CV, generate your own Word (your layout,
+your photo, your real experience) for a real offer, and a peer can do the same without help.
 
-## v1.1: data you can trust
+**A. CVs (hero)**
+1. **Import** from Word/PDF into `cv_master.json` with line-by-line confirmation (nothing saved unconfirmed).
+2. **Own template:** your `.docx` with placeholders; Radar fills it and never touches your design. Photo supported.
+3. **Variants:** with photo (people) and without (ATS), chosen per offer.
+4. **Trace before export:** every bullet shows the source line and why it was selected or omitted.
+5. **Versions per role** and a **sent-CV log** (which CV went to which offer), tied to the application pipeline.
+6. PDF: native by default; exact-look PDF through LibreOffice or Word when installed.
+
+**B. Make it installable by others**
+7. First-run wizard (career, city, profile, CV import) followed by an automatic first capture with progress.
+8. Native Computrabajo adapter; JobSpy behind an "advanced sources" switch.
+9. Schema versioning and migrations; backup/restore and export in the UI.
+10. Third career pack chosen with your peers; all packs pass `radar career validate` and 10+ labeled titles.
+
+**C. Release hygiene**
+11. Installer validated in a Windows VM; code-signing certificate; `CHANGELOG.md`; privacy statement in the installer.
+12. `npm audit` high findings fixed; `RadarClient` split enough to stop being a risk; compaction retention eval.
+13. **Peer pilot gate:** 3–5 people use it weekly for four weeks. Publish only if at least some of them star offers or
+    generate a CV without being asked.
+
+## v1.1: follow-up and pipeline
+
+- Desktop pipeline (kanban), notes, reminders, "new since last visit", saved searches, desktop notifications.
+- `record_application_event` tool and `.ics` export of interviews.
+- Interview preparation per offer and cover-letter drafts (always marked draft, never sent).
+- Ghost-job signal from the existing link checks.
+
+## v1.2: data you can trust
 
 - Persist coordinates, district and precision at ingestion; controlled geocoding with cache.
-- More sources through official APIs and public ATS feeds (Greenhouse, Lever, Ashby; aggregator APIs where terms allow).
-- Classification quality gate in CI with per-pack accuracy on labeled samples.
+- Public ATS and official API sources; company enrichment (offers with no company data).
+- Incremental classification, classification quality gate in CI with labeled samples per pack.
 - Server-side pagination, ETag cache and aggregated map points for large databases.
 
-## v1.2: market intelligence
+## v1.3: market intelligence
 
-- Automatic weekly snapshots and comparative reports (what changed in demand, salaries, skills, companies).
-- The chain skill → human competency → evidence → project, with the gap prioritized by evidence.
-- Export of a market report (Markdown/PDF) per career and city.
+- Automatic weekly snapshots and comparative reports; export of a market report per career and city.
+- Skill → human competency → evidence → project chain with the gap prioritized by evidence.
+- Salary brief for negotiation from your own accumulated history; CV-version outcome analytics.
 
-## v1.3: the desktop workflow
+## v1.4: connected agent
 
-- Pipeline (kanban) on desktop, notes and reminders per offer, saved searches, "new since last visit".
-- Desktop notifications for matching new offers; compare offers side by side; command palette.
-- TypeScript types generated from the OpenAPI schema.
+- Local streamable-HTTP MCP transport protected by the access token.
+- Pairing guide and a small spike with OpenClaw/Hermes (confirm MCP client support and scheduling) so calendar and mail
+  connectors live there; Radar receives only confirmed events.
+- Agent evaluation suite in CI, sub-agent delegation, model routing, cost estimation in money.
 
-## v1.4: agent maturity
+## v1.5: beyond one career and one country
 
-- Agent evaluation suite in CI with a simulated provider (tool choice, injection resistance, compaction retention) plus
-  the real-provider script before releases.
-- Sub-agent delegation for heavy read-only analysis with a fresh context, model routing (cheap model for summaries and
-  classification), cost estimation in money.
-- Richer MCP surface (more resources and prompts); `docs/skills/radar/SKILL.md` stays generated.
-- Onboarding by CV upload with line-by-line confirmation.
-
-## v1.5: beyond one country
-
-- Pack authoring tools and a public pack gallery; country/locale packs (geography, currencies, portals) and UI i18n.
-- Source plugin interface (documented, sandboxed subprocess) so new portals ship outside the core.
-- Auto-update channel; evaluate Tauri with a Python sidecar if an updater is wanted.
+- Pack authoring tools and a public pack gallery; country/locale packs and UI i18n.
+- Source plugin interface (sandboxed subprocess); auto-update channel; evaluate Tauri with a Python sidecar.
 - National map (country → department → city) with licensed geometries.
-- Optional: hosted multi-user, only if there is real demand.
 
 ## Cross-cutting rules
 
 - Every release: `pytest`, `ruff`, `npm test`, `npm run build`, Windows smoke test, regenerated skill.
 - Deterministic scoring and traceable classification never move into an LLM.
-- Anything that writes asks the person first; the agent never applies or sends messages.
+- Anything that writes asks the person first; the agent never applies or sends messages on its own.
+- A CV line must trace to a real line in `cv_master.json`; rephrasing, if ever added, is marked and needs approval.
 
 ## Known limitations
 
 - Outside Lima, location is the city centroid; a bare "Perú" search returns mostly Lima.
 - The desktop map is Lima/Callao only; coordinates are inferred per request, not stored.
 - The internal scheduler only runs while Radar is open.
+- `repair-data` still rescans every description (about two minutes on 6 000 offers) until classification is incremental.
 - Keyword classification is weaker for careers with ambiguous vocabulary.
-- The mobile UI was verified with screenshots and builds, not automated interaction tests.
+- Demand for Radar beyond its author is unproven; the peer pilot is the test.
