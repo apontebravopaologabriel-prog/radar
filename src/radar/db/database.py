@@ -129,6 +129,13 @@ def _pack_skills() -> list[tuple[str, str, str | None, str]]:
     ]
 
 
+def _schema_section(start_marker: str, end_marker: str) -> str:
+    """Tramo del esquema que las bases ya creadas deben recibir de forma aditiva (una sola fuente: schema_sqlite.sql)."""
+    text = (Path(__file__).resolve().parent / "schema_sqlite.sql").read_text(encoding="utf-8")
+    start = text.index(start_marker)
+    return text[start : text.index(end_marker, start)]
+
+
 def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     """Apply small additive guarantees to databases created before migrations."""
     columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
@@ -161,6 +168,7 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
     conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); END")
     conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
+    conn.executescript(_schema_section("-- CV Studio", "CREATE TABLE IF NOT EXISTS market_snapshots"))
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),
