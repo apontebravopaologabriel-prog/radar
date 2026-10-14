@@ -146,3 +146,25 @@ def test_studio_http_flow_end_to_end(job, tmp_path):
     assert api.post(f"/api/cv/packages/{job}/applied", json={"notes": "ok"}).json()["status"] == "applied"
     assert api.get("/api/cv/settings").json()["filename_pattern"]
     assert api.put("/api/cv/settings", json={"export_dir": "/etc"}).status_code == 422
+
+
+def test_agent_tools_for_the_studio(job):
+    from radar import tools
+
+    for name in ("cv_doc_get", "cv_doc_propose", "list_application_packages"):
+        assert tools.REGISTRY[name].write is False and tools.REGISTRY[name].chat
+    assert tools.REGISTRY["prepare_application"].write is True
+    assert {"cv_doc_get", "cv_doc_propose", "prepare_application", "list_application_packages"} <= set(tools.TOOL_GROUPS["cv"][1])
+    got = tools.cv_doc_get(job)
+    ids = {line["id"] for line in got["lines"]}
+    assert {"summary", "headline"} <= ids and got["pages"] >= 1 and got["pending_suggestions"] == 0
+    bullet = next(line for line in got["lines"] if line["kind"] == "viñeta")
+    proposal = tools.cv_doc_propose(job, [{"op": "omit", "id": bullet["id"]}], "Menos relevante")
+    assert proposal["safe"] and tools.cv_doc_get(job)["pending_suggestions"] == 1
+    blocked = tools.cv_doc_propose(job, [{"op": "edit", "id": bullet["id"], "text": "Logré 90 % de ahorro con Tableau en Google"}])
+    assert not blocked["safe"]
+    with pytest.raises(ValueError):
+        tools.cv_doc_propose(job, [{"op": "omit", "id": "inventado"}])
+    assert tools.list_application_packages()["packages"] == []
+    prepared = tools.prepare_application(job)
+    assert prepared["files"][0]["format"] == "pdf" and tools.list_application_packages()["packages"][0]["status"] == "prepared"

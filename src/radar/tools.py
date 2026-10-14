@@ -18,7 +18,9 @@ from radar import (
     __version__,
     cv_baseline,
     cv_build,
+    cv_doc,
     cv_edit,
+    cv_packages,
     cv_plan,
     cv_targets,
     insights,
@@ -115,8 +117,9 @@ def chat_tools() -> list[Tool]:
 # Grupos que el chat carga bajo demanda con `load_tools`: sus esquemas pesan en cada mensaje y casi nunca
 # se usan. Las herramientas fuera de estos grupos (mercado, ofertas, seguimiento, memoria) van siempre.
 TOOL_GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "cv": ("ver o editar el CV, brecha y plan de cierre, previsualizar o generar CVs objetivo",
-           ("get_my_cv", "update_cv", "get_closure_plan", "preview_cv", "build_cv", "close_gap")),
+    "cv": ("ver o editar el CV, brecha y plan de cierre, el estudio de CV por oferta (documento, sugerencias de cambios), preparar la postulación",
+           ("get_my_cv", "update_cv", "get_closure_plan", "preview_cv", "build_cv", "close_gap", "cv_doc_get", "cv_doc_propose",
+            "prepare_application", "list_application_packages")),
     "perfil": ("editar el perfil, la línea de carrera, las carreras y paquetes de carrera",
                ("update_profile_fields", "record_career_event", "get_career_timeline", "list_career_tracks",
                 "set_career_track", "create_career_pack")),
@@ -592,6 +595,65 @@ def build_cv(job_id: str, formats: list[str] | None = None) -> dict:
     texto extraíble) y la selección. Úsala cuando la persona pida su CV para una oferta; antes conviene
     preview_cv y avisarle de las skills ausentes."""
     return cv_build.build(job_id, formats)
+
+
+def _clip(text: str, limit: int = 160) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+@tool()
+def cv_doc_get(job_id: str) -> dict:
+    """Estado del CV de una oferta en el Estudio, tal como lo ve la persona: líneas incluidas (con `id`, texto y de qué cargo
+    salen), líneas omitidas y por qué, plantilla, foto, páginas frente al presupuesto, cobertura de skills, avisos y
+    sugerencias pendientes. Úsala SIEMPRE antes de proponer cambios: los `id` son los de este resultado."""
+    state = cv_doc.state(job_id)
+    selection = state["selection"]
+    lines: list[dict] = [{"id": "summary", "kind": "perfil", "text": _clip(selection["summary"])},
+                         {"id": "headline", "kind": "titular", "text": selection["header"]["headline"]}]
+    for role in selection["experience"]:
+        lines.append({"id": role["id"], "kind": "cargo", "text": role["title"]})
+        lines += [{"id": b["id"], "kind": "viñeta", "text": _clip(b["text"]), "edited": b.get("edited")} for b in role["bullets"]]
+    for project in selection["projects"]:
+        lines.append({"id": project["id"], "kind": "proyecto", "text": project["title"]})
+        lines += [{"id": b["id"], "kind": "viñeta de proyecto", "text": _clip(b["text"])} for b in project["bullets"]]
+    lines += [{"id": c["id"], "kind": "certificado", "text": c["title"]} for c in selection["certifications"]]
+    lines += [{"id": e["id"], "kind": "formación", "text": e["title"]} for e in selection["education"]]
+    return {
+        "job": selection["job"], "language": selection["language"], "template": state["document"]["template"],
+        "photo": state["document"]["photo"], "pages": state["render"]["pages"], "pages_budget": state["document"]["pages_budget"],
+        "over_budget": state["render"]["over_budget"], "lines": lines,
+        "omitted": [{"id": o["id"], "text": _clip(o["text"], 100), "reason": o["reason"]} for o in selection["omitted"]],
+        "coverage": selection["coverage"], "warnings": state["warnings"], "pending_suggestions": len(state["suggestions"]),
+        "templates": state["templates"],
+    }
+
+
+@tool()
+def cv_doc_propose(job_id: str, ops: list[dict], note: str = "") -> dict:
+    """Propone cambios al CV de una oferta; NO cambian nada hasta que la persona los acepte en el Estudio (antes/después).
+    `ops`: lista de operaciones sobre ids de `cv_doc_get`: {"op":"omit","id"}, {"op":"include","id"} (de las omitidas),
+    {"op":"move","id","to":índice}, {"op":"edit","id","text"} (reformular una línea) y {"op":"option","name":"template"|"photo"|"pages",
+    "value"}. REGLAS: al reformular usa SOLO hechos que ya están en esa línea o en su cargo: un número, empresa, herramienta o
+    logro nuevo se marca en rojo y no se puede aceptar. No inventes. Para añadir un dato verdadero, la persona lo agrega a su CV
+    maestro (update_cv). `note` explica el porqué en una frase."""
+    return cv_doc.propose(job_id, ops, note)
+
+
+@tool(write=True)
+def prepare_application(job_id: str, formats: list[str] | None = None) -> dict:
+    """Prepara la postulación: exporta el CV vigente del Estudio (formats: pdf, docx) a la carpeta de esa oferta, junto con una
+    copia de la oferta y el registro de lo que se generó. NO envía nada ni postula: la persona sube el archivo en el portal y
+    luego lo marca como enviado. Avisa si el CV excede las páginas o tiene advertencias."""
+    return cv_packages.export(job_id, formats)
+
+
+@tool()
+def list_application_packages(limit: int = 20) -> dict:
+    """Postulaciones preparadas: oferta, carpeta, archivos, estado (preparada o enviada) y fechas. Responde «¿qué CV mandé a
+    tal empresa?» y «¿qué tengo preparado?»."""
+    return {"packages": [{"job_id": p["job_id"], "title": p["title"], "company": p["company"], "status": p["status"],
+                          "exported_at": p["exported_at"], "applied_at": p["applied_at"], "folder": p["folder"],
+                          "files": [f["name"] for f in p["files"]]} for p in cv_packages.list_packages(limit)]}
 
 
 @tool(write=True)
