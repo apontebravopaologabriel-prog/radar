@@ -176,7 +176,8 @@ agent only assigns status to the rest, citing the real profile.
 ## Pending
 
 Planned for v1.0 (details in [roadmap.md](roadmap.md#v10-your-cv-installable-the-plan)): import from Word/PDF with
-line-by-line confirmation, filling the user's own `.docx` template (layout untouched, photo supported), with-photo and
-without-photo variants per offer, a trace view of every bullet before export, versions per role and a log of which CV was
+line-by-line confirmation, Radar-native templates defined as data (one rebuilt from the user's current design, photo supported,
+no Word needed), with-photo and without-photo variants per offer, an in-app page preview with constrained edit requests, PDF as
+the primary export, a "prepare application" action that never submits for the user, a trace view of every bullet before export, versions per role and a log of which CV was
 sent to which offer. Later: cover-letter drafts and keyword coverage reports. Rephrasing, if it is ever added, must be
 marked as rephrased and approved line by line. Also pending: highlight the offer on the map when a target CV is open.

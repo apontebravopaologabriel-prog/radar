@@ -28,8 +28,8 @@ L = several weeks (one person, part time).
 | # | Item | Why it ranks here | Effort |
 | --- | --- | --- | --- |
 | 1 | Import your CV from Word/PDF with line-by-line confirmation | Biggest friction today; everything in the CV flow depends on `cv_master.json` being right | M |
-| 2 | Fill your own `.docx` template, with your photo, with/without-photo variants | The "my exact Word" promise; the reason to use Radar over a generic CV builder | M |
-| 3 | Live page preview inside the CVs view, edit requests to the agent as constrained operations, trace view, versions per role, sent-CV log | See the exact result before exporting, keep the "only real experience" guarantee visible, learn which CV converts | M |
+| 2 | Radar-native CV templates (one rebuilt from your current design), your photo, with/without-photo variants, PDF as primary export | Looks like your CV with no Word in the loop; the reason to use Radar over a generic CV builder | M |
+| 3 | Live page preview inside the CVs view, edit requests to the agent as constrained operations, trace view, versions per role, sent-CV log; "Preparar postulación" in two clicks | See the exact result before exporting, keep the "only real experience" guarantee visible, learn which CV converts, remove every step except the final click | M |
 | 4 | Installer validated in a Windows VM (`dockur/windows`) + first-run wizard with automatic first capture | Nothing else matters if a second person cannot get to a populated map | S–M |
 | 5 | Schema versioning and migrations | A public database that cannot upgrade is a broken release | S |
 | 6 | Native Computrabajo adapter | Removes the Node.js requirement on Windows | M |
@@ -98,24 +98,32 @@ multi-user, reading mail inside Radar.
 
 ## v1.0: your CV, installable (the plan)
 
-Acceptance: you install it on Windows from the installer, import your current CV, generate your own Word (your layout,
-your photo, your real experience) for a real offer, and a peer can do the same without help.
+Acceptance: you install it on Windows, import your current CV, and for a real offer go from "interesting" to a ready application
+package (your PDF with your photo and your real experience) in two clicks, **without opening Word, GenOffice or any other program**.
+A peer can do the same without help.
 
-**A. CVs (hero)**
-1. **Import** from Word/PDF into `cv_master.json` with line-by-line confirmation (nothing saved unconfirmed).
-2. **Own template:** your `.docx` with placeholders; Radar fills it and never touches your design. Photo supported.
+**A. CVs (hero), all inside Radar**
+1. **Import** from Word/PDF into `cv_master.json` with line-by-line confirmation (nothing saved unconfirmed). Radar only
+   reads the file; it never opens Word.
+2. **Radar-native templates, defined as data** (typography, columns, sidebar, photo position). One of them reproduces the
+   design of your current CV, built once from your PDF or a screenshot as the reference. Pixel-exact copies of an arbitrary
+   Word file are not possible without Word, so the design is rebuilt as a Radar template instead of filling a `.docx`.
 3. **Variants:** with photo (people) and without (ATS), chosen per offer.
-4. **Live preview and edit requests:** the CVs view shows the rendered pages before exporting. Rendering uses, in order, the
-   GenOffice CLI if installed (verified: `genoffice render` produced a faithful PNG of a Radar DOCX), LibreOffice, or the
-   native PDF in the browser viewer. You (or the agent) ask for changes such as "drop this project", "move Power BI
-   first", "use the without-photo variant", "shorter to one page": the agent proposes **operations on included/omitted lines,
-   order and variant**, Radar validates and applies them, and the preview refreshes. The agent cannot type free text into the
-   CV, so nothing can be invented. A button opens the file in GenOffice or Word for manual polish; the manifest hash flags a file
-   modified after generation.
-   Not planned: embedding GenOffice's editor inside Radar (Electron, Rust/WASM engines, a large surface to maintain).
+4. **Live preview and edit requests inside the CVs view:** the pages are shown before exporting, rendered by Radar itself
+   (the PDF writer plus the webview's PDF viewer; nothing else to install). You or the agent ask for changes such as "drop
+   this project", "move Power BI first", "use the without-photo variant", "make it one page": the agent proposes
+   **operations on included/omitted lines, order and variant**, Radar validates and applies them, and the preview refreshes.
+   The agent cannot type free text into the CV, so nothing can be invented.
 5. **Trace before export:** every bullet shows the source line and why it was selected or omitted.
 6. **Versions per role** and a **sent-CV log** (which CV went to which offer), tied to the application pipeline.
-7. PDF: native by default; exact-look PDF through GenOffice, LibreOffice or Word when installed.
+7. **PDF is the primary export;** DOCX stays available because some portals ask for Word. Optional renderers (GenOffice CLI,
+   LibreOffice) are only used if present, never required. Opening the result in an external editor is optional and the
+   manifest hash flags a file modified after generation.
+8. **"Preparar postulación":** one action produces the file with a clean name, a cover-letter draft (marked draft), opens the
+   original posting in the browser with the file's folder ready, and after you confirm, logs the application in the pipeline.
+   **Radar never submits an application for you** (portal terms, account bans and a CV nobody reviewed are real costs);
+   it removes every step except the final click.
+   Not planned: embedding GenOffice's editor inside Radar (Electron, Rust/WASM engines, a large surface to maintain).
 
 **B. Make it installable by others**
 7. First-run wizard (career, city, profile, CV import) followed by an automatic first capture with progress.
