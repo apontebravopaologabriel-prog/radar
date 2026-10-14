@@ -1,4 +1,4 @@
-# Known issues in 1.0.0
+# Known issues in 1.0.1
 
 Honest list of what is not done or not verified. The release plan in [docs/roadmap.md](docs/roadmap.md) had more gates
 than this version meets; they are listed here so nobody finds out the hard way.
@@ -17,7 +17,7 @@ than this version meets; they are listed here so nobody finds out the hard way.
 - No first-run wizard with an automatic first capture.
 - Only two career packs ship (Industrial Engineering, Systems/Software), not three.
 - Backup, restore and data export are not in the UI.
-- `npm audit` may report findings in Next.js, MapLibre and PostCSS (informational CI job).
+- The map was verified to build and load with MapLibre 6, but not on every GPU/browser; report a blank map if you see one.
 
 ## Behavior to know
 - Indeed and LinkedIn are read with a scraper (JobSpy); portal terms may forbid it. See [docs/data-sources.md](docs/data-sources.md).

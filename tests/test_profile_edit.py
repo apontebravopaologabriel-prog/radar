@@ -10,7 +10,7 @@ from radar.db.queries import get_profile
 from radar.db.repository import ingest_jobs, save_profile
 from radar.domain.models import RawJob
 
-CV = {"name": "Paolo Aponte", "headline": "Ingeniería Industrial", "summary": "Orientado a datos.",
+CV = {"name": "Ana Pérez", "headline": "Ingeniería Industrial", "summary": "Orientado a datos.",
       "home_district": "La Victoria", "contact": {"email": "p@example.com"},
       "preferred_locations": ["Miraflores"], "experience": [{"role": "Auxiliar", "company": "JAS"}]}
 
@@ -21,7 +21,7 @@ def env(tmp_path, monkeypatch):
     (tmp_path / "cv_master.json").write_text(json.dumps(CV), encoding="utf-8")
     ingest_jobs([RawJob(source="test", title="Analista", company="ACME", url="https://e.com/1", location="Lima",
                         description="Excel, Power BI y SQL. " * 20, published_at=datetime.now(UTC))])
-    save_profile("Paolo", "Técnico", ["Data/BI"], ["Miraflores"], ["hybrid"], {"Excel": "intermediate"})
+    save_profile("Ana", "Técnico", ["Data/BI"], ["Miraflores"], ["hybrid"], {"Excel": "intermediate"})
     return tmp_path
 
 
@@ -46,9 +46,9 @@ def test_unknown_district_is_reported_but_not_blocked(env):
 
 
 def test_name_is_kept_in_sync_between_both_stores(env):
-    assert get_profile()["name"] == "Paolo"  # deriva heredada: el CV dice «Paolo Aponte»
-    profile_edit.patch({"name": "Paolo G. Aponte", "areas_add": ["Procesos"]})
-    assert cv_file(env)["name"] == "Paolo G. Aponte" and get_profile()["name"] == "Paolo G. Aponte"
+    assert get_profile()["name"] == "Ana"  # deriva heredada: el CV dice «Ana Pérez»
+    profile_edit.patch({"name": "Ana G. Pérez", "areas_add": ["Procesos"]})
+    assert cv_file(env)["name"] == "Ana G. Pérez" and get_profile()["name"] == "Ana G. Pérez"
     assert get_profile()["target_roles"] == ["Data/BI", "Procesos"]
 
 
@@ -144,7 +144,7 @@ def test_api_get_and_patch(env):
     from radar.api import app
 
     client = TestClient(app)
-    assert client.get("/api/me").json()["profile"]["name"] == "Paolo Aponte"
+    assert client.get("/api/me").json()["profile"]["name"] == "Ana Pérez"
     ok = client.patch("/api/me", json={"headline": "Nuevo"})
     assert ok.status_code == 200 and ok.json()["diff"]["headline"]["after"] == "Nuevo"
     assert client.patch("/api/me", json={"skills": {"Klingon": "basic"}}).status_code == 422
@@ -152,8 +152,8 @@ def test_api_get_and_patch(env):
 
 
 def test_repository_can_remove_skills_and_versions_reflect_the_state(env):
-    repository.save_profile("Paolo", None, [], [], [], {"SQL": "basic"}, reason="prueba")
-    repository.save_profile("Paolo", None, [], [], [], {}, remove_skills=["SQL"])
+    repository.save_profile("Ana", None, [], [], [], {"SQL": "basic"}, reason="prueba")
+    repository.save_profile("Ana", None, [], [], [], {}, remove_skills=["SQL"])
     with connection() as conn:
         snapshot = json.loads(conn.execute("SELECT snapshot FROM profile_versions ORDER BY version_number DESC").fetchone()[0])
     assert "SQL" not in snapshot["skills"] and snapshot["skills"] == {"Excel": "intermediate"}

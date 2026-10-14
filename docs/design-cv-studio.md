@@ -74,7 +74,7 @@ Uploading to portals is manual, so the file has to be easy to find and look prof
 | What | Name | Why |
 | --- | --- | --- |
 | **Folder (for you)** | `2026-10-14 Empresa - Puesto` | Sorted by date, readable, one per application, unique even for repeated offers (`-2`) |
-| **File the recruiter sees** | `CV Paolo Aponte - Analista BI.pdf` (pattern configurable) | Recruiters see only the filename: your name plus the role, no internal codes, ASCII-safe fallback for portals that mangle accents |
+| **File the recruiter sees** | `CV Ana Pérez - Analista BI.pdf` (pattern configurable) | Recruiters see only the filename: your name plus the role, no internal codes, ASCII-safe fallback for portals that mangle accents |
 
 Each application gets one folder containing: the CV PDF (and Word if exported), the cover-letter draft, `oferta.md` (a **snapshot** of
 the posting: title, company, URL, date, full description, because postings disappear), `postulacion.json` (CV document id and

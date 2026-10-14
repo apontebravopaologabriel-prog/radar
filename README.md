@@ -1,10 +1,9 @@
 # Radar
 
-Version 1.0.0 ([changelog](CHANGELOG.md), [known issues](KNOWN-ISSUES.md)). Local-first career intelligence for the Peruvian job market (Lima first, then the rest of the country).
+Version 1.0.1 ([changelog](CHANGELOG.md), [known issues](KNOWN-ISSUES.md)). Local-first career intelligence for the Peruvian job market (Lima first, then the rest of the country).
 Radar collects job offers, normalizes and classifies them, scores them against your profile with traceable
 rules, and shows them on a map. An optional chat agent and an optional MCP server query the same data.
 
-<img width="1571" height="1390" alt="Capture" src="https://github.com/user-attachments/assets/e76df213-dea0-447b-87e9-3cd2c92851d1" />
 
 ```text
 search -> normalize -> classify -> deduplicate -> observe -> store -> score -> evolve

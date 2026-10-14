@@ -1,7 +1,7 @@
 # Roadmap and status
 
 Updated 2026-10-14. Single source of status; completed designs are not kept as separate plans. The code is
-**v1.0.0**, released by the author's decision **before** several of the gates below were met (no Windows VM validation, no
+**v1.0.1**, released by the author's decision **before** several of the gates below were met (no Windows VM validation, no
 peer pilot, no schema migrations, no native Computrabajo adapter, no CV import, no code signing). Those items stay open and
 are the plan for **1.0.x**; [KNOWN-ISSUES.md](../KNOWN-ISSUES.md) says so to users.
 
@@ -44,7 +44,7 @@ L = several weeks (one person, part time). The CV items are detailed in [design-
 | # | Item | Effort |
 | --- | --- | --- |
 | 10 | ~~`docs/data-sources.md` and the privacy statement~~ **done** in 1.0.0 (the installer still needs to show the privacy statement) | done |
-| 11 | `npm audit` high findings, code signing, ~~CHANGELOG~~, `radar doctor`, ~~`KNOWN-ISSUES.md`~~ (changelog and known issues done) | S–M |
+| 11 | ~~`npm audit` high findings~~ (clean in 1.0.1), code signing, ~~CHANGELOG~~, `radar doctor`, ~~`KNOWN-ISSUES.md`~~ (changelog and known issues done) | S–M |
 | 12 | Third career pack, picked with peers; all packs pass validation on 10+ labeled titles | M |
 | 13 | Incremental classification (repair-data from ~2 min to seconds) and the compaction retention eval | M |
 | 14 | Split `RadarClient.tsx` enough to stop being a risk; backup/restore and export in the UI | M |

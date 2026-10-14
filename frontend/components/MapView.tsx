@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
+import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import type { Feature, FeatureCollection, MultiPolygon, Point, Polygon } from "geojson";
 import { loadDistrictGeoJson, districtKey } from "../lib/districts";
 import type { Job, MapMode } from "../types";

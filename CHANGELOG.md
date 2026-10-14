@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 — 2026-10-14
+
+### Security
+- Frontend dependencies updated so `npm audit --omit=dev` reports 0 vulnerabilities: Next.js 16.4.0 (brings a patched
+  PostCSS and `sharp`) and MapLibre GL 6.14.0 (a critical advisory). The map import changed to the namespace form MapLibre 6 requires.
+- Personal name removed from tests and docs; the README no longer embeds a screenshot hosted on GitHub.
+
+
 ## 1.0.0 — 2026-10-14
 
 First stable release: a local-first career tool built around your own CV.
