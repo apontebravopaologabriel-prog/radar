@@ -114,7 +114,7 @@
 /* Chat estilo terminal: líneas con prefijo, sin burbujas. */
 .term { gap: 6px; }
 .term-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
-.term-line { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; }
+.term-line { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: start; }
 .term-glyph { color: var(--muted); line-height: 1.5; display: inline-flex; align-items: center; height: 1.5em; }
 /* Mensaje de la persona: bloque gris como en Claude Code. */
 .term-line.term-user { background: #2b2b2b; border-radius: 3px; padding: 4px 8px; margin: 2px 0; }
@@ -164,10 +164,12 @@
 .md blockquote { margin: 0; padding-left: 10px; border-left: 2px solid var(--muted); color: var(--muted); }
 .md a { color: var(--ink); text-decoration: underline; }
 .md hr { border: 0; border-top: 1px solid var(--line); }
-.md-table { overflow-x: auto; }
-.md table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
-.md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+/* Tablas como en una terminal: cada columna conserva un ancho legible y, si no caben, la tabla se desplaza en horizontal en vez de aplastarse. */
+.md-table { max-width: 100%; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #666 transparent; }
+.md table { border-collapse: collapse; font-size: 12.5px; width: max-content; min-width: 100%; }
+.md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; overflow-wrap: normal; word-break: normal; min-width: 8ch; max-width: 38ch; }
 .md th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.md td:last-child:not(:only-child) { min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .radar-mark.is-spinning .radar-mark-sweep { animation: none; } }
 
 .term-dim { color: var(--dim); }

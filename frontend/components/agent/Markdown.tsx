@@ -72,7 +72,11 @@ function parse(source: string): Block[] {
       const head = cells(line);
       const rows: string[][] = [];
       i += 2;
-      while (i < lines.length && lines[i].includes("|") && lines[i].trim()) rows.push(cells(lines[i++]));
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+        const row = cells(lines[i++]);
+        while (row.length < head.length) row.push(""); // filas cortas: sin columnas corridas
+        rows.push(row.slice(0, Math.max(head.length, 1)));
+      }
       blocks.push({ t: "table", head, rows });
       continue;
     }

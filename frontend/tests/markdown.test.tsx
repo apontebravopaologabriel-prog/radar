@@ -37,6 +37,11 @@ describe("Markdown seguro", () => {
     expect(html("## Título")).toContain("md-h2");
   });
 
+  it("rellena las filas cortas de una tabla para no correr las columnas", () => {
+    const out = html("| A | B | C |\n|---|---|---|\n| 1 | 2 |");
+    expect(out.match(/<td>/g)).toHaveLength(3);
+  });
+
   it("negritas y cursivas simples", () => {
     expect(html("**a** y *b* y `c`")).toBe('<div class="md"><p><strong>a</strong> y <em>b</em> y <code>c</code></p></div>');
   });
