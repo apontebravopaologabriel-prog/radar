@@ -65,7 +65,7 @@ jobs:
       - name: Checksums
         run: Get-FileHash dist-installer\*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | Out-File dist-installer\SHA256SUMS.txt -Encoding ascii
         shell: pwsh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: radar-windows
           path: dist-installer/*
