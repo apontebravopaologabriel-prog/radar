@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from radar import cv_baseline, cv_build, cv_plan, cv_targets
+from radar import cv_baseline, cv_build, cv_doc, cv_packages, cv_plan, cv_targets
 
 router = APIRouter(prefix="/api/cv")
 MAX_COMPARED = 4
@@ -82,3 +82,126 @@ def cv_photo() -> FileResponse:
     if path is None:
         raise HTTPException(status_code=404, detail="Sin foto configurada")
     return FileResponse(str(path), headers={"Cache-Control": "no-cache"})
+
+
+# --- CV Studio: documento por oferta, vista previa, sugerencias y carpetas de postulación -----------------
+
+
+def _studio_call(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+class OpsRequest(BaseModel):
+    ops: list[dict[str, Any]] = Field(min_length=1, max_length=25)
+
+
+class OptionsRequest(BaseModel):
+    template: str | None = Field(default=None, max_length=20)
+    photo: bool | None = None
+    pages: int | None = Field(default=None, ge=1, le=3)
+
+
+class ExportRequest(BaseModel):
+    formats: list[str] = Field(default_factory=lambda: ["pdf"], max_length=2)
+
+
+@router.get("/studio/{job_id}")
+def studio_state(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.state, job_id)
+
+
+@router.get("/studio/{job_id}/page/{page}.png")
+def studio_page(job_id: str, page: int, scale: float = Query(default=1.4, ge=0.5, le=3.0)) -> Response:
+    image = _studio_call(cv_doc.page_image, job_id, page, scale)
+    return Response(content=image, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/studio/{job_id}/ops")
+def studio_ops(job_id: str, request: OpsRequest) -> dict[str, Any]:
+    return _studio_call(cv_doc.add_ops, job_id, request.ops, "user")
+
+
+@router.post("/studio/{job_id}/options")
+def studio_options(job_id: str, request: OptionsRequest) -> dict[str, Any]:
+    return _studio_call(cv_doc.set_options, job_id, request.template, request.photo, request.pages)
+
+
+@router.post("/studio/{job_id}/undo")
+def studio_undo(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.undo, job_id)
+
+
+@router.post("/studio/{job_id}/redo")
+def studio_redo(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.redo, job_id)
+
+
+@router.post("/studio/{job_id}/reset")
+def studio_reset(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.reset, job_id)
+
+
+@router.post("/studio/{job_id}/suggestions/{suggestion_id}/accept")
+def studio_accept(job_id: str, suggestion_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.accept, job_id, suggestion_id)
+
+
+@router.post("/studio/{job_id}/suggestions/{suggestion_id}/reject")
+def studio_reject(job_id: str, suggestion_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.reject, job_id, suggestion_id)
+
+
+@router.post("/studio/{job_id}/suggestions/accept-safe")
+def studio_accept_safe(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_doc.accept_safe, job_id)
+
+
+@router.post("/studio/{job_id}/export")
+def studio_export(job_id: str, request: ExportRequest) -> dict[str, Any]:
+    return _studio_call(cv_packages.export, job_id, request.formats)
+
+
+@router.get("/packages")
+def packages_list(limit: int = Query(default=100, ge=1, le=500)) -> dict[str, Any]:
+    return {"packages": cv_packages.list_packages(limit), "settings": cv_packages.settings()}
+
+
+@router.get("/packages/{job_id}/files/{name}")
+def package_file(job_id: str, name: str) -> FileResponse:
+    path = cv_packages.file_path(job_id, name)  # solo nombres simples dentro de la carpeta registrada
+    if path is None:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(str(path), filename=path.name, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/packages/{job_id}/open-folder")
+def package_open_folder(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_packages.open_folder, job_id)
+
+
+class AppliedRequest(BaseModel):
+    notes: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/packages/{job_id}/applied")
+def package_applied(job_id: str, request: AppliedRequest) -> dict[str, Any]:
+    return _studio_call(cv_packages.mark_applied, job_id, request.notes)
+
+
+class CvSettingsRequest(BaseModel):
+    export_dir: str | None = Field(default=None, max_length=400)
+    filename_pattern: str | None = Field(default=None, max_length=80)
+    ascii_filenames: bool | None = None
+
+
+@router.get("/settings")
+def cv_settings_view() -> dict[str, Any]:
+    return cv_packages.settings()
+
+
+@router.put("/settings")
+def cv_settings_update(request: CvSettingsRequest) -> dict[str, Any]:
+    return _studio_call(cv_packages.update_settings, request.export_dir, request.filename_pattern, request.ascii_filenames)
