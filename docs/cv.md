@@ -130,28 +130,42 @@ mention the skill) or a `proyecto` (with a description of what they did). It sav
 the matching gap note, adds a career timeline entry and returns each target's proximity before and after (or
 says nothing changed and why). It never invents anything.
 
-## Downloadable CV
+## CV Studio (tab `Estudio` of the CVs view)
 
-`preview_cv(job_id)` (what goes in and what is left out) and `build_cv(job_id)` (asks confirmation).
+Implemented in v0.9; the design and the reasons are in [design-cv-studio.md](design-cv-studio.md). From a target (★ offer), `Estudio`
+opens your real CV for that offer: outline on the left, the page in the center, the agent pinned on the right.
 
-- `cv_docx.py` writes DOCX with the standard library (zip + XML): one column, no tables or images, standard
-  headings, real bullets. `cv_pdf.py` writes the PDF natively with `fpdf2` from the same blocks (no LibreOffice needed):
-  a system TrueType font (Calibri/Arial/DejaVu/Liberation, or `RADAR_PDF_FONT`) keeps accents and bullets, otherwise
-  Helvetica with Latin-1 fallbacks. The page count comes from the writer; `pdfinfo`/`pdftotext` add an independent check
-  when present, and LibreOffice is only a fallback if the native writer fails.
-- Each line has a derived id from its content hash (`exp:1a2b3c4d`), so `cv_master.json` needs no format change.
-- **Selection by code** (`cv_build.py`): scores each bullet, project and certificate by the offer's skills (same
-  aliases as the profile cross), respects a page budget (1 page with under 36 months of experience or for
-  internship/trainee/junior offers, otherwise 2) and records what it left out and why.
-- **Only real facts:** skills in `falta` are never listed; the summary is yours; nothing is rephrased. Language
-  follows the offer (Spanish or English).
-- **Honest coverage:** demonstrated in the body, listed without backing, absent (not added).
-- **Warnings before sending:** missing contact data, or placeholders such as "(nombre no indicado)".
-- **Traceability:** `manifest.json` next to each file (offer, template, included and omitted ids, coverage,
-  profile hash). Files go to `<data>/cvs/<date>/CV_<Company>_<Title>.docx` and are never overwritten. The API
-  serves only files in that folder with extension `.docx` or `.pdf`.
-- The agent chooses among predefined templates by explicit rules; it never designs free-form Word XML and never
-  copies a company's branding.
+- **Document = operations over the deterministic selection** (`cv_doc.py`). Omit, include, move and edit a line are stored per offer in
+  `cv_documents` with undo/redo; `cv_master.json` is never modified. Template, photo and page budget are options.
+- **What you see is the exported PDF** (`cv_render.py`: templates `ats` and `sidebar`, with the photo as a circle). The page is the PDF rendered
+  to an image (`pypdfium2`), and each line has a box, so clicking the page selects the source line.
+- **Agent suggestions** (`cv_doc_get`, `cv_doc_propose`): ops proposed by the agent wait in `cv_suggestions` until you accept them (before/after
+  in the outline). **Fact guard** (`cv_facts.py`): a reworded line that adds a number, an organization/product name or a skill that is not in
+  that line or its job entry is flagged and cannot be accepted. The summary and headline may use the whole master.
+- **Application packages** (`cv_packages.py`, `prepare_application`): exporting writes `<root>/YYYY-MM-DD Company - Role/` with the PDF
+  (and Word if asked) named `CV <Name> - <Role>.pdf`, `oferta.md` (a copy of the posting), `postulacion.json` and `anteriores/` for older
+  versions. Names are safe for Windows/macOS/Linux and accent-free by default; the folder is configurable (default
+  `Documents/Radar/Postulaciones`, set from the Studio or `PUT /api/cv/settings`, restricted to a subfolder of your home).
+  "Abrir carpeta" resolves the path from the database; "Ya la envié" logs the application in the pipeline. Radar never submits for you.
+- **Endpoints:** `GET /api/cv/studio/{job}`, `.../page/{n}.png`, `POST .../ops|options|undo|redo|reset|export`, `.../suggestions/{id}/accept|reject`,
+  `.../suggestions/accept-safe`, `GET /api/cv/packages`, `GET /api/cv/packages/{job}/files/{name}`, `POST .../open-folder|applied`,
+  `GET|PUT /api/cv/settings`.
+
+## Selection engine (what feeds the Studio)
+
+`cv_build.select_full` decides, by code, what enters the CV for an offer; nothing is invented or reworded.
+
+- Scores each bullet, project and certificate by the offer's skills (same aliases as the profile cross) and keeps the best within a page
+  budget (1 page with under 36 months of experience or for internship/trainee/junior offers, otherwise 2). Every left-out line carries its
+  reason and enough data to be put back.
+- Skills marked `falta` are never listed; the summary is yours. Language (Spanish or English) follows the offer.
+- Honest coverage: demonstrated in the body, listed without backing, absent (not added). Warnings: missing contact data or placeholders such as
+  "(nombre no indicado)".
+- Each line has an id derived from its content hash (`exp:1a2b3c4d`), so `cv_master.json` needs no format change.
+- Writers: `cv_render.py` (PDF, exact) and `cv_docx.py` (Word, standard library, approximate look). A system TrueType font is used when found
+  (Calibri/Arial/DejaVu/Liberation, or `RADAR_PDF_FONT`), otherwise Helvetica with Latin-1 fallbacks.
+
+`preview_cv`/`build_cv` and `/api/cv/build` still work (files in `cvs/<date>/`); the Studio and `prepare_application` replace them.
 
 ## Profile editing
 
@@ -175,9 +189,10 @@ agent only assigns status to the rest, citing the real profile.
 
 ## Pending
 
-Planned for v1.0 (details in [roadmap.md](roadmap.md#v10-your-cv-installable-the-plan)): import from Word/PDF with
-line-by-line confirmation, Radar-native templates defined as data (one rebuilt from the user's current design, photo supported,
-no Word needed), with-photo and without-photo variants per offer, an in-app page preview with constrained edit requests, PDF as
-the primary export, a "prepare application" action that never submits for the user, a trace view of every bullet before export, versions per role and a log of which CV was
-sent to which offer. Later: cover-letter drafts and keyword coverage reports. Rephrasing, if it is ever added, must be
-marked as rephrased and approved line by line. Also pending: highlight the offer on the map when a target CV is open.
+Done in v0.9: the Studio (page preview with clickable lines, outline, hand edits, undo/redo), two templates, application packages with offer
+snapshot and archived versions, the agent suggestions with the fact guard, and the tools `cv_doc_get`, `cv_doc_propose`, `prepare_application`
+and `list_application_packages`.
+
+Still planned for v1.0 ([roadmap.md](roadmap.md#v10-your-cv-installable-the-plan)): import from Word/PDF with line-by-line confirmation; a template
+rebuilt from the author's current CV (needs the PDF or a screenshot as reference); versions per role and the sent-CV learning loop. Later:
+cover-letter drafts and keyword coverage reports. Also pending: highlight the offer on the map when a target CV is open.

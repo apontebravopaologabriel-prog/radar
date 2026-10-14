@@ -100,26 +100,3 @@ export type CvProfile = {
   projects?: { name: string; description?: string; date?: string }[];
   tools_declared_in_db?: Record<string, string>;
 };
-
-export type CvBuildOmitted = { id: string; section: string; text: string; reason: string };
-
-export type CvBuildPreview = {
-  job: { id: string; title: string; company: string | null };
-  language: "es" | "en";
-  pages_budget: number;
-  template: string;
-  skills: string[];
-  warnings: string[];
-  omitted: CvBuildOmitted[];
-  experience: { id: string; title: string; bullets: { id: string; text: string }[] }[];
-  projects: { id: string; title: string }[];
-  certifications: { id: string; title: string }[];
-  coverage: { demonstrated: string[]; listed_only: string[]; missing: string[]; percent: number | null; note: string };
-};
-
-export type CvBuildResult = {
-  files: { format: "docx" | "pdf"; name: string; path: string }[];
-  check: { pages?: number | null; text_extractable?: boolean | null; within_budget?: boolean | null };
-  notes: string[];
-  selection: CvBuildPreview;
-};

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { updateJobFavorite } from "../lib/api";
-import { CV_PHOTO_URL, buildCvFiles, cvFileUrl, fetchCvBuildPreview, fetchCvPlan, fetchCvProfile, fetchCvSelection, fetchCvTargets } from "../lib/cv-api";
-import type { CvBaselineItem, CvBuildPreview, CvBuildResult, CvGap, CvItem, CvMatrix, CvPlan, CvProfile, CvReadiness, CvSelectionItem, CvStatus, CvTarget } from "../lib/cv-types";
+import { CV_PHOTO_URL, fetchCvPlan, fetchCvProfile, fetchCvSelection, fetchCvTargets } from "../lib/cv-api";
+import type { CvBaselineItem, CvGap, CvItem, CvMatrix, CvPlan, CvProfile, CvReadiness, CvSelectionItem, CvStatus, CvTarget } from "../lib/cv-types";
+import CvStudio, { type StudioContext } from "./CvStudio";
 import "./cv.css";
 
 const MAX_COMPARED = 4;
@@ -15,9 +16,9 @@ const KIND_LABEL: Record<CvGap["kind"], string> = { dias: "días", semanas: "sem
 const SECTION_LABEL: Record<string, string> = { summary: "Resumen", education: "Formación", experience: "Experiencia", tools: "Herramientas", certifications: "Certificaciones", projects: "Proyectos" };
 const SECTION_ORDER = ["summary", "experience", "tools", "projects", "education", "certifications"];
 
-type Tab = "objetivos" | "plan" | "matriz" | "comparar" | "cv";
+type Tab = "objetivos" | "plan" | "matriz" | "comparar" | "cv" | "estudio";
 
-export default function CvView() {
+export default function CvView({ onStudioContext }: { onStudioContext?: (context: StudioContext | null) => void }) {
   const [profile, setProfile] = useState<CvProfile | null>(null);
   const [selection, setSelection] = useState<CvSelectionItem[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -99,6 +100,7 @@ export default function CvView() {
   }
 
   function openTargetTab(id: string) { setOpenId(id); setTab("cv"); }
+  function openStudioTab(id: string) { setOpenId(id); setTab("estudio"); }
 
   return (
     <div className="cv-view">
@@ -115,16 +117,18 @@ export default function CvView() {
             <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>
           ))}
           {openId && <button type="button" role="tab" aria-selected={tab === "cv"} className={tab === "cv" ? "active" : ""} onClick={() => setTab("cv")}>{openTarget?.company ?? "CV"}</button>}
+          {openId && <button type="button" role="tab" aria-selected={tab === "estudio"} className={tab === "estudio" ? "active" : ""} onClick={() => setTab("estudio")}>Estudio</button>}
         </nav>
       </header>
       <div className="cv-body">
         {error && <p className="cv-note">{error}</p>}
         {loaded && !error && selection.length === 0 && <p className="cv-note">Aún no hay objetivos. Marca ofertas con ★ en el mapa y aparecerán aquí, ordenadas por cercanía a tu perfil.</p>}
-        {tab === "objetivos" && selection.length > 0 && <Ranking items={selection} picked={compareIds} onPick={togglePick} onOpen={openTargetTab} onRemove={(id) => void removeTarget(id)} />}
+        {tab === "objetivos" && selection.length > 0 && <Ranking items={selection} picked={compareIds} onPick={togglePick} onOpen={openTargetTab} onStudio={openStudioTab} onRemove={(id) => void removeTarget(id)} />}
         {tab === "plan" && <PlanView plan={plan} onOpenTarget={() => setTab("objetivos")} />}
         {tab === "matriz" && (details.matrix && details.matrix.rows.length > 0 ? <MatrixTable matrix={details.matrix} onOpen={openTargetTab} /> : <p className="cv-note">Elige de 1 a {MAX_COMPARED} objetivos en la pestaña Objetivos.</p>)}
         {tab === "comparar" && (details.targets.length > 0 ? <CompareGrid profile={profile} targets={details.targets} /> : <p className="cv-note">Elige de 1 a {MAX_COMPARED} objetivos en la pestaña Objetivos.</p>)}
-        {tab === "cv" && openTarget && <TargetCv target={openTarget} />}
+        {tab === "cv" && openTarget && <TargetCv target={openTarget} onOpenStudio={() => setTab("estudio")} />}
+        {tab === "estudio" && openId && <CvStudio jobId={openId} onContext={onStudioContext} />}
       </div>
     </div>
   );
@@ -140,7 +144,7 @@ function Meter({ readiness }: { readiness: CvReadiness }) {
   );
 }
 
-function Ranking({ items, picked, onPick, onOpen, onRemove }: { items: CvSelectionItem[]; picked: string[]; onPick: (id: string) => void; onOpen: (id: string) => void; onRemove: (id: string) => void }) {
+function Ranking({ items, picked, onPick, onOpen, onStudio, onRemove }: { items: CvSelectionItem[]; picked: string[]; onPick: (id: string) => void; onOpen: (id: string) => void; onStudio: (id: string) => void; onRemove: (id: string) => void }) {
   return (
     <section aria-label="Objetivos">
       <p className="cv-note">Tus ofertas con ★, de la más a la menos alcanzable. <b>Cercanía</b> mide si tu CV demuestra los requisitos; <b>encaje</b> mide si la oferta calza con lo que buscas. Ambas las calcula Radar por reglas; marca hasta {MAX_COMPARED} para la matriz y la comparación.</p>
@@ -159,6 +163,7 @@ function Ranking({ items, picked, onPick, onOpen, onRemove }: { items: CvSelecti
             </span>
             <div className="cv-rank-actions">
               <button type="button" onClick={() => onOpen(item.id)}>Abrir</button>
+              <button type="button" onClick={() => onStudio(item.id)} title="Edita y exporta tu CV para esta oferta">Estudio</button>
               <button type="button" onClick={() => onRemove(item.id)} aria-label={`Quitar ${item.company ?? item.title} de objetivos`} title="Quitar ★ de esta oferta">✕</button>
             </div>
           </li>
@@ -217,7 +222,7 @@ function BaselineTable({ items }: { items: CvBaselineItem[] }) {
   );
 }
 
-function TargetCv({ target }: { target: CvTarget }) {
+function TargetCv({ target, onOpenStudio }: { target: CvTarget; onOpenStudio: () => void }) {
   return (
     <article className="cv-doc">
       <div className="cv-banner" role="note">HIPOTÉTICO — no enviar</div>
@@ -244,7 +249,11 @@ function TargetCv({ target }: { target: CvTarget }) {
           </ul>
         </section>
       ))}
-      <CvBuilder jobId={target.job_id} />
+      <section className="cv-builder" aria-label="Tu CV para esta oferta">
+        <h4>Tu CV real para esta oferta</h4>
+        <p className="cv-note">Ábrelo en el Estudio: ves las páginas, pides cambios al agente (que solo puede usar lo que ya está en tu CV), eliges plantilla y foto, y exportas el PDF a la carpeta de esta postulación.</p>
+        <button type="button" className="cv-action" onClick={onOpenStudio}>Abrir en el Estudio</button>
+      </section>
       {target.gaps.length > 0 && (
         <section>
           <h4>Cómo acercarte</h4>
@@ -357,65 +366,5 @@ function PlanView({ plan, onOpenTarget }: { plan: CvPlan | null; onOpenTarget: (
   );
 }
 
-const SECTION_OMIT_LABEL: Record<string, string> = { experience: "Experiencia", projects: "Proyectos", certifications: "Certificaciones" };
 
 /** CV real (no hipotético) para esta oferta: Radar solo elige y ordena lo que ya tienes, dentro de un presupuesto de página. */
-function CvBuilder({ jobId }: { jobId: string }) {
-  const [preview, setPreview] = useState<CvBuildPreview | null>(null);
-  const [result, setResult] = useState<CvBuildResult | null>(null);
-  const [busy, setBusy] = useState<"preview" | "build" | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-
-  useEffect(() => { setPreview(null); setResult(null); setProblem(null); }, [jobId]);
-
-  async function loadPreview() {
-    setBusy("preview"); setProblem(null); setResult(null);
-    try { setPreview(await fetchCvBuildPreview(jobId)); }
-    catch (reason) { setProblem(reason instanceof Error ? reason.message : "No se pudo preparar el CV"); }
-    finally { setBusy(null); }
-  }
-
-  async function generate() {
-    setBusy("build"); setProblem(null);
-    try { setResult(await buildCvFiles(jobId)); }
-    catch (reason) { setProblem(reason instanceof Error ? reason.message : "No se pudo generar el CV"); }
-    finally { setBusy(null); }
-  }
-
-  const omittedBySection = preview ? Object.entries(preview.omitted.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item.section]: (acc[item.section] ?? 0) + 1 }), {})) : [];
-  return (
-    <section className="cv-builder" aria-label="CV descargable">
-      <h4>CV descargable para esta oferta</h4>
-      <p className="cv-note">Es tu CV real, no el hipotético: Radar solo elige y ordena lo que ya tienes según esta oferta. No inventa ni reformula, y no lista skills que no respaldas.</p>
-      {!preview && <button type="button" className="cv-action" disabled={busy !== null} onClick={() => void loadPreview()}>{busy === "preview" ? "Preparando…" : "Preparar vista previa"}</button>}
-      {problem && <p className="cv-note cv-problem" role="alert">{problem}</p>}
-      {preview && (
-        <div className="cv-builder-body">
-          <p className="cv-note">Idioma detectado: <b>{preview.language === "es" ? "español" : "inglés"}</b> · Presupuesto: <b>{preview.pages_budget} {preview.pages_budget === 1 ? "página" : "páginas"}</b> · Plantilla sobria de una columna, a prueba de ATS.</p>
-          {preview.warnings.map((warning) => <p key={warning} className="cv-note cv-problem">⚠ {warning}</p>)}
-          <ul className="cv-coverage">
-            <li><b className="cv-mark cubierto">✓</b> Demostradas en el cuerpo: {preview.coverage.demonstrated.join(", ") || "ninguna"}</li>
-            <li><b className="cv-mark parcial">~</b> Solo listadas (sin respaldo en experiencia o proyectos): {preview.coverage.listed_only.join(", ") || "ninguna"}</li>
-            <li><b className="cv-mark falta">✗</b> Ausentes, no están en tu perfil y no se añaden: {preview.coverage.missing.join(", ") || "ninguna"}</li>
-          </ul>
-          <p className="cv-note">Incluye {preview.experience.reduce((sum, role) => sum + role.bullets.length, 0)} líneas de experiencia, {preview.projects.length} proyecto{preview.projects.length === 1 ? "" : "s"} y {preview.certifications.length} certificado{preview.certifications.length === 1 ? "" : "s"}.
-            {omittedBySection.length > 0 && ` Deja fuera: ${omittedBySection.map(([name, count]) => `${count} de ${SECTION_OMIT_LABEL[name] ?? name}`).join(", ")}.`}</p>
-          {preview.omitted.length > 0 && (
-            <details className="cv-omitted"><summary>Ver qué queda fuera y por qué</summary>
-              <ul>{preview.omitted.map((item) => <li key={item.id}><span>{item.text}</span><em>{item.reason}</em></li>)}</ul>
-            </details>
-          )}
-          {!result && <button type="button" className="cv-action" disabled={busy !== null} onClick={() => void generate()}>{busy === "build" ? "Generando…" : "Generar DOCX y PDF"}</button>}
-        </div>
-      )}
-      {result && (
-        <div className="cv-builder-result">
-          <p className="cv-note">Archivos generados (se guardan en la carpeta de datos de Radar, sin sobrescribir):</p>
-          <p className="cv-files">{result.files.map((file) => <a key={file.path} className="cv-action" href={cvFileUrl(file.path)} download={file.name}>Descargar {file.format.toUpperCase()}</a>)}</p>
-          {result.check.pages != null && <p className="cv-note">PDF: {result.check.pages} página{result.check.pages === 1 ? "" : "s"}{result.check.within_budget === false ? " (excede el presupuesto)" : ""} · texto {result.check.text_extractable ? "extraíble por los ATS" : "no extraíble"}.</p>}
-          {result.notes.map((note) => <p key={note} className="cv-note cv-problem">{note}</p>)}
-        </div>
-      )}
-    </section>
-  );
-}

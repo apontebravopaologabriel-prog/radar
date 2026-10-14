@@ -17,7 +17,7 @@ hidden = (
     collect_submodules("uvicorn")
     + collect_submodules("mcp", filter=lambda name: not name.startswith("mcp.cli"))
     + collect_submodules("keyring.backends")
-    + ["webview", "jobspy", "fpdf", "radar.api", "radar.mcp.server"]
+    + ["webview", "jobspy", "fpdf", "pypdfium2", "pypdfium2_raw", "radar.api", "radar.mcp.server"]
 )
 excludes = ["tkinter", "matplotlib", "pytest", "ruff"]
 

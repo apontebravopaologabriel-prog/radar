@@ -23,7 +23,7 @@ realistic, independent, loyal to the data and to the person's future rather than
 
 Change personality in `soul.md`; update `help.md` when something visible changes.
 
-## Tools: 58 in the registry, 45 in the chat, 19 that write
+## Tools: 62 in the registry, 49 in the chat, 20 that write
 
 `@tool(write=..., chat=...)` in `tools.py` declares each tool. `write` means a confirmation card; `chat=False`
 means MCP only. **On-demand loading:** tools of groups `cv`, `perfil` and `sistema` (`TOOL_GROUPS`) are only
@@ -35,7 +35,7 @@ available, so put heavy, rarely used tools in a group.
 | --- | --- |
 | Market and offers | `search_saved_jobs`, `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (by area, place, company, work mode, seniority, sector or portal), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`. MCP only: `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |
 | Profile, CV, memory | `get_my_profile`, `update_profile_fields`\*, `get_user_profile`, `get_my_cv`, `update_cv`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
-| Closure plan and CV file | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* |
+| Closure plan, CV studio and application packages | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* (legacy), `cv_doc_get`, `cv_doc_propose` (creates suggestions the person accepts in the Studio; nothing changes until then), `prepare_application`\* (exports the PDF/Word to the offer's folder; never submits), `list_application_packages` |
 | Tracking | `favorite_job`\*, `track_job_application`\*, `list_job_applications` |
 | Capture and system | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`. MCP only: `ingest_jobs`\*, `capture_market_history`\* |
 | Target CVs (MCP only) | `get_target_context`, `list_targets`, `save_target_profile`\*, `get_target_matrix`, `resolve_nearest_districts` |

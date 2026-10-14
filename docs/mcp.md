@@ -2,7 +2,7 @@
 
 Radar works fully on its own with the integrated agent ([agent.md](agent.md)). The MCP server is an optional
 door for people who prefer an external agent (Claude Code, Antigravity, Hermes, any MCP client). It exposes
-the same registry (`src/radar/tools.py`, 58 tools, 19 write tools) over stdio (`radar-mcp`, FastMCP). Nothing
+the same registry (`src/radar/tools.py`, 62 tools, 20 write tools) over stdio (`radar-mcp`, FastMCP). Nothing
 is registered or exposed unless you configure a client.
 
 An external agent can combine Radar with other MCP servers (calendar, mail, notes); the integrated agent cannot.
@@ -54,7 +54,7 @@ Reload the client's MCP server after Radar gains tools.
 
 ## What it publishes
 
-- **Tools:** the registry. Group overview in [agent.md](agent.md#tools-58-in-the-registry-45-in-the-chat-19-that-write).
+- **Tools:** the registry. Group overview in [agent.md](agent.md#tools-62-in-the-registry-49-in-the-chat-20-that-write).
 - **Resources:** `radar://topics`, `radar://help/{topic}`, `radar://schema`.
 - **Prompts:** `configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`.
 - **Transport:** stdio by default (`RADAR_MCP_TRANSPORT`).

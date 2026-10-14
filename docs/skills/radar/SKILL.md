@@ -58,6 +58,10 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `get_closure_plan` | lee | Plan para cerrar brechas entre tus objetivos (ofertas con estrella): qué skills cerrar primero, cuántos | limit?: integer |
 | `preview_cv` | lee | Vista previa del CV descargable para una oferta, sin escribir archivos: qué se incluye de tu CV real, qué | job_id: string |
 | `build_cv` | escribe | Genera el CV para una oferta como DOCX y PDF (formats: docx, pdf) en la carpeta de datos de Radar, sin | job_id: string, formats?: array|null |
+| `cv_doc_get` | lee | Estado del CV de una oferta en el Estudio, tal como lo ve la persona: líneas incluidas (con `id`, texto y de qué cargo | job_id: string |
+| `cv_doc_propose` | lee | Propone cambios al CV de una oferta; NO cambian nada hasta que la persona los acepte en el Estudio (antes/después). | job_id: string, ops: array, note?: string |
+| `prepare_application` | escribe | Prepara la postulación: exporta el CV vigente del Estudio (formats: pdf, docx) a la carpeta de esa oferta, junto con una | job_id: string, formats?: array|null |
+| `list_application_packages` | lee | Postulaciones preparadas: oferta, carpeta, archivos, estado (preparada o enviada) y fechas. Responde «¿qué CV mandé a | limit?: integer |
 | `close_gap` | escribe | Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha | skill: string, kind: string, name: string, issuer?: string|null, date?: string|null, description?: string|null, link?: string|null |
 | `get_target_matrix` | lee | Matriz de brechas entre los CVs objetivo guardados (requisitos con `key` por puesto). |  |
 | `resolve_nearest_districts` | lee | Distritos más cercanos a una zona mencionada en una oferta, con km aproximados. | reference: string, limit?: integer |
@@ -140,3 +144,5 @@ Para usar Radar en el celular fuera de casa hace falta llegar a tu PC (Tailscale
 ### privacidad
 
 Tus datos viven en tu equipo (SQLite). Al usar el agente, tu perfil y las ofertas consultadas se envían al proveedor de IA que elijas; con Ollama local no salen de tu equipo. La clave de API se guarda en un archivo privado, no en la base ni en el navegador.
+
+El Estudio de CV: en la vista CVs, abre una oferta con ★ y entra a la pestaña «Estudio». Ves tu CV real como páginas, adaptado a esa oferta: a la izquierda las líneas (quita, vuelve a incluir o reordena; clic en una línea para editarla tú) y a la derecha el agente, al que puedes pedirle cambios («quita este proyecto», «hazlo de una página», «usa la versión con foto»). El agente solo propone: cada cambio aparece como antes/después y tú aceptas o rechazas. Si una reformulación añade un número, una empresa o una herramienta que no está en tu CV, se marca en rojo y no se puede aceptar: para añadirla, primero agrégala a tu CV si es cierta. Puedes elegir plantilla (sobria o con barra lateral y foto). «Exportar PDF» crea una carpeta por postulación (por ejemplo «2026-10-14 Empresa - Puesto») con el CV, una copia de la oferta y las versiones anteriores; el archivo se llama «CV Tu Nombre - Puesto.pdf». La carpeta se cambia en «Carpeta y nombres de archivo». Radar nunca envía la postulación: subes el archivo en el portal y luego pulsas «Ya la envié» para registrarla en tu seguimiento.

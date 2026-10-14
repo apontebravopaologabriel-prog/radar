@@ -252,6 +252,9 @@ def state(job_id: str) -> dict[str, Any]:
     doc = get_document(job_id)
     final, stale = _final(doc)
     rendered = _render(final, doc)
+    with connection() as conn:
+        row = conn.execute("SELECT source_url FROM job_sources WHERE job_id=%s ORDER BY last_seen_at DESC LIMIT 1", (job_id,)).fetchone()
+    final["job"]["url"] = row[0] if row else None
     warnings = [*final["warnings"], *rendered.warnings]
     over = rendered.pages > final["pages_budget"]
     if over:

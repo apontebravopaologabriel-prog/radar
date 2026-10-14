@@ -27,11 +27,11 @@ L = several weeks (one person, part time). The CV items are detailed in [design-
 
 | # | Item | Why it ranks here | Effort |
 | --- | --- | --- | --- |
-| 1 | CV Studio spike: PDF-to-pages preview with hit map, Windows viability, reference template from your current CV | Retires the one technical unknown of the hero feature before building on it | 2 days |
-| 2 | Application packages: one folder per application, professional filename, offer snapshot, Postulaciones view, open-folder/copy-path | Fixes "I lose track of PDFs per job" immediately and is useful on its own | S–M |
-| 3 | CV document model + Radar-native templates (with photo / without), PDF primary, Word secondary | The foundation of the editor and of "no Word in the loop" | M |
-| 4 | CV Studio UI: page canvas, outline, include/omit/reorder, hand editing, undo, export | The "editor inside Radar" experience | M |
-| 5 | Agent panel in the Studio: suggestions as before/after, fact guard, accept/reject | Edit by asking, without ever inventing a fact | M |
+| 1 | ~~CV Studio spike~~ **done:** `pypdfium2` renders a page in ~70 ms and has a 3.9 MB Windows wheel; the hit map comes from the PDF writer | Retired the one technical unknown | done |
+| 2 | ~~Application packages~~ **done:** folder per application, professional filename, offer snapshot, archived versions, open folder, copy path, mark as sent. Pending: a global Postulaciones list view | Fixes "I lose track of PDFs per job" | mostly done |
+| 3 | ~~CV document model + templates~~ **done** (two templates, photo, PDF exact, Word approximate). Pending: a template rebuilt from your current CV (needs your PDF or a screenshot) | The foundation of the editor and of "no Word in the loop" | mostly done |
+| 4 | ~~CV Studio UI~~ **done** inside the CVs view (tab `Estudio`) | The "editor inside Radar" experience | done |
+| 5 | ~~Agent panel in the Studio~~ **done:** suggestions, fact guard, accept/reject, four tools, pinned panel. Pending: real-provider evaluation of edit requests | Edit by asking, without ever inventing a fact | done |
 | 6 | Installer validated in a Windows VM (`dockur/windows`) + first-run wizard with automatic first capture | Nothing else matters if a second person cannot get to a populated map | S–M |
 | 7 | Schema versioning and migrations | A public database that cannot upgrade is a broken release | S |
 | 8 | Native Computrabajo adapter | Removes the Node.js requirement on Windows | M |

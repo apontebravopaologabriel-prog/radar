@@ -25,7 +25,7 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 | Mobile PWA `/m` | `Today` feed, `Map`, `Pipeline` (saved → applied → interview → offer), `Agent`, `Settings`, offline last feed |
 | Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval. See [docs/agent.md](docs/agent.md) |
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
-| Target CVs | Hypothetical ideal candidate per ★ offer, gap matrix, closure plan, downloadable real CV (DOCX/PDF). See [docs/cv.md](docs/cv.md) |
+| Target CVs and CV Studio | Hypothetical ideal candidate per ★ offer, gap matrix, closure plan; **Studio**: your real CV as pages with the agent beside it, suggestions you accept, PDF/Word export into one folder per application. See [docs/cv.md](docs/cv.md) |
 | Refresh | Weekly systemd timer pulls Indeed, LinkedIn (JobSpy) and Computrabajo (MCP adapter). See [docs/operations.md](docs/operations.md) |
 
 ## Quick start

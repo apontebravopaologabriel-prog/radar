@@ -294,6 +294,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [showFavorites, setShowFavorites] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
+  const [studioContext, setStudioContext] = useState<AgentContext["cvStudio"] | null>(null);
   const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
   const [railPeek, setRailPeek] = useState(false);
@@ -413,7 +414,8 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     visibleCount: visibleJobs.length,
     districtJobs: mode === "radar" ? undefined : browsedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
-  }), [activeView, analysisContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
+    cvStudio: activeView === "cvs" ? studioContext ?? undefined : undefined,
+  }), [activeView, analysisContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
@@ -835,7 +837,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           ) : mode === "analysis" ? (
             <AnalysisView onApplyFilter={applyAnalysisFilter} onContextChange={setAnalysisContext} />
           ) : mode === "cvs" ? (
-            <CvView />
+            <CvView onStudioContext={setStudioContext} />
           ) : (
             <>
               <div className="map-header">

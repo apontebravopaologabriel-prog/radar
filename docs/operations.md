@@ -228,6 +228,13 @@ folder is on the **same disk**, so it protects against mistakes, not against los
 (`rclone` with a `crypt` remote) because the data is personal. A mirror of `~/Documents` does not include this folder. The
 installer's uninstaller never deletes the data folder. A backup/restore screen and a JSON/CSV export are planned for v1.0.
 
+## CV Studio files
+
+Exported CVs go to a visible folder, not the hidden data folder: default `Documents/Radar/Postulaciones` (change it in the Studio, under
+"Carpeta y nombres de archivo", or with `PUT /api/cv/settings`; it must be a subfolder of your home). One subfolder per application:
+the CV (`CV <Name> - <Role>.pdf`), `oferta.md`, `postulacion.json` and `anteriores/`. Include this folder in your backups; the
+data folder keeps only the document operations and the index (`cv_documents`, `cv_suggestions`, `application_packages`).
+
 ## Verification
 
 ```bash

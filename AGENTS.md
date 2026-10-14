@@ -30,7 +30,7 @@ Backend (`src/radar/`):
 - `capture.py` (`radar refresh`): the scheduled market capture, cross-platform and driven by the active pack. `scheduler.py`: in-process scheduler used where there is no systemd timer. `refresh.py`: the in-app "update now" run (same ingestion, in-process).
 - `app.py` (`radar-app`): desktop entry (API + window + scheduler, `--smoke`). `paths.py`: OS-specific data/state/frontend folders. `security.py`: Host/Origin guard, headers, file permissions. `settings.py`: settings and secrets (OS credential store on Windows).
 - `insights.py`: read-only queries behind open questions (job card, fit, demand, breakdowns, salaries, SQL). `skill_export.py` generates `docs/skills/radar/SKILL.md`.
-- `cv_targets.py`, `cv_baseline.py`, `cv_plan.py`, `cv_build.py`, `cv_docx.py`, `cv_pdf.py`, `cv_edit.py`, `cv_photo.py`, `profile_edit.py`: CV and profile logic. See `docs/cv.md`.
+- `cv_targets.py`, `cv_baseline.py`, `cv_plan.py`, `cv_build.py` (deterministic selection), `cv_doc.py` (per-offer document, operations, suggestions), `cv_facts.py` (fact guard), `cv_render.py` (templates, PDF, hit map, page images), `cv_packages.py` (folder per application), `cv_docx.py`, `cv_pdf.py`, `cv_edit.py`, `cv_photo.py`, `profile_edit.py`: CV and profile logic. See `docs/cv.md`.
 - `maintenance.py`, `system.py`: classification audit/reclassification, system status, systemd timer. Closed action lists, confirmation, backup first; they never delete offers.
 - `help.md` + `help.py`: curated product help; the agent explains the product only from it (`get_help`). Update it when a visible feature changes.
 
@@ -38,6 +38,7 @@ Frontend (`frontend/`):
 
 - `components/RadarClient.tsx`: state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx`, `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
 - `components/agent/`: shared chat (`useAgentChat`, `AgentChatPanel`) and the desktop window (`AgentDock`, mounted in `app/radar/page.tsx`). Two modes: floating window and panel pinned right (`--agent-dock-w`, container `.radar-stage`). It exists only when the agent is enabled; do not reintroduce a permanent button when it is off (only the link to `/ajustes` remains). `commands.ts` holds the `/` commands (`local` ones use the API and spend no tokens; add one = one entry in `COMMANDS`). `Markdown.tsx` is the safe renderer (no raw HTML, only http/https/mailto links). `RadarMark.tsx` is the agent symbol.
+- `components/CvStudio.tsx` (+ `cv-studio.css`, `lib/cv-studio-api.ts`): the Studio tab; it asks the agent dock to pin itself (`radar:agent-layout` event) and publishes `cvStudio` in the agent context.
 - `components/mobile/` and `app/m/`: the PWA at `/m`. `public/` holds manifest and service worker.
 - `app/globals.css` (layout, graphite theme, popups, scrolls), `lib/api.ts` (HTTP client).
 - `frontend/out/`: static export served by FastAPI. Built by `npm run build`, **not versioned** (gitignored); the launcher builds it if missing. Never edit it by hand.

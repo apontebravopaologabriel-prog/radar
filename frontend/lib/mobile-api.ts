@@ -52,6 +52,7 @@ export type AgentContext = {
   selectedJob?: { id: string; title: string; company?: string; district?: string };
   visibleCount?: number;
   districtJobs?: number;
+  cvStudio?: { jobId: string; title: string; company: string | null; selectedLine: { id: string; text: string } | null; pendingSuggestions: number };
   analysis?: { ready: boolean; updatedAt: string; windows: { title: string; sql: string; columns: string[]; rows: (string | number | null)[][]; rowCount: number }[]; recentQueries: string[] };
 };
 export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
