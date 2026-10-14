@@ -79,6 +79,9 @@ your photo, your real experience) for a real offer, and a peer can do the same w
 - `record_application_event` tool and `.ics` export of interviews.
 - Interview preparation per offer and cover-letter drafts (always marked draft, never sent).
 - Ghost-job signal from the existing link checks.
+- **Commute, stage 0:** a "Cómo llegar" link in the offer detail (an external directions search from your home or
+  university district at a chosen time, in the same spirit as the existing `⌖` link: no API, no stored third-party data) and
+  a way to record your real door-to-door minutes per district pair, which becomes your private commute matrix.
 
 ## v1.2: data you can trust
 
@@ -86,12 +89,21 @@ your photo, your real experience) for a real offer, and a peer can do the same w
 - Public ATS and official API sources; company enrichment (offers with no company data).
 - Incremental classification, classification quality gate in CI with labeled samples per pack.
 - Server-side pagination, ETag cache and aggregated map points for large databases.
+- **Commute, stage 1 (starts with a 1–2 day feasibility spike):** compare three data routes for Lima before building
+  anything: open transit data (GTFS from the transport authority or aggregators, if complete enough) with an open router on
+  OpenStreetMap; a one-time batch of a commercial routes API (check its terms on storing results and its current price);
+  and the user-supplied matrix from stage 0. Then a district-to-district matrix by time of day, a `commute` scoring
+  dimension and a "≤ N minutes" filter replacing the straight-line radius as the main proximity signal. Always shown as an
+  estimate with a range. Never scrape consumer transit apps (no public API, terms, fragile).
 
 ## v1.3: market intelligence
 
 - Automatic weekly snapshots and comparative reports; export of a market report per career and city.
 - Skill → human competency → evidence → project chain with the gap prioritized by evidence.
 - Salary brief for negotiation from your own accumulated history; CV-version outcome analytics.
+- **Commute, stage 2:** reachable-in-N-minutes areas on the map (isochrones) instead of circles, several anchors (home and
+  university), compatibility of an offer's schedule with your class timetable, and net value (salary minus estimated
+  transport cost).
 
 ## v1.4: connected agent
 
@@ -119,5 +131,6 @@ your photo, your real experience) for a real offer, and a peer can do the same w
 - The desktop map is Lima/Callao only; coordinates are inferred per request, not stored.
 - The internal scheduler only runs while Radar is open.
 - `repair-data` still rescans every description (about two minutes on 6 000 offers) until classification is incremental.
+- Proximity is straight-line distance, a weak proxy for Lima commutes (see the commute stages above).
 - Keyword classification is weaker for careers with ambiguous vocabulary.
 - Demand for Radar beyond its author is unproven; the peer pilot is the test.
