@@ -35,6 +35,12 @@ export async function fetchFavoriteJobs(signal?: AbortSignal): Promise<Job[]> {
   return payload.jobs;
 }
 
+export async function fetchAppliedJobs(signal?: AbortSignal): Promise<Job[]> {
+  const response = await fetch(`${API_URL}/api/jobs/applied`, { signal });
+  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  return ((await response.json()) as { jobs: Job[] }).jobs;
+}
+
 export async function updateJobFavorite(id: string, favorite: boolean): Promise<void> {
   const response = await fetch(`${API_URL}/api/jobs/${id}/favorite`, { method: favorite ? "PUT" : "DELETE" });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);

@@ -120,23 +120,37 @@ def set_job_user_status(job_id: str, status: str, reason: str | None = None, not
         conn.commit()
 
 
-def list_favorite_jobs() -> list[dict[str, Any]]:
-    """Devuelve las ofertas guardadas por el usuario, más recientes primero."""
-    sql = """SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
+_USER_LIST_SQL = """SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency,
         (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
         j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
         j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
-        1 AS is_favorite
+        EXISTS (SELECT 1 FROM job_user_favorites f WHERE f.job_id=j.id) AS is_favorite
         FROM jobs j
-        JOIN job_user_favorites juf ON juf.job_id=j.id
+        {join}
         LEFT JOIN companies c ON c.id=j.company_id
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
         LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
         LEFT JOIN job_user_status jus ON jus.job_id=j.id
-        ORDER BY juf.created_at DESC, j.published_at DESC NULLS LAST"""
+        ORDER BY {order}"""
+
+
+def list_favorite_jobs() -> list[dict[str, Any]]:
+    """Devuelve las ofertas guardadas por el usuario, más recientes primero."""
+    sql = _USER_LIST_SQL.format(join="JOIN job_user_favorites juf ON juf.job_id=j.id",
+                                order="juf.created_at DESC, j.published_at DESC NULLS LAST")
+    with connection() as conn:
+        rows = conn.execute(sql).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
+def list_applied_jobs() -> list[dict[str, Any]]:
+    """Ofertas a las que el usuario postuló (postulada, entrevista u oferta), la postulación más reciente primero."""
+    sql = _USER_LIST_SQL.format(
+        join="JOIN applications ap ON ap.job_id=j.id AND ap.status IN ('applied','interview','offer')",
+        order="COALESCE(ap.applied_at, ap.updated_at) DESC")
     with connection() as conn:
         rows = conn.execute(sql).fetchall()
     return [_row_to_dict(row) for row in rows]

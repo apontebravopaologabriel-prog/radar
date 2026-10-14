@@ -119,3 +119,16 @@ def test_years_only_fully_count_when_related_to_the_offer_skills(job):
                 "bullets": ["Reportes en Excel"], "skills": []}]
     item = _years_item(job, related)
     assert item["status"] == "cubierto" and item["blocker"] is False
+
+
+def test_applied_jobs_list_follows_application_status(job):
+    from radar.db.queries import list_applied_jobs
+    from radar.db.repository import track_application
+
+    assert list_applied_jobs() == []
+    track_application(job, "saved")
+    assert list_applied_jobs() == []
+    track_application(job, "applied")
+    assert [row["id"] for row in list_applied_jobs()] == [job]
+    track_application(job, "rejected")
+    assert list_applied_jobs() == []

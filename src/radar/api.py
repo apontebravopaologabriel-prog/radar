@@ -23,6 +23,7 @@ from radar.auth import router as auth_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
 from radar.db.queries import (
     get_profile,
+    list_applied_jobs,
     list_favorite_jobs,
     list_hidden_jobs,
     list_jobs,
@@ -277,6 +278,12 @@ def hidden_jobs() -> dict[str, Any]:
 @app.get("/api/jobs/favorites")
 def favorite_jobs() -> dict[str, Any]:
     rows = list_favorite_jobs()
+    return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
+
+
+@app.get("/api/jobs/applied")
+def applied_jobs() -> dict[str, Any]:
+    rows = list_applied_jobs()
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
 
 
