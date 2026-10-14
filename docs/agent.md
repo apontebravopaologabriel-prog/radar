@@ -37,11 +37,11 @@ available, so put heavy, rarely used tools in a group.
 | Profile, CV, memory | `get_my_profile`, `update_profile_fields`\*, `get_user_profile`, `get_my_cv`, `update_cv`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
 | Closure plan, CV studio and application packages | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* (legacy), `cv_doc_get`, `cv_doc_propose` (creates suggestions the person accepts in the Studio; nothing changes until then), `prepare_application`\* (exports the PDF/Word to the offer's folder; never submits), `list_application_packages` |
 | Tracking | `favorite_job`\*, `track_job_application`\*, `list_job_applications` |
-| Capture and system | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`. MCP only: `ingest_jobs`\*, `capture_market_history`\* |
-| Target CVs (MCP only) | `get_target_context`, `list_targets`, `save_target_profile`\*, `get_target_matrix`, `resolve_nearest_districts` |
+| Capture and system | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`. Not exposed to chat or MCP (CLI/onboarding only): `ingest_jobs`, `capture_market_history` |
+| Target CVs (MCP only, read-only) | `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts` |
 
-\* writes: the chat shows a card and runs it only after approval. `update_profile` (full replacement) exists
-only for MCP and onboarding; the app agent uses `update_profile_fields`.
+\* writes: the chat shows a card and runs it only after approval. `update_profile` (full replacement) and `save_target_profile` exist
+only for onboarding and the CLI; neither the chat nor the MCP server exposes them (the app agent uses `update_profile_fields`).
 
 Design decisions:
 

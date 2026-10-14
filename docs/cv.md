@@ -183,9 +183,10 @@ Settings → Profile and the agent edit the same data through `profile_edit.py`:
 ## MCP tools
 
 `list_targets()` (targets by proximity with base gap), `get_target_context(job_ids)` (max 10: requirements with
-evidence, base gap with `key` and status, real profile, distance), `save_target_profile(job_id, profile)`,
-`get_target_matrix()`, `resolve_nearest_districts(reference, limit=3)`. Code computes requirement status; the
-agent only assigns status to the rest, citing the real profile.
+evidence, base gap with `key` and status, real profile, distance), `get_target_matrix()`,
+`resolve_nearest_districts(reference, limit=3)`, all read-only. `save_target_profile(job_id, profile)` writes a hypothetical target CV but
+is **not exposed** to the chat or the MCP server (a write with no confirmation card); it remains in code for the CLI and a future confirmed flow.
+Code computes requirement status; the agent only assigns status to the rest, citing the real profile.
 
 ## Pending
 

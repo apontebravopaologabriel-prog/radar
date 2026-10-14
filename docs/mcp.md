@@ -2,7 +2,7 @@
 
 Radar works fully on its own with the integrated agent ([agent.md](agent.md)). The MCP server is an optional
 door for people who prefer an external agent (Claude Code, Antigravity, Hermes, any MCP client). It exposes
-the same registry (`src/radar/tools.py`, 62 tools, 20 write tools) over stdio (`radar-mcp`, FastMCP). Nothing
+the same registry the chat uses (`src/radar/tools.py`) over stdio (`radar-mcp`, FastMCP): 58 of its 62 tools (see "Same as the in-app agent?" below). Nothing
 is registered or exposed unless you configure a client.
 
 An external agent can combine Radar with other MCP servers (calendar, mail, notes); the integrated agent cannot.
@@ -59,17 +59,34 @@ Reload the client's MCP server after Radar gains tools.
 - **Prompts:** `configurar_radar`, `analizar_mercado`, `plan_de_aprendizaje`.
 - **Transport:** stdio by default (`RADAR_MCP_TRANSPORT`).
 
-## MCP-only tools worth knowing
+## Same as the in-app agent?
+
+Same registry and same functions, with these differences:
+
+| | In-app agent | MCP server |
+| --- | --- | --- |
+| Tools | 49 | **58**: the same 49 plus 9 read-only extras (`get_market_summary`, `list_recommended_jobs`, `get_job_history`, `get_skill_impact`, `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts`, `health`) |
+| Not exposed in either | `ingest_jobs`, `capture_market_history`, `update_profile`, `save_target_profile` (writes that skip the confirmation card; CLI and onboarding only) | |
+| Writes | Always a confirmation card; none in plan or read-only mode | **Run directly**, with no card. Only Radar's read-only setting (`agent_read_only`) blocks them, plus whatever approval the client asks for |
+| Tool loading | `cv`, `perfil`, `sistema` groups load on demand | All tools visible at once (heavier for the client's context) |
+| Rules and persona | System prompt, persona, memory, screen context, auto-compaction | None: the client needs the generated skill (`docs/skills/radar/SKILL.md`). The CV fact guard is code, so it holds for every client |
+| Extras | Studio panel, suggestions UI | Resources and prompts |
+
+Write tools exposed through MCP: `update_cv`, `update_profile_fields`, `close_gap`, `favorite_job`, `track_job_application`,
+`record_career_event`, `remember_user`, `set_career_track`, `create_career_pack`, `set_refresh_schedule`, `run_maintenance`,
+`set_score_weights`, `reclassify_jobs`, `refresh_market`, `build_cv`, `prepare_application`. Turn on Radar's read-only mode, or make the
+client ask before each call, when connecting an agent you do not fully trust. `cv_doc_propose` creates suggestions, not changes: the
+person accepts them in the Studio.
+
+## Tools worth knowing
 
 | Tool | Notes |
 | --- | --- |
 | `health()` | Availability check; changes nothing |
-| `ingest_jobs(source, query, location="Lima", limit=25, max_age_days=14)` | Fetch, classify, deduplicate and save only dated, recent offers. Operational limit 100 |
 | `get_market_summary()` | Active total, primary areas, frequent skills |
 | `list_recommended_jobs(limit=10, max_age_days=14)` | Active, dated, within range, with link, date, mode, sector, salary, hours; needs a profile. LinkedIn offers additionally need `application_status=open` and a recent check |
 | `get_job_history(job_id, limit=20)` | Time series of one offer |
-| `capture_market_history(snapshot_date=null)` | Store market metrics |
-| `list_targets()`, `get_target_context(job_ids)`, `save_target_profile(job_id, profile)`, `get_target_matrix()`, `resolve_nearest_districts(reference, limit=3)` | Target CV workflow: [cv.md](cv.md#mcp-tools) |
+| `list_targets()`, `get_target_context(job_ids)`, `get_target_matrix()`, `resolve_nearest_districts(reference, limit=3)` | Read-only target CV data: [cv.md](cv.md#mcp-tools) |
 
 `search_saved_jobs(limit, seniority, area, max_age_days=14, search, sector, exclude_sector)` excludes hidden
 offers and returns a description excerpt. `run_readonly_sql` accepts only a single `SELECT`/`WITH` (max 50 rows).
