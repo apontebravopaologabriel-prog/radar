@@ -306,11 +306,17 @@ class ChatRequest(BaseModel):
     last_prompt_tokens: int = Field(default=0, ge=0, le=5_000_000)
 
 
+MAX_MESSAGE_CHARS = 60_000
+MAX_HISTORY_CHARS = 600_000
+
+
 def _valid_history(messages: list[dict[str, Any]]) -> bool:
-    return all(
-        m.get("role") in {"user", "assistant", "tool"} and isinstance(m.get("content", ""), (str, type(None)))
-        for m in messages
-    )
+    """Solo roles de conversación (nunca `system`), contenido de texto y un tope de tamaño: sin él, un historial enorme
+    gastaría el tope mensual de tokens en una sola llamada."""
+    if not all(m.get("role") in {"user", "assistant", "tool"} and isinstance(m.get("content", ""), (str, type(None))) for m in messages):
+        return False
+    sizes = [len(m.get("content") or "") for m in messages]
+    return max(sizes, default=0) <= MAX_MESSAGE_CHARS and sum(sizes) <= MAX_HISTORY_CHARS
 
 
 @router.post("/chat")

@@ -1,7 +1,9 @@
 # Roadmap and status
 
 Updated 2026-10-14. Single source of status; completed designs are not kept as separate plans. The code is
-**v0.9.0** (v0.8.0 was the base; "Done since v0.8" lists what landed after it).
+**v1.0.0**, released by the author's decision **before** several of the gates below were met (no Windows VM validation, no
+peer pilot, no schema migrations, no native Computrabajo adapter, no CV import, no code signing). Those items stay open and
+are the plan for **1.0.x**; [KNOWN-ISSUES.md](../KNOWN-ISSUES.md) says so to users.
 
 ## Direction
 
@@ -28,7 +30,7 @@ L = several weeks (one person, part time). The CV items are detailed in [design-
 | # | Item | Why it ranks here | Effort |
 | --- | --- | --- | --- |
 | 1 | ~~CV Studio spike~~ **done:** `pypdfium2` renders a page in ~70 ms and has a 3.9 MB Windows wheel; the hit map comes from the PDF writer | Retired the one technical unknown | done |
-| 2 | ~~Application packages~~ **done:** folder per application, professional filename, offer snapshot, archived versions, open folder, copy path, mark as sent. Pending: a global Postulaciones list view | Fixes "I lose track of PDFs per job" | mostly done |
+| 2 | ~~Application packages~~ **done:** folder per application, professional filename, offer snapshot, archived versions, open folder, copy path, mark as sent. Postulaciones view **done** in 1.0.0 (tray tab ✓ and full view, undo) | Fixes "I lose track of PDFs per job" | mostly done |
 | 3 | ~~CV document model + templates~~ **done** (two templates, photo, PDF exact, Word approximate). Pending: a template rebuilt from your current CV (needs your PDF or a screenshot) | The foundation of the editor and of "no Word in the loop" | mostly done |
 | 4 | ~~CV Studio UI~~ **done** inside the CVs view (tab `Estudio`) | The "editor inside Radar" experience | done |
 | 5 | ~~Agent panel in the Studio~~ **done:** suggestions, fact guard, accept/reject, four tools, pinned panel. Pending: real-provider evaluation of edit requests | Edit by asking, without ever inventing a fact | done |
@@ -41,8 +43,8 @@ L = several weeks (one person, part time). The CV items are detailed in [design-
 
 | # | Item | Effort |
 | --- | --- | --- |
-| 10 | `docs/data-sources.md` (terms, limits, attribution per source) and the privacy statement | S |
-| 11 | `npm audit` high findings, code signing, CHANGELOG, `radar doctor`, `KNOWN-ISSUES.md` | S–M |
+| 10 | ~~`docs/data-sources.md` and the privacy statement~~ **done** in 1.0.0 (the installer still needs to show the privacy statement) | done |
+| 11 | `npm audit` high findings, code signing, ~~CHANGELOG~~, `radar doctor`, ~~`KNOWN-ISSUES.md`~~ (changelog and known issues done) | S–M |
 | 12 | Third career pack, picked with peers; all packs pass validation on 10+ labeled titles | M |
 | 13 | Incremental classification (repair-data from ~2 min to seconds) and the compaction retention eval | M |
 | 14 | Split `RadarClient.tsx` enough to stop being a risk; backup/restore and export in the UI | M |

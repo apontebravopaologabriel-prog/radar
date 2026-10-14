@@ -7,6 +7,11 @@ const SAFE_LINK = /^(https?:\/\/|mailto:)/i;
 const JOB_LINK = /^radar:job:([\w-]{6,64})$/;
 export const OPEN_JOB_EVENT = "radar:open-job";
 
+/** Destino real del enlace al pasar el mouse: el texto del enlace puede decir una cosa y apuntar a otra. */
+function linkHost(href: string): string {
+  try { return new URL(href).host || href; } catch { return href; }
+}
+
 function inline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
   const pattern = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*|__[^_\n]+__)|(\[[^\]\n]+\]\([^)\s]+\))|(\*[^*\n]+\*|_[^_\n]+_)/;
@@ -28,13 +33,13 @@ function inline(text: string, keyBase: string): ReactNode[] {
       const jobId = JOB_LINK.exec(href ?? "")?.[1];
       if (jobId) out.push(<a key={key} href="#" className="md-job-link" title="Abrir en el mapa" onClick={(event) => { event.preventDefault(); window.dispatchEvent(new CustomEvent(OPEN_JOB_EVENT, { detail: { id: jobId } })); }}>{label}</a>);
       else out.push(SAFE_LINK.test(href ?? "")
-        ? <a key={key} href={href} target="_blank" rel="noopener noreferrer">{label}</a>
+        ? <a key={key} href={href} target="_blank" rel="noopener noreferrer" title={linkHost(href)}>{label}</a>
         : <span key={key}>{label}</span>);
     } else if (useBareUrl) {
       // Las respuestas suelen devolver la URL desnuda. Separa puntuación final.
       const trailing = /[.,!?;:]+$/.exec(token)?.[0] ?? "";
       const href = trailing ? token.slice(0, -trailing.length) : token;
-      out.push(<a key={key} href={href} target="_blank" rel="noopener noreferrer">{href}</a>);
+      out.push(<a key={key} href={href} target="_blank" rel="noopener noreferrer" title={linkHost(href)}>{href}</a>);
       if (trailing) out.push(trailing);
     } else out.push(<em key={key}>{inline(token.slice(1, -1), key)}</em>);
     rest = rest.slice(match.index + token.length);

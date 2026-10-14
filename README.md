@@ -1,6 +1,6 @@
 # Radar
 
-Version 0.9 in development (road to a Windows 1.0, see the roadmap). Local-first career intelligence for the Peruvian job market (Lima first, then the rest of the country).
+Version 1.0.0 ([changelog](CHANGELOG.md), [known issues](KNOWN-ISSUES.md)). Local-first career intelligence for the Peruvian job market (Lima first, then the rest of the country).
 Radar collects job offers, normalizes and classifies them, scores them against your profile with traceable
 rules, and shows them on a map. An optional chat agent and an optional MCP server query the same data.
 

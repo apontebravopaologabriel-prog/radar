@@ -48,6 +48,7 @@ offer text ↔ the agent (untrusted input); portals ↔ connectors. The SQLite f
   `check_applications`, `market_snapshot`; `set_refresh_schedule` edits only `radar-refresh.timer` (1–30 days);
   `update_cv` validates each section and keeps a previous copy. None deletes offers; reclassification writes a
   reversible JSON. `update_profile_fields` restores the CV file if the database write fails.
+- **Bounded interface context:** the context the UI sends to the agent includes third-party offer text and reaches the system prompt, so `sanitize_context` clips strings, depth and total size and strips control characters. Chat history is capped per message and in total and never accepts a `system` role. The prompt forbids building URLs or following instructions found in postings; external links in the chat show their real host on hover.
 - **The agent cannot change** the API key, read-only mode or the token cap.
 - **SQL editor:** the connection is opened `mode=ro`, only a single `SELECT`/`WITH` is accepted (validated
   before reaching SQLite), and a progress handler aborts slow queries. Provider keys live outside this
