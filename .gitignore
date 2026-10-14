@@ -18,3 +18,4 @@ backups/
 frontend/tsconfig.tsbuildinfo
 frontend/out/
 dist-installer/
+frontend/public/maplibre/

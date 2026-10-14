@@ -192,6 +192,7 @@ export default function MapView(props: MapViewProps) {
   useEffect(() => {
     if (webglAvailable !== true) return;
     if (!containerRef.current) return;
+    maplibregl.setWorkerUrl(`${window.location.origin}/maplibre/maplibre-gl-worker.mjs`); // ver scripts/copy-maplibre-worker.mjs
     const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17, fadeDuration: 0, renderWorldCopies: false, maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2) });
     mapRef.current = map;
     const setMoving = (moving: boolean) => document.body.classList.toggle("is-map-moving", moving);

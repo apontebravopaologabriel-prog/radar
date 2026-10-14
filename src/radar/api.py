@@ -83,6 +83,10 @@ if FRONTEND_OUT.exists():
     if next_dir.exists():
         app.mount("/_next", StaticFiles(directory=str(next_dir)), name="next_static")
 
+    maplibre_dir = FRONTEND_OUT / "maplibre"  # worker de MapLibre (ver frontend/scripts/copy-maplibre-worker.mjs)
+    if maplibre_dir.exists():
+        app.mount("/maplibre", StaticFiles(directory=str(maplibre_dir)), name="maplibre_worker")
+
     @app.get("/radar", include_in_schema=False)
     @app.get("/radar/", include_in_schema=False)
     def serve_radar_ui():

@@ -1,9 +1,10 @@
 {
   "name": "radar-frontend",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/copy-maplibre-worker.mjs && next dev",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2 — 2026-10-14
+
+### Fixed
+- **Blank map in 1.0.1** (and only 1.0.1): MapLibre 6 loads its worker as a separate module that the static export did
+  not resolve ("Worker failed to load"). The worker is now copied to `public/maplibre/` at build time
+  (`frontend/scripts/copy-maplibre-worker.mjs`), served by the API at `/maplibre` and set with `setWorkerUrl`.
+  **Do not use the 1.0.1 installer.**
+
+
 ## 1.0.1 — 2026-10-14
 
 ### Security

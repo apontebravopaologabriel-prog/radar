@@ -1,7 +1,7 @@
 # Roadmap and status
 
 Updated 2026-10-14. Single source of status; completed designs are not kept as separate plans. The code is
-**v1.0.1**, released by the author's decision **before** several of the gates below were met (no Windows VM validation, no
+**v1.0.2**, released by the author's decision **before** several of the gates below were met (no Windows VM validation, no
 peer pilot, no schema migrations, no native Computrabajo adapter, no CV import, no code signing). Those items stay open and
 are the plan for **1.0.x**; [KNOWN-ISSUES.md](../KNOWN-ISSUES.md) says so to users.
 

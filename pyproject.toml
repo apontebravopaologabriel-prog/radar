@@ -1,6 +1,6 @@
 [project]
 name = "radar-career-intelligence"
-version = "1.0.1"
+version = "1.0.2"
 description = "Career Intelligence para ofertas de Ingeniería Industrial en Perú"
 requires-python = ">=3.11"
 dependencies = [

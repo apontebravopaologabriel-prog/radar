@@ -1,4 +1,4 @@
-# Known issues in 1.0.1
+# Known issues in 1.0.2
 
 Honest list of what is not done or not verified. The release plan in [docs/roadmap.md](docs/roadmap.md) had more gates
 than this version meets; they are listed here so nobody finds out the hard way.
