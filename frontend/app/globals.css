@@ -1100,3 +1100,10 @@ html[data-perf="lite"] .job-card, html[data-perf="lite"] .offer-scroll-card { an
 /* Acceso directo al Estudio de CV desde el detalle de una oferta. */
 .studio-link { display: inline-block; margin: 0 0 6px; padding: 3px 8px; border: 1px solid #5a5a5a; border-radius: 0; background: #151515; color: #d4d4d4; font: inherit; font-size: 10.5px; letter-spacing: .03em; cursor: pointer; }
 .studio-link:hover { border-color: #eeeeee; color: #ffffff; }
+
+/* Acciones del detalle de oferta: iconos mínimos junto al ojo y la X. */
+.popover-icon { position: absolute; top: 7px; display: grid; width: 22px; height: 22px; place-items: center; padding: 0; border: 1px solid #5d5d5d; border-radius: 0; color: #a0a0a0; background: transparent; cursor: pointer; }
+.popover-icon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.popover-icon:hover:not(:disabled) { border-color: #dedede; color: #ffffff; }
+.popover-icon.is-done, .popover-icon:disabled { border-color: #dedede; color: #ffffff; background: #2a2a2a; cursor: default; }
+.job-popover .job-area { display: block; padding-right: 130px; }

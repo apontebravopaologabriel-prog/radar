@@ -669,6 +669,10 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     return () => { window.removeEventListener("mousemove", onMove); window.clearTimeout(timer); document.documentElement.classList.remove("radar-rail-peek"); };
   }, []);
 
+  useEffect(() => {
+    fetchAppliedJobs().then((list) => setAppliedJobIds(new Set(list.map((job) => job.id)))).catch(() => undefined);
+  }, []);
+
   async function markApplied(jobId: string) {
     try {
       await updateApplication(jobId, "applied");
@@ -908,8 +912,8 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                 {selectedJob && <article className={`job-popover ${expandedDescriptionId === selectedJob.id ? "is-description-expanded" : ""}`}>
                   {selectedJob.user_status !== "hidden" && <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => { setHideReasonFor(selectedJob.id); setHideReason(""); }}><IconEyeOff /></button>}
                   <button className="close-button" onClick={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }} aria-label="Cerrar detalle" type="button">×</button>
-                  <button className="studio-link" type="button" onClick={() => { setStudioJobId(selectedJob.id); selectView("cvs"); }} title="Prepara tu CV para esta oferta en el Estudio">Estudio de CV →</button>
-                  <button className="studio-link" type="button" disabled={appliedJobIds.has(selectedJob.id)} onClick={() => void markApplied(selectedJob.id)} title="Registra que ya postulaste en el portal (Radar no envía nada)">{appliedJobIds.has(selectedJob.id) ? "Postulación registrada ✓" : "Ya postulé"}</button>
+                  <button className="popover-icon" style={{ right: 98 }} type="button" onClick={() => { setStudioJobId(selectedJob.id); selectView("cvs"); }} aria-label="Estudio de CV" title="Estudio de CV: prepara tu CV para esta oferta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19l-4 1zM14 7l3 3" /></svg></button>
+                  <button className={`popover-icon ${appliedJobIds.has(selectedJob.id) ? "is-done" : ""}`} style={{ right: 68 }} type="button" disabled={appliedJobIds.has(selectedJob.id)} onClick={() => void markApplied(selectedJob.id)} aria-label={appliedJobIds.has(selectedJob.id) ? "Postulación registrada" : "Ya postulé"} title={appliedJobIds.has(selectedJob.id) ? "Postulación registrada" : "Ya postulé (solo lo registra; Radar no envía nada)"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></button>
                   <span className="job-area">{selectedJob.primary_area || "Sin área"}<span className="job-source"> · {sourceName(selectedJob.url)}</span></span>
                   <h3>{selectedJob.url ? <a className="job-popover-title" href={selectedJob.url} target="_blank" rel="noreferrer">{selectedJob.title}</a> : selectedJob.title}</h3>
                   <p className="popover-company">
