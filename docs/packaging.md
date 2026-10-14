@@ -24,7 +24,7 @@ User data locations come from `radar.paths` (`platformdirs`): database, CV files
 ## Build locally
 
 ```bash
-cd frontend && npm ci && npm run build && cd ..
+cd frontend && npm ci && npm run build && cd ..   # build copies the MapLibre worker to out/maplibre (needed by the map)
 pip install -e '.[desktop,jobspy]'
 pyinstaller packaging/radar.spec --noconfirm        # -> dist/Radar/
 RADAR_DB_PATH=/tmp/radar-smoke/radar.db dist/Radar/Radar --smoke

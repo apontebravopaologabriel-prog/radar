@@ -21,8 +21,9 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 | Area | What it does |
 | --- | --- |
 | Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), hidden offers, `Analysis` (read-only SQL with charts) and `CVs` (gap analysis) |
+| Postulaciones | ✓ in the offer detail records "applied" (undoable); tray tab and full view by status with notes, files per application and follow-up nudges. Radar only records |
 | Mobile PWA `/m` | `Today` feed, `Map`, `Pipeline` (saved → applied → interview → offer), `Agent`, `Settings`, offline last feed |
-| Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval. See [docs/agent.md](docs/agent.md) |
+| Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval; offers in its answers link to the map detail. See [docs/agent.md](docs/agent.md) |
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
 | Target CVs and CV Studio | Hypothetical ideal candidate per ★ offer, gap matrix, closure plan; **Studio**: your real CV as pages with the agent beside it, suggestions you accept, PDF/Word export into one folder per application. See [docs/cv.md](docs/cv.md) |
 | Refresh | Weekly systemd timer pulls Indeed, LinkedIn (JobSpy) and Computrabajo (MCP adapter). See [docs/operations.md](docs/operations.md) |

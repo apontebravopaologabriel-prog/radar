@@ -63,6 +63,14 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
 - Performance: list endpoints use an index on `job_sources(job_id, last_seen_at)`, selective gzip (not for
   `/api/chat`), `slim` listings without descriptions (fetched on open via `/api/jobs/{id}/description`),
   a sliding-window offer list, and MapLibre loaded on demand.
+- Offer tray views: active, favorites (`/api/jobs/favorites`), applied (`/api/jobs/applied`) and archive
+  (`/api/jobs/hidden`); `GET /api/jobs/{id}` returns one offer (used when the chat opens an offer that is not in the
+  current lists). Tracking: `GET/PUT/DELETE /api/applications[/{job_id}]` (`DELETE` removes only your tracking record).
+  `ApplicationsView.tsx` is the full Postulaciones view; the chat opens offers through the `radar:open-job` window event
+  (`Markdown.tsx` -> `RadarClient.tsx`).
+- MapLibre 6 loads its worker as a separate module: `frontend/scripts/copy-maplibre-worker.mjs` (the `prebuild` step)
+  copies it to `public/maplibre/`, the API serves it at `/maplibre` and `MapView.tsx` calls `setWorkerUrl`. Without it the
+  map stays blank ("Worker failed to load").
 
 ### Performance budget
 

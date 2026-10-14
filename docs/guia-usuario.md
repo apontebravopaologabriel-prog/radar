@@ -19,11 +19,16 @@ unos minutos y trae ofertas recientes. Cada semana se actualiza solo mientras Ra
 ## Qué puedes hacer
 
 - **Mapa:** ofertas por distrito y a 2, 5 o 10 km de un distrito (`Radar`). Marca con ★ las que te interesen.
+- **Postulaciones:** en el detalle de una oferta, el ✓ registra que ya postulaste (púlsalo otra vez si fue un error).
+  La pestaña ✓ de la bandeja de ofertas lista las que ya postulaste, y el botón ✓ de la barra izquierda abre la vista
+  completa por estado (Postulé, Entrevista, Oferta, Descartadas, Guardadas), con tus notas, los archivos de cada carpeta
+  de postulación y un aviso si llevas 7 días o más sin novedad. Radar solo registra: la postulación la haces tú en el portal.
 - **Análisis:** preguntas sobre el mercado (skills más pedidas, salarios, empresas) con tablas y gráficos.
 - **CVs:** para cada oferta con ★ ves qué te falta, un plan para cerrarlo y puedes generar tu CV real en Word y PDF.
   Los candidatos ideales son *hipotéticos* y nunca se exportan.
 - **Agente (opcional):** un asistente de chat que usa tu propia clave de API (DeepSeek, OpenAI, OpenRouter u Ollama).
-  Está apagado por defecto. Todo lo que cambie datos te pide confirmación. Nunca postula ni envía mensajes.
+  En sus respuestas, el puesto de cada oferta es un enlace: al pulsarlo se abre esa oferta en el detalle del mapa, y
+  «portal ↗» va a la publicación original. Está apagado por defecto. Todo lo que cambie datos te pide confirmación. Nunca postula ni envía mensajes.
 
 ## Conectar tu asistente de IA (Claude, Cursor, Gemini)
 
@@ -49,5 +54,7 @@ hacerlo a mano, copia la configuración que se muestra.
 
 - **No aparecen ofertas:** pulsa *Actualizar mercado ahora* y espera unos minutos; revisa tu conexión.
 - **Un portal falla:** Radar sigue con los demás; el resultado final indica qué paso falló.
+- **El mapa sale en blanco:** recarga la ventana (Ctrl+R). Si sigue igual, cierra y abre Radar; si persiste, revisa que tu
+  navegador tenga WebGL2 y mira `docs/troubleshooting.md`.
 - **El agente no responde:** revisa en Ajustes → Agente que esté activado, que la clave sea válida y que no hayas llegado al tope mensual.
 - **Respaldo:** `radar-cli backup` guarda una copia consistente en la carpeta `backups` de tus datos.

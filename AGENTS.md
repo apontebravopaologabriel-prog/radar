@@ -37,6 +37,7 @@ Backend (`src/radar/`):
 Frontend (`frontend/`):
 
 - `components/RadarClient.tsx`: state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx`, `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
+- `components/ApplicationsView.tsx` (+ `applications.css`): the Postulaciones view. `scripts/copy-maplibre-worker.mjs` (npm `prebuild`) copies the MapLibre 6 worker to `public/maplibre/`, served at `/maplibre`; without it the map is blank. Chat links `radar:job:<id>` open an offer through the `radar:open-job` event (`agent/Markdown.tsx`).
 - `components/agent/`: shared chat (`useAgentChat`, `AgentChatPanel`) and the desktop window (`AgentDock`, mounted in `app/radar/page.tsx`). Two modes: floating window and panel pinned right (`--agent-dock-w`, container `.radar-stage`). It exists only when the agent is enabled; do not reintroduce a permanent button when it is off (only the link to `/ajustes` remains). `commands.ts` holds the `/` commands (`local` ones use the API and spend no tokens; add one = one entry in `COMMANDS`). `Markdown.tsx` is the safe renderer (no raw HTML, only http/https/mailto links). `RadarMark.tsx` is the agent symbol.
 - `components/CvStudio.tsx` (+ `cv-studio.css`, `lib/cv-studio-api.ts`): the Studio tab; it asks the agent dock to pin itself (`radar:agent-layout` event) and publishes `cvStudio` in the agent context.
 - `components/mobile/` and `app/m/`: the PWA at `/m`. `public/` holds manifest and service worker.

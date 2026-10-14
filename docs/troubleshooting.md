@@ -22,6 +22,7 @@
 
 | Symptom | Cause and fix |
 | --- | --- |
+| Map is blank but the offer list loads | Console says `Worker failed to load`: the MapLibre worker is missing. Rebuild (`cd frontend && npm run build` runs the `prebuild` copy to `public/maplibre/`), then restart the API (it mounts `/maplibre` at start) and check that `http://127.0.0.1:8100/maplibre/maplibre-gl-worker.mjs` answers 200 |
 | Map shows a WebGL error | MapLibre needs WebGL2. The frontend switches to `LeafletMapView` automatically; reload `/radar`. If it persists, check the browser console and `http://127.0.0.1:8100/api/health` |
 | Not opening as a Chromium app | The launcher must run Chromium with `--app`, not `xdg-open`. Validate with `desktop-file-validate ~/.local/share/applications/radar.desktop` and `gtk-launch radar`. Close a window left in another browser and relaunch. Logs: `~/.local/state/radar/` |
 | Interface does not load | FastAPI serves `frontend/out` on port 8100 (the launcher no longer uses the Next.js server). Rebuild with `cd frontend && npm run build`, check `frontend.log`, confirm `/radar` answers after `/api/health` |
