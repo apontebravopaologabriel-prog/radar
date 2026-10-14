@@ -210,6 +210,24 @@ The key is stored in `secrets.json` (`0600`), never in the database or the brows
 `deepseek-v4-pro`; `deepseek-v4-flash` is a legacy alias shown only if already stored. UI and commands:
 [agent.md](agent.md).
 
+## What to back up, and where
+
+Everything personal lives outside the repository (and must stay out), in the data folder (`~/.local/share/radar/`,
+`%LOCALAPPDATA%\radar` on Windows):
+
+| Item | Back it up? |
+| --- | --- |
+| `radar.db` (offers, profile, applications, conversations, memory) | Yes, **as a snapshot from `radar backup`**, never the live file with its `-wal`/`-shm` |
+| `cv_master.json`, `photo.jpg`, `targets/`, `cvs/`, `careers/` | Yes (your real CV and generated files) |
+| `secrets.json` (provider keys) | **No.** Keys are re-enterable; keeping them out of copies avoids leaking them |
+| `backups/`, old `*.bak*` copies | These are the copies, not originals; prune the old manual ones |
+
+`radar backup` (also the last step of every refresh) writes a consistent copy to `backups/` and keeps the last 5. That
+folder is on the **same disk**, so it protects against mistakes, not against losing the machine. For a real backup copy
+`backups/` plus the CV files to another place: an external drive, or a cloud folder through an encrypted remote
+(`rclone` with a `crypt` remote) because the data is personal. A mirror of `~/Documents` does not include this folder. The
+installer's uninstaller never deletes the data folder. A backup/restore screen and a JSON/CSV export are planned for v1.0.
+
 ## Verification
 
 ```bash
