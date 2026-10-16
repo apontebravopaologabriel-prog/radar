@@ -218,7 +218,7 @@ def _photo_for(doc: dict[str, Any]):
 
 
 def _final(doc: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    selection, wanted = cv_build.select_full(doc["job_id"])
+    selection, wanted = cv_build.select_full(doc["job_id"], pages_budget=doc.get("pages"))
     final, stale = apply_ops(selection, doc["ops"], wanted)
     if doc["pages"]:
         final["pages_budget"] = doc["pages"]

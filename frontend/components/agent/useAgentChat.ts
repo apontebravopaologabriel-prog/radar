@@ -214,6 +214,9 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     if (approve && always) alwaysAllow.current.add(action.name);
     try {
       const res = await api.confirm({ tool_call_id: action.id, name: action.name, arguments: action.arguments, approve });
+      if (approve && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: action.name, arguments: action.arguments } }));
+      }
       const rest = pending.filter((p) => p.id !== action.id);
       setPending(rest);
       setLines((p) => [...p, { kind: "tool", text: `${approve ? "Aprobaste" : "Rechazaste"}${always ? " (siempre en esta sesión)" : ""}: ${action.name}` }]);
@@ -229,6 +232,9 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
       try {
         for (const action of actions) {
           const res = await api.confirm({ tool_call_id: action.id, name: action.name, arguments: action.arguments, approve: true });
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: action.name, arguments: action.arguments } }));
+          }
           next = [...next, res.message];
           setLines((p) => [...p, { kind: "tool", text: `Aprobada automáticamente: ${action.name}` }]);
         }

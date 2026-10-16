@@ -23,7 +23,7 @@ from radar.normalize import normalize_text
 
 TEMPLATE = "ats-clasico-v1"
 FORMATS = ("docx", "pdf")
-CAPS = {1: {"bullets": 3, "projects": 2, "certs": 4}, 2: {"bullets": 5, "projects": 4, "certs": 8}}
+CAPS = {1: {"bullets": 3, "projects": 2, "certs": 4}, 2: {"bullets": 7, "projects": 4, "certs": 12}}
 MIN_CERTS = 2
 PDF_TIMEOUT = 90
 _ES_WORDS = {"de", "la", "el", "en", "y", "con", "para", "los", "las", "un", "una", "del", "experiencia", "buscamos"}
@@ -103,7 +103,7 @@ def select(job_id: str, profile: dict[str, Any] | None = None) -> dict[str, Any]
     return select_full(job_id, profile)[0]
 
 
-def select_full(job_id: str, profile: dict[str, Any] | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def select_full(job_id: str, profile: dict[str, Any] | None = None, pages_budget: int | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Como ``select`` pero devuelve también las skills pedidas por la oferta (las usa el estudio para recalcular la cobertura)."""
     profile = profile if profile is not None else cv_targets.load_profile()
     if not profile:
@@ -114,7 +114,7 @@ def select_full(job_id: str, profile: dict[str, Any] | None = None) -> tuple[dic
     items = cv_baseline.baseline(job_id, profile)
     wanted = _wanted(items)
     lang = detect_language(f"{job['title']} {job.get('description') or ''}")
-    pages = _pages_budget(profile, job)
+    pages = pages_budget if pages_budget in (1, 2, 3) else _pages_budget(profile, job)
     caps = CAPS[pages]
     omitted: list[dict[str, Any]] = []
 
@@ -170,10 +170,11 @@ def select_full(job_id: str, profile: dict[str, Any] | None = None) -> tuple[dic
         built = {"id": _item_id("cert", "certificado", cert.get("name") or ""), "title": cert.get("name") or "",
                  "detail": " · ".join(x for x in (cert.get("issuer"), _date(cert.get("date"), lang)) if x),
                  "score": score, "matched": matched}
-        if len(certs) < caps["certs"] and (score > 0 or len(certs) < MIN_CERTS):
+        max_unmatched = MIN_CERTS if caps["certs"] <= 4 else caps["certs"]
+        if len(certs) < caps["certs"] and (score > 0 or len(certs) < max_unmatched):
             certs.append(built)
         else:
-            leave_out(built["id"], "certifications", cert.get("name") or "", "No se relaciona con la oferta", item=built)
+            leave_out(built["id"], "certifications", cert.get("name") or "", "No se relaciona con la oferta" if score == 0 else "Fuera del presupuesto de página", item=built)
 
     education = [{"id": _item_id("edu", "formacion", f"{s.get('program')}|{s.get('institution')}"),
                   "title": f"{s.get('program')} — {s.get('institution')}",
@@ -183,13 +184,19 @@ def select_full(job_id: str, profile: dict[str, Any] | None = None) -> tuple[dic
     # Solo skills con evidencia (cubierto o parcial); las que faltan no se listan aunque la oferta las pida.
     skills = [w["label"] for w in sorted((w for w in wanted if w["status"] != "falta"),
                                          key=lambda w: (w["status"] != "cubierto", -w["weight"], w["label"]))]
+    missing_labels = {w["label"].lower() for w in wanted if w["status"] == "falta"}
+    for extra in ("SQL", "Python", "5S", "Lean manufacturing"):
+        if extra.lower() not in [s.lower() for s in skills] and extra.lower() not in missing_labels:
+            strong, _ = cv_baseline._evidence(extra, profile)
+            if strong:
+                skills.append(extra)
     languages = [f"{lang_.get('name')}" + (f" ({lang_.get('level')})" if lang_.get("level") else "") for lang_ in profile.get("languages", [])]
     contact = profile.get("contact") or {}
     header = {
         "name": profile.get("name") or "",
         "headline": profile.get("headline") or "",
         "contact": " · ".join(x for x in (contact.get("email"), contact.get("phone"), contact.get("linkedin"),
-                                          contact.get("location") or profile.get("home_district")) if x),
+                                          contact.get("github"), contact.get("location") or profile.get("home_district")) if x),
     }
     selection = {
         "job": {"id": job_id, "title": job["title"], "company": job["company"]}, "language": lang, "pages_budget": pages,

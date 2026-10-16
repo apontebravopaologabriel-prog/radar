@@ -25,6 +25,7 @@ export type Job = {
   user_status?: "visible" | "hidden";
   user_reason?: string | null;
   is_favorite?: boolean;
+  user_application?: string | null;
   distance_km?: number;
   latitude: number | null;
   longitude: number | null;

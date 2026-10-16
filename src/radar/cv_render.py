@@ -22,7 +22,7 @@ from radar.cv_pdf import _latin1, find_fonts
 PAGE_W, PAGE_H = 210.0, 297.0
 TEMPLATES = {
     "ats": {"label": "Sobria (una columna, sin foto)", "photo": False},
-    "sidebar": {"label": "Barra lateral con foto", "photo": True},
+    "sidebar": {"label": "Moderna ejecutiva con foto", "photo": True},
 }
 LABELS = {
     "es": {"contact": "Contacto", "skills": "Habilidades", "languages": "Idiomas", "education": "Formación",
@@ -180,57 +180,85 @@ def _render_sidebar(writer: _Writer, selection: dict[str, Any], labels: dict[str
                     warnings: list[str]) -> None:
     pdf = writer.pdf
     accent = (38, 70, 83)
-    pdf.set_fill_color(238, 241, 244)
-    pdf.rect(0, 0, SIDEBAR_W, PAGE_H, style="F")
-    pdf.set_auto_page_break(False)
-    pdf.set_left_margin(SIDEBAR_PAD)
-    pdf.set_right_margin(PAGE_W - SIDEBAR_W + SIDEBAR_PAD)
-    pdf.set_xy(SIDEBAR_PAD, 12)
-    inner = SIDEBAR_W - 2 * SIDEBAR_PAD
-    if photo is not None:
-        size = 36.0
-        x = (SIDEBAR_W - size) / 2
-        with pdf.elliptic_clip(x, 12, size, size):
-            pdf.image(_square_photo(photo), x=x, y=12, w=size, h=size)
-        pdf.set_y(12 + size + 6)
-
-    def fits(text: str, size: float) -> bool:
-        pdf.set_font(writer.family, "", size)
-        height = pdf.multi_cell(inner, size * 0.45, writer.clean(text), dry_run=True, output="HEIGHT")
-        return pdf.get_y() + height < PAGE_H - BOTTOM
-
-    def section(title: str, rows: list[tuple[str | None, str, str]]) -> None:
-        if not rows:
-            return
-        writer.line("B", 9.5, title.upper(), gap_before=3.0, gap_after=1.0, color=accent, width=inner)
-        for line_id, text, style in rows:
-            if not fits(text, 9):
-                warnings.append(f"La barra lateral no tiene espacio para «{text[:40]}»; se omitió en la página.")
-                return
-            writer.line(style, 9, text, line_id=line_id, gap_after=1.2, width=inner)
-
-    contact = [part.strip() for part in selection["header"]["contact"].split("·") if part.strip()]
-    section(labels["contact"], [(None, part, "") for part in contact])
-    section(labels["skills"], [(None, skill, "") for skill in selection["skills"]])
-    section(labels["languages"], [(None, language, "") for language in selection["languages"]])
-    section(labels["education"], [(item["id"], item["title"] + (f"\n{item['detail']}" if item["detail"] else ""), "") for item in selection["education"]])
-
-    pdf.set_auto_page_break(True, margin=BOTTOM)
-    pdf.set_left_margin(MAIN_LEFT)
-    pdf.set_right_margin(RIGHT)
-    pdf.set_xy(MAIN_LEFT, 14)
     header = selection["header"]
-    writer.line("B", 22, header["name"], line_id="name", gap_after=0.5, color=accent)
+    left_m = 16.0
+    right_m = 14.0
+    full_w = PAGE_W - left_m - right_m
+    pdf.set_margins(left_m, 14.0, right_m)
+    pdf.set_auto_page_break(True, margin=BOTTOM)
+    pdf.set_xy(left_m, 14.0)
+
+    photo_size = 32.0
+    text_w = full_w - photo_size - 6.0 if photo is not None else full_w
+
+    writer.line("B", 20, header["name"], line_id="name", gap_after=0.8, color=accent, width=text_w)
     if header["headline"]:
-        writer.line("", 11, header["headline"], line_id="headline", gap_after=1.5, color=(70, 70, 70))
-    _role_blocks(writer, selection, labels, accent)
-    if selection["certifications"]:
-        writer.line("B", 10.5, labels["certifications"].upper(), gap_before=3.5, gap_after=0.4, color=accent)
+        writer.line("", 10.5, header["headline"], line_id="headline", gap_after=2.0, color=(70, 70, 70), width=text_w)
+
+    contact_parts = [part.strip() for part in header["contact"].split("·") if part.strip()]
+    if contact_parts:
+        c1_parts = [p for p in contact_parts if not ("linkedin.com" in p or "github.com" in p)]
+        c2_parts = [p for p in contact_parts if "linkedin.com" in p or "github.com" in p]
+        if c1_parts:
+            writer.line("", 8.5, "  ·  ".join(c1_parts), gap_after=1.0, color=(80, 80, 80), width=text_w)
+        if c2_parts:
+            writer.line("", 8.5, "  ·  ".join(c2_parts), gap_after=2.0, color=(80, 80, 80), width=text_w)
+
+    if photo is not None:
+        x_photo = PAGE_W - right_m - photo_size
+        with pdf.elliptic_clip(x_photo, 14.0, photo_size, photo_size):
+            pdf.image(_square_photo(photo), x=x_photo, y=14.0, w=photo_size, h=photo_size)
+        pdf.set_y(max(pdf.get_y(), 14.0 + photo_size + 3.0))
+
+    writer.rule(accent)
+
+    def heading(text: str) -> None:
+        writer.line("B", 10.5, text.upper(), gap_before=3.0, gap_after=0.4, color=accent)
         writer.rule(accent)
-        for item in selection["certifications"]:
-            writer.line("B", 10, item["title"], line_id=item["id"], gap_before=1.0, gap_after=0.1)
-            if item["detail"]:
-                writer.line("I", 9, item["detail"], gap_after=0.5)
+
+    if selection["summary"]:
+        heading(labels["summary"])
+        writer.line("", 9.2, selection["summary"], line_id="summary", gap_after=1.5)
+
+    if selection["skills"]:
+        heading(labels["skills"])
+        writer.line("", 9.0, " • ".join(selection["skills"]), gap_after=1.5)
+
+    if selection["experience"]:
+        heading(labels["experience"])
+        for role in selection["experience"]:
+            writer.line("B", 10.0, role["title"], line_id=role["id"], gap_before=2.0, gap_after=0.2)
+            if role.get("detail"):
+                writer.line("I", 8.8, role["detail"], gap_after=0.6, color=(90, 90, 90))
+            for b in role["bullets"]:
+                writer.line("", 9.0, b["text"], line_id=b["id"], indent=3.0, bullet=True, gap_after=0.6)
+
+    if selection["projects"]:
+        heading(labels["projects"])
+        for project in selection["projects"]:
+            writer.line("B", 10.0, project["title"], line_id=project["id"], gap_before=2.0, gap_after=0.2)
+            if project.get("detail"):
+                writer.line("I", 8.8, project["detail"], gap_after=0.6, color=(90, 90, 90))
+            for b in project["bullets"]:
+                writer.line("", 9.0, b["text"], line_id=b["id"], indent=3.0, bullet=True, gap_after=0.6)
+
+    if selection["education"]:
+        heading(labels["education"])
+        for edu in selection["education"]:
+            writer.line("B", 9.8, edu["title"], line_id=edu["id"], gap_before=1.5, gap_after=0.2)
+            if edu.get("detail"):
+                writer.line("I", 8.8, edu["detail"], gap_after=0.6, color=(90, 90, 90))
+
+    if selection["certifications"]:
+        heading(labels["certifications"])
+        for cert in selection["certifications"]:
+            writer.line("B", 9.2, cert["title"], line_id=cert["id"], gap_before=1.2, gap_after=0.1)
+            if cert.get("detail"):
+                writer.line("I", 8.5, cert["detail"], gap_after=0.4, color=(90, 90, 90))
+
+    if selection["languages"]:
+        heading(labels["languages"])
+        writer.line("", 9.0, ", ".join(selection["languages"]), gap_after=1.0)
 
 
 def render(selection: dict[str, Any], template: str = "ats", photo: Path | None = None) -> Rendered:
@@ -246,7 +274,7 @@ def render(selection: dict[str, Any], template: str = "ats", photo: Path | None 
     warnings: list[str] = []
     pdf.set_auto_page_break(True, margin=BOTTOM)
     if template == "sidebar":
-        pdf.full_left, pdf.reset_after_first = MARGIN, True
+        pdf.full_left, pdf.reset_after_first = 16.0, False
         pdf.add_page()
         _render_sidebar(writer, selection, labels, photo if TEMPLATES[template]["photo"] else None, warnings)
     else:

@@ -3,15 +3,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApplications, removeApplication, updateApplication, type TrackedApplication } from "../lib/api";
 import { studioApi, type StudioPackage } from "../lib/cv-studio-api";
+import { OPEN_JOB_EVENT } from "./agent/Markdown";
 import "./applications.css";
 
-const TABS = [["applied", "Postulé"], ["interview", "Entrevista"], ["offer", "Oferta"], ["rejected", "Descartadas"], ["saved", "Guardadas"]] as const;
+const TABS = [
+  ["applied", "Postulé"],
+  ["interview", "Entrevista"],
+  ["offer", "Oferta"],
+  ["rejected", "Descartadas"],
+  ["saved", "Guardadas"],
+  ["all", "Todas"],
+] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  saved: "Guardada",
+  applied: "Postulé",
+  interview: "Entrevista",
+  offer: "Oferta",
+  rejected: "Descartada",
+  ignored: "Oculta",
+};
+
 const MOVES: Record<string, [string, string][]> = {
   saved: [["applied", "Ya postulé"]],
   applied: [["interview", "Me citaron"], ["rejected", "Descartar"]],
   interview: [["offer", "Recibí oferta"], ["rejected", "Descartar"]],
   offer: [["rejected", "Descartar"]],
-  rejected: [["saved", "Reabrir"]],
+  rejected: [["applied", "Reabrir postulación"], ["saved", "Mover a guardadas"]],
 };
 
 function daysSince(iso: string | null): number | null {
@@ -23,10 +41,34 @@ function formatDay(iso: string | null): string {
   return new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso.replace(" ", "T")));
 }
 
+function formatWorkMode(mode?: string | null): string | null {
+  if (mode === "remote") return "Remoto";
+  if (mode === "hybrid") return "Híbrido";
+  if (mode === "onsite") return "Presencial";
+  return null;
+}
+
+function formatAppSalary(item: TrackedApplication): string | null {
+  const min = item.salary_min ?? null;
+  const max = item.salary_max ?? null;
+  if (min === null && max === null) return null;
+  const symbol = item.salary_currency === "USD" ? "US$" : "S/";
+  if (min !== null && max !== null && min !== max) return `${symbol} ${Math.round(min)}–${Math.round(max)}`;
+  return `${symbol} ${Math.round(min ?? max ?? 0)}`;
+}
+
+function csvCell(value: unknown): string {
+  const str = String(value ?? "").replace(/"/g, '""');
+  return `"${str}"`;
+}
+
 export default function ApplicationsView({ onContextChange }: { onContextChange?: (count: number, status: string) => void }) {
   const [items, setItems] = useState<TrackedApplication[] | null>(null);
   const [packages, setPackages] = useState<Record<string, StudioPackage>>({});
   const [tab, setTab] = useState<string>("applied");
+  const [query, setQuery] = useState<string>("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -46,31 +88,128 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
     return () => controller.abort();
   }, [load]);
 
-  const counts = useMemo(() => Object.fromEntries(TABS.map(([status]) => [status, (items ?? []).filter((item) => item.status === status).length])), [items]);
-  const shown = useMemo(() => (items ?? []).filter((item) => item.status === tab).sort((a, b) => (b.applied_at ?? b.updated_at).localeCompare(a.applied_at ?? a.updated_at)), [items, tab]);
+  useEffect(() => {
+    const onChanged = () => { void load(); };
+    window.addEventListener("radar:jobs-changed", onChanged);
+    return () => window.removeEventListener("radar:jobs-changed", onChanged);
+  }, [load]);
+
+  const counts = useMemo(() => {
+    const list = items ?? [];
+    const byStatus = Object.fromEntries(TABS.map(([status]) => [status, status === "all" ? list.length : list.filter((item) => item.status === status).length]));
+    return byStatus;
+  }, [items]);
+
+  const shown = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return (items ?? [])
+      .filter((item) => (tab === "all" ? true : item.status === tab))
+      .filter((item) => {
+        if (!normalized) return true;
+        const haystack = [item.title, item.company, item.location, item.primary_area, item.notes].filter(Boolean).join(" ").toLowerCase();
+        return haystack.includes(normalized);
+      })
+      .sort((a, b) => (b.applied_at ?? b.updated_at).localeCompare(a.applied_at ?? a.updated_at));
+  }, [items, tab, query]);
 
   useEffect(() => { if (items) onContextChange?.(shown.length, tab); }, [items, shown.length, tab, onContextChange]);
 
+  function notifyJobsChanged(jobId: string, status: string) {
+    window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: "track_job_application", arguments: { job_id: jobId, status } } }));
+  }
+
   async function move(item: TrackedApplication, status: string) {
-    try { await updateApplication(item.job_id, status, item.notes); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo actualizar"); }
+    try {
+      await updateApplication(item.job_id, status, item.notes);
+      await load();
+      notifyJobsChanged(item.job_id, status);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No se pudo actualizar");
+    }
+  }
+
+  async function saveNote(item: TrackedApplication) {
+    const trimmed = noteDraft.trim();
+    setEditingNoteId(null);
+    try {
+      await updateApplication(item.job_id, item.status, trimmed || null);
+      await load();
+      notifyJobsChanged(item.job_id, item.status);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No se pudo guardar la nota");
+    }
   }
 
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   async function remove(item: TrackedApplication) {
     if (confirmRemove !== item.job_id) { setConfirmRemove(item.job_id); return; }
     setConfirmRemove(null);
-    try { await removeApplication(item.job_id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo quitar"); }
+    try {
+      await removeApplication(item.job_id);
+      await load();
+      notifyJobsChanged(item.job_id, "visible");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No se pudo quitar");
+    }
   }
 
   async function openFolder(jobId: string) {
     try { await studioApi.openFolder(jobId); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo abrir la carpeta"); }
   }
 
+  function openInMap(jobId: string) {
+    window.dispatchEvent(new CustomEvent(OPEN_JOB_EVENT, { detail: { id: jobId } }));
+  }
+
+  function exportCsv() {
+    const list = items ?? [];
+    if (list.length === 0) return;
+    const headers = ["Estado", "Puesto", "Empresa", "Área", "Ubicación", "Modalidad", "Salario", "Fecha postulación", "Última actualización", "Notas", "URL"];
+    const rows = list.map((item) => [
+      STATUS_LABELS[item.status] ?? item.status,
+      item.title ?? "",
+      item.company ?? "",
+      item.primary_area ?? "",
+      item.location ?? "",
+      formatWorkMode(item.work_mode) ?? "",
+      formatAppSalary(item) ?? "",
+      item.applied_at ?? "",
+      item.updated_at ?? "",
+      item.notes ?? "",
+      item.url ?? "",
+    ].map(csvCell).join(","));
+    const csv = "\uFEFF" + [headers.map(csvCell).join(","), ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `radar-postulaciones-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <section className="applications-view" aria-label="Postulaciones">
       <header className="applications-head">
-        <h2>Postulaciones</h2>
-        <p>Dónde postulaste y en qué va cada proceso. Radar solo registra: la postulación la haces tú en el portal.</p>
+        <div>
+          <h2>Postulaciones</h2>
+          <p>Dónde postulaste y en qué va cada proceso. Al marcar «✓ Postulé» en una oferta, sale de tu bandeja activa y pasa a este registro.</p>
+        </div>
+        <div className="applications-toolbar">
+          <input
+            type="search"
+            className="applications-search"
+            placeholder="Filtrar por puesto, empresa, área o nota…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Filtrar postulaciones"
+          />
+          <button type="button" className="applications-export" disabled={!items || items.length === 0} onClick={exportCsv} title="Exportar todas tus postulaciones a CSV compatible con Excel">
+            Exportar CSV
+          </button>
+        </div>
       </header>
       <div className="view-tabs applications-tabs" role="tablist" aria-label="Estado de la postulación">
         {TABS.map(([status, label]) => (
@@ -81,20 +220,66 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
       {!items && !error && <p className="applications-empty">Cargando…</p>}
       {items && shown.length === 0 && (
         <p className="applications-empty">
-          {tab === "applied" ? "Aún no registras postulaciones. Abre una oferta en el mapa y pulsa «Ya postulé», o prepara tu CV en el Estudio y pulsa «Ya la envié»." : "Sin ofertas en este estado."}
+          {query.trim()
+            ? "Ninguna postulación coincide con tu búsqueda."
+            : tab === "applied"
+              ? "Aún no registras postulaciones. Pulsa «✓» en cualquier tarjeta de oferta o en su detalle (tecla p) y pasará automáticamente aquí."
+              : "Sin ofertas en este estado."}
         </p>
       )}
       <ul className="applications-list">
         {shown.map((item) => {
           const pkg = packages[item.job_id];
           const waiting = item.status === "applied" ? daysSince(item.applied_at ?? item.updated_at) : null;
+          const workMode = formatWorkMode(item.work_mode);
+          const salary = formatAppSalary(item);
+          const metaParts = [
+            item.company ?? "Empresa sin nombre",
+            item.primary_area || null,
+            item.location || null,
+            workMode,
+            salary,
+            item.applied_at ? `postulé el ${formatDay(item.applied_at)}` : `actualizada el ${formatDay(item.updated_at)}`,
+          ].filter(Boolean);
+          const isEditingNote = editingNoteId === item.job_id;
           return (
             <li key={item.id} className="applications-row">
               <div className="applications-main">
-                <strong>{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a> : item.title}</strong>
-                <small>{item.company ?? "Empresa sin nombre"} · {item.applied_at ? `postulé el ${formatDay(item.applied_at)}` : `actualizada el ${formatDay(item.updated_at)}`}</small>
+                <div className="applications-title-row">
+                  {tab === "all" && <span className="applications-status-badge">{STATUS_LABELS[item.status] ?? item.status}</span>}
+                  <strong>{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title} ↗</a> : item.title}</strong>
+                </div>
+                <small>{metaParts.join(" · ")}</small>
                 {waiting !== null && waiting >= 7 && <small className="applications-nudge">Hace {waiting} días sin novedad: considera hacer seguimiento.</small>}
-                {item.notes && <small className="applications-notes">{item.notes}</small>}
+                {isEditingNote ? (
+                  <div className="applications-note-editor">
+                    <input
+                      type="text"
+                      value={noteDraft}
+                      placeholder="Ej. CV enviado por Bumeran, contacto RRHH, pretensión salarial…"
+                      onChange={(event) => setNoteDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") void saveNote(item);
+                        if (event.key === "Escape") setEditingNoteId(null);
+                      }}
+                      autoFocus
+                    />
+                    <button type="button" onClick={() => void saveNote(item)}>Guardar</button>
+                    <button type="button" onClick={() => setEditingNoteId(null)}>Cancelar</button>
+                  </div>
+                ) : (
+                  <div className="applications-note-row">
+                    {item.notes ? (
+                      <button type="button" className="applications-notes-btn" onClick={() => { setEditingNoteId(item.job_id); setNoteDraft(item.notes ?? ""); }} title="Editar nota">
+                        “{item.notes}”
+                      </button>
+                    ) : (
+                      <button type="button" className="applications-add-note" onClick={() => { setEditingNoteId(item.job_id); setNoteDraft(""); }}>
+                        + Nota
+                      </button>
+                    )}
+                  </div>
+                )}
                 {pkg && (
                   <small className="applications-files">
                     {pkg.files.filter((file) => file.exists !== false).map((file) => <a key={file.name} href={studioApi.fileUrl(item.job_id, file.name)} target="_blank" rel="noopener noreferrer">{file.name}</a>)}
@@ -103,8 +288,9 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
                 )}
               </div>
               <div className="applications-actions">
+                <button type="button" onClick={() => openInMap(item.job_id)} title="Abrir la ficha de esta oferta en el mapa">Ver ficha</button>
                 {(MOVES[item.status] ?? []).map(([status, label]) => <button key={status} type="button" onClick={() => void move(item, status)}>{label}</button>)}
-                <button type="button" className="applications-remove" title="Quita esta oferta del seguimiento (por ejemplo, si la marcaste por error). No borra la oferta." onClick={() => void remove(item)} onBlur={() => setConfirmRemove(null)}>{confirmRemove === item.job_id ? "¿Seguro?" : "Quitar"}</button>
+                <button type="button" className="applications-remove" title="Quita esta oferta del seguimiento y la devuelve a las ofertas activas. No borra la oferta." onClick={() => void remove(item)} onBlur={() => setConfirmRemove(null)}>{confirmRemove === item.job_id ? "¿Seguro?" : "Quitar"}</button>
               </div>
             </li>
           );

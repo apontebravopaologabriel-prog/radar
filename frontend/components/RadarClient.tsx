@@ -182,7 +182,7 @@ function distanceKm(from: { latitude: number; longitude: number }, to: { latitud
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const OfferSignalCard = memo(function OfferSignalCard({ job, selected, showHidden, onSelect, onToggleFavorite, onQuickHide, onRestore }: { job: Job; selected: boolean; showHidden: boolean; onSelect: (job: Job) => void; onToggleFavorite: (job: Job) => void; onQuickHide: (job: Job) => void; onRestore: (job: Job) => void }) {
+const OfferSignalCard = memo(function OfferSignalCard({ job, selected, showHidden, applied, onSelect, onToggleFavorite, onToggleApplied, onQuickHide, onRestore }: { job: Job; selected: boolean; showHidden: boolean; applied: boolean; onSelect: (job: Job) => void; onToggleFavorite: (job: Job) => void; onToggleApplied: (job: Job) => void; onQuickHide: (job: Job) => void; onRestore: (job: Job) => void }) {
   return (
     <article
       className={`offer-scroll-card ${selected ? "selected" : ""}`}
@@ -210,6 +210,7 @@ const OfferSignalCard = memo(function OfferSignalCard({ job, selected, showHidde
         <span className="offer-scroll-location">⌖ {job.district || job.location || "Ubicación pendiente"}{job.distance_km !== undefined ? ` · ${job.distance_km.toFixed(1)} km` : ""}<span className="offer-scroll-source"> · {sourceName(job.url)}</span></span>
         <span className="offer-scroll-actions">
           <CardAction className="favorite-toggle" label={job.is_favorite ? "Quitar de favoritos (f)" : "Añadir a favoritos (f)"} onAction={() => onToggleFavorite(job)}>{job.is_favorite ? "★" : "☆"}</CardAction>
+          <CardAction className={`card-action apply-toggle ${applied ? "is-done" : ""}`} label={applied ? "Quitar postulación (p)" : "Ya postulé · mover a Postulaciones (p)"} onAction={() => onToggleApplied(job)}>✓</CardAction>
           {showHidden
             ? <CardAction className="card-action restore" label="Restaurar oferta (r)" onAction={() => onRestore(job)}><IconUndo /></CardAction>
             : <CardAction className="card-action hide" label="Ocultar oferta (x)" onAction={() => onQuickHide(job)}><IconEyeOff /></CardAction>}
@@ -253,13 +254,14 @@ function CardAction({ label, className, onAction, children }: { label: string; c
   );
 }
 
-const JobCard = memo(function JobCard({ job, selected, showHidden, onSelect, onToggleFavorite, onQuickHide, onRestore }: { job: Job; selected: boolean; showHidden: boolean; onSelect: (job: Job) => void; onToggleFavorite: (job: Job) => void; onQuickHide: (job: Job) => void; onRestore: (job: Job) => void }) {
+const JobCard = memo(function JobCard({ job, selected, showHidden, applied, onSelect, onToggleFavorite, onToggleApplied, onQuickHide, onRestore }: { job: Job; selected: boolean; showHidden: boolean; applied: boolean; onSelect: (job: Job) => void; onToggleFavorite: (job: Job) => void; onToggleApplied: (job: Job) => void; onQuickHide: (job: Job) => void; onRestore: (job: Job) => void }) {
   return (
     <button className={`job-card ${selected ? "selected" : ""}`} onClick={() => onSelect(job)}>
       <div className="job-card-top">
         <span className="job-area" title={job.primary_area || "Sin área"}>{job.primary_area || "Sin área"}</span>
         <span className="job-date">{formatDate(job.published_at)}</span>
         <CardAction className="favorite-toggle" label={job.is_favorite ? "Quitar de favoritos" : "Añadir a favoritos"} onAction={() => onToggleFavorite(job)}>{job.is_favorite ? "★" : "☆"}</CardAction>
+        <CardAction className={`card-action apply-toggle ${applied ? "is-done" : ""}`} label={applied ? "Quitar postulación (p)" : "Ya postulé · mover a Postulaciones (p)"} onAction={() => onToggleApplied(job)}>✓</CardAction>
         {showHidden
           ? <CardAction className="card-action restore" label="Restaurar oferta (r)" onAction={() => onRestore(job)}><IconUndo /></CardAction>
           : <CardAction className="card-action hide" label="Ocultar oferta (x)" onAction={() => onQuickHide(job)}><IconEyeOff /></CardAction>}
@@ -364,19 +366,23 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     return () => controller.abort();
   }, [filtersOpen, filters, mode]);
 
+  const activeBaseJobs = useMemo(
+    () => jobs.filter((job) => !appliedJobIds.has(job.id) && !["applied", "interview", "offer", "rejected", "ignored"].includes(job.user_application || "")),
+    [appliedJobIds, jobs],
+  );
   const portalJobs = useMemo(() => {
     const requestedPortal = filters.source?.toLowerCase();
-    if (!requestedPortal) return jobs;
-    return jobs.filter((job) => sourceName(job.url).toLowerCase().includes(requestedPortal));
-  }, [filters.source, jobs]);
+    if (!requestedPortal) return activeBaseJobs;
+    return activeBaseJobs.filter((job) => sourceName(job.url).toLowerCase().includes(requestedPortal));
+  }, [activeBaseJobs, filters.source]);
   const portalCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const job of jobs) {
+    for (const job of activeBaseJobs) {
       const portal = sourceName(job.url).toLowerCase();
       counts[portal] = (counts[portal] || 0) + 1;
     }
     return counts;
-  }, [jobs]);
+  }, [activeBaseJobs]);
   const mappedCount = portalJobs.filter((job) => job.latitude !== null && job.longitude !== null).length;
   const districtStats = useMemo<DistrictSummary[]>(() => {
     const groups = new Map<string, DistrictSummary>();
@@ -473,6 +479,9 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       } else if (current && event.key === "f") {
         event.preventDefault();
         void toggleFavorite(current);
+      } else if (current && event.key === "p") {
+        event.preventDefault();
+        void setApplied(current.id, !appliedJobIds.has(current.id));
       } else if (current && event.key === "x" && !showHidden) {
         event.preventDefault();
         const next = listedJobs[index + 1] || listedJobs[index - 1];
@@ -567,6 +576,10 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       await updateJobStatus(target.id, "hidden", reason);
       setJobs((current) => current.filter((job) => job.id !== target.id));
       setHiddenJobs((current) => [{ ...target, user_status: "hidden", user_reason: reason }, ...current.filter((job) => job.id !== target.id)]);
+      if (reason === "applied") {
+        setAppliedJobIds((current) => { const next = new Set(current); next.add(target.id); return next; });
+        setAppliedJobs((current) => [{ ...target, user_application: "applied" }, ...current.filter((item) => item.id !== target.id)]);
+      }
       setHideReasonFor(null);
       setHideReason("");
       setSelectedId((current) => current === target.id ? null : current);
@@ -673,12 +686,31 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     fetchAppliedJobs().then((list) => setAppliedJobIds(new Set(list.map((job) => job.id)))).catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    function onJobsChanged() {
+      void fetchJobs(filters).then(setJobs).catch(() => undefined);
+      void fetchAppliedJobs().then((list) => {
+        setAppliedJobIds(new Set(list.map((job) => job.id)));
+        if (showApplied) setAppliedJobs(list);
+      }).catch(() => undefined);
+      if (showFavorites) void fetchFavoriteJobs().then(setFavoriteJobs).catch(() => undefined);
+      if (showHidden) void fetchHiddenJobs().then(setHiddenJobs).catch(() => undefined);
+    }
+    window.addEventListener("radar:jobs-changed", onJobsChanged);
+    return () => window.removeEventListener("radar:jobs-changed", onJobsChanged);
+  }, [filters, showApplied, showFavorites, showHidden]);
+
   async function setApplied(jobId: string, on: boolean, withUndo = true) {
     try {
       if (on) await updateApplication(jobId, "applied"); else await removeApplication(jobId);
       setAppliedJobIds((current) => { const next = new Set(current); if (on) next.add(jobId); else next.delete(jobId); return next; });
-      if (showApplied) setAppliedJobs(await fetchAppliedJobs());
-      notify(on ? "Postulación registrada" : "Postulación quitada", withUndo ? () => { void setApplied(jobId, !on, false); } : undefined);
+      setJobs((current) => current.map((item) => item.id === jobId ? { ...item, user_application: on ? "applied" : null } : item));
+      if (showApplied) {
+        setAppliedJobs(await fetchAppliedJobs());
+      } else if (on && !showFavorites && !showHidden && selectedId === jobId) {
+        setSelectedId(null);
+      }
+      notify(on ? "[ok] postulación registrada · movida a ✓ Postulaciones" : "[ok] postulación quitada · devuelta a activas", withUndo ? () => { void setApplied(jobId, !on, false); } : undefined);
     } catch {
       setStatusError(on ? "No se pudo registrar la postulación." : "No se pudo quitar la postulación.");
     }
@@ -817,8 +849,9 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : showApplied ? "Postuladas" : selectedSkill ? `Ofertas con ${selectedSkill}` : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && !showHidden && !showFavorites && !showApplied ? "…" : `${showHidden ? archivedJobs.length : showFavorites ? favoriteJobs.length : showApplied ? appliedJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "archivadas" : showFavorites ? "guardadas" : showApplied ? "postuladas" : "en mapa"}`}</span>{selectedSkill && !showHidden && !showFavorites && !showApplied && <button className="clear-skill-filter" type="button" onClick={() => setSelectedSkill(null)} aria-label="Quitar filtro de competencia" title="Quitar filtro de competencia">×</button>}</div></div>
           <div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites && !showApplied], ["favorites", "★ fav", showFavorites], ["applied", "✓ postulé", showApplied], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}>{view === "hidden" && <IconEyeOff />}{label}</button>)}</div>
           {showHidden && <div className="archive-filters" aria-label="Filtrar archivo por motivo">{ARCHIVE_FILTERS.map(([value, label]) => <button key={value} type="button" className={archiveReason === value ? "active" : ""} onClick={() => setArchiveReason(value)}>{label}</button>)}</div>}
+          {showApplied && <button type="button" className="applied-tray-link" onClick={() => selectView("applications")}>Abrir tablero de Postulaciones →</button>}
           {statusError && <div className="status-error">{statusError}</div>}
-          <div className="job-list" ref={containerRef}>{loading && !showHidden && !showFavorites && !showApplied && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && !showApplied && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "No hay ofertas con estos filtros."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
+          <div className="job-list" ref={containerRef}>{loading && !showHidden && !showFavorites && !showApplied && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && !showApplied && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "No hay ofertas con estos filtros."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} applied={appliedJobIds.has(job.id)} onSelect={selectJob} onToggleFavorite={toggleFavorite} onToggleApplied={(target) => void setApplied(target.id, !appliedJobIds.has(target.id))} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
         </aside>
 
         <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" || mode === "cvs" || mode === "applications" ? "analysis-mode-panel" : ""}`}>
@@ -850,6 +883,15 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
 
                   <div className="reading-actions">
                     {selectedJob.url && <a className="reading-apply-btn" href={selectedJob.url} target="_blank" rel="noreferrer">{sourceLabel(selectedJob.url)} ↗</a>}
+                    <button
+                      type="button"
+                      className={`reading-apply-toggle ${appliedJobIds.has(selectedJob.id) ? "is-done" : ""}`}
+                      aria-pressed={appliedJobIds.has(selectedJob.id)}
+                      title={appliedJobIds.has(selectedJob.id) ? "Postulación registrada (p): pulsa para quitarla" : "Registrar que ya postulaste (p)"}
+                      onClick={() => void setApplied(selectedJob.id, !appliedJobIds.has(selectedJob.id))}
+                    >
+                      ✓ {appliedJobIds.has(selectedJob.id) ? "Postulada" : "Ya postulé"}
+                    </button>
                     {selectedJob.user_status === "hidden" ? (
                       <button className="restore-button icon-only" type="button" aria-label="Restaurar oferta (r)" title="Restaurar oferta (r)" disabled={statusBusy} onClick={() => restoreJob(selectedJob)}><IconUndo /></button>
                     ) : hideReasonFor === selectedJob.id ? (
@@ -906,7 +948,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
               </div>
               <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
                 <MapView radarCounts={radarCountsMap} onPickRadarCenter={(center) => pickRadarCenter(center, "PUNTO EN MAPA")} jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><div className="offer-scroll-tools"><strong>{signalJobs.length.toString().padStart(3, "0")}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites && !showApplied], ["favorites", "favoritos", showFavorites], ["applied", "postuladas", showApplied], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-label={label} title={label} aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}><ViewIcon view={view} /></button>)}</div></div></div><div className="offer-scroll-list" ref={containerRef2}>{trimmed2 && <div style={{ height: spacerHeight2 }} aria-hidden="true" />}{pagedJobsMap.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{!loading && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "Selecciona un distrito para cargar señales"}</span>}</div></aside>}
+                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><div className="offer-scroll-tools"><strong>{signalJobs.length.toString().padStart(3, "0")}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites && !showApplied], ["favorites", "favoritos", showFavorites], ["applied", "postuladas", showApplied], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-label={label} title={label} aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}><ViewIcon view={view} /></button>)}</div></div></div>{showApplied && <button type="button" className="applied-tray-link" onClick={() => selectView("applications")}>Abrir tablero de Postulaciones →</button>}<div className="offer-scroll-list" ref={containerRef2}>{trimmed2 && <div style={{ height: spacerHeight2 }} aria-hidden="true" />}{pagedJobsMap.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} applied={appliedJobIds.has(job.id)} onSelect={selectJob} onToggleFavorite={toggleFavorite} onToggleApplied={(target) => void setApplied(target.id, !appliedJobIds.has(target.id))} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{!loading && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "Selecciona un distrito para cargar señales"}</span>}</div></aside>}
                 <div className="map-scan-label map-scan-label-top"><span className="scan-live-dot" />{mode === "radar" ? "RADAR LOCK" : mode === "heatmap" ? "DATA ANALYSIS" : "COLLECTING DATA"}<small>{"/// LIMA METROPOLITANA"}</small></div>
                 <div className="map-scan-label map-scan-label-bottom"><span>COORD // 12°02&apos;46.0&quot;S 77°02&apos;35.0&quot;W</span><span>TRACKING // {visibleJobs.length.toString().padStart(3, "0")} SIGNALS</span></div>
                 {mode === "heatmap" && districtStats.length > 0 && <aside className="district-map-overlay" aria-label="Distritos con ofertas"><div className="district-overlay-list"><button className={`district-row district-row-all ${selectedDistrictKey === null ? "selected" : ""}`} onClick={() => { setSelectedDistrictKey(null); setSelectedId(null); }} type="button"><span className="district-row-top"><strong>Todos</strong><span>{mappedCount}</span></span><span className="district-bar"><i style={{ width: "100%" }} /></span></button>{districtStats.map((district) => <button key={district.key} className={`district-row ${selectedDistrictKey === district.key ? "selected" : ""}`} onClick={() => selectDistrict(district.key)} type="button"><span className="district-row-top"><strong>{district.district}</strong><span>{district.count}</span></span><span className="district-bar"><i style={{ width: `${Math.max(10, (district.count / districtStats[0].count) * 100)}%` }} /></span></button>)}</div></aside>}

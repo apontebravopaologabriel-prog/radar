@@ -322,6 +322,10 @@ def update_job_status(job_id: str, payload: JobStatusUpdate) -> dict[str, str]:
         raise HTTPException(status_code=422, detail="El motivo es obligatorio al ocultar una oferta")
     try:
         set_job_user_status(job_id, payload.status, payload.reason, payload.note)
+        if payload.status == "hidden" and payload.reason == "applied":
+            from radar.db.repository import track_application
+
+            track_application(job_id, "applied", payload.note)
     except sqlite3.IntegrityError as exc:
         raise HTTPException(status_code=404, detail="Oferta no encontrada") from exc
     return {"status": payload.status}

@@ -111,7 +111,23 @@ export async function fetchCvTargets(signal?: AbortSignal): Promise<{ targets: C
   return (await response.json()) as { targets: CvTarget[]; matrix: CvMatrix };
 }
 
-export type TrackedApplication = { id: string; job_id: string; title: string; company: string | null; status: string; notes: string | null; applied_at: string | null; updated_at: string; url: string | null };
+export type TrackedApplication = {
+  id: string;
+  job_id: string;
+  title: string;
+  company: string | null;
+  status: string;
+  notes: string | null;
+  applied_at: string | null;
+  updated_at: string;
+  url: string | null;
+  location?: string | null;
+  work_mode?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  primary_area?: string | null;
+};
 
 export async function fetchApplications(signal?: AbortSignal): Promise<TrackedApplication[]> {
   const response = await fetch(`${API_URL}/api/applications`, { signal, credentials: "include" });

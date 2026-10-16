@@ -427,3 +427,30 @@ def test_job_by_id_endpoint_returns_one_job_and_does_not_shadow_lists():
     assert job["id"] == jobs[0]["id"] and "latitude" in job
     assert api.get("/api/jobs/no-existe").status_code == 404
     assert "jobs" in api.get("/api/jobs/favorites").json()
+
+
+def test_application_tracking_and_hidden_sync():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    jobs = _seed_market()
+    job_id = jobs[0]["id"]
+    api = TestClient(app)
+
+    # Hiding via API with reason="applied" also records the application in Postulaciones
+    res = api.patch(f"/api/jobs/{job_id}/status", json={"status": "hidden", "reason": "applied", "note": "Enviado por portal"})
+    assert res.status_code == 200
+    apps = tools.list_job_applications()["applications"]
+    assert any(a["job_id"] == job_id and a["status"] == "applied" and a["notes"] == "Enviado por portal" for a in apps)
+    assert apps[0]["location"] is not None
+
+    # Agent tool can restore a job to visible (untracks and unhides)
+    out = tools.track_job_application(job_id, "visible")
+    assert out["status"] == "visible"
+    assert tools.list_job_applications()["applications"] == []
+
+    # Agent tool with status="ignored" also hides the job in desktop archive
+    tools.track_job_application(job_id, "ignored", "No calza con mi horario")
+    hidden = api.get("/api/jobs/hidden").json()["jobs"]
+    assert any(h["id"] == job_id and h["user_reason"] == "not_interested" for h in hidden)

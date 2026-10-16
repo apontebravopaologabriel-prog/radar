@@ -42,12 +42,14 @@ from radar.db.queries import (
     recommendations,
     remove_job_favorite,
     set_job_favorite,
+    set_job_user_status,
 )
 from radar.db.repository import (
     add_career_event,
     capture_market_snapshot,
     save_profile,
     track_application,
+    untrack_application,
 )
 from radar.feed import nearby, setup_status, skill_impact, today_feed
 from radar.freshness import DEFAULT_MAX_AGE_DAYS
@@ -177,7 +179,7 @@ def search_saved_jobs(
     for job in jobs:  # sin la descripción completa (≈3 KB por oferta): eso lo da get_job_details
         item = {k: job.get(k) for k in ("id", "title", "company", "location", "seniority", "work_mode", "salary_min",
                                         "salary_max", "salary_currency", "published_at", "primary_area", "sector",
-                                        "relevance_tier", "relevance_score", "url", "is_favorite")}
+                                        "relevance_tier", "relevance_score", "url", "is_favorite", "user_application")}
         item["snippet"] = (job.get("description_clean") or "")[:110]
         item["google_maps_url"] = google_maps_search_url(job.get("company"), job.get("location"))
         slim.append(item)
@@ -524,9 +526,15 @@ def favorite_job(job_id: str, favorite: bool = True) -> dict:
 
 @tool(write=True)
 def track_job_application(job_id: str, status: str = "saved", notes: str | None = None) -> dict:
-    """Registra o actualiza el seguimiento de una oferta y conserva cada cambio de estado.
-    Estados: saved, applied, interview, offer, rejected, ignored. No postula por el usuario."""
-    return {"application_id": track_application(job_id, status, notes)}
+    """Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas).
+    Estados: saved, applied, interview, offer, rejected, ignored (oculta), visible (restaura). No postula."""
+    if status == "visible":
+        untrack_application(job_id)
+        set_job_user_status(job_id, "visible")
+        return {"job_id": job_id, "status": "visible"}
+    if status == "ignored":
+        set_job_user_status(job_id, "hidden", "not_interested", notes)
+    return {"application_id": track_application(job_id, status, notes), "status": status}
 
 
 @tool()

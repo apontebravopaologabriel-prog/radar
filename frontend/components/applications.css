@@ -1,22 +1,39 @@
 /* Vista Postulaciones: lista por estado. Monocromo, sin acentos. */
 .applications-view { display: grid; align-content: start; gap: 12px; height: 100%; padding: 22px 24px 24px 84px; overflow-y: auto; }
+.applications-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; max-width: 960px; gap: 12px; }
 .applications-head h2 { margin: 0 0 4px; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #f0f0f0; }
 .applications-head p { margin: 0; color: #8c8c8c; font-size: 11px; }
+.applications-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.applications-search { width: 240px; padding: 5px 9px; border: 1px solid #3a3a3a; border-radius: 0; background: #0e0e0e; color: #e6e6e6; font: inherit; font-size: 10.5px; outline: none; }
+.applications-search:focus { border-color: #c8c8c8; }
+.applications-export { padding: 5px 10px; border: 1px solid #4a4a4a; border-radius: 0; background: #141414; color: #d0d0d0; font: inherit; font-size: 10px; letter-spacing: .03em; cursor: pointer; }
+.applications-export:hover:not(:disabled) { border-color: #e0e0e0; color: #ffffff; }
+.applications-export:disabled { opacity: .45; cursor: default; }
 .applications-tabs b { margin-left: 4px; color: #8c8c8c; font-weight: 500; }
-.applications-list { display: grid; max-width: 900px; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.applications-list { display: grid; max-width: 960px; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .applications-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #2c2c2c; background: #0a0a0a; }
-.applications-main { display: grid; min-width: 0; gap: 3px; }
+.applications-main { display: grid; min-width: 0; gap: 4px; flex: 1; }
+.applications-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.applications-status-badge { padding: 1px 6px; border: 1px solid #4a4a4a; color: #c8c8c8; background: #151515; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; flex-shrink: 0; }
 .applications-main strong { overflow: hidden; color: #f0f0f0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .applications-main strong a { color: inherit; text-decoration: none; }
 .applications-main strong a:hover { text-decoration: underline; }
 .applications-main small { color: #8c8c8c; font-size: 10px; }
 .applications-nudge { color: #d0d0d0 !important; }
-.applications-notes { color: #b8b8b8 !important; font-style: italic; }
-.applications-files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.applications-note-row { display: flex; align-items: center; margin-top: 2px; }
+.applications-notes-btn { padding: 0; border: 0; border-bottom: 1px dotted #5a5a5a; background: transparent; color: #b8b8b8; font: inherit; font-size: 10px; font-style: italic; text-align: left; cursor: pointer; }
+.applications-notes-btn:hover { color: #ffffff; border-bottom-color: #d0d0d0; }
+.applications-add-note { padding: 1px 6px; border: 1px dashed #3a3a3a; border-radius: 0; background: transparent; color: #7a7a7a; font: inherit; font-size: 9.5px; cursor: pointer; }
+.applications-add-note:hover { border-color: #a0a0a0; color: #d0d0d0; }
+.applications-note-editor { display: flex; align-items: center; gap: 4px; margin-top: 2px; max-width: 520px; }
+.applications-note-editor input { flex: 1; min-width: 0; padding: 3px 7px; border: 1px solid #555555; border-radius: 0; background: #121212; color: #ededed; font: inherit; font-size: 10px; outline: none; }
+.applications-note-editor button { padding: 3px 8px; border: 1px solid #4a4a4a; border-radius: 0; background: #161616; color: #d0d0d0; font: inherit; font-size: 9.5px; cursor: pointer; }
+.applications-note-editor button:hover { border-color: #d0d0d0; color: #ffffff; }
+.applications-files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 2px; }
 .applications-files a { color: #c8c8c8; }
 .applications-files button, .applications-actions button { padding: 4px 9px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font: inherit; font-size: 10px; cursor: pointer; }
 .applications-files button:hover, .applications-actions button:hover { border-color: #d0d0d0; color: #ffffff; }
-.applications-actions { display: flex; flex-shrink: 0; gap: 4px; }
-.applications-empty, .applications-error { max-width: 900px; margin: 0; color: #8c8c8c; font-size: 11px; }
+.applications-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 4px; }
+.applications-empty, .applications-error { max-width: 960px; margin: 0; color: #8c8c8c; font-size: 11px; }
 .applications-error { color: #d0d0d0; }
-@media (max-width: 720px) { .applications-view { padding-left: 16px; } .applications-row { flex-direction: column; } }
+@media (max-width: 720px) { .applications-view { padding-left: 16px; } .applications-row { flex-direction: column; } .applications-search { width: 100%; } }

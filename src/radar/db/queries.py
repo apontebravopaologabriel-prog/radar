@@ -76,7 +76,8 @@ def list_jobs(
         j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
-        EXISTS (SELECT 1 FROM job_user_favorites juf WHERE juf.job_id=j.id) AS is_favorite
+        EXISTS (SELECT 1 FROM job_user_favorites juf WHERE juf.job_id=j.id) AS is_favorite,
+        (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
         FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
         LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
@@ -95,7 +96,8 @@ def list_hidden_jobs() -> list[dict[str, Any]]:
         j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
         j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
-        jus.status AS user_status, jus.reason AS user_reason, 1 AS is_favorite
+        jus.status AS user_status, jus.reason AS user_reason, 1 AS is_favorite,
+        (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
         FROM jobs j
         LEFT JOIN companies c ON c.id=j.company_id
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
@@ -127,7 +129,8 @@ _USER_LIST_SQL = """SELECT j.id, j.title, c.name AS company, j.location, j.senio
         j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
-        EXISTS (SELECT 1 FROM job_user_favorites f WHERE f.job_id=j.id) AS is_favorite
+        EXISTS (SELECT 1 FROM job_user_favorites f WHERE f.job_id=j.id) AS is_favorite,
+        (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
         FROM jobs j
         {join}
         LEFT JOIN companies c ON c.id=j.company_id
@@ -418,15 +421,35 @@ def applications(limit: int = 50) -> list[dict[str, Any]]:
     with connection() as conn:
         rows = conn.execute(
             """SELECT a.id, a.job_id, j.title, c.name, a.status, a.notes, a.applied_at, a.updated_at,
-            (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url
+            (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
+            j.location, j.work_mode, j.salary_min, j.salary_max, j.salary_currency, ia.name AS primary_area
             FROM applications a JOIN jobs j ON j.id=a.job_id
             LEFT JOIN companies c ON c.id=j.company_id
+            LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
+            LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
             ORDER BY a.updated_at DESC LIMIT %s""",
             (min(max(limit, 1), 200),),
         ).fetchall()
-    return [{"id": str(x[0]), "job_id": str(x[1]), "title": x[2], "company": x[3],
-             "status": x[4], "notes": x[5], "applied_at": str(x[6]) if x[6] else None,
-             "updated_at": str(x[7]), "url": x[8]} for x in rows]
+    return [
+        {
+            "id": str(x[0]),
+            "job_id": str(x[1]),
+            "title": x[2],
+            "company": x[3],
+            "status": x[4],
+            "notes": x[5],
+            "applied_at": str(x[6]) if x[6] else None,
+            "updated_at": str(x[7]),
+            "url": x[8],
+            "location": x[9],
+            "work_mode": x[10],
+            "salary_min": float(x[11]) if x[11] is not None else None,
+            "salary_max": float(x[12]) if x[12] is not None else None,
+            "salary_currency": x[13],
+            "primary_area": x[14],
+        }
+        for x in rows
+    ]
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -455,6 +478,7 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "user_status",
         "user_reason",
         "is_favorite",
+        "user_application",
     )
     result = dict(zip(keys, row, strict=True))
     result["id"] = str(result["id"])

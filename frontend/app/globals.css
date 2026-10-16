@@ -554,7 +554,7 @@ select:focus, label input:focus { border-color: #bdbdbd; box-shadow: 0 0 0 2px #
 /* Three quiet square tools keep each popup focused on one task. */
 /* Geometría única del riel de vistas y de los botones del agente/ajustes (AgentDock): ambos leen estas variables
    para que nunca queden desacoplados. --rail-count es el número de botones de vistas que tiene el riel. */
-:root { --rail-top: 70px; --rail-left: 16px; --rail-btn: 39px; --rail-gap: 6px; --rail-count: 3; }
+:root { --rail-top: 70px; --rail-left: 16px; --rail-btn: 39px; --rail-gap: 6px; --rail-count: 4; }
 .mode-rail { position: absolute; z-index: 17; top: var(--rail-top); left: var(--rail-left); display: grid; gap: var(--rail-gap); }
 .mode-rail button { display: grid; width: var(--rail-btn); height: var(--rail-btn); place-items: center; padding: 0; border: 1px solid #444444; border-radius: 0; color: #858585; background: #080808c9; box-shadow: 0 10px 24px #00000066; backdrop-filter: blur(16px); font: inherit; cursor: pointer; }
 .mode-rail button span { font-size: 19px; line-height: 1; }
@@ -1105,5 +1105,11 @@ html[data-perf="lite"] .job-card, html[data-perf="lite"] .offer-scroll-card { an
 .popover-icon { position: absolute; top: 7px; display: grid; width: 22px; height: 22px; place-items: center; padding: 0; border: 1px solid #5d5d5d; border-radius: 0; color: #a0a0a0; background: transparent; cursor: pointer; }
 .popover-icon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .popover-icon:hover:not(:disabled) { border-color: #dedede; color: #ffffff; }
-.popover-icon.is-done, .popover-icon:disabled { border-color: #dedede; color: #ffffff; background: #2a2a2a; cursor: default; }
+.popover-icon.is-done, .popover-icon:disabled { border-color: #dedede; color: #ffffff; background: #2a2a2a; cursor: pointer; }
 .job-popover .job-area { display: block; padding-right: 130px; }
+.card-action.apply-toggle.is-done { color: #ffffff; border-color: #d0d0d0; background: #222222; opacity: 1; }
+.reading-apply-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid #4a4a4a; border-radius: 0; background: #141414; color: #c8c8c8; font: inherit; font-size: 11px; cursor: pointer; }
+.reading-apply-toggle:hover { border-color: #e0e0e0; color: #ffffff; }
+.reading-apply-toggle.is-done { border-color: #e0e0e0; background: #e0e0e0; color: #0a0a0a; font-weight: 600; }
+.applied-tray-link { display: block; width: 100%; margin: 0 0 6px; padding: 5px 8px; border: 1px solid #3a3a3a; border-radius: 0; background: #121212; color: #d0d0d0; font: inherit; font-size: 10px; letter-spacing: .04em; text-align: left; cursor: pointer; }
+.applied-tray-link:hover { border-color: #c8c8c8; color: #ffffff; background: #1b1b1b; }
