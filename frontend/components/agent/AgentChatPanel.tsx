@@ -8,12 +8,61 @@ import Markdown from "./Markdown";
 import InfoPanel from "./InfoPanel";
 import ResumePicker from "./ResumePicker";
 import RadarMark from "./RadarMark";
-import type { useAgentChat } from "./useAgentChat";
+import type { AttachedImage, PastedBlock, useAgentChat } from "./useAgentChat";
 
 type Chat = ReturnType<typeof useAgentChat>;
 type LineData = Chat["lines"][number];
 
+const PASTE_COLLAPSE_MIN_LINES = 5;
+const PASTE_COLLAPSE_MIN_CHARS = 350;
+const MAX_IMAGES_PER_TURN = 3;
+
+async function compressImageFile(file: File): Promise<{ dataUrl: string; width: number; height: number; name: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Formato de imagen no válido."));
+      img.onload = () => {
+        const maxSide = 1440;
+        let width = img.naturalWidth || img.width || 800;
+        let height = img.naturalHeight || img.height || 600;
+        if (width > maxSide || height > maxSide) {
+          if (width >= height) {
+            height = Math.round((height * maxSide) / width);
+            width = maxSide;
+          } else {
+            width = Math.round((width * maxSide) / height);
+            height = maxSide;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("No se pudo procesar la imagen."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        let dataUrl = canvas.toDataURL("image/webp", 0.82);
+        if (!dataUrl.startsWith("data:image/webp")) {
+          dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        }
+        resolve({ dataUrl, width, height, name: file.name || "captura" });
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 const TermLine = memo(function TermLine({ line, expanded, streaming }: { line: LineData; expanded: boolean; streaming: boolean }) {
+  const [openPasteIds, setOpenPasteIds] = useState<number[]>([]);
+  const [openImageIds, setOpenImageIds] = useState<number[]>([]);
+  const [openReasoning, setOpenReasoning] = useState(false);
+
   if (line.kind === "tool" && line.summary !== undefined) {  // llamada a herramienta: ⏺ nombre(args) / ⎿ resumen (Ctrl+O expande)
     return (
       <div className={`term-line term-tool term-call${line.summary.startsWith("error") ? " is-error" : ""}`}>
@@ -26,10 +75,60 @@ const TermLine = memo(function TermLine({ line, expanded, streaming }: { line: L
       </div>
     );
   }
+  const showReasoning = Boolean(line.reasoning && (expanded || openReasoning));
   return (
     <div className={`term-line term-${line.kind}${streaming ? " is-streaming" : ""}`}>
       <span className="term-glyph" aria-hidden>{line.kind === "user" ? "❯" : line.kind === "tool" ? "⎿" : line.kind === "error" ? "✕" : line.kind === "local" ? "▸" : <RadarMark />}</span>
-      <div className="term-body">{line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}{line.durationMs !== undefined && <small className="term-response-meta">{(line.durationMs / 1000).toFixed(1)} s</small>}</div>
+      <div className="term-body">
+        {line.kind === "assistant" && line.reasoning && (
+          <div className="term-reasoning-box">
+            <button type="button" className="term-chip-btn term-reasoning-toggle" onClick={() => setOpenReasoning((v) => !v)}>
+              💭 Razonamiento (~{Math.max(1, Math.ceil(line.reasoning.length / 4))} tok · {showReasoning ? "ocultar" : "ctrl+o"})
+            </button>
+            {showReasoning && <pre className="term-call-detail">{line.reasoning}</pre>}
+          </div>
+        )}
+        {line.kind === "assistant" || line.kind === "local" ? <Markdown text={line.text} /> : line.text}
+        {line.kind === "user" && (line.pastedBlocks?.length || line.images?.length) ? (
+          <div className="term-attachments-log">
+            {line.pastedBlocks?.map((b) => {
+              const isOpen = expanded || openPasteIds.includes(b.id);
+              return (
+                <div key={`p-${b.id}`} className="term-attach-item">
+                  <button
+                    type="button"
+                    className="term-chip-btn"
+                    onClick={() => setOpenPasteIds((prev) => (prev.includes(b.id) ? prev.filter((x) => x !== b.id) : [...prev, b.id]))}
+                  >
+                    [Pasted text #{b.id} +{b.lines} lines]
+                  </button>
+                  {isOpen && <pre className="term-call-detail">{b.text}</pre>}
+                </div>
+              );
+            })}
+            {line.images?.map((img) => {
+              const isOpen = openImageIds.includes(img.id);
+              return (
+                <div key={`i-${img.id}`} className="term-attach-item">
+                  <button
+                    type="button"
+                    className="term-chip-btn"
+                    disabled={!img.dataUrl}
+                    onClick={() => setOpenImageIds((prev) => (prev.includes(img.id) ? prev.filter((x) => x !== img.id) : [...prev, img.id]))}
+                  >
+                    [Image #{img.id} · {img.width}×{img.height}]
+                  </button>
+                  {isOpen && img.dataUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={img.dataUrl} alt={`Imagen #${img.id}`} className="term-image-preview" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        {line.durationMs !== undefined && <small className="term-response-meta">{(line.durationMs / 1000).toFixed(1)} s</small>}
+      </div>
     </div>
   );
 });
@@ -53,20 +152,27 @@ function Banner({ settings }: { settings: AgentSettings | null }) {
 }
 
 /** «✻ Analizando… (12 s · ↓1,2k tokens · esc para detener)», como el indicador de Claude Code. */
-function Working({ startedAt, tokens }: { startedAt: number; tokens: number }) {
+function Working({ startedAt, tokens, phase }: { startedAt: number; tokens: number; phase?: "thinking" | "writing" }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(id); }, []);
   const seconds = Math.max(0, Math.round((now - startedAt) / 1000));
   const count = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
-  return <div className="term-line term-tool is-working"><span className="term-glyph"><RadarMark spinning /></span><div className="term-body">Analizando… <span className="term-dim">({seconds} s{tokens > 0 ? ` · ↓${count} tokens` : ""} · esc para detener)</span></div></div>;
+  const label = phase === "thinking" ? "Razonando…" : "Analizando…";
+  return <div className="term-line term-tool is-working"><span className="term-glyph"><RadarMark spinning /></span><div className="term-body">{label} <span className="term-dim">({seconds} s{tokens > 0 ? ` · ↓${count} tokens` : ""} · esc para detener)</span></div></div>;
 }
 const SETUP_PROMPT = "Ayúdame a configurar Radar";
 const transcriptOf = (lines: { kind: string; text: string }[]) =>
   lines.map((l) => (l.kind === "user" ? `**❯ ${l.text}**` : l.kind === "tool" ? `> ${l.text}` : l.text)).join("\n\n");
 
 /** Terminal minimal: líneas con prefijo, respuestas en Markdown, comandos con `/` y aprobación con teclado. */
-export default function AgentChatPanel({ chat, context, onSettings, dock, onClose }: { chat: Chat; context?: AgentContext; onSettings: () => void; dock?: { pinned: boolean; toggle: () => void }; onClose?: () => void }) {
+export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { chat: Chat; context?: AgentContext; onSettings: () => void; dock?: { pinned: boolean; toggle: () => void }; onClose?: () => void }) {
   const [input, setInput] = useState("");
+  const [pastedBlocks, setPastedBlocks] = useState<PastedBlock[]>([]);
+  const [images, setImages] = useState<AttachedImage[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const pasteCounter = useRef(0);
+  const imageCounter = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(true);
   const [configMenu, setConfigMenu] = useState<"model" | "effort" | null>(null);
@@ -121,6 +227,47 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     catch { onSettings(); }
   };
 
+  const attachImageFiles = async (files: File[]) => {
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    for (const file of imageFiles) {
+      if (images.length >= MAX_IMAGES_PER_TURN) {
+        showNotice(`Máximo ${MAX_IMAGES_PER_TURN} imágenes por turno.`);
+        break;
+      }
+      try {
+        const compressed = await compressImageFile(file);
+        imageCounter.current += 1;
+        const id = imageCounter.current;
+        setImages((prev) => (prev.length >= MAX_IMAGES_PER_TURN ? prev : [...prev, { id, ...compressed }]));
+      } catch (err) {
+        showNotice(err instanceof Error ? err.message : "No se pudo adjuntar la imagen.");
+      }
+    }
+  };
+
+  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(event.clipboardData?.items ?? []);
+    const imageFiles = items
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (imageFiles.length > 0) {
+      event.preventDefault();
+      void attachImageFiles(imageFiles);
+      return;
+    }
+    const pastedText = event.clipboardData?.getData("text/plain") ?? "";
+    if (!pastedText) return;
+    const lineCount = pastedText.split(/\r?\n/).length;
+    if (lineCount >= PASTE_COLLAPSE_MIN_LINES || pastedText.length >= PASTE_COLLAPSE_MIN_CHARS) {
+      event.preventDefault();
+      pasteCounter.current += 1;
+      const id = pasteCounter.current;
+      setPastedBlocks((prev) => [...prev, { id, lines: lineCount, chars: pastedText.length, text: pastedText }]);
+    }
+  };
+
   const lastAssistant = lines.map((l) => l.kind).lastIndexOf("assistant");
   const lastEsc = useRef(0);
   const lastCtrlC = useRef(0);
@@ -161,11 +308,16 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
 
   const submit = async (raw: string) => {
     const text = raw.trim();
-    if (!text || busy) return;
-    recall.current = { list: [...recall.current.list, text].slice(-50), at: -1 };
+    const hasAttachments = pastedBlocks.length > 0 || images.length > 0;
+    if ((!text && !hasAttachments) || busy) return;
+    if (text) recall.current = { list: [...recall.current.list, text].slice(-50), at: -1 };
     search.current = null;
+    const currentPasted = pastedBlocks;
+    const currentImages = images;
     setInput("");
-    if (text.startsWith("#")) {
+    setPastedBlocks([]);
+    setImages([]);
+    if (text.startsWith("#") && !hasAttachments) {
       // Atajo de memoria: "# prefiero híbrido" lo recuerda en cada conversación.
       addLocal(text, "user");
       const note = text.replace(/^#+\s*/, "").trim();
@@ -173,10 +325,10 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
       catch (error) { addLocal(error instanceof Error ? error.message : "No se pudo guardar.", "error"); }
       return;
     }
-    if (!text.startsWith("/")) {
+    if (!text.startsWith("/") || hasAttachments) {
       const used = picked.current.filter((m) => text.includes(`@${(m.name.length > 40 ? `${m.name.slice(0, 39)}…` : m.name).replace(/\s+/g, "_")}`));
       picked.current = [];
-      await send(text, used);
+      await send(text, used, { pastedBlocks: currentPasted, images: currentImages });
       return;
     }
     const [head, ...rest] = text.slice(1).split(/\s+/);
@@ -212,6 +364,10 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
         event.preventDefault(); const c = matches[menuIndex]; setInput(`/${c.name}${c.args ? " " : ""}`); return;
       }
     }
+    if (event.key === "Backspace" && input === "") {
+      if (images.length > 0) { event.preventDefault(); setImages((prev) => prev.slice(0, -1)); return; }
+      if (pastedBlocks.length > 0) { event.preventDefault(); setPastedBlocks((prev) => prev.slice(0, -1)); return; }
+    }
     if (event.key === "PageUp" || event.key === "PageDown") {  // sin barra visible, el registro se recorre con el teclado
       const log = logRef.current;
       if (log) { event.preventDefault(); log.scrollBy({ top: (event.key === "PageUp" ? -1 : 1) * log.clientHeight * 0.85 }); }
@@ -241,12 +397,12 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
     if (event.ctrlKey && event.key.toLowerCase() === "c" && (event.currentTarget.selectionStart === event.currentTarget.selectionEnd)) {
       event.preventDefault();
       if (busy) { stop(); return; }
-      if (input) { setInput(""); return; }
+      if (input || pastedBlocks.length || images.length) { setInput(""); setPastedBlocks([]); setImages([]); return; }
       const now = Date.now();
       if (now - lastCtrlC.current < 1500 && onClose) { onClose(); return; }
       lastCtrlC.current = now; addLocal("Pulsa Ctrl+C otra vez para salir."); return;
     }
-    if (event.key === "Escape" && !busy && !input) {
+    if (event.key === "Escape" && !busy && !input && !pastedBlocks.length && !images.length) {
       const now = Date.now();
       if (now - lastEsc.current < 600) { lastEsc.current = 0; const text = rewind(); if (text !== null) setInput(text); return; }
       lastEsc.current = now; return;
@@ -258,7 +414,26 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
   };
 
   return (
-    <div className="m-chat term">
+    <div
+      className={`m-chat term${dragActive ? " is-drag-over" : ""}`}
+      onDragOver={(e) => {
+        if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) {
+          e.preventDefault();
+          setDragActive(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setDragActive(false);
+      }}
+      onDrop={(e) => {
+        setDragActive(false);
+        const files = Array.from(e.dataTransfer?.files ?? []);
+        if (files.some((f) => f.type.startsWith("image/"))) {
+          e.preventDefault();
+          void attachImageFiles(files);
+        }
+      }}
+    >
       {settings && !settings.ready && (
         <button className="m-callout" onClick={onSettings}>
           <strong>Falta tu clave de API</strong>
@@ -293,7 +468,7 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
             </div>
           </div>
         )}
-        {busy && <Working startedAt={turn?.startedAt ?? Date.now()} tokens={turn?.tokens ?? 0} />}
+        {busy && <Working startedAt={turn?.startedAt ?? Date.now()} tokens={turn?.tokens ?? 0} phase={turn?.phase} />}
         <div ref={bottom} />
       </div>
       {mentionQuery !== null && mentionItems.length > 0 && (
@@ -316,9 +491,88 @@ export default function AgentChatPanel({ chat, context, onSettings, dock, onClos
           ))}
         </ul>
       )}
+      {(pastedBlocks.length > 0 || images.length > 0) && (
+        <div className="term-StagingBar" aria-label="Adjuntos del mensaje">
+          {pastedBlocks.map((b) => (
+            <span key={`stage-p-${b.id}`} className="term-stage-chip">
+              <button
+                type="button"
+                className="term-stage-label"
+                title="Clic para inspeccionar texto pegado"
+                onClick={() => setPanel({ title: `Pasted text #${b.id} (${b.lines} lines)`, text: `\`\`\`\n${b.text.slice(0, 4000)}\n\`\`\`` })}
+              >
+                [Pasted text #{b.id} +{b.lines} lines]
+              </button>
+              <button
+                type="button"
+                className="term-stage-remove"
+                aria-label={`Quitar texto pegado #${b.id}`}
+                onClick={() => setPastedBlocks((prev) => prev.filter((x) => x.id !== b.id))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {images.map((img) => (
+            <span key={`stage-i-${img.id}`} className="term-stage-chip">
+              <button
+                type="button"
+                className="term-stage-label"
+                title={img.name || `Image #${img.id}`}
+                onClick={() => setPanel({ title: `Image #${img.id} (${img.width}×${img.height})`, text: `Dimensiones: **${img.width}×${img.height} px** · Se enviará con visión multimodal (\`deepseek-flash\`).` })}
+              >
+                [Image #{img.id} · {img.width}×{img.height}]
+              </button>
+              <button
+                type="button"
+                className="term-stage-remove"
+                aria-label={`Quitar imagen #${img.id}`}
+                onClick={() => setImages((prev) => prev.filter((x) => x.id !== img.id))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <form className="term-prompt" onSubmit={(e) => { e.preventDefault(); void submit(input); }}>
         <span className="term-glyph" aria-hidden>❯</span>
-        <textarea ref={promptRef} rows={1} value={input} onChange={(e) => onInput(e.target.value, e.target.selectionStart)} onKeyDown={onKeyDown} placeholder="pregunta o / para comandos · Shift+Enter nueva línea" aria-label="Mensaje" maxLength={2000} autoComplete="off" spellCheck={false} />
+        <textarea
+          ref={promptRef}
+          rows={1}
+          value={input}
+          onChange={(e) => onInput(e.target.value, e.target.selectionStart)}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          placeholder="pregunta, pega texto/captura o / para comandos"
+          aria-label="Mensaje"
+          maxLength={40000}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (files.length) void attachImageFiles(files);
+          }}
+        />
+        {!busy && (
+          <button
+            type="button"
+            className="term-attach-trigger"
+            title="Adjuntar captura o imagen (también puedes pegar con Ctrl+V o arrastrar)"
+            aria-label="Adjuntar imagen"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            🖼
+          </button>
+        )}
         {busy && <button type="button" onClick={stop}>esc</button>}
       </form>
       {panel && <InfoPanel title={panel.title} text={panel.text} onClose={() => setPanel(null)} />}

@@ -56,9 +56,20 @@ def _cities(raw: str | list[str] | None) -> list[str]:
     return [city.strip() for city in items if city and city.strip()]
 
 
-def plan_steps(cities: list[str], computrabajo: bool, queries: tuple[str, ...], city_queries: tuple[str, ...]) -> list[dict[str, Any]]:
+def plan_steps(
+    cities: list[str],
+    computrabajo: bool,
+    queries: tuple[str, ...],
+    city_queries: tuple[str, ...],
+    extra_sources: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """Lista ordenada de búsquedas: Lima con las amplias del paquete y cada ciudad con las cortas."""
-    sources = ["jobspy", *(["computrabajo"] if computrabajo else [])]
+    extras = [
+        s.strip().lower()
+        for s in (extra_sources if extra_sources is not None else os.getenv("RADAR_EXTRA_SOURCES", "").split(","))
+        if s and s.strip()
+    ]
+    sources = ["jobspy", *(["computrabajo"] if computrabajo else []), *extras]
     steps = [{"source": s, "query": q, "location": "Lima", "limit": LIMA_LIMIT} for s in sources for q in queries]
     for city in cities:
         steps += [{"source": s, "query": q, "location": city, "limit": CITY_LIMIT} for q in city_queries for s in sources]

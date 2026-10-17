@@ -119,7 +119,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                         (raw.company, normalize_text(raw.company)),
                     ).fetchone()[0]
                 fp = fingerprint(raw)
-                text_salary = extract_salary(raw.description)
+                text_salary = extract_salary(raw.description, raw.title)
                 # The description is preferred when it contains an explicit
                 # salary range: portals occasionally truncate structured values.
                 salary_min = text_salary.minimum if text_salary else raw.salary_min
@@ -134,6 +134,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                     salary_source = "unknown"
                 inferred_mode = infer_work_mode(raw)
                 work_mode = inferred_mode if inferred_mode != "unknown" else (raw.work_mode or "unknown")
+                seniority = infer_seniority(raw)
                 sector = infer_sector(raw)
                 hours_per_week, schedule_text = extract_schedule(raw)
                 classified = classify(raw, pack)
@@ -156,7 +157,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                         """UPDATE jobs SET updated_at=now(), is_active=TRUE, content_hash=%s,
                         description_raw=%s, description_clean=%s, salary_min=%s, salary_max=%s,
                         salary_currency=%s, salary_period=%s, salary_source=%s,
-                        work_mode=%s, sector=%s, sector_confidence=%s,
+                        seniority=%s, work_mode=%s, sector=%s, sector_confidence=%s,
                         relevance_tier=%s, relevance_score=%s, relevance_evidence=%s,
                         hours_per_week=%s, schedule_text=%s,
                         application_status=COALESCE(NULLIF(%s, 'unknown'), application_status),
@@ -164,7 +165,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                         application_status_source=COALESCE(NULLIF(%s, 'unknown'), application_status_source),
                         published_at=COALESCE(%s, published_at) WHERE id=%s""",
                         (content_hash(raw), raw.description, clean_description(raw.description), salary_min,
-                         salary_max, salary_currency, salary_period, salary_source, work_mode,
+                         salary_max, salary_currency, salary_period, salary_source, seniority, work_mode,
                          sector, 0.75 if sector else None, relevance.tier, relevance.score, relevance.evidence,
                          hours_per_week, schedule_text,
                          application_status, raw.application_checked_at, application_source,
@@ -295,7 +296,8 @@ def repair_data_quality() -> dict[str, int]:
         rows = conn.execute(
             """SELECT id, title, location, description_raw, work_mode,
             salary_min, salary_max, salary_currency, salary_period, salary_source, sector,
-            hours_per_week, schedule_text, sector_confidence, relevance_tier, relevance_score, relevance_evidence
+            hours_per_week, schedule_text, sector_confidence, relevance_tier, relevance_score, relevance_evidence,
+            seniority
             FROM jobs"""
         ).fetchall()
         pending = 0
@@ -318,6 +320,7 @@ def repair_data_quality() -> dict[str, int]:
             )
             inferred_mode = infer_work_mode(raw)
             mode = inferred_mode if inferred_mode != "unknown" else (row[4] or "unknown")
+            seniority = infer_seniority(raw)
             inferred_sector = infer_sector(raw)
             sector = inferred_sector or row[10]
             hours_per_week, schedule_text = extract_schedule(raw)
@@ -328,7 +331,7 @@ def repair_data_quality() -> dict[str, int]:
                 pack,
                 [area.value for area in classified.secondary_areas],
             )
-            text_salary = extract_salary(raw.description)
+            text_salary = extract_salary(raw.description, raw.title)
             if text_salary:
                 salary_min, salary_max, salary_currency = normalize_salary(
                     text_salary.minimum,
@@ -357,8 +360,8 @@ def repair_data_quality() -> dict[str, int]:
             salary_source = "description" if text_salary else (row[9] if salary_min is not None or salary_max is not None else "unknown")
             sector_confidence = 0.75 if sector else None
             new_job = (mode, salary_min, salary_max, salary_currency, salary_period, salary_source, sector, sector_confidence,
-                       relevance.tier, relevance.score, relevance.evidence, hours_per_week, schedule_text)
-            old_job = (row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[13], row[14], row[15], row[16], row[11], row[12])
+                       relevance.tier, relevance.score, relevance.evidence, hours_per_week, schedule_text, seniority)
+            old_job = (row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[13], row[14], row[15], row[16], row[11], row[12], row[17])
             new_areas = {(area_ids[a.value], idx == 0, a.evidence)
                          for idx, a in enumerate([classified.primary_area, *classified.secondary_areas]) if a.value in area_ids}
             new_skills = {(skill_ids[skill], evidence.requirement_type, evidence.evidence)
@@ -373,9 +376,9 @@ def repair_data_quality() -> dict[str, int]:
                     """UPDATE jobs SET work_mode=%s, salary_min=%s, salary_max=%s,
                     salary_currency=%s, salary_period=%s, salary_source=%s,
                     sector=%s, sector_confidence=%s, relevance_tier=%s, relevance_score=%s,
-                    relevance_evidence=%s, hours_per_week=%s, schedule_text=%s WHERE id=%s""",
+                    relevance_evidence=%s, hours_per_week=%s, schedule_text=%s, seniority=%s WHERE id=%s""",
                     (*new_job[:6], sector, sector_confidence, relevance.tier, relevance.score, relevance.evidence,
-                     hours_per_week, schedule_text, row[0]),
+                     hours_per_week, schedule_text, seniority, row[0]),
                 )
             if derived_changed:
                 # Rebuild derived areas/skills so classifier fixes apply to old jobs too.

@@ -17,7 +17,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. |  |
 | `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. | limit?: integer, max_age_days?: integer |
 | `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer |
-| `find_jobs_near` | lee | Ofertas recientes dentro de un radio (km) de un distrito de Lima/Callao o de una ciudad del | place: string, radius_km?: number, limit?: integer |
+| `find_jobs_near` | lee | Ofertas recientes en un radio (km) de un distrito de Lima/Callao o ciudad del Perú, ordenadas por cercanía | place: string, radius_km?: number, limit?: integer |
 | `get_job_details` | lee | Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de | job_id: string |
 | `explain_job_fit` | lee | Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y | job_id: string |
 | `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array |
@@ -52,6 +52,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `favorite_job` | escribe | Marca o desmarca una oferta con estrella (★). | job_id: string, favorite?: boolean |
 | `track_job_application` | escribe | Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas). | job_id: string, status?: string, notes?: string|null |
 | `list_job_applications` | lee | Lista postulaciones registradas con su estado y enlace original. | limit?: integer |
+| `import_job_url` | escribe | Importa una oferta por su URL (Computrabajo, LinkedIn, Bumeran, Empleos Perú u otra web) y calcula su encaje. | url: string, title?: string, company?: string, location?: string, description?: string, favorite?: boolean, application_status?: string |
 | `get_target_context` | lee | Contexto para redactar CVs objetivo hipotéticos: ofertas (requisitos, skills, descripción, | job_ids: array |
 | `list_targets` | lee | Objetivos actuales (ofertas con estrella) ordenados por cercanía al perfil real, con su brecha |  |
 | `save_target_profile` | escribe | Guarda un CV objetivo HIPOTÉTICO (nunca el CV real ni enviable). `profile` lleva `sections` | job_id: string, profile: object |
@@ -103,7 +104,7 @@ La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una 
 
 ### seguimiento
 
-Seguimiento lleva cada oferta por: Guardadas, Postulé, Entrevista, Oferta y Descartadas. Los botones mueven la oferta al siguiente estado y conservan el historial. Si llevas 7 días o más en "Postulé" sin novedad, Radar sugiere hacer seguimiento. Radar solo registra: la postulación la haces tú en el portal. En el escritorio, cada tarjeta de oferta y el detalle incluyen el botón `✓` (atajo `p`): al marcar que ya postulaste, la oferta sale automáticamente de las ofertas activas (`◉`) para no mezclarse con las pendientes y pasa tanto a la pestaña `✓` de la bandeja como a la vista completa Postulaciones (icono `✓` de la barra izquierda). En la vista Postulaciones puedes filtrar por estado o texto, editar notas en línea, abrir la ficha en el mapa, ver la carpeta de CV de cada postulación y exportar todo tu registro a CSV compatible con Excel. También puedes pedirle al agente que registre tu postulación, cambie el estado, agregue notas u oculte ofertas que no te interesan.
+Seguimiento lleva cada oferta por: Guardadas, Postulé, Entrevista, Oferta y Descartadas. Los botones mueven la oferta al siguiente estado y conservan el historial. Si llevas 7 días o más en "Postulé" sin novedad, Radar sugiere hacer seguimiento. Radar solo registra: la postulación la haces tú en el portal. En el escritorio, cada tarjeta de oferta y el detalle incluyen el botón `✓` (atajo `p`): al marcar que ya postulaste, la oferta sale automáticamente de las ofertas activas (`◉`) para no mezclarse con las pendientes y pasa tanto a la pestaña `✓` de la bandeja como a la vista completa Postulaciones (icono `✓` de la barra izquierda). En la vista Postulaciones puedes filtrar por estado o texto, agregar una oferta externa pegando su enlace con `+ Agregar por link`, editar notas en línea, abrir la ficha en el mapa, ver la carpeta de CV de cada postulación y exportar todo tu registro a CSV compatible con Excel. También puedes pasarle cualquier enlace de oferta al agente (o usar `/importar <url>`) para que la extraiga, calcule tu encaje y la registre en tu seguimiento.
 
 ### perfil
 
@@ -131,7 +132,7 @@ La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Calla
 
 ### actualizar
 
-En Ajustes → "Actualizar mercado ahora" Radar busca ofertas de tu carrera en tus ubicaciones (Computrabajo y, si está instalado, Indeed/LinkedIn) y recalcula tu puntaje; tarda unos minutos y se ejecuta en tu equipo. También puedes usar el refresco programado o `radar ingest`. El agente puede lanzar esa captura para un distrito o ciudad (refresh_market, con tu confirmación) y contarte el avance; no postula ni contacta a nadie. Si "Hoy" está vacío, actualiza el mercado.
+En Ajustes → "Actualizar mercado ahora" Radar busca ofertas de tu carrera en tus ubicaciones (Computrabajo, Bumeran, Empleos Perú y, si está instalado, Indeed/LinkedIn) y recalcula tu puntaje; tarda unos minutos y se ejecuta en tu equipo. También puedes usar el refresco programado o `radar ingest`. El agente puede lanzar esa captura para un distrito o ciudad (refresh_market, con tu confirmación) y contarte el avance; no postula ni contacta a nadie. Si "Hoy" está vacío, actualiza el mercado.
 
 ### sistema
 

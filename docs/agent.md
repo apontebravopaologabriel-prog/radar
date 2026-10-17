@@ -23,7 +23,7 @@ realistic, independent, loyal to the data and to the person's future rather than
 
 Change personality in `soul.md`; update `help.md` when something visible changes.
 
-## Tools: 62 in the registry, 49 in the chat, 20 that write
+## Tools: 63 in the registry, 50 in the chat, 21 that write
 
 `@tool(write=..., chat=...)` in `tools.py` declares each tool. `write` means a confirmation card; `chat=False`
 means MCP only. **On-demand loading:** tools of groups `cv`, `perfil` and `sistema` (`TOOL_GROUPS`) are only
@@ -36,7 +36,7 @@ available, so put heavy, rarely used tools in a group.
 | Market and offers | `search_saved_jobs`, `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (by area, place, company, work mode, seniority, sector or portal), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`. MCP only: `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |
 | Profile, CV, memory | `get_my_profile`, `update_profile_fields`\*, `get_user_profile`, `get_my_cv`, `update_cv`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
 | Closure plan, CV studio and application packages | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* (legacy), `cv_doc_get`, `cv_doc_propose` (creates suggestions the person accepts in the Studio; nothing changes until then), `prepare_application`\* (exports the PDF/Word to the offer's folder; never submits), `list_application_packages` |
-| Tracking | `favorite_job`\*, `track_job_application`\*, `list_job_applications` |
+| Tracking | `favorite_job`\*, `track_job_application`\*, `list_job_applications`, `import_job_url`\* |
 | Capture and system | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`. Not exposed to chat or MCP (CLI/onboarding only): `ingest_jobs`, `capture_market_history` |
 | Target CVs (MCP only, read-only) | `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts` |
 
@@ -61,7 +61,7 @@ Design decisions:
 | Mode | Behavior |
 | --- | --- |
 | `manual mode on` | Every action that changes data asks for confirmation |
-| `auto mode on` | Auto-approves only personal tracking: `favorite_job`, `track_job_application`, `remember_user`, `record_career_event`. System, CV, profile, weights, capture and reclassification still ask |
+| `auto mode on` | Auto-approves only personal tracking: `favorite_job`, `track_job_application`, `import_job_url`, `remember_user`, `record_career_event`. System, CV, profile, weights, capture and reclassification still ask |
 | `plan mode on` | The server offers no write tools and rejects any call. The agent researches and ends with a numbered plan; a card approves it (`1`) or keeps planning (`2`); approving leaves plan mode and executes step by step |
 
 `/plan [goal]` enters plan mode (with a goal it sends it at once), `/plan off` leaves. The persistent
@@ -97,7 +97,7 @@ Names follow Claude Code, with Spanish aliases. `local` commands use the API and
 - Temporary window (closes with `Esc`, not part of the conversation): `/help`, `/keys`, `/status`, `/doctor`,
   `/tools`, `/context`, `/cost`, `/profile`.
 - Short notice: `/copy`, `/export`, `/pin`, `/readonly`, `/refresh`, and `/model` or `/effort` with an argument.
-- Answer in chat: `/today`, `/map`, `/pipeline`, `/skills`, `/compact`, `/memory`.
+- Answer in chat: `/today`, `/map`, `/pipeline`, `/skills`, `/compact`, `/memory`, `/importar <url>`.
 - Pickers: `/model` and `/effort` share one (`↑↓` model, `←→` effort: `auto`, `none`, `low`, `high`, `max`;
   `Enter` applies); `/resume` lists conversations (type to filter by title or content, `Enter` opens, `Ctrl+D`
   deletes after confirmation).

@@ -7,8 +7,15 @@
 .applications-search { width: 240px; padding: 5px 9px; border: 1px solid #3a3a3a; border-radius: 0; background: #0e0e0e; color: #e6e6e6; font: inherit; font-size: 10.5px; outline: none; }
 .applications-search:focus { border-color: #c8c8c8; }
 .applications-export { padding: 5px 10px; border: 1px solid #4a4a4a; border-radius: 0; background: #141414; color: #d0d0d0; font: inherit; font-size: 10px; letter-spacing: .03em; cursor: pointer; }
-.applications-export:hover:not(:disabled) { border-color: #e0e0e0; color: #ffffff; }
+.applications-export:hover:not(:disabled), .applications-export.active { border-color: #e0e0e0; color: #ffffff; background: #1f1f1f; }
 .applications-export:disabled { opacity: .45; cursor: default; }
+.applications-import-bar { display: flex; flex-wrap: wrap; align-items: center; max-width: 960px; gap: 6px; padding: 9px 10px; border: 1px solid #383838; background: #0c0c0c; }
+.applications-import-url { flex: 2 1 280px; min-width: 220px; padding: 5px 8px; border: 1px solid #444444; border-radius: 0; background: #121212; color: #ededed; font: inherit; font-size: 10.5px; outline: none; }
+.applications-import-meta { flex: 1 1 150px; min-width: 130px; padding: 5px 8px; border: 1px solid #363636; border-radius: 0; background: #121212; color: #dcdcdc; font: inherit; font-size: 10px; outline: none; }
+.applications-import-url:focus, .applications-import-meta:focus { border-color: #d0d0d0; }
+.applications-import-bar select, .applications-import-bar button { padding: 5px 10px; border: 1px solid #4a4a4a; border-radius: 0; background: #161616; color: #e0e0e0; font: inherit; font-size: 10px; cursor: pointer; }
+.applications-import-bar button:hover:not(:disabled) { border-color: #ededed; color: #ffffff; background: #222222; }
+.applications-import-bar button:disabled { opacity: .5; cursor: default; }
 .applications-tabs b { margin-left: 4px; color: #8c8c8c; font-weight: 500; }
 .applications-list { display: grid; max-width: 960px; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .applications-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #2c2c2c; background: #0a0a0a; }

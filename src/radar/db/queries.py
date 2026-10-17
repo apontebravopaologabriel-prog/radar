@@ -31,8 +31,13 @@ def list_jobs(
     ]
     params: list[Any] = [max_age_days]
     if seniority:
-        clauses.append("j.seniority = %s")
-        params.append(seniority)
+        if seniority == "senior":
+            clauses.append("j.seniority IN ('senior', 'senior_or_lead')")
+        elif seniority == "intern":
+            clauses.append("j.seniority IN ('intern', 'trainee')")
+        else:
+            clauses.append("j.seniority = %s")
+            params.append(seniority)
     if area:
         clauses.append("ia.name = %s")
         params.append(area)
@@ -53,8 +58,11 @@ def list_jobs(
         clauses.append("COALESCE(j.salary_max, j.salary_min, 0) >= %s")
         params.append(min_salary)
     if source:
-        clauses.append("EXISTS (SELECT 1 FROM job_sources jsource JOIN sources src ON src.id=jsource.source_id WHERE jsource.job_id=j.id AND lower(src.name) LIKE lower(%s))")
-        params.append(f"%{source}%")
+        clauses.append(
+            "EXISTS (SELECT 1 FROM job_sources jsource JOIN sources src ON src.id=jsource.source_id "
+            "WHERE jsource.job_id=j.id AND (lower(src.name) LIKE lower(%s) OR lower(jsource.source_url) LIKE lower(%s)))"
+        )
+        params.extend([f"%{source}%", f"%{source}%"])
     if skill:
         clauses.append("EXISTS (SELECT 1 FROM job_skills jskill JOIN skills skill ON skill.id=jskill.skill_id WHERE jskill.job_id=j.id AND skill.name=%s)")
         params.append(skill)
@@ -189,8 +197,13 @@ def skill_overview(
         clauses.append("EXISTS (SELECT 1 FROM job_areas ja2 JOIN industrial_areas ia2 ON ia2.id=ja2.area_id WHERE ja2.job_id=j.id AND ja2.is_primary=1 AND ia2.name=%s)")
         params.append(area)
     if seniority:
-        clauses.append("j.seniority=%s")
-        params.append(seniority)
+        if seniority == "senior":
+            clauses.append("j.seniority IN ('senior', 'senior_or_lead')")
+        elif seniority == "intern":
+            clauses.append("j.seniority IN ('intern', 'trainee')")
+        else:
+            clauses.append("j.seniority=%s")
+            params.append(seniority)
     if work_mode:
         clauses.append("j.work_mode=%s")
         params.append(work_mode)

@@ -255,3 +255,34 @@ def test_classifier_uses_title_stems_and_ignores_generic_description_terms():
     assert classify(_job("Analista de compras", "Elaborar requerimientos, SQL y ERP.")).primary_area.value == "Supply Chain, logística y compras"
     assert classify(_job("Asistente administrativo", "Atender requerimientos y proyectos.")).primary_area.value == "Otras"
     assert classify(_job("Practicante de Marketing", "Mejora de procesos")).primary_area.value == "Otras"
+
+
+def test_salary_extraction_ignores_placeholders_and_unescapes_markdown():
+    assert extract_salary("Salario: S/ 1.00") is None
+    assert extract_salary("Sueldo: S/ 1 - S/ 2") is None
+    escaped = extract_salary(r"Tipo de puesto: Tiempo completo. Sueldo: S/.1,200\.00 \- S/.1,500\.00 al mes")
+    assert escaped is not None and (escaped.minimum, escaped.maximum) == (1200.0, 1500.0)
+    mixed = extract_salary("Bono de movilidad S/ 100. Remuneración básica: S/ 1,800 a S/ 2,200 mensuales.\nSalario: S/ 1.00")
+    assert mixed is not None and (mixed.minimum, mixed.maximum) == (1800.0, 2200.0)
+    bare = extract_salary("Ingreso a planilla. Sueldo 1400 a 1700 según evaluación.")
+    assert bare is not None and (bare.minimum, bare.maximum) == (1400.0, 1700.0)
+    from_title = extract_salary("Ingreso inmediato a planilla.", "Coordinador de Operaciones (2300 a 2500)")
+    assert from_title is not None and (from_title.minimum, from_title.maximum) == (2300.0, 2500.0)
+    assert extract_salary("Empresa global con ingresos de $83 billion anuales.") is None
+
+
+def test_seniority_prioritizes_title_and_emits_mid_and_senior():
+    intern_job = _job("Practicante Pre Profesional de Procesos", "Reporta directamente al Jefe de Planta y Gerente.")
+    assert infer_seniority(intern_job) == "intern"
+    mid_job = _job("Analista de Mejora Continua", "Experiencia mínima de 2 años en plantas industriales.")
+    assert infer_seniority(mid_job) == "mid"
+    senior_job = _job("Jefe de Operaciones", "Liderar el equipo de planta.")
+    assert infer_seniority(senior_job) == "senior"
+
+
+def test_infer_job_location_recovers_district_without_false_positive_substrings():
+    from radar.geolocation import infer_job_location
+
+    assert infer_job_location("Lima", "Analista de Planeamiento Estratégico", "Gestión estratégica corporativa").label == "Lima"
+    assert infer_job_location("Lima", "Ingeniero de Planta - Lurín", "Trabajo presencial").label == "Lurín"
+    assert infer_job_location("Lima", "Analista de Logística", "Lugar de trabajo: Ate Vitarte. Horario lunes a viernes.").label == "Ate"

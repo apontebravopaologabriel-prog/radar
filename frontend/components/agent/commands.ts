@@ -17,7 +17,7 @@ export type CommandContext = {
   title: string;
   plan: { active: boolean; set: (on: boolean) => void };
   transcript: () => string;
-  usage: { context: number; session: number; estimated: boolean };
+  usage: { context: number; session: number; cacheHit?: number; estimated: boolean };
   lastAnswer: () => string;
   dock?: { pinned: boolean; toggle: () => void };
   close?: () => void;
@@ -38,6 +38,8 @@ export const SHORTCUTS = [
   "**Atajos de teclado**", "",
   "| Tecla | Acción |", "|---|---|",
   "| `Enter` / `Shift+Enter` | Enviar / nueva línea (también `\\` + Enter) |",
+  "| `Ctrl+V` (texto largo) | Comprime automáticamente en `[Pasted text #1 +N lines]` |",
+  "| `Ctrl+V` / arrastrar imagen | Adjunta captura `[Image #1]` (visión nativa en `deepseek-flash`) |",
   "| `/` · `Tab` · `↑↓` | Comandos, autocompletar y elegir |",
   "| `↑` (vacío) | Recuperar mensajes anteriores |",
   "| `Ctrl+R` | Buscar en el historial (repite para el siguiente) |",
@@ -46,7 +48,7 @@ export const SHORTCUTS = [
   "| `Esc Esc` | Volver a tu último mensaje para editarlo |",
   "| `Shift+Tab` | Modo: manual → auto → plan (se ve abajo; auto aprueba solo el seguimiento personal) |",
   "| `/resume` → `Ctrl+D` | Borrar la conversación resaltada (pide confirmar) |",
-  "| `Ctrl+O` | Mostrar u ocultar el resultado completo de las herramientas |",
+  "| `Ctrl+O` | Mostrar u ocultar el resultado de herramientas y el razonamiento |",
   "| `Ctrl+K` | Contexto de pantalla: apagado → selección → completo |",
   "| `Ctrl+C` | Detener; con el campo vacío, dos veces cierra |",
   "| `1` `2` `3` | Aprobar / aprobar siempre (sesión) / rechazar (`y` y `n` también) |",
@@ -116,12 +118,14 @@ export const COMMANDS: Command[] = [
       if (!used) return "Aún no hay llamadas al modelo en esta conversación.";
       const pct = Math.min(100, Math.round((used / window) * 100));
       const base = Math.min(BASE_PROMPT_TOKENS, used);
+      const cachePct = ctx.usage.cacheHit && used > 0 ? Math.round((ctx.usage.cacheHit / used) * 100) : 0;
       return [`\`${meter(pct)}\` **${pct}%**${ctx.usage.estimated ? " _(estimado)_" : ""}`, "",
         `${k(used)} de ${k(window)} tokens (ventana configurada; ajústala en Ajustes)`,
         `- Sistema y herramientas: ~${k(base)}`, `- Conversación: ~${k(Math.max(used - base, 0))}`,
+        ctx.usage.cacheHit ? `- Caché en disco (DeepSeek): ${k(ctx.usage.cacheHit)} (${cachePct}% reutilizado)` : "",
         `- Sesión (todas las llamadas): ${k(ctx.usage.session)}`,
         s.autocompact_pct ? `- Se compacta sola al llegar a ${s.autocompact_pct}% (Ajustes → Agente)` : "- Compactación automática apagada: usa `/compact` cuando se llene",
-        pct >= 70 && !s.autocompact_pct ? "\n**Se está llenando: usa `/compact`.**" : ""].join("\n");
+        pct >= 70 && !s.autocompact_pct ? "\n**Se está llenando: usa `/compact`.**" : ""].filter(Boolean).join("\n");
     } },
   { name: "compact", aliases: ["compactar"], args: "[foco]", hint: "Resume la conversación para liberar contexto", kind: "local", run: async (args, ctx) => ctx.compact(args.trim()) },
   { name: "cost", aliases: ["costo", "tokens", "usage"], hint: "Modelo y tokens usados este mes", kind: "local", run: async () => {
@@ -261,6 +265,20 @@ export const COMMANDS: Command[] = [
   { name: "summary", aliases: ["resumen"], hint: "Resumen del mercado de hoy", kind: "prompt", run: async (_a, ctx) => {
       await ctx.send("Resume el mercado de hoy con cifras: get_market_breakdown por área y lugar, y las skills más pedidas.");
       return null;
+    } },
+  { name: "importar", aliases: ["import", "link", "agregar"], args: "<url> [postule|fav]", hint: "Importa una oferta desde su link (Computrabajo, LinkedIn, Bumeran…)", kind: "local", run: async (args) => {
+      const tokens = args.trim().split(/\s+/).filter(Boolean);
+      const url = tokens.find((t) => /^https?:\/\//i.test(t));
+      if (!url) return "Uso: `/importar https://pe.computrabajo.com/...` (opcional: añade `postule` o `fav` al final).";
+      const flags = tokens.filter((t) => t !== url).map((t) => t.toLowerCase());
+      const favorite = flags.some((f) => f === "fav" || f === "favorito" || f === "★");
+      const applied = flags.some((f) => f === "postule" || f === "postulé" || f === "applied");
+      const res = await api.importJobUrl({ url, favorite, application_status: applied ? "applied" : undefined });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: "import_job_url", arguments: { url } } }));
+      }
+      const meta = [res.company || "Empresa n/i", res.district || res.location || "Lima", res.primary_area || null, res.fit_score !== null ? `Encaje ${Math.round(res.fit_score)}%` : null].filter(Boolean).join(" · ");
+      return `✓ Oferta ${res.status === "created" ? "importada" : "actualizada"} desde **${res.source}**: [${res.title}](${res.radar_link})\n${meta}${applied ? " · registrada en ✓ Postulaciones" : ""}${favorite ? " · ★ Favorito" : ""}`;
     } },
 ];
 

@@ -147,8 +147,8 @@ def ingest_jobs(
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
 ) -> dict:
     """Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario."""
-    if source not in {"computrabajo", "jobspy"}:
-        raise ValueError("source debe ser computrabajo o jobspy")
+    if source not in {"computrabajo", "jobspy", "bumeran", "empleos"}:
+        raise ValueError("source debe ser computrabajo, jobspy, bumeran o empleos")
     return run_ingestion(source, query, location, min(limit, 100), max_age_days)
 
 
@@ -207,13 +207,9 @@ def get_today_feed(limit: int = 5) -> dict:
 
 @tool()
 def find_jobs_near(place: str, radius_km: float = 5.0, limit: int = 15) -> dict:
-    """Ofertas recientes dentro de un radio (km) de un distrito de Lima/Callao o de una ciudad del
-    Perú (Arequipa, Trujillo, Cusco...), de la más cercana a la más lejana. Distancia aproximada
-    entre centroides. En `by_place`, cada fila trae `precision`: "district" es un distrito real; \
-    "city" o "department" es una oferta que solo decía la ciudad/departamento (p.ej. "Lima" sin \
-    distrito), ubicada en su centro como aproximación. Nunca la muestres como un distrito más en \
-    una tabla comparativa: acláralo aparte (p.ej. "642 sin distrito específico") y no la sumes a los \
-    distritos reales ni la confundas con el total de Lima Metropolitana, que los engloba a todos."""
+    """Ofertas recientes en un radio (km) de un distrito de Lima/Callao o ciudad del Perú, ordenadas por cercanía
+    (centroides). En `by_place`, `precision` "district" es distrito real; "city"/"department" son ofertas sin distrito
+    específico ubicadas en el centro de la ciudad/departamento: acláralo aparte y no las presentes como un distrito más."""
     return nearby(place, radius_km, limit)
 
 
@@ -250,9 +246,8 @@ def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10, area:
                          search: str | None = None) -> dict:
     """Cuenta ofertas vigentes agrupadas por `by` (area, place, company, work_mode, seniority, sector o source), con
     filtros opcionales: area, place, sector, exclude_sector (varios con coma) y search (texto en título o empresa).
-    Ej.: by=company, search=asistente, exclude_sector="Finanzas y banca,Tecnología y servicios TI". Con by=place, \
-    una fila con `precision` ("city" o "department", p.ej. "Lima") no es un distrito: son ofertas sin distrito \
-    preciso agrupadas en la ciudad/departamento; no la presentes junto a los distritos reales como si fuera uno más."""
+    Con by=place, una fila con `precision` "city" o "department" (p.ej. "Lima") agrupa ofertas sin distrito preciso;
+    no la presentes junto a los distritos reales como si fuera uno más."""
     return insights.market_breakdown(by, max_age_days, limit, area, place, sector, exclude_sector, search)
 
 
@@ -541,6 +536,30 @@ def track_job_application(job_id: str, status: str = "saved", notes: str | None 
 def list_job_applications(limit: int = 50) -> dict:
     """Lista postulaciones registradas con su estado y enlace original."""
     return {"applications": applications(limit)}
+
+
+@tool(write=True)
+def import_job_url(
+    url: str,
+    title: str = "",
+    company: str = "",
+    location: str = "",
+    description: str = "",
+    favorite: bool = False,
+    application_status: str = "",
+) -> dict:
+    """Importa una oferta por su URL (Computrabajo, LinkedIn, Bumeran, Empleos Perú u otra web) y calcula su encaje."""
+    from radar.single_import import fetch_and_ingest_single_job
+
+    return fetch_and_ingest_single_job(
+        url,
+        title=title or None,
+        company=company or None,
+        location=location or None,
+        description=description or None,
+        favorite=favorite,
+        application_status=application_status or None,
+    )
 
 
 # --- CVs objetivo ------------------------------------------------------------------------------

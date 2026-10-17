@@ -146,3 +146,47 @@ export async function removeApplication(jobId: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/applications/${encodeURIComponent(jobId)}`, { method: "DELETE", credentials: "include" });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }
+
+export type ImportedJobResult = {
+  job_id: string;
+  status: "created" | "updated";
+  source: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  district: string | null;
+  work_mode: string | null;
+  seniority: string | null;
+  primary_area: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  fit_score: number | null;
+  is_favorite: boolean;
+  application_status: string | null;
+  url: string;
+  radar_link: string;
+};
+
+export async function importJobUrl(body: {
+  url: string;
+  title?: string;
+  company?: string;
+  location?: string;
+  description?: string;
+  favorite?: boolean;
+  application_status?: string;
+  notes?: string;
+}): Promise<ImportedJobResult> {
+  const response = await fetch(`${API_URL}/api/jobs/import-url`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail || `La API respondió ${response.status}`);
+  }
+  return (await response.json()) as ImportedJobResult;
+}

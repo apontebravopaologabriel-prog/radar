@@ -94,6 +94,8 @@ export const api = {
     request<{ is_favorite: boolean }>(`/api/jobs/${jobId}/favorite`, { method: on ? "PUT" : "DELETE" }),
   hide: (jobId: string) =>
     request<{ status: string }>(`/api/jobs/${jobId}/status`, { method: "PATCH", body: JSON.stringify({ status: "hidden", reason: "not_interested" }) }),
+  importJobUrl: (body: { url: string; title?: string; company?: string; location?: string; description?: string; favorite?: boolean; application_status?: string }) =>
+    request<{ job_id: string; status: string; source: string; title: string; company: string | null; location: string | null; district: string | null; primary_area: string | null; fit_score: number | null; radar_link: string }>("/api/jobs/import-url", { method: "POST", body: JSON.stringify(body) }),
   career: () => request<Career>("/api/career"),
   setCareer: (careerId: string) => request<Career>("/api/career", { method: "PUT", body: JSON.stringify({ career_id: careerId }) }),
   setWeights: (weights: Record<string, number>) =>
@@ -143,14 +145,18 @@ export const api = {
 export type ConversationInfo = { id: string; title: string; updated_at: string; lines?: number };
 export type ConversationHit = { id: string; title: string; updated_at: string; messages: number; snippets: string[] };
 export type ConversationData = { history: ApiMessage[]; lines: { kind: string; text: string }[] };
-export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | null; reasoning_content?: string; tool_call_id?: string;
+export type ApiContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | ApiContentPart[] | null; reasoning_content?: string; tool_call_id?: string;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] };
 export type PendingAction = { id: string; name: string; arguments: Record<string, unknown>; description: string; preview?: string[] };
 export type ChatEvent =
   | { type: "text"; delta: string }
+  | { type: "reasoning"; delta: string }
   | { type: "assistant_message"; message: ApiMessage }
   | { type: "tool_result"; message: ApiMessage; name: string }
-  | { type: "usage"; prompt_tokens: number; completion_tokens: number }
+  | { type: "usage"; prompt_tokens: number; completion_tokens: number; cache_hit_tokens?: number }
   | { type: "pending"; actions: PendingAction[] }
   | { type: "compacted"; history: ApiMessage[]; summary: string; before_tokens: number; memory_candidates: string[] }
   | { type: "notice"; message: string }

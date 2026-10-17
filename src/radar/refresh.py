@@ -7,6 +7,7 @@ dentro del proceso y un paso a la vez. Solo una actualización a la vez.
 from __future__ import annotations
 
 import importlib.util
+import os
 import threading
 import time
 from typing import Any
@@ -27,8 +28,13 @@ _state: dict[str, Any] = {"running": False, "done": 0, "total": 0, "created": 0,
 
 
 def _sources() -> list[str]:
-    """Fuentes disponibles en esta instalación: Computrabajo siempre; JobSpy solo si está instalado."""
-    return ["computrabajo", *(["jobspy"] if importlib.util.find_spec("jobspy") else [])]
+    """Fuentes disponibles en esta instalación: Computrabajo, JobSpy (Indeed/LinkedIn/Google), Bumeran y Empleos Perú."""
+    items = ["computrabajo", *(["jobspy"] if importlib.util.find_spec("jobspy") else [])]
+    if os.getenv("RADAR_BUMERAN_ENABLED", "1").strip().lower() not in {"0", "false", "no"}:
+        items.append("bumeran")
+    if os.getenv("RADAR_EMPLEOS_ENABLED", "1").strip().lower() not in {"0", "false", "no"}:
+        items.append("empleos")
+    return items
 
 
 def search_locations(places: list[str] | None = None) -> list[str]:

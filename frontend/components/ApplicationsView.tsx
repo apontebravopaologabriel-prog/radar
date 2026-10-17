@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchApplications, removeApplication, updateApplication, type TrackedApplication } from "../lib/api";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { fetchApplications, importJobUrl, removeApplication, updateApplication, type TrackedApplication } from "../lib/api";
 import { studioApi, type StudioPackage } from "../lib/cv-studio-api";
 import { OPEN_JOB_EVENT } from "./agent/Markdown";
 import "./applications.css";
@@ -70,6 +70,12 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState<boolean>(false);
+  const [importUrl, setImportUrl] = useState<string>("");
+  const [importTitle, setImportTitle] = useState<string>("");
+  const [importCompany, setImportCompany] = useState<string>("");
+  const [importStatus, setImportStatus] = useState<string>("applied");
+  const [importBusy, setImportBusy] = useState<boolean>(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -116,6 +122,33 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
 
   function notifyJobsChanged(jobId: string, status: string) {
     window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: "track_job_application", arguments: { job_id: jobId, status } } }));
+  }
+
+  async function submitImportUrl(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedUrl = importUrl.trim();
+    if (!trimmedUrl) return;
+    setImportBusy(true);
+    setError(null);
+    try {
+      const res = await importJobUrl({
+        url: trimmedUrl,
+        title: importTitle.trim() || undefined,
+        company: importCompany.trim() || undefined,
+        application_status: importStatus,
+      });
+      setImportUrl("");
+      setImportTitle("");
+      setImportCompany("");
+      setImportOpen(false);
+      if (tab !== "all" && tab !== importStatus) setTab(importStatus);
+      await load();
+      notifyJobsChanged(res.job_id, importStatus);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No se pudo importar el enlace");
+    } finally {
+      setImportBusy(false);
+    }
   }
 
   async function move(item: TrackedApplication, status: string) {
@@ -206,11 +239,51 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
             onChange={(event) => setQuery(event.target.value)}
             aria-label="Filtrar postulaciones"
           />
+          <button type="button" className={`applications-export ${importOpen ? "active" : ""}`} onClick={() => setImportOpen((curr) => !curr)} title="Importar una oferta externa pegando su link de Computrabajo, LinkedIn, Bumeran, etc.">
+            {importOpen ? "× Cerrar" : "+ Agregar por link"}
+          </button>
           <button type="button" className="applications-export" disabled={!items || items.length === 0} onClick={exportCsv} title="Exportar todas tus postulaciones a CSV compatible con Excel">
             Exportar CSV
           </button>
         </div>
       </header>
+      {importOpen && (
+        <form className="applications-import-bar" onSubmit={(event) => void submitImportUrl(event)}>
+          <input
+            type="url"
+            required
+            className="applications-import-url"
+            placeholder="Pega el link de la oferta (Computrabajo, LinkedIn, Bumeran, Empleos Perú…)"
+            value={importUrl}
+            onChange={(event) => setImportUrl(event.target.value)}
+            disabled={importBusy}
+          />
+          <input
+            type="text"
+            className="applications-import-meta"
+            placeholder="Título (opcional si el portal es privado)"
+            value={importTitle}
+            onChange={(event) => setImportTitle(event.target.value)}
+            disabled={importBusy}
+          />
+          <input
+            type="text"
+            className="applications-import-meta"
+            placeholder="Empresa (opcional)"
+            value={importCompany}
+            onChange={(event) => setImportCompany(event.target.value)}
+            disabled={importBusy}
+          />
+          <select value={importStatus} onChange={(event) => setImportStatus(event.target.value)} disabled={importBusy} aria-label="Estado inicial">
+            <option value="applied">✓ Postulé</option>
+            <option value="saved">Guardada (por postular)</option>
+            <option value="interview">Entrevista</option>
+          </select>
+          <button type="submit" disabled={importBusy || !importUrl.trim()}>
+            {importBusy ? "Importando…" : "Importar oferta"}
+          </button>
+        </form>
+      )}
       <div className="view-tabs applications-tabs" role="tablist" aria-label="Estado de la postulación">
         {TABS.map(([status, label]) => (
           <button key={status} type="button" role="tab" aria-selected={tab === status} className={`view-tab ${tab === status ? "active" : ""}`} onClick={() => setTab(status)}>{label} <b>{counts[status] ?? 0}</b></button>
@@ -223,7 +296,7 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
           {query.trim()
             ? "Ninguna postulación coincide con tu búsqueda."
             : tab === "applied"
-              ? "Aún no registras postulaciones. Pulsa «✓» en cualquier tarjeta de oferta o en su detalle (tecla p) y pasará automáticamente aquí."
+              ? "Aún no registras postulaciones. Pulsa «✓» en cualquier tarjeta de oferta o usa «+ Agregar por link»."
               : "Sin ofertas en este estado."}
         </p>
       )}

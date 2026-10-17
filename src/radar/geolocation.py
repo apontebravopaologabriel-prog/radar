@@ -63,6 +63,12 @@ LIMA_DISTRICTS: dict[str, tuple[str, float, float]] = {
     "ventanilla": ("Ventanilla", -11.875, -77.118),
     "vitarte": ("Ate", -12.025, -76.917),
     "campoy": ("San Juan de Lurigancho", -12.015, -76.995),
+    "sjl": ("San Juan de Lurigancho", -12.015, -76.995),
+    "smp": ("San Martín de Porres", -11.989, -77.085),
+    "sjm": ("San Juan de Miraflores", -12.162, -76.963),
+    "ves": ("Villa El Salvador", -12.214, -76.943),
+    "vmt": ("Villa María del Triunfo", -12.160, -76.940),
+    "el agustino": ("El Agustino", -12.048, -77.000),
     "nana": ("Lurigancho-Chosica", -11.936, -76.700),
     "villa el salvador": ("Villa El Salvador", -12.214, -76.943),
     "villa maria del triunfo": ("Villa María del Triunfo", -12.160, -76.940),
@@ -152,7 +158,11 @@ _DEPARTMENTS: tuple[tuple[str, float, float], ...] = (
 )
 
 
-def _build_index() -> tuple[list[tuple[re.Pattern[str], LocationPoint]], list[tuple[re.Pattern[str], LocationPoint]]]:
+def _build_index() -> tuple[
+    list[tuple[re.Pattern[str], LocationPoint]],
+    list[tuple[re.Pattern[str], LocationPoint]],
+    list[tuple[re.Pattern[str], LocationPoint]],
+]:
     def pattern(key: str) -> re.Pattern[str]:
         return re.compile(rf"(?<!\w){re.escape(normalize_text(key))}(?!\w)")
 
@@ -161,6 +171,10 @@ def _build_index() -> tuple[list[tuple[re.Pattern[str], LocationPoint]], list[tu
         point = LocationPoint(lat, lon, label, "city", 0.6, "city-centroid")
         for key in (label, *aliases):
             cities.append((normalize_text(key), point))
+    districts = [
+        (normalize_text(district), LocationPoint(lat, lon, label, "district", 0.72, "district-centroid"))
+        for district, (label, lat, lon) in LIMA_DISTRICTS.items()
+    ]
     departments = [
         (normalize_text(name), LocationPoint(lat, lon, name, "department", 0.35, "department-capital"))
         for name, lat, lon in _DEPARTMENTS
@@ -168,11 +182,16 @@ def _build_index() -> tuple[list[tuple[re.Pattern[str], LocationPoint]], list[tu
     by_length = lambda item: -len(item[0])
     return (
         [(pattern(k), p) for k, p in sorted(cities, key=by_length)],
+        [(pattern(k), p) for k, p in sorted(districts, key=by_length)],
         [(pattern(k), p) for k, p in sorted(departments, key=by_length)],
     )
 
 
-_CITY_INDEX, _DEPARTMENT_INDEX = _build_index()
+_CITY_INDEX, _DISTRICT_INDEX, _DEPARTMENT_INDEX = _build_index()
+_DESC_LOCATION_CLAUSE = re.compile(
+    r"(?:lugar\s+de\s+trabajo|sede(?:\s+de\s+trabajo)?|ubicaci[oó]n|distrito|planta\s+en|almac[eé]n\s+en|oficinas?\s+en|laborar\s+en)\s*[:\-*]?\s*([^\n.;]{3,55})",
+    re.IGNORECASE,
+)
 
 
 def place_catalog() -> dict[str, list[dict[str, object]]]:
@@ -194,17 +213,15 @@ def _resolve(normalized: str) -> LocationPoint | None:
     for regex, point in _CITY_INDEX:
         if regex.search(normalized):
             return point
-    # 2) Distritos de Lima y Callao.
-    for district, (label, latitude, longitude) in sorted(
-        LIMA_DISTRICTS.items(), key=lambda item: len(item[0]), reverse=True
-    ):
-        if district in normalized:
-            return LocationPoint(latitude, longitude, label, "district", 0.72, "district-centroid")
+    # 2) Distritos de Lima y Callao, también por palabra completa ("estrategica" no es "Ate").
+    for regex, point in _DISTRICT_INDEX:
+        if regex.search(normalized):
+            return point
     # 3) Solo el departamento: se ubica en su capital con precisión "department".
     for regex, point in _DEPARTMENT_INDEX:
         if regex.search(normalized):
             return point
-    if "lima" in normalized:
+    if re.search(r"(?<!\w)lima(?!\w)", normalized):
         return LIMA_CENTER
     return None  # "Perú" a secas no ubica la oferta en ningún punto
 
@@ -213,3 +230,24 @@ def infer_location(location: str | None) -> LocationPoint | None:
     """Resuelve una ubicación del Perú a distrito (Lima/Callao), ciudad o departamento."""
     normalized = normalize_text(location)
     return _resolve(normalized) if normalized else None
+
+
+def infer_job_location(
+    location: str | None,
+    title: str | None = None,
+    description: str | None = None,
+) -> LocationPoint | None:
+    """Resuelve la ubicación de una oferta; si el campo `location` es genérico ('Lima'), busca el distrito en título/descripción."""
+    base = infer_location(location)
+    if base is not None and (base.precision == "district" or base.label != "Lima"):
+        return base
+    if title:
+        from_title = infer_location(title)
+        if from_title is not None and from_title.precision == "district":
+            return from_title
+    if description:
+        for match in _DESC_LOCATION_CLAUSE.finditer(description):
+            from_desc = infer_location(match.group(1))
+            if from_desc is not None and from_desc.precision == "district":
+                return from_desc
+    return base

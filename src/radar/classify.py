@@ -110,14 +110,49 @@ def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     return ClassifiedJob(evidences[0], evidences[1:3], skills)
 
 
+_INTERN_WORDS = ("practicante", "intern", "internship", "pasante", "becario", "trainee")
+_SENIOR_WORDS = (
+    "senior", "sr", "jefe", "gerente", "subgerente", "superintendente",
+    "director", "coordinador", "lead", "lider", "head", "principal", "master",
+)
+_JUNIOR_WORDS = (
+    "junior", "jr", "asistente", "auxiliar", "ayudante", "tecnico",
+    "operario", "operador", "digitador", "almacenero", "estibador",
+)
+_MID_WORDS = (
+    "analista", "especialista", "ingeniero", "planner", "planificador",
+    "comprador", "encargado", "supervisor", "administrador", "gestor",
+    "consultor", "auditor", "controller", "contador", "ejecutivo",
+    "desarrollador", "programador", "arquitecto", "residente", "prevencionista",
+    "inspector", "asesor", "analist", "specialist", "engineer", "analyst", "manager",
+)
+
+
+def _has_any(text: str, words: tuple[str, ...]) -> bool:
+    return any(_word(w).search(text) is not None for w in words)
+
+
 def infer_seniority(job: RawJob) -> str:
-    text = normalize_text(f"{job.title} {job.description or ''}")
-    if any(x in text for x in ("practicante pre", "practicante", "intern", "internship")):
+    title = normalize_text(job.title).replace("_", " ")
+    desc = normalize_text(job.description or "").replace("_", " ")
+    # 1. Evaluate title first so "Practicante ... reporta al Jefe" is not misclassified as senior.
+    if _has_any(title, _INTERN_WORDS):
         return "intern"
-    if any(x in text for x in ("trainee", "programa trainee")):
-        return "trainee"
-    if any(x in text for x in ("junior", "juniors", "asistente")):
+    if _has_any(title, _SENIOR_WORDS):
+        return "senior"
+    if _has_any(title, _JUNIOR_WORDS):
         return "junior"
-    if any(x in text for x in ("senior", "jefe", "gerente", "coordinador")):
-        return "senior_or_lead"
+    if _has_any(title, _MID_WORDS):
+        return "mid"
+    # 2. Fallback to description cues when the title is generic.
+    if any(p in desc for p in ("convenio de practicas", "practicante pre", "practicante profesional", "practicante", "internship")):
+        return "intern"
+    if any(p in desc for p in ("trainee", "programa trainee")):
+        return "intern"
+    if any(p in desc for p in ("recien egresado", "sin experiencia", "6 meses de experiencia", "1 ano de experiencia", "junior", "asistente")):
+        return "junior"
+    if any(p in desc for p in ("4 anos de experiencia", "5 anos de experiencia", "mas de 5 anos", "senior", "jefe", "gerente", "coordinador")):
+        return "senior"
+    if any(p in desc for p in ("2 anos de experiencia", "3 anos de experiencia", "2 a 3 anos", "analista", "especialista", "supervisor")):
+        return "mid"
     return "unknown"

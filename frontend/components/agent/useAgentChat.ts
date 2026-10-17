@@ -1,14 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, streamChat, type AgentContext, type Mention, type AgentSettings, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
+import { api, streamChat, type AgentContext, type Mention, type AgentSettings, type ApiContentPart, type ApiMessage, type ConversationInfo, type PendingAction } from "../../lib/mobile-api";
+
+export type PastedBlock = { id: number; lines: number; chars: number; text: string };
+export type AttachedImage = { id: number; dataUrl: string; width: number; height: number; name?: string };
 
 export type Line = { kind: "user" | "assistant" | "tool" | "error" | "local"; text: string; durationMs?: number;
   /** Llamada a herramienta: resumen de una línea del resultado y el resultado recortado (Ctrl+O lo expande). */
-  summary?: string; detail?: string };
+  summary?: string; detail?: string;
+  /** Razonamiento del modelo (Ctrl+O o clic lo despliega) y bloques adjuntos al estilo Claude Code. */
+  reasoning?: string; pastedBlocks?: PastedBlock[]; images?: AttachedImage[] };
 
 /** En modo auto solo se aprueban solas estas acciones (seguimiento personal); las de sistema, CV o datos siempre piden confirmación. */
-const AUTO_SAFE = new Set(["favorite_job", "track_job_application", "remember_user", "record_career_event"]);
+const AUTO_SAFE = new Set(["favorite_job", "track_job_application", "import_job_url", "remember_user", "record_career_event"]);
 const DETAIL_MAX = 800;
 const shortArgs = (raw: string) => {
   try {
@@ -17,9 +22,10 @@ const shortArgs = (raw: string) => {
   } catch { return ""; }
 };
 /** Una línea legible del resultado de una herramienta: error, conteo de filas o número de campos. */
-const summarizeResult = (content: string | null): { summary: string; detail: string } => {
-  let inner: unknown = content;
-  try { const parsed = JSON.parse(content ?? "null") as Record<string, unknown> | null; inner = parsed && "datos_externos_no_confiables" in parsed ? parsed.datos_externos_no_confiables : parsed; } catch { /* texto */ }
+const summarizeResult = (content: string | ApiContentPart[] | null): { summary: string; detail: string } => {
+  const rawContent = typeof content === "string" ? content : null;
+  let inner: unknown = rawContent;
+  try { const parsed = JSON.parse(rawContent ?? "null") as Record<string, unknown> | null; inner = parsed && "datos_externos_no_confiables" in parsed ? parsed.datos_externos_no_confiables : parsed; } catch { /* texto */ }
   const detail = (typeof inner === "string" ? inner : JSON.stringify(inner, null, 1) ?? "").slice(0, DETAIL_MAX);
   if (inner && typeof inner === "object" && !Array.isArray(inner)) {
     const obj = inner as Record<string, unknown>;
@@ -48,11 +54,25 @@ const CONTEXT_MODES: ContextMode[] = ["off", "selection", "full"];
 const CONTEXT_KEY = "radar.agent.contextMode";
 const TITLE_MAX = 60;
 /** Título automático: el primer mensaje de la persona. */
-/** Últimos 60 mensajes, empezando siempre en un mensaje de la persona: cortar a mitad de un turno deja resultados de herramienta sin su llamada y el proveedor responde 400. */
+/** Últimos 60 mensajes, empezando siempre en un mensaje de la persona y sin guardar imágenes base64 ni reasoning pesado en disco. */
 function trimHistory(history: ApiMessage[]): ApiMessage[] {
   const tail = history.slice(-60);
   const first = tail.findIndex((m) => m.role === "user");
-  return first < 0 ? [] : tail.slice(first);
+  if (first < 0) return [];
+  return tail.slice(first).map((m) => {
+    const clean: ApiMessage = { role: m.role, content: m.content };
+    if (m.tool_call_id) clean.tool_call_id = m.tool_call_id;
+    if (m.tool_calls) clean.tool_calls = m.tool_calls;
+    if (Array.isArray(m.content)) {
+      const texts = m.content.map((p) => (p.type === "text" ? p.text : "[Imagen adjunta]")).join("\n");
+      clean.content = texts;
+    }
+    return clean;
+  });
+}
+
+function trimLinesForStorage(lines: Line[]): Line[] {
+  return lines.slice(-100).map((l) => (l.images?.length ? { ...l, images: l.images.map((img) => ({ ...img, dataUrl: "" })) } : l));
 }
 
 const autoTitle = (lines: { kind: string; text: string }[]) => (lines.find((l) => l.kind === "user")?.text ?? "").slice(0, TITLE_MAX);
@@ -80,7 +100,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
-  const [usage, setUsage] = useState({ context: 0, session: 0, estimated: false });
+  const [usage, setUsage] = useState({ context: 0, session: 0, cacheHit: 0, estimated: false });
   const usageRef = useRef(usage);
   usageRef.current = usage;  // el turno lee el tamaño real del último prompt sin volver a crear `run`
   const [planMode, setPlanModeState] = useState(false);
@@ -97,7 +117,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   }, []);  // modo plan: el agente investiga y propone, sin escribir
   const [planReady, setPlanReady] = useState(false);  // hay un plan esperando aprobación
   const [customTitle, setCustomTitle] = useState<string | null>(null);  // título puesto a mano; null = automático
-  const [turn, setTurn] = useState<{ startedAt: number; tokens: number } | null>(null);
+  const [turn, setTurn] = useState<{ startedAt: number; tokens: number; phase?: "thinking" | "writing" } | null>(null);
   const alwaysAllow = useRef<Set<string>>(new Set());  // herramientas aprobadas «siempre» durante esta sesión
   const conversationId = useRef<string | null>(null);
   const loaded = useRef(false);
@@ -131,7 +151,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     if (!loaded.current || lines.length === 0) return;
     const timer = setTimeout(async () => {
       const title = customTitle ?? (autoTitle(lines) || "Conversación");
-      const data = { history: trimHistory(history), lines: lines.slice(-100) };
+      const data = { history: trimHistory(history), lines: trimLinesForStorage(lines) };
       try {
         if (conversationId.current) await api.saveConversation(conversationId.current, title, data);
         else { conversationId.current = (await api.createConversation(title, data)).id; writeActiveConversation(conversationId.current); }
@@ -148,31 +168,36 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     const startedAt = performance.now();
     setTurn({ startedAt: Date.now(), tokens: 0 });
     let current = "";
+    let currentReasoning = "";
     let hist = base;
     const toolArgs = new Map<string, string>();  // id de la llamada -> argumentos, para mostrar «herramienta(args)»
     abort.current = new AbortController();
     const push = (message: ApiMessage) => { hist = [...hist, message]; setHistory(hist); };
     try {
       await streamChat(base, (event) => {
-        if (event.type === "text") {
+        if (event.type === "reasoning") {
+          currentReasoning += event.delta;
+          setTurn((t) => t && { ...t, phase: "thinking", tokens: t.tokens + Math.ceil(event.delta.length / 4) });
+        } else if (event.type === "text") {
           const first = current === "";
           current += event.delta;
           const text = current;
-          setTurn((t) => t && { ...t, tokens: t.tokens + Math.ceil(event.delta.length / 4) });  // estimación mientras llega el texto
-          setLines((prev) => first ? [...prev, { kind: "assistant", text }] : [...prev.slice(0, -1), { kind: "assistant", text }]);
+          const reasoning = currentReasoning || undefined;
+          setTurn((t) => t && { ...t, phase: "writing", tokens: t.tokens + Math.ceil(event.delta.length / 4) });  // estimación mientras llega el texto
+          setLines((prev) => first ? [...prev, { kind: "assistant", text, reasoning }] : [...prev.slice(0, -1), { kind: "assistant", text, reasoning }]);
         } else if (event.type === "assistant_message") {
           for (const call of event.message.tool_calls ?? []) toolArgs.set(call.id, call.function.arguments);
-          push(event.message); current = "";
+          push(event.message); current = ""; currentReasoning = "";
         }
         else if (event.type === "tool_result") {
           push(event.message);
           const { summary, detail } = summarizeResult(event.message.content);
           setLines((p) => [...p, { kind: "tool", text: `${event.name}(${shortArgs(toolArgs.get(event.message.tool_call_id ?? "") ?? "")})`, summary, detail }]);
         }
-        else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, estimated: false }));
+        else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, cacheHit: event.cache_hit_tokens ?? 0, estimated: false }));
         else if (event.type === "compacted") {
           hist = event.history; setHistory(hist);
-          setUsage((u) => ({ ...u, context: BASE_PROMPT_TOKENS + Math.ceil(event.summary.length / 4), estimated: true }));
+          setUsage((u) => ({ ...u, context: BASE_PROMPT_TOKENS + Math.ceil(event.summary.length / 4), cacheHit: 0, estimated: true }));
           const hints = event.memory_candidates.map((c) => `\n  # ${c}`).join("");
           setLines((p) => [...p, { kind: "local", text: `Contexto compactado automáticamente (~${Math.round(event.before_tokens / 100) / 10}k tokens antes).\n\n${event.summary}${hints ? `\n\nSi quieres que lo recuerde, copia una línea con #:${hints}` : ""}` }]);
         }
@@ -185,7 +210,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           if (auto.length) autoApprove.current(auto, manual.length === 0, hist);
         }
         else if (event.type === "error") { failed = true; setLines((p) => [...p, { kind: "error", text: event.message }]); }
-        else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; }
+        else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; currentReasoning = ""; }
       }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode), planning, usageRef.current.context);
     } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
     finally {
@@ -200,11 +225,24 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     }
   }, [context, contextMode, onError, refreshSettings]);
 
-  const send = useCallback(async (text: string, mentions: Mention[] = []) => {
+  const send = useCallback(async (text: string, mentions: Mention[] = [], attachments?: { pastedBlocks?: PastedBlock[]; images?: AttachedImage[] }) => {
     const clean = text.trim();
-    if (!clean || busy) return;
-    setLines((p) => [...p, { kind: "user", text: clean }]);
-    const next: ApiMessage[] = [...history, { role: "user", content: clean }];
+    const pastedBlocks = attachments?.pastedBlocks ?? [];
+    const images = attachments?.images ?? [];
+    if ((!clean && !pastedBlocks.length && !images.length) || busy) return;
+    const displayText = clean || (images.length ? "(imagen adjunta)" : `(texto pegado · ${pastedBlocks.reduce((acc, b) => acc + b.lines, 0)} líneas)`);
+    setLines((p) => [...p, { kind: "user", text: displayText, pastedBlocks: pastedBlocks.length ? pastedBlocks : undefined, images: images.length ? images : undefined }]);
+    const pastedSection = pastedBlocks
+      .map((b) => `\n\n--- [Texto pegado #${b.id} (${b.lines} líneas)] ---\n${b.text}`)
+      .join("");
+    const fullText = `${clean}${pastedSection}`.trim() || "Analiza esta imagen.";
+    const content: string | ApiContentPart[] = images.length
+      ? [
+          { type: "text", text: fullText },
+          ...images.map((img): ApiContentPart => ({ type: "image_url", image_url: { url: img.dataUrl } })),
+        ]
+      : fullText;
+    const next: ApiMessage[] = [...history, { role: "user", content }];
     setHistory(next);
     await run(next, mentions);
   }, [busy, history, run]);
@@ -248,7 +286,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     const lastLine = [...lines].map((l) => l.kind).lastIndexOf("user");
     if (lastLine < 0) return null;
     const text = lines[lastLine].text;
-    const lastMsg = [...history].map((m, i) => (m.role === "user" && m.content === text ? i : -1)).filter((i) => i >= 0).pop();
+    const lastMsg = [...history].map((m, i) => (m.role === "user" ? i : -1)).filter((i) => i >= 0).pop();
     setLines(lines.slice(0, lastLine));
     if (lastMsg !== undefined) setHistory(history.slice(0, lastMsg));
     setPending([]);
@@ -257,7 +295,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
-  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; writeActiveConversation("new"); setPlanReady(false); setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, estimated: false }); }, []);
+  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; writeActiveConversation("new"); setPlanReady(false); setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, cacheHit: 0, estimated: false }); }, []);
   /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
   const compact = useCallback(async (focus = ""): Promise<string> => {
     if (history.length < 2) return "Aún no hay nada que compactar.";
@@ -267,7 +305,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
       { role: "user", content: `Resumen de la conversación hasta ahora (compactada):\n${res.summary}` },
       { role: "assistant", content: "Entendido. Continúo desde ese resumen." },
     ]);
-    setUsage((u) => ({ context: res.completion_tokens + BASE_PROMPT_TOKENS, session: u.session + res.prompt_tokens + res.completion_tokens, estimated: true }));
+    setUsage((u) => ({ context: res.completion_tokens + BASE_PROMPT_TOKENS, session: u.session + res.prompt_tokens + res.completion_tokens, cacheHit: 0, estimated: true }));
     return `Conversación compactada${before ? `: ~${Math.round(before / 100) / 10}k → ~${Math.round((res.completion_tokens + BASE_PROMPT_TOKENS) / 100) / 10}k tokens de contexto` : ""}.\n\n${res.summary}`;
   }, [history, usage.context]);
   const open = useCallback(async (id: string) => {

@@ -27,7 +27,21 @@ def infer_work_mode(job: RawJob) -> str:
         )
     ):
         return "hybrid"
-    has_onsite = any(phrase in text for phrase in ("presencial", "on site", "onsite", "in situ"))
+    has_onsite = any(
+        phrase in text
+        for phrase in (
+            "presencial",
+            "on site",
+            "onsite",
+            "in situ",
+            "trabajo en planta",
+            "laborar en planta",
+            "100 campo",
+            "trabajo en campo",
+            "turnos rotativos",
+            "turno rotativo",
+        )
+    )
     has_remote = any(
         phrase in text
         for phrase in ("100 remoto", "remoto", "remote", "teletrabajo", "a distancia", "home office", "work from home")
@@ -72,19 +86,16 @@ def normalize_salary(
     currency: str | None,
     period: str | None,
 ) -> tuple[float | None, float | None, str | None]:
-    """Reject malformed values such as a monthly salary captured as S/4."""
+    """Reject malformed values such as portal placeholders (S/1, S/2), daily allowances (S/7), or revenue figures ($83B)."""
     if minimum is None and maximum is None:
         return None, None, currency
     values = [value for value in (minimum, maximum) if value is not None]
     if any(value <= 0 for value in values):
         return None, None, None
-    normalized_currency = (currency or "").upper() or None
-    normalized_period = (period or "").lower()
-    if (
-        normalized_currency == "PEN"
-        and not re.search(r"hora|diari", normalized_period)
-        and (any(value <= 100 for value in values) or any(value > 100_000 for value in values))
-    ):
+    normalized_currency = (currency or "PEN").upper()
+    if normalized_currency == "PEN" and (any(value < 500 for value in values) or any(value > 60_000 for value in values)):
+        return None, None, None
+    if normalized_currency == "USD" and (any(value < 300 for value in values) or any(value > 30_000 for value in values)):
         return None, None, None
     if minimum is not None and maximum is not None and minimum > maximum:
         return maximum, minimum, normalized_currency

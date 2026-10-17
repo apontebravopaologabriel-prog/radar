@@ -79,3 +79,25 @@ def test_jobspy_row_handles_nan_and_remote():
     assert job.work_mode == "remote"
     assert job.published_at.year == 2026
     assert JobSpySource(sites=["indeed"])._row_to_job({"title": None}).title == "Sin título"
+    li_job = JobSpySource()._row_to_job({"site": "linkedin", "title": "Analista", "job_url": "https://www.linkedin.com/jobs/view/1"})
+    assert li_job.source == "JobSpy/LinkedIn"
+
+
+def test_bumeran_and_empleos_peru_map_to_rawjob():
+    from radar.sources.bumeran import BumeranSource
+    from radar.sources.empleos_peru import EmpleosPeruSource
+
+    bm_payload = {"content": [{"id": 111, "titulo": "Analista de Procesos", "empresa": "ACME", "localizacion": "San Isidro, Lima", "detalle": "<p>Mejora continua y S/ 2,500</p>", "fechaPublicacion": "hoy"}]}
+    bm_jobs = [BumeranSource()._to_job(item) for item in BumeranSource._extract_jobs(bm_payload)]
+    assert len(bm_jobs) == 1
+    assert bm_jobs[0].source == "Bumeran"
+    assert bm_jobs[0].external_id == "111"
+    assert "San Isidro" in (bm_jobs[0].location or "")
+    assert bm_jobs[0].published_at is not None
+
+    ep_payload = {"vacantes": [{"idVacante": "EP-99", "titulo": "Asistente de Operaciones", "empresa": "Textil Perú", "distrito": "Ate", "departamento": "Lima", "descripcion": "Control de producción", "remuneracion": 1800, "fechaPublicacion": "2026-10-10"}]}
+    ep_jobs = [EmpleosPeruSource()._to_job(item) for item in EmpleosPeruSource._extract_jobs(ep_payload)]
+    assert len(ep_jobs) == 1
+    assert ep_jobs[0].source == "Empleos Perú"
+    assert ep_jobs[0].salary_min == 1800.0
+    assert ep_jobs[0].salary_currency == "PEN"

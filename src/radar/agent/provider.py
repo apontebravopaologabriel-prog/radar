@@ -99,14 +99,28 @@ def stream_chat(
             client.close()
 
 
+def _has_images(messages: list[dict[str, Any]]) -> bool:
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, list) and any(isinstance(p, dict) and p.get("type") == "image_url" for p in content):
+            return True
+    return False
+
+
 def _stream_once(
     config: LLMConfig,
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
     client: httpx.Client,
 ) -> Iterator[dict[str, Any]]:
+    # En DeepSeek V4, la visión multimodal nativa vive en deepseek-flash (DeepSeek V4.1 Flash).
+    model = (
+        "deepseek-flash"
+        if config.provider == "deepseek" and config.model == "deepseek-v4-pro" and _has_images(messages)
+        else config.model
+    )
     body: dict[str, Any] = {
-        "model": config.model,
+        "model": model,
         "messages": messages,
         "stream": True,
         "stream_options": {"include_usage": True},
@@ -115,6 +129,7 @@ def _stream_once(
         body["tools"] = tools
     if config.provider == "deepseek" and config.reasoning_effort:
         body["reasoning_effort"] = config.reasoning_effort
+        body["thinking"] = {"type": "disabled" if config.reasoning_effort == "none" else "enabled"}
     headers = {"Content-Type": "application/json"}
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"

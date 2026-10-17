@@ -36,7 +36,6 @@ from radar.db.queries import (
     skill_history,
     skill_overview,
 )
-from radar.geolocation import infer_location
 from radar.paths import frontend_dir
 from radar.security import LocalGuardMiddleware, restrict_umask
 
@@ -138,7 +137,9 @@ def _slimmed(job: dict[str, Any], slim: bool) -> dict[str, Any]:
 
 
 def _with_location(job: dict[str, Any]) -> dict[str, Any]:
-    point = infer_location(job.get("location"))
+    from radar.geolocation import infer_job_location
+
+    point = infer_job_location(job.get("location"), job.get("title"), job.get("description"))
     result = dict(job)
     result["latitude"] = point.latitude if point else None
     result["longitude"] = point.longitude if point else None
@@ -290,6 +291,40 @@ def favorite_jobs() -> dict[str, Any]:
 def applied_jobs() -> dict[str, Any]:
     rows = list_applied_jobs()
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
+
+
+class JobUrlImport(BaseModel):
+    url: str = Field(min_length=8, max_length=2048)
+    title: str | None = Field(default=None, max_length=300)
+    company: str | None = Field(default=None, max_length=200)
+    location: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None, max_length=30000)
+    favorite: bool = False
+    application_status: str | None = Field(
+        default=None, pattern="^(saved|applied|interview|offer|rejected|ignored|visible)$"
+    )
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+@app.post("/api/jobs/import-url")
+def import_job_by_url(payload: JobUrlImport) -> dict[str, Any]:
+    """Importa una sola oferta desde su URL pública, calcula su encaje y opcionalmente registra seguimiento."""
+    from radar.security import UnsafeUrlError
+    from radar.single_import import fetch_and_ingest_single_job
+
+    try:
+        return fetch_and_ingest_single_job(
+            payload.url,
+            title=payload.title,
+            company=payload.company,
+            location=payload.location,
+            description=payload.description,
+            favorite=payload.favorite,
+            application_status=payload.application_status,
+            notes=payload.notes,
+        )
+    except (ValueError, UnsafeUrlError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/jobs/{job_id}")

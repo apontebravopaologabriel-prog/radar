@@ -1113,3 +1113,9 @@ html[data-perf="lite"] .job-card, html[data-perf="lite"] .offer-scroll-card { an
 .reading-apply-toggle.is-done { border-color: #e0e0e0; background: #e0e0e0; color: #0a0a0a; font-weight: 600; }
 .applied-tray-link { display: block; width: 100%; margin: 0 0 6px; padding: 5px 8px; border: 1px solid #3a3a3a; border-radius: 0; background: #121212; color: #d0d0d0; font: inherit; font-size: 10px; letter-spacing: .04em; text-align: left; cursor: pointer; }
 .applied-tray-link:hover { border-color: #c8c8c8; color: #ffffff; background: #1b1b1b; }
+.salary-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: -2px 0 8px; }
+.salary-presets button { padding: 4px 4px; border: 1px solid #2e2e2e; border-radius: 0; background: #101010; color: #9a9a9a; font: inherit; font-size: 9px; letter-spacing: .02em; cursor: pointer; }
+.salary-presets button:hover { border-color: #6a6a6a; color: #e2e2e2; }
+.salary-presets button.active { border-color: #dcdcdc; background: #222222; color: #ffffff; }
+.clear-all-filters { margin-left: 6px; padding: 1px 6px; border: 1px solid #444444; border-radius: 0; background: #141414; color: #c8c8c8; font: inherit; font-size: 8px; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.clear-all-filters:hover { border-color: #d8d8d8; color: #ffffff; }

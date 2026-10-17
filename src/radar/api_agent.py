@@ -308,15 +308,64 @@ class ChatRequest(BaseModel):
 
 MAX_MESSAGE_CHARS = 60_000
 MAX_HISTORY_CHARS = 600_000
+MAX_IMAGE_DATA_CHARS = 1_500_000
+MAX_IMAGES_PER_MESSAGE = 3
+_VALID_DATA_IMAGE_PREFIXES = (
+    "data:image/png;base64,",
+    "data:image/jpeg;base64,",
+    "data:image/jpg;base64,",
+    "data:image/webp;base64,",
+)
+
+
+def _valid_message_content(role: str, content: Any) -> int | None:
+    """Devuelve el peso en caracteres de texto si el contenido es válido, o None si debe rechazarse."""
+    if content is None:
+        return 0
+    if isinstance(content, str):
+        return len(content) if len(content) <= MAX_MESSAGE_CHARS else None
+    if role == "user" and isinstance(content, list) and 1 <= len(content) <= MAX_IMAGES_PER_MESSAGE + 2:
+        text_size = 0
+        images = 0
+        for part in content:
+            if not isinstance(part, dict):
+                return None
+            ptype = part.get("type")
+            if ptype == "text":
+                txt = part.get("text")
+                if not isinstance(txt, str) or len(txt) > MAX_MESSAGE_CHARS:
+                    return None
+                text_size += len(txt)
+            elif ptype == "image_url":
+                img = part.get("image_url")
+                url = img.get("url") if isinstance(img, dict) else None
+                if (
+                    not isinstance(url, str)
+                    or not url.startswith(_VALID_DATA_IMAGE_PREFIXES)
+                    or len(url) > MAX_IMAGE_DATA_CHARS
+                ):
+                    return None
+                images += 1
+                if images > MAX_IMAGES_PER_MESSAGE:
+                    return None
+            else:
+                return None
+        return text_size if text_size <= MAX_MESSAGE_CHARS else None
+    return None
 
 
 def _valid_history(messages: list[dict[str, Any]]) -> bool:
-    """Solo roles de conversación (nunca `system`), contenido de texto y un tope de tamaño: sin él, un historial enorme
-    gastaría el tope mensual de tokens en una sola llamada."""
-    if not all(m.get("role") in {"user", "assistant", "tool"} and isinstance(m.get("content", ""), (str, type(None))) for m in messages):
-        return False
-    sizes = [len(m.get("content") or "") for m in messages]
-    return max(sizes, default=0) <= MAX_MESSAGE_CHARS and sum(sizes) <= MAX_HISTORY_CHARS
+    """Solo roles de conversación (nunca `system`), texto o bloques multimodales acotados y un tope de tamaño."""
+    total_text = 0
+    for m in messages:
+        role = m.get("role")
+        if role not in {"user", "assistant", "tool"}:
+            return False
+        size = _valid_message_content(role, m.get("content", ""))
+        if size is None:
+            return False
+        total_text += size
+    return total_text <= MAX_HISTORY_CHARS
 
 
 @router.post("/chat")

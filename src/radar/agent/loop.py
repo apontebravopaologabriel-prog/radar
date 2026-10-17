@@ -286,15 +286,36 @@ def wrap_untrusted(result: Any) -> str:
 OLD_TOOL_RESULT_CHARS = 700
 
 
+def _message_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                if item.get("type") == "text" and isinstance(item.get("text"), str):
+                    parts.append(item["text"])
+                elif item.get("type") == "image_url":
+                    parts.append("[Imagen]")
+        return "\n".join(parts)
+    return ""
+
+
 def _trim_old_tool_results(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Los resultados de herramientas de turnos anteriores solo conservan un extracto: la respuesta del agente ya
-    los resumió y reenviarlos completos en cada mensaje es lo que más tokens consume en conversaciones largas."""
+    """Los resultados de herramientas de turnos anteriores solo conservan un extracto, las imágenes base64 pasadas se
+    sustituyen por un marcador y `reasoning_content` de turnos previos se descarta (como recomienda DeepSeek)."""
     last_user = max((i for i, m in enumerate(history) if m.get("role") == "user"), default=-1)
     trimmed = []
     for index, message in enumerate(history):
         content = message.get("content")
-        if index < last_user and message.get("role") == "tool" and isinstance(content, str) and len(content) > OLD_TOOL_RESULT_CHARS:
-            message = {**message, "content": content[:OLD_TOOL_RESULT_CHARS] + " …[resultado anterior abreviado]"}
+        if index < last_user:
+            role = message.get("role")
+            if role == "tool" and isinstance(content, str) and len(content) > OLD_TOOL_RESULT_CHARS:
+                message = {**message, "content": content[:OLD_TOOL_RESULT_CHARS] + " …[resultado anterior abreviado]"}
+            elif role == "assistant" and "reasoning_content" in message:
+                message = {k: v for k, v in message.items() if k != "reasoning_content"}
+            elif role == "user" and isinstance(content, list):
+                message = {**message, "content": _message_text(content)}
         trimmed.append(message)
     return trimmed
 
@@ -422,7 +443,7 @@ def split_for_compaction(history: list[dict[str, Any]], keep_turns: int = KEEP_T
 
 
 def _is_summary(message: dict[str, Any]) -> bool:
-    return message.get("role") == "user" and str(message.get("content") or "").startswith(SUMMARY_PREFIX)
+    return message.get("role") == "user" and _message_text(message.get("content")).startswith(SUMMARY_PREFIX)
 
 
 def should_autocompact(history: list[dict[str, Any]], last_prompt_tokens: int) -> bool:
@@ -463,7 +484,7 @@ def memory_candidates(summary: str) -> list[str]:
 def _transcript(history: list[dict[str, Any]], tool_chars: int = 500) -> str:
     lines = []
     for message in history:
-        role, content = message.get("role"), message.get("content") or ""
+        role, content = message.get("role"), _message_text(message.get("content"))
         if role == "user":
             lines.append(f"PERSONA: {content}")
         elif role == "assistant":
@@ -517,7 +538,7 @@ def run_turn(
     plan: bool = False,
     last_prompt_tokens: int = 0,
 ) -> Iterator[dict[str, Any]]:
-    """Eventos: text, tool_result, pending, compacted, notice, error, done.
+    """Eventos: text, reasoning, tool_result, pending, compacted, notice, error, done.
 
     `last_prompt_tokens` es el tamaño real del último prompt (lo informa el proveedor); si pasa del umbral
     de `agent_autocompact_pct` se resume lo antiguo antes de seguir y se emite `compacted` con el historial nuevo."""
@@ -568,12 +589,20 @@ def run_turn(
                     yield {"type": "text", "delta": event["text"]}
                 elif "reasoning" in event:
                     reasoning_parts.append(event["reasoning"])
+                    yield {"type": "reasoning", "delta": event["reasoning"]}
                 elif "tool_calls" in event:
                     calls = event["tool_calls"]
                 elif "usage" in event:
                     _record_usage(config, event["usage"])
-                    yield {"type": "usage", "prompt_tokens": int(event["usage"].get("prompt_tokens") or 0),
-                           "completion_tokens": int(event["usage"].get("completion_tokens") or 0)}
+                    usage_event: dict[str, Any] = {
+                        "type": "usage",
+                        "prompt_tokens": int(event["usage"].get("prompt_tokens") or 0),
+                        "completion_tokens": int(event["usage"].get("completion_tokens") or 0),
+                    }
+                    cache_hit = int(event["usage"].get("prompt_cache_hit_tokens") or 0)
+                    if cache_hit > 0:
+                        usage_event["cache_hit_tokens"] = cache_hit
+                    yield usage_event
         except ProviderError as exc:
             yield {"type": "error", "message": str(exc)}
             return

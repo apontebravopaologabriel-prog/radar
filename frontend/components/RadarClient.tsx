@@ -124,7 +124,11 @@ function sourceLabel(url: string | null) {
     if (host.includes("linkedin")) return "Ver en LinkedIn";
     if (host.includes("indeed")) return "Ver en Indeed";
     if (host.includes("computrabajo")) return "Ver en Computrabajo";
+    if (host.includes("bumeran")) return "Ver en Bumeran";
+    if (host.includes("laborum")) return "Ver en Laborum";
+    if (host.includes("empleosperu") || host.includes("gob.pe")) return "Ver en Empleos Perú";
     if (host.includes("glassdoor")) return "Ver en Glassdoor";
+    if (host.includes("google")) return "Ver en Google Jobs";
   } catch {
     return "Abrir oferta original";
   }
@@ -138,10 +142,32 @@ function sourceName(url: string | null) {
     if (host.includes("linkedin")) return "LinkedIn";
     if (host.includes("indeed")) return "Indeed";
     if (host.includes("computrabajo")) return "Computrabajo";
+    if (host.includes("bumeran")) return "Bumeran";
+    if (host.includes("laborum")) return "Laborum";
+    if (host.includes("empleosperu") || host.includes("gob.pe")) return "Empleos Perú";
     if (host.includes("glassdoor")) return "Glassdoor";
+    if (host.includes("google")) return "Google";
     return host.split(".")[0] || "Fuente";
   } catch {
     return "Fuente n/i";
+  }
+}
+
+function portalKey(url: string | null) {
+  if (!url) return "other";
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("linkedin")) return "linkedin";
+    if (host.includes("indeed")) return "indeed";
+    if (host.includes("computrabajo")) return "computrabajo";
+    if (host.includes("bumeran")) return "bumeran";
+    if (host.includes("laborum")) return "laborum";
+    if (host.includes("empleosperu") || host.includes("gob.pe")) return "empleos";
+    if (host.includes("glassdoor")) return "glassdoor";
+    if (host.includes("google")) return "google";
+    return host.replace(/^www\./, "").split(".")[0] || "other";
+  } catch {
+    return "other";
   }
 }
 
@@ -373,12 +399,12 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const portalJobs = useMemo(() => {
     const requestedPortal = filters.source?.toLowerCase();
     if (!requestedPortal) return activeBaseJobs;
-    return activeBaseJobs.filter((job) => sourceName(job.url).toLowerCase().includes(requestedPortal));
+    return activeBaseJobs.filter((job) => portalKey(job.url) === requestedPortal || sourceName(job.url).toLowerCase().includes(requestedPortal));
   }, [activeBaseJobs, filters.source]);
   const portalCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const job of activeBaseJobs) {
-      const portal = sourceName(job.url).toLowerCase();
+      const portal = portalKey(job.url);
       counts[portal] = (counts[portal] || 0) + 1;
     }
     return counts;
@@ -837,12 +863,13 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           </div>
           <form className="search-box" onSubmit={submitSearch}><span>⌕</span><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="..." /><button type="submit" aria-label="Buscar">↵</button></form>
 
-          <div className="filter-section"><div className="section-label">Filtros activos <span>{Object.values(filters).filter(Boolean).length + (selectedSkill ? 1 : 0)}</span></div>
+          <div className="filter-section"><div className="section-label">Filtros activos <span>{Object.values(filters).filter(Boolean).length + (selectedSkill ? 1 : 0)}{(filters.search || filters.area || filters.seniority || filters.work_mode || filters.min_salary || filters.source || selectedSkill || filters.relevance_tier !== INITIAL_FILTERS.relevance_tier || filters.max_age_days !== INITIAL_FILTERS.max_age_days) && <button type="button" className="clear-all-filters" onClick={() => { setFilters(INITIAL_FILTERS); setDraftSearch(""); setSelectedSkill(null); }}>Limpiar</button>}</span></div>
             <label>Relevancia<select value={filters.relevance_tier || ""} onChange={(event) => updateFilter("relevance_tier", event.target.value)}><option value="core">Core · foco industrial</option><option value="adjacent">Adyacente · BI, PMO, SST</option><option value="out_of_focus">Fuera de foco</option><option value="">Todas</option></select></label>
             <label>Área profesional<select value={filters.area} onChange={(event) => updateFilter("area", event.target.value)}>{AREAS.map((area) => <option key={area} value={area}>{area || `Todas las áreas · ${visibleJobs.length || 0}`}{area && ` · ${areaCounts[area] || 0}`}</option>)}</select></label>
             <div className="two-columns"><label>Seniority<select value={filters.seniority} onChange={(event) => updateFilter("seniority", event.target.value)}><option value="">Todos{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="intern">Practicante · {seniorityCounts.Practicante || 0}</option><option value="junior">Junior · {seniorityCounts.Junior || 0}</option><option value="mid">Intermedio · {seniorityCounts.Intermedio || 0}</option><option value="senior">Senior · {seniorityCounts.Senior || 0}</option></select></label><label>Modalidad<select value={filters.work_mode} onChange={(event) => updateFilter("work_mode", event.target.value)}><option value="">Todas{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="onsite">Presencial · {modalityCounts.Presencial || 0}</option><option value="hybrid">Híbrido · {modalityCounts.Híbrido || 0}</option><option value="remote">Remoto · {modalityCounts.Remoto || 0}</option></select></label></div>
             <div className="two-columns"><label>Salario mínimo<input type="number" min="0" placeholder="S/" value={filters.min_salary} onChange={(event) => updateFilter("min_salary", event.target.value)} /></label><label>Antigüedad<select value={filters.max_age_days} onChange={(event) => updateFilter("max_age_days", event.target.value)}><option value="7">7 días</option><option value="14">14 días</option><option value="30">30 días</option><option value="90">90 días</option></select></label></div>
-            <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos los portales · {jobs.length}</option><option value="indeed">Indeed · {portalCounts.indeed || 0}</option><option value="computrabajo">Computrabajo · {portalCounts.computrabajo || 0}</option><option value="linkedin">LinkedIn · {portalCounts.linkedin || 0}</option><option value="bumeran">Bumeran · {portalCounts.bumeran || 0}</option><option value="laborum">Laborum · {portalCounts.laborum || 0}</option><option value="empleos">Empleos Perú · {portalCounts.empleos || 0}</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas las competencias</option>{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{skill.name} · {skill.job_count}</option>)}</select></label></div>
+            <div className="salary-presets" aria-label="Atajos de sueldo">{([["", "Todos"], ["500", "Con sueldo"], ["1500", "S/ 1,500+"], ["2500", "S/ 2,500+"]] as const).map(([val, label]) => <button key={val || "all"} type="button" className={filters.min_salary === val ? "active" : ""} onClick={() => updateFilter("min_salary", val)}>{label}</button>)}</div>
+            <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos los portales · {activeBaseJobs.length}</option><option value="indeed">Indeed · {portalCounts.indeed || 0}</option><option value="computrabajo">Computrabajo · {portalCounts.computrabajo || 0}</option><option value="linkedin">LinkedIn · {portalCounts.linkedin || 0}</option><option value="google">Google Jobs · {portalCounts.google || 0}</option><option value="bumeran">Bumeran · {portalCounts.bumeran || 0}</option><option value="laborum">Laborum · {portalCounts.laborum || 0}</option><option value="empleos">Empleos Perú · {portalCounts.empleos || 0}</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas las competencias</option>{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{skill.name} · {skill.job_count}</option>)}</select></label></div>
           </div>
 
           <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><div className="radar-locate-row"><button className="radar-locate" type="button" onClick={locateMe}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>usar mi ubicación</button><small>o haz clic en el mapa</small></div><span className="radar-readout">CENTER // {radarLabel || radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>

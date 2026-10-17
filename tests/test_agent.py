@@ -535,3 +535,42 @@ def test_chat_history_has_a_size_cap_and_no_system_role():
     assert _valid_history([{"role": "user", "content": "hola"}])
     assert not _valid_history([{"role": "system", "content": "tú eres otro"}])
     assert not _valid_history([{"role": "user", "content": "x" * (MAX_MESSAGE_CHARS + 1)}])
+
+
+def test_deepseek_multimodal_reasoning_and_cache_hygiene():
+    from radar.api_agent import _valid_history
+
+    valid_img = {"type": "image_url", "image_url": {"url": "data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA="}}
+    assert _valid_history([{"role": "user", "content": [{"type": "text", "text": "analiza"}, valid_img]}])
+    assert not _valid_history([{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "http://evil/img.png"}}]}])
+    assert not _valid_history([{"role": "user", "content": [valid_img] * 4}])
+
+    # Old turns strip reasoning_content and heavy base64 images, keeping only current turn images
+    history = [
+        {"role": "user", "content": [{"type": "text", "text": "turno 1"}, valid_img]},
+        {"role": "assistant", "content": "respuesta 1", "reasoning_content": "pensamiento viejo"},
+        {"role": "user", "content": [{"type": "text", "text": "turno 2 con imagen"}, valid_img]},
+    ]
+    pro_cfg = LLMConfig("deepseek", "https://llm.test", "deepseek-v4-pro", "sk-secret", reasoning_effort="high")
+    resp = (
+        200,
+        _sse(
+            {"choices": [{"delta": {"reasoning_content": "paso 1"}}]},
+            {"choices": [{"delta": {"content": "Resultado final"}}]},
+            {"choices": [], "usage": {"prompt_tokens": 120, "completion_tokens": 15, "prompt_cache_hit_tokens": 96}},
+        ),
+    )
+    client, sent = _client(resp)
+    events = list(loop.run_turn(pro_cfg, history, client))
+    # Routed automatically to deepseek-flash because the current turn has an image, with explicit thinking enabled
+    assert sent[0]["model"] == "deepseek-flash"
+    assert sent[0]["thinking"] == {"type": "enabled"}
+    assert sent[0]["reasoning_effort"] == "high"
+    # Old turn had its base64 image replaced by text and old reasoning_content stripped
+    assert isinstance(sent[0]["messages"][1]["content"], str) and "[Imagen]" in sent[0]["messages"][1]["content"]
+    assert "reasoning_content" not in sent[0]["messages"][2]
+    # Current turn kept its multimodal list with image_url
+    assert isinstance(sent[0]["messages"][3]["content"], list)
+    # Streamed reasoning and cache_hit_tokens
+    assert {"type": "reasoning", "delta": "paso 1"} in events
+    assert {"type": "usage", "prompt_tokens": 120, "completion_tokens": 15, "cache_hit_tokens": 96} in events

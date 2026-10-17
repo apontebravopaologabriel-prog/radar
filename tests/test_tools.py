@@ -454,3 +454,81 @@ def test_application_tracking_and_hidden_sync():
     tools.track_job_application(job_id, "ignored", "No calza con mi horario")
     hidden = api.get("/api/jobs/hidden").json()["jobs"]
     assert any(h["id"] == job_id and h["user_reason"] == "not_interested" for h in hidden)
+
+
+def test_import_job_url_extracts_json_ld_and_tracks_application(monkeypatch):
+    import httpx
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    html_page = """
+    <html><head>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "title": "Ingeniero de Mejora Continua",
+      "description": "<p>Dominio de Excel, Power BI, Lean y SQL. Sueldo: S/ 3,200 a S/ 3,800 mensuales.</p>",
+      "datePosted": "2026-10-15",
+      "hiringOrganization": {"@type": "Organization", "name": " Alicorp SAA "},
+      "jobLocation": {"@type": "Place", "address": {"addressLocality": "Ate", "addressRegion": "Lima"}}
+    }
+    </script>
+    </head><body></body></html>
+    """
+
+    class _FakeResp:
+        status_code = 200
+        text = html_page
+
+    class _FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url):
+            return _FakeResp()
+
+    monkeypatch.setattr(httpx, "Client", _FakeClient)
+    monkeypatch.setattr("radar.single_import.ensure_public_http_url", lambda u: u)
+
+    tools.update_profile("Paolo", ["Procesos"], ["Lima"], {"Excel": "advanced", "Power BI": "intermediate"})
+    res = tools.import_job_url(
+        "https://pe.computrabajo.com/ofertas-de-trabajo/oferta-de-trabajo-de-ingeniero-en-lima-F80A7C8E2B149A0561373E686DCF3405",
+        favorite=True,
+        application_status="applied",
+    )
+    assert res["status"] == "created"
+    assert res["source"] == "Computrabajo"
+    assert res["title"] == "Ingeniero de Mejora Continua"
+    assert res["company"] == "Alicorp SAA"
+    assert res["district"] == "Ate"
+    assert (res["salary_min"], res["salary_max"]) == (3200.0, 3800.0)
+    assert res["is_favorite"] is True
+    assert res["application_status"] == "applied"
+    assert res["radar_link"] == f"radar:job:{res['job_id']}"
+
+    # API endpoint also works and updates existing job + fallback from URL slug when HTML is empty
+    api = TestClient(app)
+    api_res = api.post(
+        "/api/jobs/import-url",
+        json={
+            "url": "https://www.bumeran.com.pe/empleos/analista-de-operaciones-1118480000.html",
+            "title": "Analista de Operaciones",
+            "company": "Ransa",
+            "location": "Callao",
+            "description": "Gestión de almacenes con SAP y Excel. Modalidad presencial.",
+            "application_status": "saved",
+        },
+    )
+    assert api_res.status_code == 200
+    payload = api_res.json()
+    assert payload["source"] == "Bumeran"
+    assert payload["company"] == "Ransa"
+    assert payload["application_status"] == "saved"
