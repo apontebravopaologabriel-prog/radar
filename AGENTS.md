@@ -88,7 +88,7 @@ Frontend (`frontend/`):
 ## Verification commands
 
 ```bash
-cd /home/paolo/Projects/Radar
+# From repository root
 .venv/bin/pytest
 .venv/bin/ruff check
 git diff --check

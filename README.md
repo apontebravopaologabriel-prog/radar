@@ -76,3 +76,12 @@ Read in this order when changing behavior:
 | [docs/design-cv-studio.md](docs/design-cv-studio.md) | Design of the v1.0 hero feature: CV editor with agent panel, export and application folders |
 
 `docs/skills/radar/SKILL.md` is generated (`radar skill export --out docs/skills`); never edit it by hand.
+
+## Disclaimer & Legal Notice
+
+Radar is a local-first personal career intelligence tool built for individual educational and analytical purposes.
+
+- **No affiliation:** Radar is an independent open-source project and is not affiliated, associated, authorized, endorsed by, or in any way officially connected with LinkedIn, Indeed, Computrabajo, Bumeran, or any of their subsidiaries or affiliates.
+- **Fair use and platform terms:** Users are solely responsible for ensuring their use of public connectors complies with the terms of service, robots.txt directives, and rate limits of third-party platforms.
+- **Safety by design:** Radar does not automate job applications, does not bypass authentication barriers, does not store login credentials for job boards, and does not perform high-frequency scraping. All data gathered remains strictly on the user's local machine in an SQLite database.
+- **No warranty:** The software is provided "as is", without warranty of any kind, as expressed in the [MIT License](LICENSE).

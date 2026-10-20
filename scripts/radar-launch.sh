@@ -2,8 +2,9 @@
 
 set -u
 
-PROJECT_DIR="/home/paolo/Projects/Radar"
-STATE_DIR="/home/paolo/.local/state/radar"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="${RADAR_PROJECT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+STATE_DIR="${RADAR_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/radar}"
 FRONTEND_OUT="$PROJECT_DIR/frontend/out"
 API_URL="http://127.0.0.1:8100/api/health"
 APP_URL="http://127.0.0.1:8100/radar"

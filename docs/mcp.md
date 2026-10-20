@@ -27,14 +27,14 @@ copy its `claude mcp add ...` command. Restart the client afterwards. Endpoints:
 
 ## Manual configuration
 
-Command (adjust the path): `/home/paolo/Projects/Radar/.venv/bin/radar-mcp`
+Command (adjust the path to your installation): `/path/to/Radar/.venv/bin/radar-mcp`
 
 ```json
 {
   "mcpServers": {
     "radar": {
-      "command": "/home/paolo/Projects/Radar/.venv/bin/radar-mcp",
-      "cwd": "/home/paolo/Projects/Radar"
+      "command": "/path/to/Radar/.venv/bin/radar-mcp",
+      "cwd": "/path/to/Radar"
     }
   }
 }
@@ -44,7 +44,7 @@ The process needs read/write access to the SQLite file and its folder (target CV
 
 | Client | Setup |
 | --- | --- |
-| Claude Code | `claude mcp add radar -- /home/paolo/Projects/Radar/.venv/bin/radar-mcp` |
+| Claude Code | `claude mcp add radar -- /path/to/Radar/.venv/bin/radar-mcp` |
 | Antigravity | Add the block to `~/.gemini/config/mcp_config.json` and reload servers (`Additional Options > MCP Servers`) |
 | Hermes / others | Paste the JSON block into the client's server config |
 

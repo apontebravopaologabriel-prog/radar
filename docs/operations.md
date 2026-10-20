@@ -1,6 +1,6 @@
 # Operations
 
-All paths assume the repo at `/home/paolo/Projects/Radar`. Data lives in `~/.local/share/radar/` (or next to
+All paths assume the repository root directory. Data lives in `~/.local/share/radar/` (or next to
 `RADAR_DB_PATH`); logs live in `~/.local/state/radar/`.
 
 ## Install

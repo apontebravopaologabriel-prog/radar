@@ -1,7 +1,7 @@
 [project]
 name = "radar-career-intelligence"
 version = "1.0.2"
-description = "Career Intelligence para ofertas de Ingeniería Industrial en Perú"
+description = "Career intelligence local-first para el mercado laboral en Perú"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1",
