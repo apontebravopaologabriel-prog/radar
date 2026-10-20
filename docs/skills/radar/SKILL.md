@@ -13,11 +13,11 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 |---|---|---|---|
 | `ingest_jobs` | escribe | Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario. | source: string, query: string, location?: string, limit?: integer, max_age_days?: integer |
 | `health` | lee | Indica que Radar está disponible. |  |
-| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, ubicación, área, sector, salario, `url` del portal, `relevance_score` y un | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null |
+| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, lugar, área, sector, salario, `url`, score y extracto). Excluye postuladas | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null, include_applied?: boolean, include_hidden?: boolean |
 | `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. |  |
-| `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. | limit?: integer, max_age_days?: integer |
+| `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. Excluye por defecto postuladas y ocultas. | limit?: integer, max_age_days?: integer, include_applied?: boolean, include_hidden?: boolean |
 | `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer |
-| `find_jobs_near` | lee | Ofertas recientes en un radio (km) de un distrito de Lima/Callao o ciudad del Perú, ordenadas por cercanía | place: string, radius_km?: number, limit?: integer |
+| `find_jobs_near` | lee | Ofertas en un radio (km) de un distrito o ciudad por cercanía. Excluye postuladas u ocultas salvo | place: string, radius_km?: number, limit?: integer, include_applied?: boolean, include_hidden?: boolean |
 | `get_job_details` | lee | Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de | job_id: string |
 | `explain_job_fit` | lee | Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y | job_id: string |
 | `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array |

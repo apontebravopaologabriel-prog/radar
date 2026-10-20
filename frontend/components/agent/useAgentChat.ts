@@ -95,8 +95,13 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     try { localStorage.setItem(CONTEXT_KEY, mode); } catch { /* sin almacenamiento */ }
   }, []);
   const [history, setHistory] = useState<ApiMessage[]>([]);
+  const historyRef = useRef<ApiMessage[]>([]);
+  historyRef.current = history;
   const [lines, setLines] = useState<Line[]>([]);
   const [pending, setPending] = useState<PendingAction[]>([]);
+  const pendingRef = useRef<PendingAction[]>([]);
+  pendingRef.current = pending;
+  const [deciding, setDeciding] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
@@ -123,6 +128,12 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   const loaded = useRef(false);
   const abort = useRef<AbortController | null>(null);
 
+  const reportError = useCallback((error: unknown) => {
+    const msg = error instanceof Error ? error.message : "Error inesperado en el agente.";
+    setLines((p) => [...p, { kind: "error", text: msg }]);
+    onError(error);
+  }, [onError]);
+
   const refreshSettings = useCallback(() => api.agentSettings().then(setSettings).catch(() => undefined), []);
 
   useEffect(() => {
@@ -142,6 +153,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
       writeActiveConversation(saved.id);
       setHistory(saved.data.history ?? []);
       setLines((saved.data.lines ?? []) as Line[]);
+      setPending((saved.data.pending ?? []) as PendingAction[]);
       setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
     })().catch(() => undefined).finally(() => { loaded.current = true; });
   }, [onError]);
@@ -151,18 +163,18 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     if (!loaded.current || lines.length === 0) return;
     const timer = setTimeout(async () => {
       const title = customTitle ?? (autoTitle(lines) || "Conversación");
-      const data = { history: trimHistory(history), lines: trimLinesForStorage(lines) };
+      const data = { history: trimHistory(history), lines: trimLinesForStorage(lines), pending: pending.length ? pending : undefined };
       try {
         if (conversationId.current) await api.saveConversation(conversationId.current, title, data);
         else { conversationId.current = (await api.createConversation(title, data)).id; writeActiveConversation(conversationId.current); }
       } catch { /* no interrumpe el chat si no se pudo guardar */ }
     }, SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [history, lines, customTitle]);
+  }, [history, lines, pending, customTitle]);
 
   /** Ejecuta un turno con el historial dado. */
   const run = useCallback(async (base: ApiMessage[], mentions: Mention[] = []) => {
-    setBusy(true); setPending([]); setPlanReady(false);
+    setBusy(true); setPending([]); pendingRef.current = []; setPlanReady(false);
     const planning = planRef.current;
     let failed = false;
     const startedAt = performance.now();
@@ -172,7 +184,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     let hist = base;
     const toolArgs = new Map<string, string>();  // id de la llamada -> argumentos, para mostrar «herramienta(args)»
     abort.current = new AbortController();
-    const push = (message: ApiMessage) => { hist = [...hist, message]; setHistory(hist); };
+    const push = (message: ApiMessage) => { hist = [...hist, message]; historyRef.current = hist; setHistory(hist); };
     try {
       await streamChat(base, (event) => {
         if (event.type === "reasoning") {
@@ -196,7 +208,7 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
         }
         else if (event.type === "usage") setUsage((u) => ({ context: event.prompt_tokens, session: u.session + event.prompt_tokens + event.completion_tokens, cacheHit: event.cache_hit_tokens ?? 0, estimated: false }));
         else if (event.type === "compacted") {
-          hist = event.history; setHistory(hist);
+          hist = event.history; historyRef.current = hist; setHistory(hist);
           setUsage((u) => ({ ...u, context: BASE_PROMPT_TOKENS + Math.ceil(event.summary.length / 4), cacheHit: 0, estimated: true }));
           const hints = event.memory_candidates.map((c) => `\n  # ${c}`).join("");
           setLines((p) => [...p, { kind: "local", text: `Contexto compactado automáticamente (~${Math.round(event.before_tokens / 100) / 10}k tokens antes).\n\n${event.summary}${hints ? `\n\nSi quieres que lo recuerde, copia una línea con #:${hints}` : ""}` }]);
@@ -206,13 +218,14 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           const isAuto = (a: PendingAction) => alwaysAllow.current.has(a.name) || (autoRef.current && AUTO_SAFE.has(a.name));
           const auto = event.actions.filter(isAuto);
           const manual = event.actions.filter((a) => !isAuto(a));
+          pendingRef.current = manual;
           setPending(manual);
           if (auto.length) autoApprove.current(auto, manual.length === 0, hist);
         }
         else if (event.type === "error") { failed = true; setLines((p) => [...p, { kind: "error", text: event.message }]); }
         else if (event.type === "done" && current) { push({ role: "assistant", content: current }); current = ""; currentReasoning = ""; }
       }, abort.current.signal, mentions.length ? { ...scopeContext(context, contextMode), mentions } : scopeContext(context, contextMode), planning, usageRef.current.context);
-    } catch (error) { if ((error as Error).name !== "AbortError") onError(error); }
+    } catch (error) { if ((error as Error).name !== "AbortError") reportError(error); }
     finally {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
       setLines((previous) => {
@@ -223,13 +236,25 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
       setBusy(false); setTurn(null); void refreshSettings();
       if (planning && !failed) setPlanReady(true);
     }
-  }, [context, contextMode, onError, refreshSettings]);
+  }, [context, contextMode, reportError, refreshSettings]);
 
   const send = useCallback(async (text: string, mentions: Mention[] = [], attachments?: { pastedBlocks?: PastedBlock[]; images?: AttachedImage[] }) => {
     const clean = text.trim();
     const pastedBlocks = attachments?.pastedBlocks ?? [];
     const images = attachments?.images ?? [];
     if ((!clean && !pastedBlocks.length && !images.length) || busy) return;
+    // Si había tarjetas de confirmación pendientes y la persona escribe otro mensaje, cerrarlas como canceladas para no dejar llamadas huérfanas.
+    let baseHistory = historyRef.current;
+    if (pendingRef.current.length > 0) {
+      const cancelled: ApiMessage[] = pendingRef.current.map((a) => ({
+        role: "tool",
+        tool_call_id: a.id,
+        content: JSON.stringify({ datos_externos_no_confiables: { cancelado_por_el_usuario: true } }),
+      }));
+      baseHistory = [...baseHistory, ...cancelled];
+      pendingRef.current = [];
+      setPending([]);
+    }
     const displayText = clean || (images.length ? "(imagen adjunta)" : `(texto pegado · ${pastedBlocks.reduce((acc, b) => acc + b.lines, 0)} líneas)`);
     setLines((p) => [...p, { kind: "user", text: displayText, pastedBlocks: pastedBlocks.length ? pastedBlocks : undefined, images: images.length ? images : undefined }]);
     const pastedSection = pastedBlocks
@@ -242,27 +267,82 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
           ...images.map((img): ApiContentPart => ({ type: "image_url", image_url: { url: img.dataUrl } })),
         ]
       : fullText;
-    const next: ApiMessage[] = [...history, { role: "user", content }];
+    const next: ApiMessage[] = [...baseHistory, { role: "user", content }];
+    historyRef.current = next;
     setHistory(next);
     await run(next, mentions);
-  }, [busy, history, run]);
+  }, [busy, run]);
 
   const autoApprove = useRef<(actions: PendingAction[], resume: boolean, base: ApiMessage[]) => void>(() => undefined);
   const decide = useCallback(async (action: PendingAction, approve: boolean, always = false) => {
+    if (deciding) return;
     if (approve && always) alwaysAllow.current.add(action.name);
+    // Si eligió «siempre en esta sesión», aprobar también las demás acciones pendientes de la misma herramienta.
+    const currentPending = pendingRef.current;
+    const targets = approve && always
+      ? currentPending.filter((p) => p.id === action.id || p.name === action.name)
+      : [action];
+    const targetIds = new Set(targets.map((t) => t.id));
+    setDeciding(targets.length > 1 ? "all" : action.id);
     try {
-      const res = await api.confirm({ tool_call_id: action.id, name: action.name, arguments: action.arguments, approve });
-      if (approve && typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: action.name, arguments: action.arguments } }));
+      let next = historyRef.current;
+      for (const target of targets) {
+        const res = await api.confirm({ tool_call_id: target.id, name: target.name, arguments: target.arguments, approve });
+        if (approve && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: target.name, arguments: target.arguments } }));
+        }
+        next = [...next, res.message];
+        if (approve) {
+          const { summary, detail } = summarizeResult(res.message.content);
+          setLines((p) => [...p, { kind: "tool", text: `Aprobaste${always ? " (siempre en esta sesión)" : ""}: ${target.name}`, summary, detail }]);
+        } else {
+          setLines((p) => [...p, { kind: "tool", text: `Rechazaste: ${target.name}` }]);
+        }
       }
-      const rest = pending.filter((p) => p.id !== action.id);
+      const rest = pendingRef.current.filter((p) => !targetIds.has(p.id));
+      pendingRef.current = rest;
       setPending(rest);
-      setLines((p) => [...p, { kind: "tool", text: `${approve ? "Aprobaste" : "Rechazaste"}${always ? " (siempre en esta sesión)" : ""}: ${action.name}` }]);
-      const next = [...history, res.message];
+      historyRef.current = next;
       setHistory(next);
+      setDeciding(null);
       if (rest.length === 0) await run(next);
-    } catch (error) { onError(error); }
-  }, [history, pending, run, onError]);
+    } catch (error) {
+      setDeciding(null);
+      reportError(error);
+    }
+  }, [deciding, run, reportError]);
+
+  const decideAll = useCallback(async (approve: boolean) => {
+    if (deciding || pendingRef.current.length === 0) return;
+    const targets = [...pendingRef.current];
+    setDeciding("all");
+    try {
+      let next = historyRef.current;
+      for (const target of targets) {
+        const res = await api.confirm({ tool_call_id: target.id, name: target.name, arguments: target.arguments, approve });
+        if (approve && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: target.name, arguments: target.arguments } }));
+        }
+        next = [...next, res.message];
+        if (approve) {
+          const { summary, detail } = summarizeResult(res.message.content);
+          setLines((p) => [...p, { kind: "tool", text: `Aprobaste: ${target.name}`, summary, detail }]);
+        } else {
+          setLines((p) => [...p, { kind: "tool", text: `Rechazaste: ${target.name}` }]);
+        }
+      }
+      pendingRef.current = [];
+      setPending([]);
+      historyRef.current = next;
+      setHistory(next);
+      setDeciding(null);
+      await run(next);
+    } catch (error) {
+      setDeciding(null);
+      reportError(error);
+    }
+  }, [deciding, run, reportError]);
+
   // Las acciones ya aprobadas «siempre» se confirman solas y el turno continúa.
   autoApprove.current = (actions, resume, base) => {
     void (async () => {
@@ -274,11 +354,13 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
             window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: action.name, arguments: action.arguments } }));
           }
           next = [...next, res.message];
-          setLines((p) => [...p, { kind: "tool", text: `Aprobada automáticamente: ${action.name}` }]);
+          const { summary, detail } = summarizeResult(res.message.content);
+          setLines((p) => [...p, { kind: "tool", text: `Aprobada automáticamente: ${action.name}`, summary, detail }]);
         }
+        historyRef.current = next;
         setHistory(next);
         if (resume) await run(next);
-      } catch (error) { onError(error); }
+      } catch (error) { reportError(error); }
     })();
   };
   /** Vuelve al último mensaje de la persona (Esc Esc): lo quita de la conversación y devuelve su texto para editarlo. */
@@ -288,23 +370,30 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     const text = lines[lastLine].text;
     const lastMsg = [...history].map((m, i) => (m.role === "user" ? i : -1)).filter((i) => i >= 0).pop();
     setLines(lines.slice(0, lastLine));
-    if (lastMsg !== undefined) setHistory(history.slice(0, lastMsg));
+    if (lastMsg !== undefined) {
+      const sliced = history.slice(0, lastMsg);
+      historyRef.current = sliced;
+      setHistory(sliced);
+    }
+    pendingRef.current = [];
     setPending([]);
     return text;
   }, [history, lines]);
 
   const addLocal = useCallback((text: string, kind: Line["kind"] = "local") => setLines((p) => [...p, { kind, text }]), []);
   /** Empieza una conversación nueva (la anterior queda guardada). */
-  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; writeActiveConversation("new"); setPlanReady(false); setCustomTitle(null); setHistory([]); setLines([]); setPending([]); setUsage({ context: 0, session: 0, cacheHit: 0, estimated: false }); }, []);
+  const reset = useCallback(() => { abort.current?.abort(); conversationId.current = null; writeActiveConversation("new"); setPlanReady(false); setCustomTitle(null); historyRef.current = []; setHistory([]); setLines([]); pendingRef.current = []; setPending([]); setDeciding(null); setUsage({ context: 0, session: 0, cacheHit: 0, estimated: false }); }, []);
   /** Resume la conversación con el modelo y continúa desde el resumen. Devuelve un texto para mostrar. */
   const compact = useCallback(async (focus = ""): Promise<string> => {
     if (history.length < 2) return "Aún no hay nada que compactar.";
     const before = usage.context;
     const res = await api.compact(history, focus);
-    setHistory([
+    const compacted: ApiMessage[] = [
       { role: "user", content: `Resumen de la conversación hasta ahora (compactada):\n${res.summary}` },
       { role: "assistant", content: "Entendido. Continúo desde ese resumen." },
-    ]);
+    ];
+    historyRef.current = compacted;
+    setHistory(compacted);
     setUsage((u) => ({ context: res.completion_tokens + BASE_PROMPT_TOKENS, session: u.session + res.prompt_tokens + res.completion_tokens, cacheHit: 0, estimated: true }));
     return `Conversación compactada${before ? `: ~${Math.round(before / 100) / 10}k → ~${Math.round((res.completion_tokens + BASE_PROMPT_TOKENS) / 100) / 10}k tokens de contexto` : ""}.\n\n${res.summary}`;
   }, [history, usage.context]);
@@ -313,7 +402,12 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
     const saved = await api.conversation(id);
     conversationId.current = saved.id;
     writeActiveConversation(saved.id);
-    setHistory(saved.data.history ?? []); setLines((saved.data.lines ?? []) as Line[]); setPending([]);
+    historyRef.current = saved.data.history ?? [];
+    setHistory(saved.data.history ?? []);
+    setLines((saved.data.lines ?? []) as Line[]);
+    pendingRef.current = (saved.data.pending ?? []) as PendingAction[];
+    setPending((saved.data.pending ?? []) as PendingAction[]);
+    setDeciding(null);
     setCustomTitle(saved.title !== autoTitle((saved.data.lines ?? []) as Line[]) ? saved.title : null);
   }, []);
   /** Borra una conversación (la actual si no se indica). */
@@ -335,5 +429,5 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   }, [send, setPlanMode]);
   const title = customTitle ?? autoTitle(lines);
   const stop = useCallback(() => abort.current?.abort(), []);
-  return { lines, pending, busy, settings, needsSetup, usage, turn, title, rename, planMode, setPlanMode, autoMode, setAutoMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind, send, decide, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
+  return { lines, pending, deciding, busy, settings, needsSetup, usage, turn, title, rename, planMode, setPlanMode, autoMode, setAutoMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind, send, decide, decideAll, reset, stop, addLocal, refreshSettings, open, remove, list, compact };
 }

@@ -143,6 +143,7 @@ class ComputrabajoSource:
         structured_context = "\n".join(
             value
             for value in (
+                f"Empresa: {item.get('companyDescription')}" if item.get("companyDescription") else None,
                 f"Modalidad: {item.get('modality')}" if item.get("modality") else None,
                 f"Jornada: {item.get('workday')}" if item.get("workday") else None,
                 f"Salario: {item.get('salary')}" if item.get("salary") else None,

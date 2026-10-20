@@ -16,6 +16,7 @@ def list_jobs(
     work_mode: str | None = None,
     min_salary: float | None = None,
     include_hidden: bool = False,
+    include_applied: bool = True,
     source: str | None = None,
     skill: str | None = None,
     relevance_tier: str | None = None,
@@ -73,6 +74,10 @@ def list_jobs(
         params.append(relevance_tier)
     if not include_hidden:
         clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
+    if not include_applied:
+        clauses.append(
+            "NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected'))"
+        )
     limit_clause = ""
     if limit is not None:
         params.append(max(limit, 1))
@@ -316,7 +321,10 @@ def get_profile() -> dict[str, Any] | None:
 
 
 def recommendations(
-    limit: int = 10, max_age_days: int = DEFAULT_MAX_AGE_DAYS
+    limit: int = 10,
+    max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    include_applied: bool = False,
+    include_hidden: bool = False,
 ) -> dict[str, Any]:
     profile = get_profile()
     if not profile:
@@ -325,19 +333,27 @@ def recommendations(
             "jobs": [],
             "message": "Configura user_profile y user_skills antes de pedir recomendaciones.",
         }
+    extra_filters: list[str] = []
+    if not include_hidden:
+        extra_filters.append("AND NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
+    if not include_applied:
+        extra_filters.append("AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected'))")
+    extra_filter_sql = ("\n            " + "\n            ".join(extra_filters)) if extra_filters else ""
+
     with connection() as conn:
         rows = conn.execute(
-            """SELECT j.id, j.title, c.name, j.location,
+            f"""SELECT j.id, j.title, c.name, j.location,
             (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
             j.published_at, j.work_mode, j.salary_min, j.salary_max, j.salary_currency,
             j.sector, j.hours_per_week, j.schedule_text,
             j.application_status, j.application_checked_at,
-            js.total_score, js.strong_matches, js.missing_skills, js.reason
+            js.total_score, js.strong_matches, js.missing_skills, js.reason,
+            (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
             FROM job_scores js JOIN jobs j ON j.id=js.job_id LEFT JOIN companies c ON c.id=j.company_id
             WHERE js.profile_id=%s AND j.is_active=1 AND j.duplicate_status='canonical'
             AND j.relevance_tier IN ('core','adjacent')
             AND COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')
-            AND NOT EXISTS (SELECT 1 FROM job_sources jsl JOIN sources sl ON sl.id=jsl.source_id WHERE jsl.job_id=j.id AND lower(sl.name)='linkedin' AND (COALESCE(j.application_status, 'unknown') <> 'open' OR j.application_checked_at IS NULL OR date(j.application_checked_at) < date('now', '-' || %s || ' days')))
+            AND NOT EXISTS (SELECT 1 FROM job_sources jsl JOIN sources sl ON sl.id=jsl.source_id WHERE jsl.job_id=j.id AND lower(sl.name)='linkedin' AND (COALESCE(j.application_status, 'unknown') <> 'open' OR j.application_checked_at IS NULL OR date(j.application_checked_at) < date('now', '-' || %s || ' days'))){extra_filter_sql}
             AND j.published_at IS NOT NULL
             AND date(j.published_at) >= date('now', '-' || %s || ' days')
             AND date(j.published_at) < date('now', '+1 day')
@@ -370,6 +386,7 @@ def recommendations(
             "strong_matches": strong_matches or [],
             "missing_skills": missing_skills or [],
             "reason": x[18],
+            "user_application": x[19] if len(x) > 19 else None,
         })
     return {
         "profile_configured": True,

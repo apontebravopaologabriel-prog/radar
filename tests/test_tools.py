@@ -496,9 +496,10 @@ def test_import_job_url_extracts_json_ld_and_tracks_application(monkeypatch):
             return _FakeResp()
 
     monkeypatch.setattr(httpx, "Client", _FakeClient)
-    monkeypatch.setattr("radar.single_import.ensure_public_http_url", lambda u: u)
+    monkeypatch.setattr("radar.single_import.ensure_public_http_url", lambda u: None)
+    monkeypatch.setattr("radar.single_import._try_portal_native", lambda *a, **kw: None)
 
-    tools.update_profile("Paolo", ["Procesos"], ["Lima"], {"Excel": "advanced", "Power BI": "intermediate"})
+    tools.update_profile("Ana", ["Procesos"], ["Lima"], {"Excel": "advanced", "Power BI": "intermediate"})
     res = tools.import_job_url(
         "https://pe.computrabajo.com/ofertas-de-trabajo/oferta-de-trabajo-de-ingeniero-en-lima-F80A7C8E2B149A0561373E686DCF3405",
         favorite=True,
@@ -513,6 +514,24 @@ def test_import_job_url_extracts_json_ld_and_tracks_application(monkeypatch):
     assert res["is_favorite"] is True
     assert res["application_status"] == "applied"
     assert res["radar_link"] == f"radar:job:{res['job_id']}"
+
+    # Computrabajo split-view URL (#HEX_ID fragment on search page) resolves existing job by external_id without re-scraping listing page
+    frag_res = tools.import_job_url(
+        "https://pe.computrabajo.com/trabajo-de-practicante-pre-de#F80A7C8E2B149A0561373E686DCF3405",
+        application_status="interview",
+    )
+    assert frag_res["job_id"] == res["job_id"]
+    assert frag_res["title"] == "Ingeniero de Mejora Continua"
+    assert frag_res["company"] == "Alicorp SAA"
+    assert frag_res["application_status"] == "interview"
+
+    # Confirmation card previews resolve human-readable job title and company
+    preview_track = tools.PREVIEWS["track_job_application"]({"job_id": res["job_id"], "status": "applied"})
+    assert preview_track and any("Ingeniero de Mejora Continua" in line for line in preview_track)
+    preview_import = tools.PREVIEWS["import_job_url"](
+        {"url": "https://pe.computrabajo.com/trabajo-de-practicante-pre-de#F80A7C8E2B149A0561373E686DCF3405", "application_status": "applied"},
+    )
+    assert preview_import and any("Computrabajo" in line for line in preview_import)
 
     # API endpoint also works and updates existing job + fallback from URL slug when HTML is empty
     api = TestClient(app)
@@ -532,3 +551,47 @@ def test_import_job_url_extracts_json_ld_and_tracks_application(monkeypatch):
     assert payload["source"] == "Bumeran"
     assert payload["company"] == "Ransa"
     assert payload["application_status"] == "saved"
+
+
+def test_search_saved_jobs_and_recommendations_exclude_applied_and_hidden_by_default():
+    jobs = _seed_market()
+    p_id = next(j["id"] for j in jobs if j["title"] == "Practicante de Procesos")
+    l_id = next(j["id"] for j in jobs if j["title"] == "Analista de Logística")
+    c_id = next(j["id"] for j in jobs if j["title"] == "Practicante de Calidad")
+
+    # Por defecto, se listan las 3 ofertas
+    listed = tools.search_saved_jobs(limit=10)["jobs"]
+    assert len(listed) == 3
+
+    # Postulamos a una oferta (status='applied')
+    tools.track_job_application(p_id, status="applied")
+    # Ocultamos otra oferta (status='ignored' o vía set_job_user_status)
+    tools.track_job_application(l_id, status="ignored")
+
+    # search_saved_jobs ahora EXCLUYE la postulada y la oculta por defecto
+    fresh = tools.search_saved_jobs(limit=10)["jobs"]
+    fresh_ids = {j["id"] for j in fresh}
+    assert fresh_ids == {c_id}
+
+    # Si se pide explícitamente ver las postuladas
+    with_applied = tools.search_saved_jobs(limit=10, include_applied=True)["jobs"]
+    with_applied_ids = {j["id"] for j in with_applied}
+    assert p_id in with_applied_ids
+    assert l_id not in with_applied_ids  # sigue oculta
+
+    # Si se pide explícitamente ver las ocultas
+    with_hidden = tools.search_saved_jobs(limit=10, include_hidden=True)["jobs"]
+    with_hidden_ids = {j["id"] for j in with_hidden}
+    assert l_id in with_hidden_ids
+    assert p_id not in with_hidden_ids  # sigue excluida por postulación
+
+    # find_jobs_near también excluye postuladas y ocultas por defecto
+    near = tools.find_jobs_near("Lima", radius_km=50)["jobs"]
+    near_ids = {j["id"] for j in near}
+    assert p_id not in near_ids
+    assert l_id not in near_ids
+    assert c_id in near_ids
+
+    # find_jobs_near con include_applied=True incluye la postulada
+    near_app = tools.find_jobs_near("Lima", radius_km=50, include_applied=True)["jobs"]
+    assert p_id in {j["id"] for j in near_app}

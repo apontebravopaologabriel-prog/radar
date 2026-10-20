@@ -156,15 +156,26 @@ def default_place() -> str | None:
     return None
 
 
-def _open_jobs() -> list[dict[str, Any]]:
+def _open_jobs(include_applied: bool = False, include_hidden: bool = False) -> list[dict[str, Any]]:
     return [
         row
-        for row in list_jobs(limit=None, max_age_days=DEFAULT_MAX_AGE_DAYS)
+        for row in list_jobs(
+            limit=None,
+            max_age_days=DEFAULT_MAX_AGE_DAYS,
+            include_applied=include_applied,
+            include_hidden=include_hidden,
+        )
         if row["relevance_tier"] != "out_of_focus"
     ]
 
 
-def nearby(place: str, radius_km: float = 5.0, limit: int = 30) -> dict[str, Any]:
+def nearby(
+    place: str,
+    radius_km: float = 5.0,
+    limit: int = 30,
+    include_applied: bool = False,
+    include_hidden: bool = False,
+) -> dict[str, Any]:
     """Ofertas a `radius_km` de un distrito o ciudad, de la más cercana a la más lejana.
 
     La distancia es entre centroides (distrito o ciudad). Las ofertas que solo indican el
@@ -178,7 +189,7 @@ def nearby(place: str, radius_km: float = 5.0, limit: int = 30) -> dict[str, Any
         raise ValueError(f"Lugar desconocido: {place}")
     radius_km = min(max(radius_km, 0.5), 2500.0)
     found: list[dict[str, Any]] = []
-    for row in _open_jobs():
+    for row in _open_jobs(include_applied=include_applied, include_hidden=include_hidden):
         point = infer_location(row["location"])
         if point is None:
             continue

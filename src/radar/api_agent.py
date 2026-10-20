@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from radar import __version__, tools
 from radar.agent.loop import (
@@ -494,8 +494,8 @@ def confirm(payload: ConfirmRequest) -> dict[str, Any]:
     else:
         try:
             result = execute_tool(payload.name, payload.arguments)
-        except (ValidationError, ValueError, sqlite3.IntegrityError) as exc:
-            result = {"error": str(exc)[:300]}
+        except Exception as exc:  # noqa: BLE001
+            result = {"error": str(exc)[:500]}
     from radar.agent.loop import wrap_untrusted
 
     return {

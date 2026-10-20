@@ -64,6 +64,15 @@ def test_sqlite_profile_and_recommendations():
     assert isinstance(job["strong_matches"], list)
     assert isinstance(job["missing_skills"], list)
 
+    # Si se marca como postulado, ya no sale en recomendaciones por defecto
+    from radar.db.repository import track_application
+    track_application(job["id"], "applied")
+    recs_after = recommendations(limit=5)
+    assert not any(j["id"] == job["id"] for j in recs_after["jobs"])
+    # Con include_applied=True sí aparece
+    recs_with_applied = recommendations(limit=5, include_applied=True)
+    assert any(j["id"] == job["id"] for j in recs_with_applied["jobs"])
+
 
 def test_sqlite_skill_overview():
     overview = skill_overview(max_age_days=60)

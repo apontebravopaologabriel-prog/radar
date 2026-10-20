@@ -34,6 +34,7 @@ from radar.careers import CareerPackError, list_packs, load_pack, save_custom_pa
 from radar.db.queries import (
     applications,
     career_timeline,
+    get_job,
     get_profile,
     job_history,
     list_jobs,
@@ -167,14 +168,25 @@ def search_saved_jobs(
     search: str | None = None,
     sector: str | None = None,
     exclude_sector: str | None = None,
+    include_applied: bool = False,
+    include_hidden: bool = False,
 ) -> dict:
-    """Ofertas guardadas (título, empresa, ubicación, área, sector, salario, `url` del portal, `relevance_score` y un
-    extracto; la ficha completa está en get_job_details). `search` busca en título,
-    empresa, descripción y lugar; `sector` filtra uno y `exclude_sector` excluye varios separados por coma
-    (sectores: ver get_market_breakdown by=sector)."""
+    """Ofertas guardadas (título, empresa, lugar, área, sector, salario, `url`, score y extracto). Excluye postuladas
+    u ocultas salvo `include_applied` o `include_hidden`. `search` busca en texto; `sector` filtra uno y
+    `exclude_sector` excluye varios separados por coma."""
     limit = min(max(limit, 1), 30)
     excluded = [x.strip() for x in (exclude_sector or "").split(",") if x.strip()]
-    jobs = list_jobs(limit, seniority, area, max_age_days, search=search, sector=sector, exclude_sectors=excluded or None)
+    jobs = list_jobs(
+        limit,
+        seniority,
+        area,
+        max_age_days,
+        search=search,
+        sector=sector,
+        exclude_sectors=excluded or None,
+        include_applied=include_applied,
+        include_hidden=include_hidden,
+    )
     slim = []
     for job in jobs:  # sin la descripción completa (≈3 KB por oferta): eso lo da get_job_details
         item = {k: job.get(k) for k in ("id", "title", "company", "location", "seniority", "work_mode", "salary_min",
@@ -193,9 +205,14 @@ def get_market_summary() -> dict:
 
 
 @tool(chat=False)
-def list_recommended_jobs(limit: int = 10, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> dict:
-    """Devuelve recomendaciones recientes y verificables con enlace directo."""
-    return recommendations(min(max(limit, 1), 20), max_age_days)
+def list_recommended_jobs(
+    limit: int = 10,
+    max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    include_applied: bool = False,
+    include_hidden: bool = False,
+) -> dict:
+    """Devuelve recomendaciones recientes y verificables con enlace directo. Excluye por defecto postuladas y ocultas."""
+    return recommendations(min(max(limit, 1), 20), max_age_days, include_applied=include_applied, include_hidden=include_hidden)
 
 
 @tool()
@@ -206,11 +223,17 @@ def get_today_feed(limit: int = 5) -> dict:
 
 
 @tool()
-def find_jobs_near(place: str, radius_km: float = 5.0, limit: int = 15) -> dict:
-    """Ofertas recientes en un radio (km) de un distrito de Lima/Callao o ciudad del Perú, ordenadas por cercanía
-    (centroides). En `by_place`, `precision` "district" es distrito real; "city"/"department" son ofertas sin distrito
-    específico ubicadas en el centro de la ciudad/departamento: acláralo aparte y no las presentes como un distrito más."""
-    return nearby(place, radius_km, limit)
+def find_jobs_near(
+    place: str,
+    radius_km: float = 5.0,
+    limit: int = 15,
+    include_applied: bool = False,
+    include_hidden: bool = False,
+) -> dict:
+    """Ofertas en un radio (km) de un distrito o ciudad por cercanía. Excluye postuladas u ocultas salvo
+    `include_applied` o `include_hidden`. En `by_place`, `precision` "district" es distrito real; "city"/"department"
+    son ofertas sin distrito específico."""
+    return nearby(place, radius_km, limit, include_applied=include_applied, include_hidden=include_hidden)
 
 
 @tool()
@@ -429,8 +452,87 @@ def update_profile_fields(
     return profile_edit.patch(fields)
 
 
+_STATUS_PREVIEW_ES = {
+    "saved": "Guardada",
+    "applied": "Postulé (sale de ofertas activas)",
+    "interview": "Entrevista",
+    "offer": "Oferta recibida",
+    "rejected": "Descartada",
+    "ignored": "Oculta (no me interesa)",
+    "visible": "Restaurar a activas",
+}
+
+
+def _preview_job_label(job_id: str) -> str:
+    if not job_id:
+        return "Oferta desconocida"
+    row = get_job(str(job_id))
+    if not row:
+        return f"ID {str(job_id)[:12]}"
+    title = row.get("title") or "Sin título"
+    company = row.get("company") or "Empresa confidencial"
+    loc = row.get("location")
+    return f"{title} · {company}" + (f" ({loc})" if loc else "")
+
+
+def _preview_track(args: dict[str, Any]) -> list[str]:
+    job_id = str(args.get("job_id") or "")
+    status = str(args.get("status") or "saved")
+    notes = str(args.get("notes") or "").strip()
+    lines = [
+        f"Oferta: {_preview_job_label(job_id)}",
+        f"Estado: {_STATUS_PREVIEW_ES.get(status, status)}",
+    ]
+    if notes:
+        lines.append(f"Nota: {notes[:120]}")
+    return lines
+
+
+def _preview_favorite(args: dict[str, Any]) -> list[str]:
+    job_id = str(args.get("job_id") or "")
+    fav = bool(args.get("favorite", True))
+    action = "★ Marcar como favorita" if fav else "☆ Quitar de favoritas"
+    return [f"{action}: {_preview_job_label(job_id)}"]
+
+
+def _preview_import_url(args: dict[str, Any]) -> list[str]:
+    from radar.single_import import (
+        _extract_portal_offer_info,
+        _lookup_existing_in_db,
+        _source_name_from_url,
+    )
+
+    url = str(args.get("url") or "").strip()
+    source = _source_name_from_url(url) if url else "Web"
+    raw_id, cand_ids, _, _ = _extract_portal_offer_info(url) if url else (None, [], "", False)
+    existing = _lookup_existing_in_db(url, cand_ids) if url else None
+    lines = [f"Portal: {source}" + (f" · ID {raw_id[:16]}" if raw_id else "")]
+    if existing and existing.get("title"):
+        comp = existing.get("company") or "Empresa confidencial"
+        lines.append(f"Detectada en Radar: {existing['title']} · {comp}")
+    elif args.get("title") or args.get("company"):
+        t = args.get("title") or "(título automático)"
+        c = args.get("company") or "(empresa automática)"
+        lines.append(f"Puesto: {t} · {c}")
+    else:
+        lines.append(f"Enlace: {url[:90]}{'…' if len(url) > 90 else ''}")
+    flags = []
+    if args.get("favorite"):
+        flags.append("★ Favorita")
+    app_st = str(args.get("application_status") or "").strip()
+    if app_st:
+        flags.append(_STATUS_PREVIEW_ES.get(app_st, app_st))
+    if flags:
+        lines.append("Seguimiento: " + " · ".join(flags))
+    return lines
+
+
 PREVIEWS: dict[str, Callable[[dict[str, Any]], list[str]]] = {
     "update_profile_fields": lambda args: profile_edit.preview(args),
+    "track_job_application": _preview_track,
+    "favorite_job": _preview_favorite,
+    "import_job_url": _preview_import_url,
+    "remember_user": lambda args: [f"[{args.get('topic_key', 'memoria')}] {str(args.get('content', ''))[:140]}"],
 }
 
 

@@ -144,13 +144,13 @@ export const api = {
 
 export type ConversationInfo = { id: string; title: string; updated_at: string; lines?: number };
 export type ConversationHit = { id: string; title: string; updated_at: string; messages: number; snippets: string[] };
-export type ConversationData = { history: ApiMessage[]; lines: { kind: string; text: string }[] };
+export type PendingAction = { id: string; name: string; arguments: Record<string, unknown>; description: string; preview?: string[] };
+export type ConversationData = { history: ApiMessage[]; lines: { kind: string; text: string }[]; pending?: PendingAction[] };
 export type ApiContentPart =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
 export type ApiMessage = { role: "user" | "assistant" | "tool"; content: string | ApiContentPart[] | null; reasoning_content?: string; tool_call_id?: string;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] };
-export type PendingAction = { id: string; name: string; arguments: Record<string, unknown>; description: string; preview?: string[] };
 export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "reasoning"; delta: string }

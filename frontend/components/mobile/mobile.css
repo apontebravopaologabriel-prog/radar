@@ -286,3 +286,7 @@
 .term-image-preview { max-width: min(100%, 340px); max-height: 240px; border: 1px solid var(--line); border-radius: 4px; object-fit: contain; background: #111; }
 .term-attach-trigger { margin-top: 6px; opacity: .75; }
 .term-attach-trigger:hover { opacity: 1; color: var(--ink); }
+.term-call-result.is-expandable { cursor: pointer; }
+.term-call-result.is-expandable:hover { color: var(--ink); }
+.term-confirm.is-deciding { opacity: .65; pointer-events: none; }
+.term-confirm-batch { border-style: dashed; }

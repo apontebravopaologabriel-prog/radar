@@ -233,80 +233,197 @@ def _extract_from_html_meta(html_text: str) -> dict[str, Any]:
     return {"title": clean_title or None, "description": description}
 
 
+def _extract_portal_offer_info(url: str) -> tuple[str | None, list[str], str, bool]:
+    """Extrae `(raw_id, candidate_external_ids, fetch_url, is_listing_page)` desde la URL del portal."""
+    from urllib.parse import parse_qs
+
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    qs = parse_qs(parsed.query)
+    fragment = (parsed.fragment or "").strip()
+
+    # 1. Computrabajo: offerId en #fragment (#358C78...), en path (-358C78...) o en query (?oi=358C78...)
+    if "computrabajo" in host:
+        offer_id: str | None = None
+        if re.fullmatch(r"[A-Fa-f0-9]{16,40}", fragment):
+            offer_id = fragment
+        if not offer_id:
+            m = re.search(r"-([A-Fa-f0-9]{16,40})(?:[/?#.]|$)", parsed.path)
+            if m:
+                offer_id = m.group(1)
+        if not offer_id:
+            for key in ("oi", "id", "offerId"):
+                vals = qs.get(key) or []
+                if vals and re.fullmatch(r"[A-Fa-f0-9]{16,40}", vals[0].strip()):
+                    offer_id = vals[0].strip()
+                    break
+        is_listing = not parsed.path.lower().startswith("/ofertas-de-trabajo/")
+        return offer_id, ([offer_id] if offer_id else []), url, is_listing
+
+    # 2. LinkedIn: /jobs/view/<id> o ?currentJobId=<id>
+    if "linkedin" in host:
+        li_id: str | None = None
+        m = re.search(r"/jobs/view/(?:[^/?#]*-)?(\d{7,15})(?:[/?#]|$)", parsed.path)
+        if m:
+            li_id = m.group(1)
+        if not li_id and qs.get("currentJobId"):
+            cand = qs["currentJobId"][0].strip()
+            if cand.isdigit():
+                li_id = cand
+        fetch_url = f"https://www.linkedin.com/jobs/view/{li_id}" if li_id else url
+        is_listing = not bool(li_id) and ("/jobs/search" in parsed.path or "/jobs/collections" in parsed.path)
+        return li_id, ([f"li-{li_id}", li_id] if li_id else []), fetch_url, is_listing
+
+    # 3. Indeed: ?jk=<id> o ?vjk=<id>
+    if "indeed" in host:
+        in_id: str | None = None
+        for key in ("jk", "vjk"):
+            vals = qs.get(key) or []
+            if vals and re.fullmatch(r"[A-Za-z0-9]{10,24}", vals[0].strip()):
+                in_id = vals[0].strip()
+                break
+        fetch_url = f"https://{host}/viewjob?jk={in_id}" if in_id else url
+        is_listing = not bool(in_id) and "/viewjob" not in parsed.path
+        return in_id, ([f"in-{in_id}", in_id] if in_id else []), fetch_url, is_listing
+
+    # 4. Bumeran / Laborum: -<id>.html
+    if "bumeran" in host or "laborum" in host:
+        m = re.search(r"-(\d{6,15})(?:\.html?)?$", parsed.path, flags=re.IGNORECASE)
+        bm_id = m.group(1) if m else None
+        return bm_id, ([f"bm-{bm_id}", bm_id] if bm_id else []), url, False
+
+    # 5. Empleos Perú: /vacancy-details/<id> (en path o en #/vacancy-details/<id>)
+    if "empleosperu" in host or host.endswith(".gob.pe"):
+        m = re.search(r"(?:vacancy-details|detalle-vacante|jobs)/([a-zA-Z0-9_-]{8,64})", url)
+        ep_id = m.group(1) if m else None
+        return ep_id, ([ep_id] if ep_id else []), url, True
+
+    return None, [], url, False
+
+
+def _lookup_existing_in_db(clean_url: str, candidate_ids: list[str]) -> dict[str, Any] | None:
+    """Busca en `radar.db` si la oferta ya fue ingerida previamente por `source_url` o `external_id`."""
+    with contextlib.suppress(Exception), connection() as conn:
+        if candidate_ids:
+            placeholders = ", ".join(["%s"] * len(candidate_ids))
+            row = conn.execute(
+                f"""SELECT j.title, c.name, j.location, j.description_raw, j.published_at,
+                j.salary_min, j.salary_max, j.salary_currency, j.employment_type, j.work_mode,
+                js.external_id, js.source_url
+                FROM jobs j
+                JOIN job_sources js ON js.job_id = j.id
+                LEFT JOIN companies c ON c.id = j.company_id
+                WHERE js.source_url = %s OR js.external_id IN ({placeholders})
+                ORDER BY j.updated_at DESC LIMIT 1""",
+                (clean_url, *candidate_ids),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """SELECT j.title, c.name, j.location, j.description_raw, j.published_at,
+                j.salary_min, j.salary_max, j.salary_currency, j.employment_type, j.work_mode,
+                js.external_id, js.source_url
+                FROM jobs j
+                JOIN job_sources js ON js.job_id = j.id
+                LEFT JOIN companies c ON c.id = j.company_id
+                WHERE js.source_url = %s
+                ORDER BY j.updated_at DESC LIMIT 1""",
+                (clean_url,),
+            ).fetchone()
+        if row and row[0] and row[3]:
+            pub: datetime | None = None
+            if isinstance(row[4], datetime):
+                pub = row[4]
+            elif isinstance(row[4], str):
+                with contextlib.suppress(ValueError):
+                    pub = datetime.fromisoformat(row[4])
+            return {
+                "title": str(row[0]),
+                "company": str(row[1]) if row[1] else None,
+                "location": str(row[2]) if row[2] else None,
+                "description": str(row[3]),
+                "published_at": pub,
+                "salary_min": float(row[5]) if row[5] is not None else None,
+                "salary_max": float(row[6]) if row[6] is not None else None,
+                "salary_currency": str(row[7]) if row[7] else None,
+                "employment_type": str(row[8]) if row[8] else None,
+                "work_mode": str(row[9]) if row[9] else None,
+                "external_id": str(row[10]) if row[10] else None,
+                "canonical_url": str(row[11]) if row[11] else clean_url,
+            }
+    return None
+
+
 def _try_portal_native(url: str) -> RawJob | None:
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
+    raw_id, _, _, is_listing = _extract_portal_offer_info(url)
 
     # 1. Empleos Perú: /vacancy-details/<id> or /detalle-vacante/<id>
-    if "empleosperu" in host or host.endswith(".gob.pe"):
-        ep_match = re.search(r"(?:vacancy-details|detalle-vacante|jobs)/([a-zA-Z0-9_-]{8,64})", url)
-        if ep_match:
-            vacancy_id = ep_match.group(1)
-            from radar.sources.empleos_peru import EmpleosPeruSource
+    if ("empleosperu" in host or host.endswith(".gob.pe")) and raw_id:
+        from radar.sources.empleos_peru import EmpleosPeruSource
 
-            source = EmpleosPeruSource()
-            api_url = f"{source.base_url}/api/jobs/{vacancy_id}"
-            try:
-                with httpx.Client(timeout=10.0, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"}) as client:
-                    resp = client.get(api_url)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        if isinstance(data, dict) and (data.get("positionTitle") or data.get("titulo")):
-                            job = source._to_job(data)
-                            job.url = url
-                            return job
-            except (httpx.HTTPError, ValueError):
-                pass
-
-    # 2. Computrabajo: offerId hexadecimal al final del path
-    if "computrabajo" in host:
-        ct_match = re.search(r"-([A-Fa-f0-9]{16,40})(?:[/?#]|$)", parsed.path)
-        if ct_match:
-            offer_id = ct_match.group(1)
-            slug_title, slug_loc = _slug_title_and_location(url)
-            with contextlib.suppress(Exception):
-                from radar.sources.computrabajo import ComputrabajoSource
-
-                ct = ComputrabajoSource()
-                proc = ct._spawn() if hasattr(ct, "_spawn") else None
-                if proc is None:
-                    import subprocess
-
-                    proc = subprocess.Popen(
-                        [ct.command, *ct.args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
-                    )
-                try:
-                    ct._rpc(
-                        proc,
-                        1,
-                        "initialize",
-                        {
-                            "protocolVersion": "2025-06-18",
-                            "capabilities": {},
-                            "clientInfo": {"name": "radar", "version": "1.0"},
-                        },
-                        timeout=12.0,
-                    )
-                    ct._notify(proc, "notifications/initialized", {})
-                    detail = ct._get_detail(proc, 2, offer_id)
-                    if detail and (detail.get("title") or detail.get("description") or slug_title):
-                        summary = {
-                            "offerId": offer_id,
-                            "url": url,
-                            "title": detail.get("title") or slug_title or "Oferta Computrabajo",
-                            "location": detail.get("location") or slug_loc or "Lima",
-                        }
-                        merged = ct._merge_detail(summary, detail)
-                        job = ct._to_job(merged)
-                        if not job.published_at:
-                            job.published_at = datetime.now(UTC)
+        source = EmpleosPeruSource()
+        api_url = f"{source.base_url}/api/jobs/{raw_id}"
+        try:
+            with httpx.Client(timeout=10.0, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"}) as client:
+                resp = client.get(api_url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if isinstance(data, dict) and (data.get("positionTitle") or data.get("titulo")):
+                        job = source._to_job(data)
+                        job.url = url
                         return job
-                finally:
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=3)
-                    except Exception:  # noqa: BLE001
-                        proc.kill()
+        except (httpx.HTTPError, ValueError):
+            pass
+
+    # 2. Computrabajo: offerId hexadecimal en #fragment, path o query
+    if "computrabajo" in host and raw_id:
+        offer_id = raw_id
+        slug_title, slug_loc = (None, None) if is_listing else _slug_title_and_location(url)
+        with contextlib.suppress(Exception):
+            from radar.sources.computrabajo import ComputrabajoSource
+
+            ct = ComputrabajoSource()
+            proc = ct._spawn() if hasattr(ct, "_spawn") else None
+            if proc is None:
+                import subprocess
+
+                proc = subprocess.Popen(
+                    [ct.command, *ct.args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+                )
+            try:
+                ct._rpc(
+                    proc,
+                    1,
+                    "initialize",
+                    {
+                        "protocolVersion": "2025-06-18",
+                        "capabilities": {},
+                        "clientInfo": {"name": "radar", "version": "1.0"},
+                    },
+                    timeout=12.0,
+                )
+                ct._notify(proc, "notifications/initialized", {})
+                detail = ct._get_detail(proc, 2, offer_id)
+                if detail and (detail.get("title") or detail.get("description") or slug_title):
+                    summary = {
+                        "offerId": offer_id,
+                        "url": detail.get("url") or url,
+                        "title": detail.get("title") or slug_title or "Oferta Computrabajo",
+                        "location": detail.get("location") or slug_loc or "Lima",
+                    }
+                    merged = ct._merge_detail(summary, detail)
+                    job = ct._to_job(merged)
+                    job.external_id = offer_id
+                    if not job.published_at:
+                        job.published_at = datetime.now(UTC)
+                    return job
+            finally:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except Exception:  # noqa: BLE001
+                    proc.kill()
     return None
 
 
@@ -319,48 +436,23 @@ def extract_raw_job_from_url(
     description: str | None = None,
     timeout: float = 12.0,
 ) -> RawJob:
-    """Extrae un `RawJob` desde una URL pública combinando conectores nativos, JSON-LD, HTML y campos manuales."""
-    clean_url = ensure_public_http_url(url.strip())
+    """Extrae un `RawJob` desde una URL pública combinando BD local, conectores nativos, JSON-LD, HTML y campos manuales."""
+    clean_url = url.strip()
+    ensure_public_http_url(clean_url)
     source_name = _source_name_from_url(clean_url)
-    slug_title, slug_loc = _slug_title_and_location(clean_url)
+    raw_id, candidate_ids, fetch_url, is_listing = _extract_portal_offer_info(clean_url)
+    slug_title, slug_loc = (None, None) if is_listing else _slug_title_and_location(clean_url)
 
     extracted: dict[str, Any] = {}
 
-    # Paso 1: Intentar descarga HTTP pública (rápida, extrae JSON-LD JobPosting u OpenGraph)
-    def _guard(request: httpx.Request) -> None:
-        ensure_public_http_url(str(request.url))
+    # Paso 0: Si la oferta ya existe en `radar.db` por `source_url` o `external_id`, reutilizar su ficha completa al instante.
+    existing = _lookup_existing_in_db(clean_url, candidate_ids)
+    if existing:
+        extracted.update({k: v for k, v in existing.items() if v is not None})
 
-    html_text = ""
-    try:
-        with httpx.Client(
-            timeout=timeout,
-            follow_redirects=True,
-            headers={
-                "User-Agent": _USER_AGENT,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "es-PE,es;q=0.9,en;q=0.8",
-            },
-            event_hooks={"request": [_guard]},
-        ) as client:
-            response = client.get(clean_url)
-            if response.status_code < 400:
-                html_text = response.text
-    except (httpx.HTTPError, UnsafeUrlError):
-        html_text = ""
-
-    if html_text:
-        ld_entry = _parse_json_ld_job_posting(html_text)
-        if ld_entry:
-            extracted.update({k: v for k, v in _extract_from_json_ld(ld_entry).items() if v is not None})
-        meta_info = _extract_from_html_meta(html_text)
-        if not extracted.get("title") and meta_info.get("title"):
-            extracted["title"] = meta_info["title"]
-        if not extracted.get("description") and meta_info.get("description"):
-            extracted["description"] = meta_info["description"]
-
-    # Paso 2: Si el HTML no trajo descripción o fue bloqueado (ej. Cloudflare en Computrabajo o SPA en Empleos Perú),
-    # usar el conector nativo del portal.
-    if not extracted.get("description") or not extracted.get("title"):
+    # Paso 1: Si es Computrabajo o Empleos Perú con ID de oferta y aún falta título/descripción, usar su conector nativo primero.
+    prefer_native = source_name in {"Computrabajo", "Empleos Perú"} and bool(raw_id)
+    if prefer_native and (not extracted.get("description") or not extracted.get("title")):
         native_job = _try_portal_native(clean_url)
         if native_job:
             extracted.setdefault("title", native_job.title if native_job.title != "Sin título" else None)
@@ -373,11 +465,63 @@ def extract_raw_job_from_url(
             extracted.setdefault("salary_currency", native_job.salary_currency)
             extracted.setdefault("employment_type", native_job.employment_type)
             extracted.setdefault("work_mode", native_job.work_mode)
+            extracted.setdefault("external_id", native_job.external_id)
+
+    # Paso 2: Intentar descarga HTTP pública (solo si la URL apunta a una oferta individual, nunca a un listado de búsqueda)
+    if (not extracted.get("description") or not extracted.get("title")) and not is_listing:
+        def _guard(request: httpx.Request) -> None:
+            ensure_public_http_url(str(request.url))
+
+        html_text = ""
+        try:
+            with httpx.Client(
+                timeout=timeout,
+                follow_redirects=True,
+                headers={
+                    "User-Agent": _USER_AGENT,
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "es-PE,es;q=0.9,en;q=0.8",
+                },
+                event_hooks={"request": [_guard]},
+            ) as client:
+                response = client.get(fetch_url)
+                if response.status_code < 400:
+                    html_text = response.text
+        except (httpx.HTTPError, UnsafeUrlError):
+            html_text = ""
+
+        if html_text:
+            ld_entry = _parse_json_ld_job_posting(html_text)
+            if ld_entry:
+                extracted.update({k: v for k, v in _extract_from_json_ld(ld_entry).items() if v is not None and k not in extracted})
+            meta_info = _extract_from_html_meta(html_text)
+            if not extracted.get("title") and meta_info.get("title"):
+                extracted["title"] = meta_info["title"]
+            if not extracted.get("description") and meta_info.get("description"):
+                extracted["description"] = meta_info["description"]
+
+    # Paso 3: Fallback a conector nativo si no se probó en el Paso 1
+    if not prefer_native and (not extracted.get("description") or not extracted.get("title")):
+        native_job = _try_portal_native(clean_url)
+        if native_job:
+            extracted.setdefault("title", native_job.title if native_job.title != "Sin título" else None)
+            extracted.setdefault("company", native_job.company)
+            extracted.setdefault("location", native_job.location)
+            extracted.setdefault("description", native_job.description)
+            extracted.setdefault("published_at", native_job.published_at)
+            extracted.setdefault("salary_min", native_job.salary_min)
+            extracted.setdefault("salary_max", native_job.salary_max)
+            extracted.setdefault("salary_currency", native_job.salary_currency)
+            extracted.setdefault("employment_type", native_job.employment_type)
+            extracted.setdefault("work_mode", native_job.work_mode)
+            extracted.setdefault("external_id", native_job.external_id)
 
     final_title = (title or "").strip() or extracted.get("title") or slug_title
     final_company = (company or "").strip() or extracted.get("company")
     final_location = (location or "").strip() or extracted.get("location") or slug_loc or "Lima"
     final_description = (description or "").strip() or extracted.get("description")
+    final_ext_id = extracted.get("external_id") or (candidate_ids[0] if candidate_ids else None)
+    final_url = extracted.get("canonical_url") or clean_url
 
     if not final_title:
         raise ValueError(
@@ -389,8 +533,8 @@ def extract_raw_job_from_url(
         source=source_name,
         title=final_title,
         company=final_company or None,
-        url=clean_url,
-        external_id=None,
+        url=final_url,
+        external_id=final_ext_id,
         location=final_location,
         description=final_description or None,
         published_at=extracted.get("published_at") or datetime.now(UTC),
@@ -430,9 +574,11 @@ def fetch_and_ingest_single_job(
         row = conn.execute(
             """SELECT j.id FROM jobs j
             LEFT JOIN job_sources js ON js.job_id = j.id
-            WHERE js.source_url = %s OR j.canonical_fingerprint = %s
+            WHERE js.source_url IN (%s, %s)
+               OR (js.external_id IS NOT NULL AND js.external_id = %s)
+               OR j.canonical_fingerprint = %s
             ORDER BY j.updated_at DESC LIMIT 1""",
-            (raw.url, fp),
+            (url.strip(), raw.url, raw.external_id or "", fp),
         ).fetchone()
         if row:
             job_id = str(row[0])

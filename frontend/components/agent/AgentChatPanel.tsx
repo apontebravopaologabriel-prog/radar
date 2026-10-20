@@ -62,15 +62,22 @@ const TermLine = memo(function TermLine({ line, expanded, streaming }: { line: L
   const [openPasteIds, setOpenPasteIds] = useState<number[]>([]);
   const [openImageIds, setOpenImageIds] = useState<number[]>([]);
   const [openReasoning, setOpenReasoning] = useState(false);
+  const [openDetail, setOpenDetail] = useState(false);
 
-  if (line.kind === "tool" && line.summary !== undefined) {  // llamada a herramienta: ⏺ nombre(args) / ⎿ resumen (Ctrl+O expande)
+  if (line.kind === "tool" && line.summary !== undefined) {  // llamada a herramienta: ⏺ nombre(args) / ⎿ resumen (clic o Ctrl+O expande)
+    const showDetail = Boolean(line.detail && (expanded || openDetail));
     return (
       <div className={`term-line term-tool term-call${line.summary.startsWith("error") ? " is-error" : ""}`}>
         <span className="term-glyph" aria-hidden>⏺</span>
         <div className="term-body">
           <div className="term-call-head">{line.text}</div>
-          <div className="term-call-result">⎿ {line.summary}{line.detail && !expanded ? <span className="term-dim"> (ctrl+o)</span> : null}</div>
-          {expanded && line.detail && <pre className="term-call-detail">{line.detail}</pre>}
+          <div
+            className={`term-call-result${line.detail ? " is-expandable" : ""}`}
+            onClick={line.detail ? () => setOpenDetail((v) => !v) : undefined}
+          >
+            ⎿ {line.summary}{line.detail && !showDetail ? <span className="term-dim"> (clic o ctrl+o)</span> : null}
+          </div>
+          {showDetail && line.detail && <pre className="term-call-detail">{line.detail}</pre>}
         </div>
       </div>
     );
@@ -190,11 +197,12 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
     noticeTimer.current = window.setTimeout(() => setNotice(null), 3500);
   };
   const [expandTools, setExpandTools] = useState(false);  // Ctrl+O: mostrar el resultado completo de las herramientas
+  const [queuedPrompt, setQueuedPrompt] = useState<{ text: string; pasted: PastedBlock[]; images: AttachedImage[] } | null>(null);
   const recall = useRef<{ list: string[]; at: number }>({ list: [], at: -1 });
   const bottom = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
-  const { lines, pending, busy, settings, needsSetup, send, decide, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, planMode, setPlanMode, autoMode, setAutoMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind } = chat;
+  const { lines, pending, busy, deciding, settings, needsSetup, send, decide, decideAll, stop, reset, addLocal, refreshSettings, open, remove, list, compact, usage, turn, title, rename: renameChat, planMode, setPlanMode, autoMode, setAutoMode, planReady, setPlanReady, approvePlan, contextMode, setContextMode, rewind } = chat;
   const matches = menuOpen ? matchCommands(input) : [];
   useEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [lines, pending, busy]);
   useEffect(() => { setMenuIndex(0); setMenuOpen(true); }, [input]);
@@ -220,6 +228,40 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
     return () => { live = false; window.clearTimeout(timer); };
   }, [mentionQuery]);
   useEffect(() => { if (!configMenu && !resumeOpen && !panel) promptRef.current?.focus(); }, [configMenu, resumeOpen, panel]);
+
+  // Atajos globales para tarjetas de confirmación cuando el foco no está escribiendo en el prompt.
+  useEffect(() => {
+    if ((!pending.length && !planReady) || Boolean(deciding)) return;
+    const onGlobalKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      const inOtherInput = target && target !== promptRef.current && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable);
+      if (inOtherInput) return;
+      if (target === promptRef.current && input !== "") return;
+      const key = event.key.toLowerCase();
+      if (pending.length) {
+        if (["y", "1"].includes(key)) { event.preventDefault(); void decide(pending[0], true, false); return; }
+        if (key === "2") { event.preventDefault(); void decide(pending[0], true, true); return; }
+        if (["n", "3"].includes(key)) { event.preventDefault(); void decide(pending[0], false, false); return; }
+        if (key === "a" && pending.length > 1) { event.preventDefault(); void decideAll(true); return; }
+      } else if (planReady && !busy) {
+        if (key === "1") { event.preventDefault(); void approvePlan(); return; }
+        if (key === "2") { event.preventDefault(); setPlanReady(false); return; }
+      }
+    };
+    window.addEventListener("keydown", onGlobalKey);
+    return () => window.removeEventListener("keydown", onGlobalKey);
+  }, [pending, planReady, busy, deciding, input, decide, decideAll, approvePlan, setPlanReady]);
+
+  // Despacha mensaje en cola en cuanto el turno actual y las confirmaciones terminan.
+  useEffect(() => {
+    if (!queuedPrompt || busy || Boolean(deciding) || pending.length > 0) return;
+    const next = queuedPrompt;
+    setQueuedPrompt(null);
+    const used = picked.current.filter((m) => next.text.includes(`@${(m.name.length > 40 ? `${m.name.slice(0, 39)}…` : m.name).replace(/\s+/g, "_")}`));
+    picked.current = [];
+    void send(next.text, used, { pastedBlocks: next.pasted, images: next.images });
+  }, [queuedPrompt, busy, deciding, pending.length, send]);
 
   const applyConfig = async (model: string, effort: "auto" | "none" | "low" | "high" | "max") => {
     if (!settings) return;
@@ -309,7 +351,17 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
   const submit = async (raw: string) => {
     const text = raw.trim();
     const hasAttachments = pastedBlocks.length > 0 || images.length > 0;
-    if ((!text && !hasAttachments) || busy) return;
+    if (!text && !hasAttachments) return;
+    if (busy || Boolean(deciding)) {
+      if (!text.startsWith("/")) {
+        setQueuedPrompt({ text, pasted: pastedBlocks, images });
+        setInput("");
+        setPastedBlocks([]);
+        setImages([]);
+        showNotice("Mensaje en cola: se enviará al terminar el turno actual.");
+      }
+      return;
+    }
     if (text) recall.current = { list: [...recall.current.list, text].slice(-50), at: -1 };
     search.current = null;
     const currentPasted = pastedBlocks;
@@ -380,9 +432,13 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
       void submit(input); return;
     }
     if (event.key === "Escape" && busy) { event.preventDefault(); stop(); return; }
-    if (input === "" && pending.length && ["y", "n", "1", "2", "3"].includes(event.key)) {
-      event.preventDefault();
-      void decide(pending[0], event.key !== "n" && event.key !== "3", event.key === "2"); return;
+    if (input === "" && pending.length && !deciding && ["y", "n", "1", "2", "3", "a"].includes(event.key.toLowerCase())) {
+      const k = event.key.toLowerCase();
+      if (k === "a" && pending.length > 1) { event.preventDefault(); void decideAll(true); return; }
+      if (k !== "a") {
+        event.preventDefault();
+        void decide(pending[0], k !== "n" && k !== "3", k === "2"); return;
+      }
     }
     if (input === "" && planReady && !pending.length && (event.key === "1" || event.key === "2")) {
       event.preventDefault();
@@ -448,23 +504,45 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
           </div>
         )}
         {lines.map((line, index) => <TermLine key={index} line={line} expanded={expandTools} streaming={busy && index === lastAssistant} />)}
-        {pending.map((action) => (
-          <div className="term-confirm" key={action.id}>
-            <div><b>Acción propuesta:</b> {action.description}</div>
-            {action.preview?.length ? <ul className="term-preview">{action.preview.map((line) => <li key={line}>{line}</li>)}</ul> : <code>{action.name}({JSON.stringify(action.arguments)})</code>}
+        {pending.length > 1 && (
+          <div className="term-confirm term-confirm-batch">
+            <div><b>{pending.length} acciones propuestas en lote</b></div>
             <div className="m-actions">
-              <button onClick={() => decide(action, true)}>[1] Sí</button>
-              <button onClick={() => decide(action, true, true)}>[2] Sí, y no preguntar más esta sesión</button>
-              <button onClick={() => decide(action, false)}>[3] No</button>
+              <button type="button" disabled={Boolean(deciding)} onClick={() => void decideAll(true)}>
+                {deciding === "__all__" ? "Ejecutando lote…" : `[A] Sí a todas (${pending.length})`}
+              </button>
+              <button type="button" disabled={Boolean(deciding)} onClick={() => void decideAll(false)}>
+                Rechazar todas
+              </button>
             </div>
           </div>
-        ))}
+        )}
+        {pending.map((action) => {
+          const isDecidingThis = deciding === action.id || deciding === "__all__";
+          return (
+            <div className={`term-confirm${isDecidingThis ? " is-deciding" : ""}`} key={action.id}>
+              <div><b>Acción propuesta:</b> {action.description}</div>
+              {action.preview?.length ? <ul className="term-preview">{action.preview.map((line) => <li key={line}>{line}</li>)}</ul> : <code>{action.name}({JSON.stringify(action.arguments)})</code>}
+              <div className="m-actions">
+                <button type="button" disabled={Boolean(deciding)} onClick={() => void decide(action, true)}>
+                  {isDecidingThis ? "Ejecutando…" : "[1] Sí"}
+                </button>
+                <button type="button" disabled={Boolean(deciding)} onClick={() => void decide(action, true, true)}>
+                  [2] Sí, y no preguntar más esta sesión
+                </button>
+                <button type="button" disabled={Boolean(deciding)} onClick={() => void decide(action, false)}>
+                  [3] No
+                </button>
+              </div>
+            </div>
+          );
+        })}
         {planReady && !busy && !pending.length && (
           <div className="term-confirm">
             <div><b>Plan listo.</b> ¿Lo ejecuto?</div>
             <div className="m-actions">
-              <button onClick={() => void approvePlan()}>[1] Aprobar y ejecutar</button>
-              <button onClick={() => setPlanReady(false)}>[2] Seguir planificando</button>
+              <button type="button" onClick={() => void approvePlan()}>[1] Aprobar y ejecutar</button>
+              <button type="button" onClick={() => setPlanReady(false)}>[2] Seguir planificando</button>
             </div>
           </div>
         )}
@@ -491,8 +569,23 @@ export default function AgentChatPanel({ chat, onSettings, dock, onClose }: { ch
           ))}
         </ul>
       )}
-      {(pastedBlocks.length > 0 || images.length > 0) && (
+      {(pastedBlocks.length > 0 || images.length > 0 || queuedPrompt !== null) && (
         <div className="term-StagingBar" aria-label="Adjuntos del mensaje">
+          {queuedPrompt && (
+            <span className="term-stage-chip">
+              <span className="term-stage-label" title={queuedPrompt.text}>
+                [En cola: {queuedPrompt.text.length > 42 ? `${queuedPrompt.text.slice(0, 42)}…` : queuedPrompt.text || "adjunto"}]
+              </span>
+              <button
+                type="button"
+                className="term-stage-remove"
+                aria-label="Cancelar mensaje en cola"
+                onClick={() => setQueuedPrompt(null)}
+              >
+                ×
+              </button>
+            </span>
+          )}
           {pastedBlocks.map((b) => (
             <span key={`stage-p-${b.id}`} className="term-stage-chip">
               <button

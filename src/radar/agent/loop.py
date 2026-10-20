@@ -7,6 +7,7 @@ aprueba en `/api/chat/confirm`. El texto de ofertas y perfiles se trata como dat
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from collections.abc import Iterator
@@ -17,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from pydantic import ValidationError
 
 from radar import cv_targets, maintenance, tools
 from radar.agent.memory import delete_memory, list_memories, migrate_legacy, save_memory
@@ -55,6 +55,11 @@ una; úsalo solo para 1 a 3 ofertas que la persona va a decidir o cuando pregunt
 - Una sola búsqueda amplia con filtros bien puestos antes que varias variantes del texto.
 
 Reglas:
+- Filtrado por estado: Al listar, buscar o recomendar ofertas (`search_saved_jobs`, `find_jobs_near`, etc.), NUNCA \
+listes ofertas a las que la persona ya postuló (`user_application` en applied, interview, offer, rejected o ignored) ni \
+ofertas ocultas (`user_status` = hidden o ignoradas), SALVO que la persona lo pida EXPLÍCITAMENTE (ej. «incluye a las \
+que ya postulé», «muéstrame mis postulaciones», «incluye archivadas/ocultas»). En ese caso explícito pasa \
+`include_applied=True` o `include_hidden=True` a la herramienta, o usa `list_job_applications` para revisar su pipeline.
 - Cifras siempre de herramientas, citando cuál; nunca inventes ofertas, empresas, salarios ni niveles de la persona.
 - "Lima" no es un distrito: es la ciudad que los engloba a todos (San Isidro, Miraflores, Lince...). Cuando una \
 herramienta devuelve una fila "Lima" con `precision` "city" o "department" (o sin distrito en el desglose), son \
@@ -72,8 +77,14 @@ pregunta), en todas las dimensiones; `focus` solo si piden un eje concreto.
 - No postulas ni envías mensajes. Las acciones que modifican datos las propones con su herramienta: la persona verá \
 una tarjeta y decidirá. Para el flujo de ofertas usa `favorite_job` (★ preselección/CV objetivo), `track_job_application` \
 (`applied` al postular —la saca de activas—, `interview`, `offer`, `rejected`, `ignored` para ocultar si no interesa, \
-`visible` para restaurar, y `notes` para anotar detalles) y `list_job_applications` para revisar su pipeline o avisar si \
-alguna lleva ≥7 días sin respuesta. Configura paso a paso, una pregunta a la vez, y solo con datos que ella dio.
+`visible` para restaurar, y `notes` para anotar detalles), `import_job_url` (cuando te pasen uno o varios links de ofertas \
+de Computrabajo —incluidos los que llevan `#HASH`—, LinkedIn, Indeed, Bumeran o Empleos Perú: llámala directo y en paralelo \
+sin pedirle antes empresa ni puesto, porque extrae título, empresa y descripción sola y cruza con la BD; pasa `title`, \
+`company` o `description` solo si ya los dio en el mensaje o si el portal falló) y `list_job_applications` para revisar su \
+pipeline o avisar si alguna lleva ≥7 días sin respuesta. Al buscar si una empresa está en Radar, recuerda que en Perú muchas \
+publican con razón social (ej. Qroma → Corporación Peruana de Productos Químicos) y ponen la marca en la descripción: busca \
+con `search_saved_jobs(search=...)` (que busca en título, empresa y descripción) en vez de filtrar solo `companies.name`. \
+Configura paso a paso, una pregunta a la vez, y solo con datos que ella dio.
 - Si piden buscar más ofertas de un distrito o ciudad, propón refresh_market (pide confirmación; corre en segundo plano) y \
 informa el avance con get_refresh_status cuando pregunten. Las fuentes buscan por ciudad: el distrito sesga, no limita.
 - Si aluden a algo hablado antes («como hablamos», «lo de ayer»), busca con search_past_conversations (fragmentos, no \
@@ -391,7 +402,7 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
 def _call_tool_safely(entry: tools.Tool, args: dict[str, Any]) -> Any:
     try:
         return entry.call(args)
-    except (ValidationError, ValueError) as exc:
+    except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)[:1500]}
 
 
@@ -648,7 +659,8 @@ def run_turn(
                           "description": entry.description.splitlines()[0]}
                 preview = tools.PREVIEWS.get(call["name"])
                 if preview is not None:  # «antes → después» para que la persona vea qué aprueba
-                    action["preview"] = preview(args)
+                    with contextlib.suppress(Exception):
+                        action["preview"] = preview(args)
                 pending.append(action)
             else:
                 seen_calls.add(signature)
