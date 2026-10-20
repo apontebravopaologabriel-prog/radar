@@ -9,6 +9,9 @@ Radar reads public job postings and stores them in a local SQLite file. Nothing 
 | Indeed | JobSpy (scraper) | The portal's terms may prohibit automated access. Use at your own risk, at low frequency; keep it as an opt-in "advanced source". |
 | LinkedIn | JobSpy (scraper) | Same warning; LinkedIn is the most restrictive. Radar never logs into your account or uses your session. |
 | Computrabajo | `mcp-computrabajo@1.0.0` through `npx` (pinned) | Public search pages only; no cookies. |
+| Bumeran | Public JSON-LD / API connector | Direct public job posting queries and single URL import. |
+| Empleos Perú | Public MTPE API connector | Public Peruvian Ministry of Labor job portal. |
+| Single URL import | Direct fetch with SSRF guard | Any public offer URL from Computrabajo, LinkedIn, Indeed, Bumeran, or Empleos Perú. |
 | CSV import | A file you provide | Your responsibility to have the right to use it. |
 
 - Each portal runs isolated: one failure does not stop the others. Rate is low (weekly timer or a manual refresh).
@@ -31,4 +34,4 @@ Profile, CV, photo, applications, conversations, memory, API keys (OS credential
 Radar uses open-source libraries (FastAPI, Next.js, MapLibre, Leaflet, pypdfium2, Pillow, JobSpy, among others) under their
 own licenses; see each package. Map data © OpenStreetMap contributors, served by OpenFreeMap.
 
-Radar is not affiliated with Indeed, LinkedIn or Computrabajo.
+Radar is not affiliated with Indeed, LinkedIn, Computrabajo, Bumeran, or Empleos Perú.

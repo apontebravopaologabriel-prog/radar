@@ -26,7 +26,7 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 | Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval; offers in its answers link to the map detail. See [docs/agent.md](docs/agent.md) |
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
 | Target CVs and CV Studio | Hypothetical ideal candidate per ★ offer, gap matrix, closure plan; **Studio**: your real CV as pages with the agent beside it, suggestions you accept, PDF/Word export into one folder per application. See [docs/cv.md](docs/cv.md) |
-| Refresh | Weekly systemd timer pulls Indeed, LinkedIn (JobSpy) and Computrabajo (MCP adapter). See [docs/operations.md](docs/operations.md) |
+| Refresh & Import | Scheduled or in-app market pull across Computrabajo, Bumeran, Empleos Perú, and Indeed/LinkedIn (JobSpy). Single-URL instant import from the UI (`+ Agregar por link`) or agent (`/importar`). See [docs/operations.md](docs/operations.md) and [docs/data-sources.md](docs/data-sources.md) |
 
 ## Quick start
 
@@ -71,6 +71,9 @@ Read in this order when changing behavior:
 | [docs/cv.md](docs/cv.md) | Target CVs, gap analysis, downloadable CV |
 | [docs/security.md](docs/security.md) | Threat model, controls, compliance |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom → fix |
+| [docs/data-sources.md](docs/data-sources.md) | Portal adapters, data privacy, and third-party notices |
+| [SECURITY.md](SECURITY.md) | Security policy and vulnerability disclosure |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide, setup, and testing |
 | [docs/roadmap.md](docs/roadmap.md) | Versions v0.8 → v1.5 (single source of status) |
 | [docs/design-auto-compaction.md](docs/design-auto-compaction.md) | Design of the v0.9 focus feature: automatic context summarization |
 | [docs/design-cv-studio.md](docs/design-cv-studio.md) | Design of the v1.0 hero feature: CV editor with agent panel, export and application folders |
