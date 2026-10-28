@@ -24,7 +24,8 @@ def rules_fingerprint(pack=None) -> str:
     """Huella de las reglas que deciden áreas y relevancia; cambia cuando se editan."""
     pack = pack or active_pack()
     payload = json.dumps([pack.id, sorted(pack.core_areas), sorted(pack.adjacent_areas), pack.area_rules,
-                          pack.out_of_focus_rules, sorted(pack.weak_terms), pack.excluded_title_signals],
+                          pack.out_of_focus_rules, sorted(pack.weak_terms), pack.excluded_title_signals,
+                          pack.target_titles, pack.operational_titles, pack.adjacent_title_signals],
                          ensure_ascii=False, sort_keys=True, default=list)
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 

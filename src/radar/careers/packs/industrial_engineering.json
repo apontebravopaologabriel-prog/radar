@@ -5,22 +5,22 @@
  "language": "es",
  "areas": {
   "core": [
-   "Diseño y medición del trabajo",
-   "Investigación de operaciones y optimización",
    "Ingeniería económica y control",
-   "Facilities, energía y mantenimiento",
-   "Calidad y confiabilidad",
-   "Ergonomía y factores humanos",
+   "Información, analítica y sistemas",
    "Operaciones y productividad",
    "Supply Chain, logística y compras",
-   "Ingeniería de gestión y proyectos",
+   "Facilities, energía y mantenimiento",
+   "Ingeniería de gestión y proyectos"
+  ],
+  "adjacent": [
+   "Diseño y medición del trabajo",
+   "Investigación de operaciones y optimización",
+   "Calidad y confiabilidad",
+   "Ergonomía y factores humanos",
    "Seguridad y riesgos",
    "Diseño y manufactura",
    "Diseño de producto y desarrollo",
    "Ingeniería de sistemas"
-  ],
-  "adjacent": [
-   "Información, analítica y sistemas"
   ],
   "out_of_focus": [
    "Otras",
@@ -750,6 +750,26 @@
   "cobranzas",
   "creditos"
  ],
+ "target_titles": [
+  "analista de business intelligence", "business intelligence", "analista bi", "analista de bi", "bi analyst",
+  "analista de datos", "analista de data", "data analyst", "analista de inteligencia de negocios", "analista de reportes",
+  "analista de control de gestion", "control de gestion", "analista de gestion",
+  "analista de operaciones", "asistente de operaciones", "analista de facilities", "facilities management",
+  "facilities", "servicios generales",
+  "analista de logistica", "asistente de logistica", "analista de abastecimiento", "asistente de abastecimiento",
+  "analista de compras", "asistente de compras", "comprador", "analista de supply chain", "analista de cadena de suministro",
+  "supervisor de inventarios", "responsable de inventarios", "jefe de inventarios", "analista de inventarios",
+  "control de inventarios", "supervisor de almacen", "responsable de almacen", "jefe de almacen"
+ ],
+ "operational_titles": [
+  "operario", "operador", "almacenero", "auxiliar", "ayudante", "peon", "chofer", "conductor", "montacarguista",
+  "vigilante", "tecnico", "mecanico", "soldador", "electricista", "estibador", "despachador", "repartidor",
+  "picker", "empacador", "costurera", "plant operator", "call center", "jefe de planta", "supervisor de planta",
+  "supervisor de produccion", "jefe de produccion", "practicante de produccion",
+  "coordinador de produccion", "coordinadora de produccion", "asistente de produccion", "instrumentista",
+  "supervisor de mantenimiento", "jefe de mantenimiento", "supervisor de turno", "jefe de turno"
+ ],
+ "adjacent_title_signals": ["ingenieria industrial", "ingeniero industrial", "ing industrial"],
  "education_only": [
   "ingenieria industrial",
   "ingeniero industrial",
@@ -785,11 +805,12 @@
   "preference": 0.1
  },
  "market_queries": [
-  "analista datos BI SQL Power BI", "analista data analytics Python", "procesos BPMN mejora continua",
-  "automatizacion Python RPA Power Automate", "transformacion digital industrial", "analista funcional ERP sistemas",
-  "soporte aplicaciones ERP SQL", "planeamiento demanda forecast", "planner supply chain abastecimiento",
-  "logistica inventarios almacenes", "compras procurement abastecimiento", "produccion operaciones industrial",
-  "calidad Lean Six Sigma", "mantenimiento industrial operaciones", "control de gestion indicadores", "proyectos PMO industrial"
+  "analista de business intelligence BI SQL Power BI", "analista de datos reportes Excel", "analista de control de gestion",
+  "analista de operaciones", "analista de facilities servicios generales", "asistente de servicios generales",
+  "analista de logistica abastecimiento", "asistente de logistica", "analista de compras corporativas",
+  "comprador junior compras", "supervisor de inventarios almacenes SAP", "analista de inventarios SAP",
+  "analista funcional ERP sistemas", "automatizacion Python RPA Power Automate", "planeamiento demanda forecast",
+  "procesos BPMN mejora continua"
  ],
  "queries": [
   "practicante de procesos",

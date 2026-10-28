@@ -109,7 +109,7 @@ def test_find_jobs_near_works_across_peru():
                description="Excel", published_at=now),
         RawJob("t", "Analista de Compras", "D", "https://e.com/d", location="Yanahuara, Arequipa",
                description="Excel, SAP", published_at=now),
-        RawJob("t", "Practicante de Producción", "E", "https://e.com/e", location="Áncash",
+        RawJob("t", "Practicante de Control de Gestión", "E", "https://e.com/e", location="Áncash",
                description="Excel", published_at=now),
     ])
     lima = tools.find_jobs_near("Miraflores", 5)

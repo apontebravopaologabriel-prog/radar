@@ -67,7 +67,17 @@ def infer_relevance(
     if excluded:
         return Relevance("out_of_focus", 0.98, f"Título excluido: {excluded}")
 
+    target = next((phrase for phrase in pack.target_titles if phrase in title), None)
+    if target:
+        return Relevance("core", 0.97, f"Cargo objetivo: {target}")
+    operational = next((phrase for phrase in pack.operational_titles if phrase in title), None)
+    if operational:
+        return Relevance("out_of_focus", 0.9, f"Puesto operativo: {operational}")
+
     area_evidence = ", ".join(areas) or "sin área suficiente"
+    adjacent_title = next((phrase for phrase in pack.adjacent_title_signals if phrase in title), None)
+    if adjacent_title and tier == "out_of_focus":
+        return Relevance("adjacent", 0.7, f"Carrera en el título: {adjacent_title}")
     has_operational_context = any(
         phrase in f"{title} {description}" for phrase in pack.context_terms
     )

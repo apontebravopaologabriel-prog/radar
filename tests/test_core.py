@@ -286,3 +286,16 @@ def test_infer_job_location_recovers_district_without_false_positive_substrings(
     assert infer_job_location("Lima", "Analista de Planeamiento Estratégico", "Gestión estratégica corporativa").label == "Lima"
     assert infer_job_location("Lima", "Ingeniero de Planta - Lurín", "Trabajo presencial").label == "Lurín"
     assert infer_job_location("Lima", "Analista de Logística", "Lugar de trabajo: Ate Vitarte. Horario lunes a viernes.").label == "Ate"
+
+
+def test_target_titles_are_core_and_operational_titles_are_out_of_focus():
+    def tier(title, area="Otras"):
+        return infer_relevance(RawJob("x", title, "ACME", "https://example.com", description="Excel y SAP."), area)
+
+    assert tier("Analista de Control de Gestión").tier == "core"
+    assert tier("Analista BI / Business Intelligence").tier == "core"
+    assert tier("Comprador Junior").tier == "core"
+    assert tier("Supervisor de Inventarios y Almacenes").tier == "core"
+    operator = tier("Operario de Almacén", "Supply Chain, logística y compras")
+    assert operator.tier == "out_of_focus" and "operativo" in operator.evidence
+    assert tier("Practicante de Ingeniería Industrial").tier == "adjacent"

@@ -37,7 +37,7 @@ def test_one_failing_or_hanging_step_does_not_stop_the_capture(monkeypatch):
         calls.append((source, query))
         if source == "computrabajo" and len(calls) % 2 == 0:
             raise RuntimeError("portal caído")
-        if query == "calidad Lean Six Sigma":
+        if query == "analista de operaciones":
             time.sleep(2)  # excede el tiempo de paso
         return {"created": 2}
 
@@ -46,7 +46,7 @@ def test_one_failing_or_hanging_step_does_not_stop_the_capture(monkeypatch):
     summary = capture.run_capture(log=logs.append, step_timeout=0.3)
     pack = load_pack("industrial_engineering")
     assert summary["steps"] == 2 * len(pack.market_queries)
-    assert any("calidad Lean Six Sigma" in item for item in summary["failed"])
+    assert any("analista de operaciones" in item for item in summary["failed"])
     assert any("portal caído" in line for line in logs) and any("sin respuesta" in line for line in logs)
     assert summary["created"] > 0 and len(calls) == summary["steps"]
     assert logs[-2].startswith("SUMMARY:") and "failed" in logs[-2]

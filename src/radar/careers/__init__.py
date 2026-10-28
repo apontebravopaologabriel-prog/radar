@@ -53,6 +53,9 @@ class CareerPack:
     queries: tuple[str, ...] = field(default_factory=tuple)
     market_queries: tuple[str, ...] = field(default_factory=tuple)  # búsquedas amplias de la captura programada
     weak_terms: frozenset[str] = frozenset()  # genéricas: solo puntúan fuertes en el título
+    target_titles: tuple[str, ...] = ()  # cargos objetivo: el título los vuelve núcleo sin depender del área
+    operational_titles: tuple[str, ...] = ()  # puestos operativos: fuera de foco salvo que sean cargo objetivo
+    adjacent_title_signals: tuple[str, ...] = ()  # el título garantiza al menos adyacente
 
     @property
     def skill_aliases(self) -> dict[str, tuple[str, ...]]:
@@ -105,6 +108,9 @@ def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
         queries=tuple(raw.get("queries", [])),
         market_queries=tuple(raw.get("market_queries") or raw.get("queries", [])),
         weak_terms=frozenset(normalize_text(t) for t in raw.get("weak_terms", [])),
+        target_titles=tuple(normalize_text(t) for t in raw.get("target_titles", [])),
+        operational_titles=tuple(normalize_text(t) for t in raw.get("operational_titles", [])),
+        adjacent_title_signals=tuple(normalize_text(t) for t in raw.get("adjacent_title_signals", [])),
     )
 
 
