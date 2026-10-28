@@ -24,7 +24,7 @@ function LoadingDots() {
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima<LoadingDots /></div> });
 
 const AREAS = ["", "Diseño y medición del trabajo", "Investigación de operaciones y optimización", "Ingeniería económica y control", "Facilities, energía y mantenimiento", "Calidad y confiabilidad", "Ergonomía y factores humanos", "Operaciones y productividad", "Supply Chain, logística y compras", "Ingeniería de gestión y proyectos", "Seguridad y riesgos", "Información, analítica y sistemas", "Diseño y manufactura", "Diseño de producto y desarrollo", "Ingeniería de sistemas"];
-const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
+const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "30", source: "", relevance_tier: "" };
 const RADAR_RADII = [2, 5, 10] as const;
 type RadarView = "map" | "analysis" | "cvs" | "applications";
 type AnalysisFilterColumn = "area" | "skill" | "seniority" | "work_mode" | "district";

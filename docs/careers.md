@@ -41,7 +41,7 @@ a time on their own local database.
   "context_terms": ["contab", "tribut"],               // roots that mark an offer as in-context
   "weak_terms": ["proyectos", "sql"],                  // generic terms; score 0.25 instead of 0.8
   "target_titles": ["analista de control de gestion"], // title contains it: core ("Cargo objetivo"), whatever the area
-  "operational_titles": ["operario", "almacenero"],    // title contains it: out of focus, unless a target title matches
+  "operational_titles": ["operario", "almacenero"],    // title contains it: out of focus (checked before target_titles)
   "adjacent_title_signals": ["ingenieria industrial"], // title contains it: at least adjacent
   "scoring": {                                // required; exactly these 6 keys, summing to 1
     "area": 0.30, "skills": 0.25, "seniority": 0.15,

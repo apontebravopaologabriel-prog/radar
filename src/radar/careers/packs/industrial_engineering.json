@@ -748,7 +748,9 @@
   "admisionista",
   "cobranza",
   "cobranzas",
-  "creditos"
+  "creditos",
+  "investment banking", "banca de inversion", "planeamiento financiero", "analista financiero",
+  "experiencia de cliente", "customer experience"
  ],
  "target_titles": [
   "analista de business intelligence", "business intelligence", "analista bi", "analista de bi", "bi analyst",
@@ -766,6 +768,7 @@
   "vigilante", "tecnico", "mecanico", "soldador", "electricista", "estibador", "despachador", "repartidor",
   "picker", "empacador", "costurera", "plant operator", "call center", "jefe de planta", "supervisor de planta",
   "supervisor de produccion", "jefe de produccion", "practicante de produccion",
+  "tornero", "fresador", "carpintero", "pintor", "gasfitero", "asistente de mantenimiento",
   "coordinador de produccion", "coordinadora de produccion", "asistente de produccion", "instrumentista",
   "supervisor de mantenimiento", "jefe de mantenimiento", "supervisor de turno", "jefe de turno"
  ],
