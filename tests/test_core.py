@@ -299,3 +299,21 @@ def test_target_titles_are_core_and_operational_titles_are_out_of_focus():
     operator = tier("Operario de Almacén", "Supply Chain, logística y compras")
     assert operator.tier == "out_of_focus" and "operativo" in operator.evidence
     assert tier("Practicante de Ingeniería Industrial").tier == "adjacent"
+
+
+def test_secondary_target_and_target_filter():
+    from datetime import UTC, datetime
+
+    from radar.db.queries import list_jobs
+    from radar.db.repository import ingest_jobs as store
+
+    job = infer_relevance(RawJob("x", "Analista de Compras", "ACME", "https://example.com"), "Otras")
+    assert job.tier == "core" and "prioridad 2" in job.evidence
+    store([
+        RawJob("t", "Analista BI", "A", "https://e.com/bi", location="Lima", description="Power BI",
+               published_at=datetime.now(UTC)),
+        RawJob("t", "Ingeniero de Procesos", "B", "https://e.com/p", location="Lima", description="Mejora continua",
+               published_at=datetime.now(UTC)),
+    ])
+    titles = {j["title"] for j in list_jobs(relevance_tier="target", limit=None, max_age_days=7)}
+    assert "Analista BI" in titles and "Ingeniero de Procesos" not in titles

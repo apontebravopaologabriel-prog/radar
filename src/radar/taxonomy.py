@@ -73,6 +73,9 @@ def infer_relevance(
     target = next((phrase for phrase in pack.target_titles if phrase in title), None)
     if target:
         return Relevance("core", 0.97, f"Cargo objetivo: {target}")
+    secondary = next((phrase for phrase in pack.target_secondary_titles if phrase in title), None)
+    if secondary:
+        return Relevance("core", 0.92, f"Cargo objetivo (prioridad 2): {secondary}")
 
     area_evidence = ", ".join(areas) or "sin área suficiente"
     adjacent_title = next((phrase for phrase in pack.adjacent_title_signals if phrase in title), None)

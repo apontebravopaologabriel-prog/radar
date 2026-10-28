@@ -25,7 +25,7 @@ def rules_fingerprint(pack=None) -> str:
     pack = pack or active_pack()
     payload = json.dumps([pack.id, sorted(pack.core_areas), sorted(pack.adjacent_areas), pack.area_rules,
                           pack.out_of_focus_rules, sorted(pack.weak_terms), pack.excluded_title_signals,
-                          pack.target_titles, pack.operational_titles, pack.adjacent_title_signals],
+                          pack.target_titles, pack.target_secondary_titles, pack.operational_titles, pack.adjacent_title_signals],
                          ensure_ascii=False, sort_keys=True, default=list)
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -38,7 +38,8 @@ def rules_stale() -> bool:
 def _stored() -> list[tuple]:
     with connection() as conn:
         return conn.execute(
-            """SELECT j.id, j.title, j.description_raw, j.location, co.name, ia.name, j.relevance_tier
+            """SELECT j.id, j.title, j.description_raw, j.location, co.name, ia.name, j.relevance_tier,
+            j.relevance_score, j.relevance_evidence
             FROM jobs j LEFT JOIN companies co ON co.id=j.company_id
             LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary
             LEFT JOIN industrial_areas ia ON ia.id=ja.area_id"""
@@ -85,9 +86,14 @@ def reclassify_jobs() -> dict[str, Any]:
     with connection() as conn:
         for row in rows:
             classified, relevance = _reclassified(row, pack)
-            if (row[5] or "sin área") == classified.primary_area.value and row[6] == relevance.tier:
+            if (
+                (row[5] or "sin área") == classified.primary_area.value
+                and row[6] == relevance.tier
+                and row[7] == relevance.score
+                and row[8] == relevance.evidence
+            ):
                 continue
-            backup.append({"job_id": row[0], "area": row[5], "tier": row[6]})
+            backup.append({"job_id": row[0], "area": row[5], "tier": row[6], "score": row[7], "evidence": row[8]})
             _write_areas(conn, row[0], classified)
             conn.execute("UPDATE jobs SET relevance_tier=%s, relevance_score=%s, relevance_evidence=%s WHERE id=%s",
                          (relevance.tier, relevance.score, relevance.evidence, row[0]))

@@ -67,7 +67,9 @@ def list_jobs(
     if skill:
         clauses.append("EXISTS (SELECT 1 FROM job_skills jskill JOIN skills skill ON skill.id=jskill.skill_id WHERE jskill.job_id=j.id AND skill.name=%s)")
         params.append(skill)
-    if relevance_tier:
+    if relevance_tier == "target":  # cargos objetivo del paquete (prioridad 1 y 2)
+        clauses.append("j.relevance_tier = 'core' AND j.relevance_evidence LIKE 'Cargo objetivo%'")
+    elif relevance_tier:
         if relevance_tier not in {"core", "adjacent", "out_of_focus"}:
             raise ValueError("relevance_tier inválido")
         clauses.append("j.relevance_tier = %s")

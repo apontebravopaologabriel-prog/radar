@@ -757,7 +757,9 @@
   "analista de datos", "analista de data", "data analyst", "analista de inteligencia de negocios", "analista de reportes",
   "analista de control de gestion", "control de gestion", "analista de gestion",
   "analista de operaciones", "asistente de operaciones", "analista de facilities", "facilities management",
-  "facilities", "servicios generales",
+  "facilities", "servicios generales"
+ ],
+ "target_secondary_titles": [
   "analista de logistica", "asistente de logistica", "analista de abastecimiento", "asistente de abastecimiento",
   "analista de compras", "asistente de compras", "comprador", "analista de supply chain", "analista de cadena de suministro",
   "supervisor de inventarios", "responsable de inventarios", "jefe de inventarios", "analista de inventarios",
