@@ -144,6 +144,7 @@ def _with_location(job: dict[str, Any]) -> dict[str, Any]:
     result["latitude"] = point.latitude if point else None
     result["longitude"] = point.longitude if point else None
     result["district"] = point.label if point and point.precision == "district" else None
+    result["place_id"] = point.place_id if point else None
     result["location_precision"] = point.precision if point else "unknown"
     result["location_confidence"] = point.confidence if point else 0
     result["geocoding_source"] = point.source if point else None
@@ -157,6 +158,9 @@ def health() -> dict[str, str]:
 
 @app.get("/api/jobs")
 def jobs(
+    geo_scope: str | None = Query(default=None, pattern="^lima_callao$"),
+    market_id: str | None = None,
+    profile_mode: str = Query(default="market", pattern="^(market|saved)$"),
     search: str | None = None,
     seniority: str | None = None,
     area: str | None = None,
@@ -167,13 +171,26 @@ def jobs(
     min_salary: float | None = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
     include_hidden: bool = False,
+    include_applied: bool = True,
     slim: bool = False,
     limit: int | None = Query(default=None, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
     """Sin `limit` devuelve todo (lo que usa el mapa); con `limit`/`offset` pagina y `total` sigue siendo el conteo completo."""
+    if profile_mode == "saved" and not market_id:
+        raise HTTPException(status_code=422, detail="El perfil necesita un mercado")
+    if market_id:
+        from radar.careers import CareerPackError, load_pack
+
+        try:
+            load_pack(market_id)
+        except CareerPackError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     rows = list_jobs(
         limit=None,
+        market_id=market_id,
+        geo_scope=geo_scope,
+        profile_mode=profile_mode,
         seniority=seniority,
         area=area,
         max_age_days=max_age_days,
@@ -181,6 +198,7 @@ def jobs(
         work_mode=work_mode,
         min_salary=min_salary,
         include_hidden=include_hidden,
+        include_applied=include_applied,
         source=source,
         skill=skill,
         relevance_tier=relevance_tier,
@@ -256,12 +274,33 @@ def profile() -> dict[str, Any]:
 
 @app.get("/api/skills/overview")
 def skills_overview(
+    geo_scope: str | None = Query(default=None, pattern="^lima_callao$"),
+    market_id: str | None = None,
+    profile_mode: str = Query(default="market", pattern="^(market|saved)$"),
+    relevance_tier: str | None = None,
+    search: str | None = None,
+    source: str | None = None,
+    min_salary: float | None = None,
     max_age_days: int = Query(default=30, ge=1, le=365),
     area: str | None = None,
     seniority: str | None = None,
     work_mode: str | None = None,
+    include_applied: bool = True,
 ) -> dict[str, Any]:
-    return skill_overview(max_age_days=max_age_days, area=area, seniority=seniority, work_mode=work_mode)
+    if profile_mode == "saved" and not market_id:
+        raise HTTPException(status_code=422, detail="El perfil necesita un mercado")
+    if market_id:
+        from radar.careers import CareerPackError
+        from radar.markets import market_skills
+
+        try:
+            return market_skills(market_id, geo_scope=geo_scope, max_age_days=max_age_days, area=area, seniority=seniority,
+                                 work_mode=work_mode, profile_mode=profile_mode, relevance_tier=relevance_tier,
+                                 search=search, source=source, min_salary=min_salary, include_applied=include_applied)
+        except CareerPackError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return skill_overview(max_age_days=max_age_days, area=area, seniority=seniority, work_mode=work_mode,
+                          include_applied=include_applied)
 
 
 @app.get("/api/skills/history")

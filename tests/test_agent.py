@@ -82,6 +82,16 @@ def test_ui_context_is_given_to_agent_as_navigation_data():
     assert "Ofertas por área" in system
 
 
+def test_market_context_reaches_real_tools_without_model_arguments():
+    client, sent = _client(_call("get_market_breakdown", {"by": "area"}), _text("Listo"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "esta vista"}], client,
+                               context={"filters": {"market_id": "sistemas_software", "max_age_days": "7"}}))
+    content = next(e for e in events if e["type"] == "tool_result")["message"]["content"]
+    assert '"market_id": "sistemas_software"' in content
+    assert '"max_age_days": 7' in content
+    assert "Desarrollo de software" in sent[0]["messages"][0]["content"]
+
+
 def test_write_tool_is_never_executed_by_the_loop():
     client, _ = _client(_call("favorite_job", {"job_id": "x"}))
     events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "guarda"}], client))

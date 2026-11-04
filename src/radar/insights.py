@@ -16,8 +16,9 @@ from radar.db.database import connection
 from radar.db.queries import get_profile, list_jobs, skill_overview
 from radar.feed import skill_impact
 from radar.freshness import DEFAULT_MAX_AGE_DAYS
-from radar.geolocation import infer_location
+from radar.geolocation import infer_job_location, infer_location
 from radar.links import google_maps_search_url
+from radar.query_context import CURRENT_QUERY
 
 BREAKDOWNS = ("area", "place", "company", "work_mode", "seniority", "source", "sector")
 DESCRIPTION_LIMIT = 3000
@@ -51,14 +52,31 @@ def job_details(job_id: str) -> dict[str, Any]:
         application = conn.execute("SELECT status, notes FROM applications WHERE job_id=%s", (job_id,)).fetchone()
     profile = get_profile()
     fit = _fit(job_id, profile["id"]) if profile else None
-    place = infer_location(row[3])
+    if fit:
+        from radar.careers import active_pack
+
+        fit["scope"] = {"type": "reference_career", "market_id": active_pack().id}
+    scope = CURRENT_QUERY.get()
+    projection = None
+    if scope:
+        from radar.markets import backfill_market
+
+        market_id = scope.values()["market_id"]
+        backfill_market(market_id)
+        with connection() as conn:
+            projection = conn.execute("SELECT areas,skills,relevance_tier FROM job_market_classifications WHERE job_id=%s AND market_id=%s",
+                                      (job_id, market_id)).fetchone()
+        if projection:
+            skills = [(s["name"], s["requirement_type"]) for s in _json(projection[1])]
+    place = infer_job_location(row[3], row[1], row[17])
     return {
         "id": row[0], "title": row[1], "company": row[2], "location": row[3],
         "place": place.label if place else None, "seniority": row[4], "work_mode": row[5],
         "employment_type": row[6], "salary": {"min": row[7], "max": row[8], "currency": row[9], "period": row[10]},
         "published_at": str(row[11]) if row[11] else None, "sector": row[12],
         "hours_per_week": row[13], "schedule": row[14], "application_status": row[15],
-        "relevance": row[16], "area": row[18], "url": row[19], "is_favorite": bool(row[20]),
+        "relevance": projection[2] if projection else row[16],
+        "area": _json(projection[0])[0]["name"] if projection else row[18], "url": row[19], "is_favorite": bool(row[20]),
         "google_maps_url": google_maps_search_url(row[2], place.label if place else row[3]),
         "skills": [{"name": s[0], "requirement": s[1]} for s in skills],
         "description": (row[17] or "")[:DESCRIPTION_LIMIT],
@@ -71,18 +89,26 @@ def _fit(job_id: str, profile_id: str) -> dict[str, Any] | None:
     with connection() as conn:
         row = conn.execute(
             """SELECT total_score, area_score, skills_score, seniority_score, education_score,
-            location_score, preference_score, strong_matches, missing_skills, reason
+            location_score, preference_score, strong_matches, missing_skills, reason, assessment, algorithm_version,
+            (SELECT content_hash FROM jobs WHERE id=job_scores.job_id)
             FROM job_scores WHERE job_id=%s AND profile_id=%s""",
             (job_id, profile_id),
         ).fetchone()
     if row is None:
         return None
-    weights = effective_weights()
+    evidence = _json(row[10]) or {}
+    from radar.scoring import current_profile_fingerprint
+
+    stale = (not evidence or evidence.get("profile_hash") != current_profile_fingerprint()
+             or evidence.get("content_hash") != row[12])
+    weights = evidence.get("weights") or effective_weights()
     parts = dict(zip(WEIGHT_KEYS, row[1:7], strict=True))
     return {
         "total": round(row[0], 1),
+        "assessment": evidence, "algorithm_version": row[11], "stale": stale,
         "dimensions": [
-            {"name": k, "score": round(v, 1), "weight": round(weights[k], 3), "contribution": round(v * weights[k], 1)}
+            {"name": k, "score": round(v, 1), "weight": round(weights[k], 3), "contribution": round(v * weights[k], 1),
+             "evidence": evidence.get("dimensions", {}).get(k)}
             for k, v in parts.items()
         ],
         "strong_matches": _json(row[7]), "missing_skills": _json(row[8]), "reason": row[9],
@@ -97,7 +123,9 @@ def explain_fit(job_id: str) -> dict[str, Any]:
     fit = _fit(job_id, profile["id"])
     if fit is None:
         raise ValueError("Esa oferta no tiene puntaje calculado para tu perfil.")
-    return {"job_id": job_id, **fit}
+    from radar.careers import active_pack
+
+    return {"job_id": job_id, **fit, "score_scope": {"type": "reference_career", "market_id": active_pack().id}}
 
 
 def compare(job_ids: list[str]) -> dict[str, Any]:
@@ -110,7 +138,8 @@ def compare(job_ids: list[str]) -> dict[str, Any]:
         others = set().union(*(s for i, s in enumerate(skill_sets) if i != index))
         rows.append({
             **{k: job[k] for k in ("id", "title", "company", "place", "seniority", "work_mode", "salary", "area", "url")},
-            "fit_total": (job["fit"] or {}).get("total"),
+            "fit_total": (job["fit"] or {}).get("total") if not (job["fit"] or {}).get("stale") else None,
+            "fit_assessment": (job["fit"] or {}).get("assessment"),
             "missing_skills": (job["fit"] or {}).get("missing_skills", []),
             "only_here": sorted(skill_sets[index] - others),
         })
@@ -118,7 +147,14 @@ def compare(job_ids: list[str]) -> dict[str, Any]:
 
 
 def skill_demand(area: str | None = None, max_age_days: int = 30, limit: int = 15) -> dict[str, Any]:
-    data = skill_overview(max_age_days=max_age_days, area=area)
+    scope = CURRENT_QUERY.get()
+    if scope:
+        from radar.markets import market_skills
+
+        filters = {k: v for k, v in scope.values().items() if k not in {"place", "near", "radius_km"}}
+        data = market_skills(**filters)
+    else:
+        data = skill_overview(max_age_days=max_age_days, area=area)
     rows = [
         {"skill": s["name"], "type": s["skill_type"], "jobs": s["job_count"], "required_in": s["required_count"],
          "share_pct": round(s["share"] * 100, 1), "your_level": s["user_level"]}
@@ -139,27 +175,25 @@ def market_breakdown(by: str, max_age_days: int = DEFAULT_MAX_AGE_DAYS, limit: i
     if by == "source" and (area or place or sector or excluded or search):
         raise ValueError("`by=source` no admite filtros")
     if by == "source":
+        eligible = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="market")
         with connection() as conn:
             rows = conn.execute(
                 """SELECT s.name, count(DISTINCT j.id) FROM jobs j JOIN job_sources js ON js.job_id=j.id
                 JOIN sources s ON s.id=js.source_id
-                WHERE j.is_active=1 AND j.duplicate_status='canonical' AND j.published_at IS NOT NULL
-                AND j.relevance_tier IN ('core','adjacent')
-                AND date(j.published_at) >= date('now', '-' || %s || ' days') GROUP BY s.name""",
-                (max_age_days,),
+                WHERE j.id IN (SELECT value FROM json_each(%s)) GROUP BY s.name""",
+                (json.dumps([j["id"] for j in eligible]),),
             ).fetchall()
         counter.update({r[0]: r[1] for r in rows})
-        total = sum(counter.values())
+        total = len(eligible)
     else:
         kwargs = {"limit": None, "max_age_days": max_age_days, "area": area, "search": search, "sector": sector,
                   "exclude_sectors": excluded or None}
-        jobs = list_jobs(relevance_tier="core", **kwargs)
-        jobs.extend(list_jobs(relevance_tier="adjacent", **kwargs))
+        jobs = list_jobs(relevance_tier="market", **kwargs)
         if place:
             wanted = " ".join(place.lower().split())
 
             def in_place(job: dict[str, Any]) -> bool:
-                point = infer_location(job["location"])
+                point = infer_job_location(job["location"], job["title"], job.get("description_clean"))
                 return wanted in " ".join((job["location"] or "").lower().split()) or bool(point and point.label.lower() == wanted)
             jobs = [job for job in jobs if in_place(job)]
         total = len(jobs)
@@ -194,8 +228,7 @@ PRODUCTION_TERMS = ("producción", "produccion", "manufactura", "planta", "opera
 
 def _place_summarizer(max_age_days: int):
     """Devuelve `summarize(place)`: resumen de las ofertas vigentes de un distrito o ciudad."""
-    jobs = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="core")
-    jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="adjacent"))
+    jobs = list_jobs(limit=None, max_age_days=max_age_days, relevance_tier="market")
 
     def normalize(value: str) -> str:
         return " ".join(value.lower().replace(",", " ").split())
@@ -203,7 +236,7 @@ def _place_summarizer(max_age_days: int):
     def belongs(job: dict[str, Any], place: str) -> bool:
         location = normalize(job.get("location") or "")
         target = normalize(place)
-        point = infer_location(job.get("location"))
+        point = infer_job_location(job.get("location"), job.get("title"), job.get("description_clean"))
         return target in location or bool(point and target == normalize(point.label))
 
     def top(counter: Counter, n: int = 4) -> list[dict[str, Any]]:
@@ -257,8 +290,7 @@ def salary_stats(area: str | None = None, place: str | None = None, max_age_days
     groups: dict[tuple[str, str], list[float]] = {}
     considered = 0
     discarded = 0
-    focused_jobs = list_jobs(limit=None, max_age_days=max_age_days, area=area, relevance_tier="core")
-    focused_jobs.extend(list_jobs(limit=None, max_age_days=max_age_days, area=area, relevance_tier="adjacent"))
+    focused_jobs = list_jobs(limit=None, max_age_days=max_age_days, area=area, relevance_tier="market")
     for job in focused_jobs:
         considered += 1
         if place:
@@ -289,6 +321,8 @@ def salary_stats(area: str | None = None, place: str | None = None, max_age_days
 def learning_plan(limit: int = 5) -> dict[str, Any]:
     """Skills que conviene aprender: impacto en tu encaje combinado con la demanda del mercado."""
     impact = skill_impact(30)
+    if impact.get("available") is False:
+        return impact
     if not impact.get("profile_configured"):
         return {"profile_configured": False, "skills": []}
     demand = {s["skill"]: s for s in skill_demand(limit=40)["skills"]}

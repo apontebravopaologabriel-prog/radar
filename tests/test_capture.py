@@ -1,4 +1,3 @@
-import time
 
 import pytest
 
@@ -33,12 +32,12 @@ def test_cities_come_from_argument_or_environment(monkeypatch):
 def test_one_failing_or_hanging_step_does_not_stop_the_capture(monkeypatch):
     calls = []
 
-    def fake_ingestion(source, query, location, limit, max_age):
+    def fake_ingestion(source, query, location, limit, max_age, **kwargs):
         calls.append((source, query))
         if source == "computrabajo" and len(calls) % 2 == 0:
             raise RuntimeError("portal caído")
         if query == "analista de operaciones":
-            time.sleep(2)  # excede el tiempo de paso
+            raise TimeoutError("sin respuesta: tiempo de descarga agotado")
         return {"created": 2}
 
     monkeypatch.setattr("radar.pipeline.run_ingestion", fake_ingestion)
@@ -55,7 +54,7 @@ def test_one_failing_or_hanging_step_does_not_stop_the_capture(monkeypatch):
 
 def test_computrabajo_can_be_disabled_by_environment(monkeypatch):
     seen = set()
-    monkeypatch.setattr("radar.pipeline.run_ingestion", lambda source, *a: seen.add(source) or {"created": 0})
+    monkeypatch.setattr("radar.pipeline.run_ingestion", lambda source, *a, **kw: seen.add(source) or {"created": 0})
     monkeypatch.setenv("RADAR_COMPUTRABAJO_ENABLED", "0")
     capture.run_capture(log=lambda _: None)
     assert seen == {"jobspy"}
@@ -65,7 +64,7 @@ def test_local_maintenance_is_never_abandoned_by_the_step_timeout(monkeypatch):
     """Regresión: repair-data tardó más que el límite, se abandonó y su hilo siguió bloqueando la base."""
     import time as _time
 
-    monkeypatch.setattr("radar.pipeline.run_ingestion", lambda *a: {"created": 0})
+    monkeypatch.setattr("radar.pipeline.run_ingestion", lambda *a, **kw: {"created": 0})
     finished = []
 
     def slow_repair():
@@ -77,3 +76,19 @@ def test_local_maintenance_is_never_abandoned_by_the_step_timeout(monkeypatch):
     logs: list[str] = []
     summary = capture.run_capture(log=logs.append, step_timeout=0.1, computrabajo=False)
     assert finished == [True] and not any("repair-data" in item for item in summary["failed"])
+
+
+def test_configured_markets_are_interleaved_and_sent_to_ingestion(monkeypatch):
+    from radar.settings import set_json_setting
+
+    seen = []
+    def ingest(source, query, location, limit, age, **kw):
+        seen.append((query, kw["market_ids"]))
+        return {"created": 0}
+    monkeypatch.setattr("radar.pipeline.run_ingestion", ingest)
+    set_json_setting("capture_market_ids", ["industrial_engineering", "sistemas_software"])
+    result = capture.run_capture(computrabajo=False, log=lambda _: None)
+    assert seen[0][1] == ["industrial_engineering"]
+    assert seen[1][1] == ["sistemas_software"]
+    assert result["status"] == "success"
+    assert result["source_successes"] == len(seen)

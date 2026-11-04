@@ -78,7 +78,8 @@ Deterministic, with textual evidence. Each area accumulates a score:
 | Strong mention in the description | 0.8 each, max 3 |
 | Generic `weak_terms` of the pack (`sql`, `erp`, `proyectos`, ...) | 0.25 each |
 
-Below the minimum score (1.5) the offer is `Otras`, and titles in `excluded_title_signals` without an area
+Below the minimum score (1.5) the offer is `Otras`, unless explicit contextual duty/title evidence meets
+the threshold through the pack's evidence gate. Titles in `excluded_title_signals` without an area
 signal in the title are also `Otras`. `Ventas / Comercial` is explicit: commercial signals in the title beat
 generic description words (`operaciones`, `planning`, `procesos`), and a stray mention in the description is
 not enough (at least three are needed). `job_areas` keeps up to three areas, primary marked.
@@ -88,11 +89,18 @@ Relevance tier (`relevance_tier`, `relevance_score`, `relevance_evidence`): `cor
 never an entry criterion.
 
 Maintenance: `audit_classification` compares stored areas with what today's rules would assign;
-`reclassify_jobs` fixes them with a reversible JSON (`reclassify-<date>.json`) next to the database. The
+`reclassify_jobs` first creates a consistent SQLite backup under `backups/`, then rebuilds canonical
+areas/skills/relevance and installed market projections in bounded, content-guarded batches. The
 rules fingerprint is stored in `app_settings.classification_rules_hash`; when rules change, the agent prompt
 warns that an audit is due.
 
 ## Market and user
+
+`ingestion_runs.query` retains search text; `context` stores requested source, location, limits and
+market IDs. Download failures and timeouts create terminal run records without job writes. A batch
+savepoint rolls back job/source changes on failure while preserving run diagnostics. Legacy context is
+`{}`. Stable source identity precedes title/location fingerprints; historical conflicts require explicit
+audit rather than automatic destructive merging.
 
 - Market metrics come from `jobs`, `job_areas` and `job_skills`. User data never alters market statistics.
 - Every explicit profile update creates a `profile_versions` row.
@@ -100,3 +108,11 @@ warns that an audit is due.
   Neither touches `jobs`.
 - `GET /api/skills/overview` computes demand from offers filtered by age, area, seniority and work mode,
   grouping `job_skills`, and crosses it with `user_skills`. It never invents a level the user did not declare.
+
+### Evidence scoring revisions
+
+`job_scores.assessment` is an additive JSON column (default `{}`), also applied by runtime schema migration.
+It stores the scoring version, six requirement assessments, skill levels, quotes, declared skill gaps,
+supported lower/upper bounds, coverage, effective weights, market and profile/content hashes. Old rows
+remain readable but are stale. Factual profile edits refresh active canonical scores; no offer, application,
+favorite or CV fact is rewritten by score recomputation. Back up existing databases before bulk recalculation.

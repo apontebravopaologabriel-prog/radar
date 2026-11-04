@@ -34,6 +34,9 @@ export type Job = {
 };
 
 export type Filters = {
+  geo_scope?: string;
+  market_id?: string;
+  profile_mode?: string;
   search: string;
   area: string;
   seniority: string;

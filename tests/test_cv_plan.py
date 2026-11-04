@@ -80,8 +80,8 @@ def test_certificate_not_naming_the_skill_reports_no_effect(job):
 
 def test_reconciles_fit_and_readiness():
     assert "falta evidencia" in cv_baseline.read_of(70, 30, False)
-    assert "encaja poco" in cv_baseline.read_of(30, 80, False)
-    assert "postular" in cv_baseline.read_of(75, 80, False)
+    assert "coincidencia respaldada es baja" in cv_baseline.read_of(30, 80, False)
+    assert "revisa los requisitos pendientes" in cv_baseline.read_of(75, 80, False)
     assert cv_baseline.read_of(None, 80, False) is None
     assert cv_baseline.read_of(70, 30, True) is None
 

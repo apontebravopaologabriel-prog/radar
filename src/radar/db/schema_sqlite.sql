@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS job_scores (
     strong_matches TEXT NOT NULL DEFAULT '[]',
     missing_skills TEXT NOT NULL DEFAULT '[]',
     reason TEXT,
+    assessment TEXT NOT NULL DEFAULT '{}',
     computed_at TEXT NOT NULL DEFAULT (now()),
     PRIMARY KEY (job_id, profile_id)
 );
@@ -317,6 +318,7 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
     id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
     source_id TEXT REFERENCES sources(id),
     query TEXT,
+    context TEXT NOT NULL DEFAULT '{}',
     started_at TEXT NOT NULL DEFAULT (now()),
     finished_at TEXT,
     jobs_found INTEGER NOT NULL DEFAULT 0,
@@ -400,3 +402,18 @@ INSERT INTO sources(name, source_type, base_url) VALUES
     ('Computrabajo', 'mcp', 'https://www.computrabajo.com.pe'),
     ('JobSpy/Indeed', 'library', 'https://www.indeed.com')
 ON CONFLICT(name) DO NOTHING;
+
+-- Independent market projections
+CREATE TABLE IF NOT EXISTS job_market_classifications (
+ job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+ market_id TEXT NOT NULL, rules_hash TEXT NOT NULL, content_hash TEXT NOT NULL,
+ relevance_tier TEXT NOT NULL, relevance_score REAL NOT NULL, relevance_evidence TEXT NOT NULL,
+ areas TEXT NOT NULL, skills TEXT NOT NULL, computed_at TEXT NOT NULL DEFAULT (now()),
+ PRIMARY KEY(job_id, market_id)
+);
+CREATE INDEX IF NOT EXISTS job_market_scope_idx ON job_market_classifications(market_id, relevance_tier, job_id);
+CREATE TABLE IF NOT EXISTS market_search_profiles (
+ market_id TEXT PRIMARY KEY, preferences TEXT NOT NULL DEFAULT '{}',
+ version INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT (now())
+);
+-- End independent market projections

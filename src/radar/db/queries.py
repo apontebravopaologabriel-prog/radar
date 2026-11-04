@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from radar.db.database import connection
-from radar.freshness import DEFAULT_MAX_AGE_DAYS
+from radar.freshness import DEFAULT_MAX_AGE_DAYS, visible_date_bounds
 
 
 def list_jobs(
@@ -20,17 +20,83 @@ def list_jobs(
     source: str | None = None,
     skill: str | None = None,
     relevance_tier: str | None = None,
+    market_id: str | None = None,
+    geo_scope: str | None = None,
+    profile_mode: str = "market",
     sector: str | None = None,
     exclude_sectors: list[str] | None = None,
 ) -> list[dict[str, Any]]:
+    from radar.query_context import CURRENT_QUERY
+
+    scope = CURRENT_QUERY.get()
+    place = scope.values().get("place") if scope else None
+    near = scope.values().get("near") if scope else None
+    requested_limit = limit
+    if place or near or geo_scope:
+        limit = None
+    if scope:
+        values = scope.values()
+        geo_scope = values.get("geo_scope", geo_scope)
+        market_id = values.get("market_id", market_id)
+        max_age_days = values.get("max_age_days", max_age_days)
+        area = values.get("area", area) or None
+        seniority = values.get("seniority", seniority) or None
+        work_mode = values.get("work_mode", work_mode) or None
+        min_salary = values.get("min_salary", min_salary)
+        min_salary = None if min_salary == "" else min_salary
+        source = values.get("source", source) or None
+        skill = values.get("skill", skill) or None
+        search = values.get("search", search) or None
+        relevance_tier = values.get("relevance_tier", relevance_tier) or None
+        profile_mode = values.get("profile_mode", profile_mode)
+        include_applied = values.get("include_applied", include_applied)
+        include_hidden = values.get("include_hidden", include_hidden)
+    if geo_scope not in {None, "", "lima_callao"}:
+        raise ValueError("Ámbito geográfico inválido")
+    if geo_scope:
+        limit = None
+    if market_id:
+        from radar.markets import backfill_market
+
+        backfill_market(market_id)
+    relevance = "m" if market_id else "j"
+    area_column = "json_extract(m.areas, '$[0].name')" if market_id else "ia.name"
+    market_join = "JOIN job_market_classifications m ON m.job_id=j.id AND m.market_id=%s" if market_id else ""
     clauses = [
         "j.is_active = 1",
+        "COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')",
         "j.duplicate_status = 'canonical'",
         "j.published_at IS NOT NULL",
-        "date(j.published_at) >= date('now', '-' || %s || ' days')",
-        "date(j.published_at) < date('now', '+1 day')",
+        "date(j.published_at) >= %s",
+        "date(j.published_at) < %s",
     ]
-    params: list[Any] = [max_age_days]
+    start, end = visible_date_bounds(max_age_days)
+    params: list[Any] = [market_id, start, end] if market_id else [start, end]
+    if profile_mode not in {"market", "saved"}:
+        raise ValueError("Perfil de búsqueda inválido")
+    if profile_mode == "saved":
+        if not market_id:
+            raise ValueError("El perfil necesita un mercado")
+        from radar.markets import search_profile
+        from radar.normalize import normalize_text
+
+        preferences = search_profile(market_id)["preferences"]
+        if not preferences:
+            clauses.append("0=1")
+        for key, column in (("areas", area_column), ("seniority", "j.seniority"), ("work_modes", "j.work_mode")):
+            values = preferences.get(key, [])
+            if values:
+                clauses.append(f"{column} IN ({','.join('%s' for _ in values)})")
+                params.extend(values)
+        for key, column in (("roles", "j.title_normalized"), ("locations", "j.location_normalized")):
+            values = [normalize_text(value) for value in preferences.get(key, []) if value.strip()]
+            if values:
+                clauses.append("(" + " OR ".join(f"instr(COALESCE({column},''),%s)>0" for _ in values) + ")")
+                params.extend(values)
+        for value in preferences.get("excluded_titles", []):
+            if value.strip():
+                clauses.append("instr(j.title_normalized,%s)=0")
+                params.append(normalize_text(value))
     if seniority:
         if seniority == "senior":
             clauses.append("j.seniority IN ('senior', 'senior_or_lead')")
@@ -40,7 +106,7 @@ def list_jobs(
             clauses.append("j.seniority = %s")
             params.append(seniority)
     if area:
-        clauses.append("ia.name = %s")
+        clauses.append(f"{area_column} = %s")
         params.append(area)
     if search:
         clauses.append("(j.title LIKE %s OR c.name LIKE %s OR j.description_clean LIKE %s OR j.location LIKE %s)")
@@ -65,14 +131,17 @@ def list_jobs(
         )
         params.extend([f"%{source}%", f"%{source}%"])
     if skill:
-        clauses.append("EXISTS (SELECT 1 FROM job_skills jskill JOIN skills skill ON skill.id=jskill.skill_id WHERE jskill.job_id=j.id AND skill.name=%s)")
+        clauses.append("EXISTS (SELECT 1 FROM json_each(m.skills) ms WHERE json_extract(ms.value, '$.name')=%s)"
+                       if market_id else "EXISTS (SELECT 1 FROM job_skills jskill JOIN skills skill ON skill.id=jskill.skill_id WHERE jskill.job_id=j.id AND skill.name=%s)")
         params.append(skill)
-    if relevance_tier == "target":  # cargos objetivo del paquete (prioridad 1 y 2)
-        clauses.append("j.relevance_tier = 'core' AND j.relevance_evidence LIKE 'Cargo objetivo%'")
+    if relevance_tier == "market":
+        clauses.append(f"{relevance}.relevance_tier IN ('core', 'adjacent')")
+    elif relevance_tier == "target":  # cargos objetivo del paquete (prioridad 1 y 2)
+        clauses.append(f"{relevance}.relevance_tier = 'core' AND {relevance}.relevance_evidence LIKE 'Cargo objetivo%'")
     elif relevance_tier:
         if relevance_tier not in {"core", "adjacent", "out_of_focus"}:
             raise ValueError("relevance_tier inválido")
-        clauses.append("j.relevance_tier = %s")
+        clauses.append(f"{relevance}.relevance_tier = %s")
         params.append(relevance_tier)
     if not include_hidden:
         clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
@@ -87,20 +156,43 @@ def list_jobs(
     sql = f"""SELECT j.id, j.title, c.name AS company, j.location, j.seniority,
         j.work_mode, j.salary_min, j.salary_max, j.salary_currency,
         (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
-        j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
-        j.relevance_evidence, j.description_clean,
+        j.published_at, {area_column} AS primary_area, j.sector, {relevance}.relevance_tier, {relevance}.relevance_score,
+        {relevance}.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
         COALESCE(jus.status, 'visible') AS user_status, jus.reason AS user_reason,
         EXISTS (SELECT 1 FROM job_user_favorites juf WHERE juf.job_id=j.id) AS is_favorite,
         (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
-        FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
+        FROM jobs j {market_join} LEFT JOIN companies c ON c.id=j.company_id
         LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
         LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
         LEFT JOIN job_user_status jus ON jus.job_id=j.id
         WHERE {" AND ".join(clauses)} ORDER BY j.published_at DESC NULLS LAST, j.detected_at DESC{limit_clause}"""
     with connection() as conn:
         rows = conn.execute(sql, params).fetchall()
-    return [_row_to_dict(row) for row in rows]
+    result = [_row_to_dict(row) for row in rows]
+    if geo_scope == "lima_callao":
+        from radar.geolocation import in_lima_metro
+
+        result = [j for j in result if in_lima_metro(j.get("location"), j.get("title"), j.get("description"))]
+    if place or near:
+        from radar.geolocation import infer_job_location, infer_location
+
+        target = infer_location(near or place)
+        if target is None:
+            return []
+        def matches(job):
+            point = infer_job_location(job.get("location"), job.get("title"), job.get("description"))
+            if near:
+                from radar.cv_targets import distance_km
+
+                radius = float(scope.values().get("radius_km", 5))
+                return point and distance_km(target, point) <= radius
+            return point and (point.label == target.label or
+                             (target.label == "Lima" and point.precision == "district"))
+        result = [job for job in result if matches(job)]
+        if requested_limit is not None:
+            result = result[:max(requested_limit, 1)]
+    return result[:max(requested_limit, 1)] if geo_scope and requested_limit is not None else result
 
 
 def list_hidden_jobs() -> list[dict[str, Any]]:
@@ -188,18 +280,22 @@ def skill_overview(
     area: str | None = None,
     seniority: str | None = None,
     work_mode: str | None = None,
+    include_applied: bool = True,
 ) -> dict[str, Any]:
     """Resume demanda de skills y la cruza con el último perfil local."""
     clauses = [
         "j.is_active = 1",
+        "COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')",
         "j.duplicate_status = 'canonical'",
         "j.published_at IS NOT NULL",
-        "date(j.published_at) >= date('now', '-' || %s || ' days')",
-        "date(j.published_at) < date('now', '+1 day')",
+        "date(j.published_at) >= %s",
+        "date(j.published_at) < %s",
         "j.relevance_tier IN ('core', 'adjacent')",
         "NOT EXISTS (SELECT 1 FROM job_user_status jus2 WHERE jus2.job_id=j.id AND jus2.status='hidden')",
     ]
-    params: list[Any] = [max_age_days]
+    params: list[Any] = list(visible_date_bounds(max_age_days))
+    if not include_applied:
+        clauses.append("NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected'))")
     if area:
         clauses.append("EXISTS (SELECT 1 FROM job_areas ja2 JOIN industrial_areas ia2 ON ia2.id=ja2.area_id WHERE ja2.job_id=j.id AND ja2.is_primary=1 AND ia2.name=%s)")
         params.append(area)
@@ -328,6 +424,43 @@ def recommendations(
     include_applied: bool = False,
     include_hidden: bool = False,
 ) -> dict[str, Any]:
+    from radar.careers import active_pack
+    from radar.markets import backfill_market
+    from radar.query_context import CURRENT_QUERY
+    from radar.scoring import current_profile_fingerprint
+
+    revision = current_profile_fingerprint()
+
+    if CURRENT_QUERY.get():
+        from radar.careers import active_pack
+
+        profile = get_profile()
+        jobs = list_jobs(limit=None, max_age_days=max_age_days,
+                         include_applied=include_applied, include_hidden=include_hidden,
+                         relevance_tier="market")
+        scores = {}
+        if profile and CURRENT_QUERY.get().values()["market_id"] == active_pack().id:
+            with connection() as conn:
+                scores = {r[0]: r[1:] for r in conn.execute(
+                    "SELECT job_id,total_score,strong_matches,missing_skills,reason,assessment FROM job_scores WHERE profile_id=%s",
+                    (profile["id"],)).fetchall()}
+                hashes = dict(conn.execute("SELECT id,content_hash FROM jobs WHERE is_active=1").fetchall())
+            scores = {id: row for id, row in scores.items()
+                      if (meta := json.loads(row[4] or '{}')).get("profile_hash") == revision
+                      and meta.get("content_hash") == hashes.get(id)}
+        for job in jobs:
+            score = scores.get(job["id"])
+            job.update(score=score[0] if score else None,
+                       strong_matches=json.loads(score[1]) if score else [],
+                       missing_skills=json.loads(score[2]) if score else [],
+                       reason="Oferta del mercado seleccionado; encaje específico aún no calculado.")
+            if score:
+                job["reason"] = score[3]
+                job["fit_assessment"] = json.loads(score[4])
+        jobs.sort(key=lambda j: j["score"] if j["score"] is not None else -1, reverse=True)
+        return {"profile_configured": bool(profile), "jobs": jobs[:min(max(limit, 1), 50)],
+                "ranking": "reference_score" if scores else "recent",
+                "score_scope": "reference_career" if scores else "not_computed_for_selected_market"}
     profile = get_profile()
     if not profile:
         return {
@@ -335,6 +468,7 @@ def recommendations(
             "jobs": [],
             "message": "Configura user_profile y user_skills antes de pedir recomendaciones.",
         }
+    backfill_market(active_pack().id)
     extra_filters: list[str] = []
     if not include_hidden:
         extra_filters.append("AND NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
@@ -350,17 +484,19 @@ def recommendations(
             j.sector, j.hours_per_week, j.schedule_text,
             j.application_status, j.application_checked_at,
             js.total_score, js.strong_matches, js.missing_skills, js.reason,
-            (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
+            (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application,js.assessment
             FROM job_scores js JOIN jobs j ON j.id=js.job_id LEFT JOIN companies c ON c.id=j.company_id
+            JOIN job_market_classifications m ON m.job_id=j.id AND m.market_id=%s
             WHERE js.profile_id=%s AND j.is_active=1 AND j.duplicate_status='canonical'
-            AND j.relevance_tier IN ('core','adjacent')
+            AND json_extract(js.assessment,'$.profile_hash')=%s
+            AND json_extract(js.assessment,'$.content_hash') IS j.content_hash
+            AND m.relevance_tier IN ('core','adjacent')
             AND COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')
-            AND NOT EXISTS (SELECT 1 FROM job_sources jsl JOIN sources sl ON sl.id=jsl.source_id WHERE jsl.job_id=j.id AND lower(sl.name)='linkedin' AND (COALESCE(j.application_status, 'unknown') <> 'open' OR j.application_checked_at IS NULL OR date(j.application_checked_at) < date('now', '-' || %s || ' days'))){extra_filter_sql}
             AND j.published_at IS NOT NULL
-            AND date(j.published_at) >= date('now', '-' || %s || ' days')
-            AND date(j.published_at) < date('now', '+1 day')
+            AND date(j.published_at) >= %s
+            AND date(j.published_at) < %s{extra_filter_sql}
             ORDER BY js.total_score DESC, j.published_at DESC, j.relevance_score DESC LIMIT %s""",
-            (profile["id"], max_age_days, max_age_days, min(max(limit, 1), 50)),
+            (active_pack().id, profile["id"], revision, *visible_date_bounds(max_age_days), min(max(limit, 1), 50)),
         ).fetchall()
     jobs = []
     for x in rows:
@@ -387,7 +523,7 @@ def recommendations(
             "score": float(x[15]),
             "strong_matches": strong_matches or [],
             "missing_skills": missing_skills or [],
-            "reason": x[18],
+            "reason": x[18], "fit_assessment": json.loads(x[20] or '{}'),
             "user_application": x[19] if len(x) > 19 else None,
         })
     return {

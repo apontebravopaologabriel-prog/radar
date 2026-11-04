@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
-from radar import cv_photo, profile_edit
+from radar import cv_import, cv_photo, profile_edit
 
 router = APIRouter(prefix="/api/me")
 _PHOTO_FIELD = File(...)
@@ -39,3 +40,40 @@ async def upload_photo(file: UploadFile = _PHOTO_FIELD) -> dict[str, Any]:
 @router.delete("/photo")
 def delete_photo() -> dict[str, Any]:
     return {"has_photo": False, "removed": cv_photo.remove_photo()}
+
+
+@router.get("/setup")
+def setup_state() -> dict:
+    return cv_import.status()
+
+
+@router.put("/setup/draft")
+def setup_draft(draft: dict) -> dict:
+    try:
+        return cv_import.save_draft(draft)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/cv/preview")
+async def preview_cv(file: UploadFile = _PHOTO_FIELD, career_id: str = Form("industrial_engineering")) -> dict:
+    data = await file.read(cv_import.MAX_BYTES + 1)
+    try:
+        return await run_in_threadpool(cv_import.preview, data, file.filename or "", career_id)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/setup/confirm")
+def confirm_setup(draft: dict) -> dict:
+    try:
+        return cv_import.apply(draft)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/updates")
+def application_update() -> dict:
+    from radar.updates import check
+
+    return check()

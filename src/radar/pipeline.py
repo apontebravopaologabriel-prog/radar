@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+
+from radar.careers import active_pack, list_packs, load_pack
+from radar.db.database import connection
 from radar.db.repository import ingest_jobs
 from radar.freshness import DEFAULT_MAX_AGE_DAYS, filter_recent_jobs
 from radar.sources.base import JobSource
@@ -28,11 +32,38 @@ def run_ingestion(
     location: str | None,
     limit: int = 25,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    *, search_timeout: float | None = None, market_ids: list[str] | None = None,
 ) -> dict[str, int]:
-    source = resolve_source(source_name)
-    jobs = list(source.search(query, location, limit))
-    recent_jobs, discarded = filter_recent_jobs(jobs, max_age_days)
-    stats = ingest_jobs(recent_jobs)
+    pack = active_pack()
+    context = {"source": source_name, "location": location, "limit": limit,
+               "max_age_days": max_age_days, "reference_market_id": pack.id,
+               "requested_market_ids": [load_pack(key).id for key in market_ids] if market_ids else [pack.id]}
+    from radar.classification_text import CLASSIFIER_VERSION
+    from radar.markets import pack_hash
+
+    context["classifier_version"] = CLASSIFIER_VERSION
+    context["classification_rules_hashes"] = {p.id: pack_hash(p) for p in list_packs()}
+    with connection() as conn:
+        run = conn.execute("INSERT INTO ingestion_runs(query,context) VALUES (%s,%s) RETURNING id",
+                           (query, json.dumps(context))).fetchone()[0]
+    try:
+        source = resolve_source(source_name)
+        fetch = lambda: list(source.search(query, location, limit))
+        if search_timeout is not None:
+            from radar.capture import _run_with_timeout
+
+            jobs = _run_with_timeout(fetch, search_timeout)
+        else:
+            jobs = fetch()
+        recent_jobs, discarded = filter_recent_jobs(jobs, max_age_days)
+        with connection() as conn:
+            conn.execute("UPDATE ingestion_runs SET jobs_found=%s WHERE id=%s", (len(jobs), run))
+        stats = ingest_jobs(recent_jobs, pack, run_id=run)
+    except Exception as exc:
+        with connection() as conn:
+            conn.execute("UPDATE ingestion_runs SET status=%s,finished_at=now(),errors=%s WHERE id=%s",
+                         ("timeout" if isinstance(exc, TimeoutError) else "failed", json.dumps([str(exc)]), run))
+        raise
     stats["discarded_stale_or_undated"] = discarded
     stats["max_age_days"] = max_age_days
     return stats

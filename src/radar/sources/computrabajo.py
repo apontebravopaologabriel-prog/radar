@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import re
-import selectors
 import shutil
 import subprocess
+import threading
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from radar import __version__
@@ -23,17 +25,24 @@ class ComputrabajoSource:
     name = "Computrabajo"
 
     def __init__(self, command: str | None = None, args: list[str] | None = None):
-        configured = command or os.getenv("RADAR_COMPUTRABAJO_COMMAND", "npx")
-        self.command = shutil.which(configured) or configured  # en Windows `npx` es `npx.cmd`
-        self.args = args or os.getenv(
-            "RADAR_COMPUTRABAJO_ARGS", f"-y,mcp-computrabajo@{PINNED_VERSION}"
-        ).split(",")
+        configured = command or os.getenv("RADAR_COMPUTRABAJO_COMMAND")
+        self.native = not configured and os.getenv("RADAR_COMPUTRABAJO_TRANSPORT", "native") != "mcp"
+        configured = configured or "npx"
+        self.command = shutil.which(configured) or configured
+        self.args = args or os.getenv("RADAR_COMPUTRABAJO_ARGS", f"-y,mcp-computrabajo@{PINNED_VERSION}").split(",")
 
     def search(self, query: str, location: str | None = None, limit: int = 25) -> list[RawJob]:
+        if self.native:
+            from radar.sources.computrabajo_native import search
+
+            return [self._to_job(item) for item in search(query, location, limit, os.getenv("RADAR_COMPUTRABAJO_DETAILS", "1") != "0")]
         request_id = 1
         enrich_details = os.getenv("RADAR_COMPUTRABAJO_DETAILS", "1") != "0"
+        if not Path(self.command).is_file() and not shutil.which(self.command):
+            raise RuntimeError("Computrabajo no está disponible: falta el adaptador incluido o Node.js. Las demás fuentes pueden continuar.")
         proc = subprocess.Popen(
-            [self.command, *self.args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+            [self.command, *self.args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+            encoding="utf-8", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         try:
             self._rpc(
@@ -80,6 +89,10 @@ class ComputrabajoSource:
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait()
+            if proc.stdin:
+                proc.stdin.close()
+            if proc.stdout:
+                proc.stdout.close()
 
     def _rpc(
         self,
@@ -93,29 +106,44 @@ class ComputrabajoSource:
         assert proc.stdin and proc.stdout
         proc.stdin.write(json.dumps(message) + "\n")
         proc.stdin.flush()
-        sel = selectors.DefaultSelector()
-        sel.register(proc.stdout, selectors.EVENT_READ)
-        try:
-            deadline = time.monotonic() + timeout
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0 or not sel.select(timeout=remaining):
-                    raise TimeoutError(
-                        f"Computrabajo MCP no respondió en {timeout}s para '{method}'"
-                    )
-                line = proc.stdout.readline()
-                if not line:
-                    raise RuntimeError("Computrabajo MCP cerró la conexión sin respuesta")
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                if "id" not in data:
-                    continue
-                if "error" in data:
-                    raise RuntimeError(f"Computrabajo MCP error: {data['error']}")
-                return data.get("result", {})
-        finally:
-            sel.close()
+        # A single blocking reader works for subprocess pipes on Windows and Unix.
+        if not hasattr(proc, "_radar_lines"):
+            lines = queue.Queue(maxsize=1024)
+            proc._radar_lines = lines
+
+            def read_lines():
+                try:
+                    while True:
+                        line = proc.stdout.readline(1_048_577)
+                        if not line:
+                            lines.put_nowait(None)
+                            return
+                        if len(line) > 1_048_576:
+                            lines.put_nowait(ValueError("Respuesta MCP demasiado grande"))
+                            return
+                        lines.put_nowait(line)
+                except (OSError, ValueError, queue.Full):
+                    return
+
+            threading.Thread(target=read_lines, daemon=True, name="computrabajo-stdio").start()
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                line = proc._radar_lines.get(timeout=max(0, deadline-time.monotonic()))
+            except queue.Empty as exc:
+                raise TimeoutError(f"Computrabajo MCP no respondió en {timeout}s para '{method}'") from exc
+            if line is None:
+                raise RuntimeError("Computrabajo MCP cerró la conexión sin respuesta")
+            if isinstance(line, Exception):
+                raise line
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("id") != request_id:
+                continue
+            if "error" in data:
+                raise RuntimeError(f"Computrabajo MCP error: {data['error']}")
+            return data.get("result", {})
 
     @staticmethod
     def _notify(proc: subprocess.Popen[str], method: str, params: dict[str, Any]) -> None:

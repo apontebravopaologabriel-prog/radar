@@ -7,6 +7,7 @@ previa (últimas 5) y escribe de forma atómica. Solo se edita lo que la persona
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import UTC, datetime
 from typing import Any
@@ -184,5 +185,17 @@ def update_cv(section: str, action: str, item: dict[str, Any] | None = None, mat
     backup = _backup_and_write(cv)
     hint = ("Si esto aporta evidencia a una brecha, ofrece actualizarla con section=gaps."
             if section in ("certifications", "experience", "education") else None)
-    return {"section": section, "action": action if section not in TEXT_SECTIONS else "set", "now": result,
-            "backup": backup, "next": hint}
+    response = {"section": section, "action": action if section not in TEXT_SECTIONS else "set", "now": result,
+                "backup": backup, "next": hint}
+    if section in {"education", "experience"}:
+        from radar.db.queries import get_profile
+        from radar.db.repository import recompute_scores
+
+        try:
+            account = get_profile()
+            if account:
+                response["scores_refreshed"] = recompute_scores(account["id"])
+        except Exception:
+            logging.getLogger(__name__).exception("CV saved but score refresh failed")
+            response["score_refresh_warning"] = "El CV se guardó; no se pudieron recalcular los puntajes. Los anteriores quedan desactualizados."
+    return response

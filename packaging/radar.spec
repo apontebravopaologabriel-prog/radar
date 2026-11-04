@@ -5,7 +5,7 @@
 # Requisitos previos: `cd frontend && npm ci && npm run build` (crea frontend/out) y `pip install -e '.[desktop,jobspy]'`.
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
 
 ROOT = Path(SPECPATH).parent
 FRONTEND = ROOT / "frontend" / "out"
@@ -13,7 +13,9 @@ if not FRONTEND.is_dir():
     raise SystemExit("Falta frontend/out: ejecuta `npm run build` en frontend/ antes de empaquetar.")
 
 datas = collect_data_files("radar") + [(str(FRONTEND), "frontend_out")]
-hidden = (
+curl_data, curl_binaries, curl_hidden = collect_all("curl_cffi")
+datas += curl_data
+hidden = curl_hidden + (
     collect_submodules("uvicorn")
     + collect_submodules("mcp", filter=lambda name: not name.startswith("mcp.cli"))
     + collect_submodules("keyring.backends")
@@ -24,7 +26,7 @@ excludes = ["tkinter", "matplotlib", "pytest", "ruff"]
 
 def program(entry, name, console):
     script = ROOT / "packaging" / f"entry_{entry}.py"
-    analysis = Analysis([str(script)], pathex=[str(ROOT / "src")], datas=datas, hiddenimports=hidden, excludes=excludes)
+    analysis = Analysis([str(script)], pathex=[str(ROOT / "src")], binaries=curl_binaries, datas=datas, hiddenimports=hidden, excludes=excludes)
     pyz = PYZ(analysis.pure)
     exe = EXE(pyz, analysis.scripts, [], exclude_binaries=True, name=name, console=console,
               icon=str(ROOT / "packaging" / "radar.ico") if (ROOT / "packaging" / "radar.ico").exists() else None)

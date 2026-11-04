@@ -43,13 +43,16 @@ The profile has one owner per field so nothing drifts:
    without backing), `falta`; plus years of experience and education level from the description. The LLM only
    writes the ideal and proposes actions and **cannot reassign** a status the code computed (same `key` →
    code wins). Items the code does not cover are `estado: agente` (shown `ᵃ`). Soft skills are listed but not
-   scored. Proximity is weighted and shows "insufficient data" with too few signals. Experience counts total years
-   and separately years in roles mentioning the offer's skills (reaching the number only by summing all →
-   `parcial`). CV skills are matched with the same aliases the active career uses for offers; projects count as
-   strong evidence.
-4. **Proximity vs fit.** Proximity: does your CV prove the offer's requirements. Fit (the map score): does the
-   offer match your preferences (area, location, level). The view shows both and a reconciling sentence
-   ("fits but you lack evidence", "you qualify but fit is low").
+   scored. Unknown requirements earn no supported points; proximity warns when too few signals are known.
+   Education and experience reuse `requirements.py`: compare program plus academic status, count unique dated
+   months, and require explicit specialization evidence. Certificates alone do not establish an advanced level.
+   Program aliases live in `careers/qualifications.json`; an unrelated or unrecognized program is never silently
+   accepted as a related degree. An "afines" alternative remains uncertain without explicit acceptance.
+4. **Proximity vs fit.** Proximity measures evidence in the CV. Personal fit combines weighted preferences and
+   declared requirements, with a supported lower bound, upper bound and data coverage. These are deterministic
+   points, not hiring probabilities or proof of qualification. The view displays the range and coverage.
+   Changes to factual education/experience refresh scores; a refresh failure is reported separately after saving
+   the CV, and revision mismatches suppress stale scores from current recommendations.
 5. **Honest closure plan.** Each gap is typed by cost:
 
    | Kind | Example | Closure |

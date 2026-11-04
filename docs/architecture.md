@@ -36,19 +36,24 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
 
 ## Pipeline
 
-0. Triggered by `radar refresh` (`capture.py`: the active pack's queries, each step isolated with a timeout), by the in-app
+0. Triggered by `radar refresh` (`capture.py`: configured markets, reference-pack default, download timeouts), by the in-app
    "update now" (`refresh.py`), by `radar ingest`, or by CSV/JSON import.
-1. A source adapter (`sources/jobspy.py` for Indeed and LinkedIn, `sources/computrabajo.py` over MCP stdio,
-   or `importers.py` for CSV/JSON) returns raw offers.
-2. `normalize.py` cleans text and builds the fingerprint (company + title + location, normalized).
+1. A source adapter (`sources/jobspy.py` for Indeed and LinkedIn, `sources/computrabajo.py` using native public HTTP (optional legacy MCP), or `importers.py` for CSV/JSON) returns raw offers.
+2. Stable portal URL/ID resolves existing identity first. `normalize.py` supplies a company/title/location
+   fallback fingerprint; distinct source publications can receive a disambiguated identity anchor.
 3. `classify.py` assigns up to three areas, seniority and skills using the active career pack;
    `taxonomy.py` assigns relevance (`core`, `adjacent`, `out_of_focus`).
 4. `enrichment.py` and `salary.py` extract sector, work mode, hours, schedule and salary, keeping the
    evidence and leaving `NULL` when nothing reliable is found.
-5. `freshness.py` filters by `published_at`; offers without a date, in the future or too old are kept as
-   history but never recommended.
+5. `freshness.py` filters connector search results by `published_at` before ingestion. Undated, future
+   and out-of-range results are counted as discarded. Already stored history is never removed by this filter.
 6. `scoring.py` computes the deterministic personal score from the pack weights. Saving the profile
-   recalculates all scores.
+   recalculates all scores. Version `v2.0-evidence` uses the full description, factual CV education/experience
+   and declared skill levels. `requirements.py` also serves CV gaps. Unknown inputs produce an interval rather
+   than fixed education/juniority bonuses; supported points are not a hiring probability. The additive JSON
+   `job_scores.assessment` stores quotes, status, bounds, coverage, weights and input revisions. Computation runs
+   outside write transactions; bounded writes guard offer content and profile revisions. Readers suppress stale
+   scores when CV/profile or offer content changed. Scores still belong only to the reference career.
 7. Every appearance is stored in `job_observations`; offers no source has seen for 45 days are deactivated
    (`expire_stale`), never deleted.
 
@@ -141,3 +146,11 @@ Three related timelines:
 
 Old offers become inactive or expired, never removed, so months and years can be compared. Vector search is
 deferred until volume and semantic queries justify it.
+
+## Local setup and geography (2026-11-04)
+
+`cv_import.py` handles bounded local PDF/DOCX preview and confirmed profile merge; `/api/me/setup*` stores
+resumable drafts and explicit completion. Preview does not write factual history. `updates.py` handles fixed
+GitHub release checks independently of offer capture. `places_lima.json` supplies shared polygon keys,
+aliases and approximate centroids to both API and frontend; the desktop sends `geo_scope=lima_callao`.
+See [implementation and verification scope](windows-cv-markets-2026-11-04.md).

@@ -14,7 +14,7 @@
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Computrabajo returns nothing | Use a shorter query, confirm `location=Lima`, check Node.js/npm, and that `npx mcp-computrabajo@latest` starts by itself |
+| Computrabajo returns nothing | Use a shorter query and confirm `location=Lima`. Default capture is native Python. HTTP 403/challenge pages are reported as source failures; other sources continue. Node/npm are needed only for explicitly configured legacy MCP |
 | JobSpy does not install | `pip install -e '.[jobspy]'` in the main environment (imports verified on 3.14). If NumPy 1.26.3 fails to build on your Python, use a separate Python 3.12 environment |
 | Refresh did not run | Linux with the timer: `systemctl --user status radar-refresh.timer`. Otherwise the in-process scheduler only runs while Radar is open: check Settings or `get_system_status` (next/last run) and `refresh.log` in the state folder (`~/.local/state/radar/refresh.log` on Linux); its final summary lists failed steps |
 

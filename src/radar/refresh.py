@@ -12,7 +12,7 @@ import threading
 import time
 from typing import Any
 
-from radar.careers import active_pack
+from radar.careers import active_pack, load_pack
 from radar.db.queries import get_profile
 from radar.db.repository import recompute_scores
 from radar.geolocation import infer_location
@@ -29,7 +29,9 @@ _state: dict[str, Any] = {"running": False, "done": 0, "total": 0, "created": 0,
 
 def _sources() -> list[str]:
     """Fuentes disponibles en esta instalación: Computrabajo, JobSpy (Indeed/LinkedIn/Google), Bumeran y Empleos Perú."""
-    items = ["computrabajo", *(["jobspy"] if importlib.util.find_spec("jobspy") else [])]
+    items = ["jobspy"] if importlib.util.find_spec("jobspy") else []
+    if os.getenv("RADAR_COMPUTRABAJO_ENABLED", "1").strip().lower() not in {"0", "false", "no"}:
+        items.insert(0, "computrabajo")
     if os.getenv("RADAR_BUMERAN_ENABLED", "1").strip().lower() not in {"0", "false", "no"}:
         items.append("bumeran")
     if os.getenv("RADAR_EMPLEOS_ENABLED", "1").strip().lower() not in {"0", "false", "no"}:
@@ -52,20 +54,17 @@ def search_locations(places: list[str] | None = None) -> list[str]:
 
 def _run_step(step: dict[str, Any]) -> dict[str, Any]:
     """Ejecuta una búsqueda de ingesta en el proceso y devuelve su resumen; falla si el portal no responde a tiempo."""
-    from radar.capture import _run_with_timeout
     from radar.pipeline import run_ingestion
 
-    result = _run_with_timeout(
-        lambda: run_ingestion(step["source"], step["query"], step["location"], step["limit"], step["max_age_days"]),
-        STEP_TIMEOUT,
-    )
+    result = run_ingestion(step["source"], step["query"], step["location"], step["limit"], step["max_age_days"],
+                           search_timeout=STEP_TIMEOUT, market_ids=step.get("market_ids"))
     return result if isinstance(result, dict) else {}
 
 
 def _work(steps: list[dict[str, Any]]) -> None:
     for step in steps:
         with _lock:
-            _state["current"] = f"{step['query']} · {step['location']}"
+            _state["current"] = f"{step['source']} · {step['query']} · {step['location']}"
         try:
             summary = _run_step(step)
             with _lock:
@@ -91,19 +90,23 @@ def start_refresh(
     queries: list[str] | None = None,
     limit: int = 15,
     max_age_days: int = 14,
+    market_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     sources = _sources()
     locations = search_locations(places)
-    chosen = [q for q in (queries or list(active_pack().queries)) if q and not q.startswith("-")][:MAX_QUERIES]
+    packs = [load_pack(key) for key in dict.fromkeys(market_ids)] if market_ids else [active_pack()]
+    chosen = list(dict.fromkeys(q for q in (queries or [q for pack in packs for q in pack.queries])
+                                if q and not q.startswith("-")))
     steps = [
-        {"source": source, "query": query, "location": location, "limit": min(max(limit, 1), 50), "max_age_days": max_age_days}
+        {"source": source, "query": query, "location": location, "limit": min(max(limit, 1), 50), "max_age_days": max_age_days,
+         "market_ids": [p.id for p in packs if queries or query in p.queries]}
         for location in locations for query in chosen for source in sources
-    ][:MAX_STEPS]
+    ]
     with _lock:
         if _state["running"]:
             raise RuntimeError("Ya hay una actualización en curso.")
         _state.update(running=True, done=0, total=len(steps), created=0, errors=[],
-                      started_at=time.time(), finished_at=None, current=None)
+                      started_at=time.time(), finished_at=None, current=None, market_ids=[pack.id for pack in packs])
     threading.Thread(target=_work, args=(steps,), daemon=True, name="radar-refresh").start()
     return refresh_status()
 

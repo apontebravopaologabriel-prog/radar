@@ -7,6 +7,7 @@ predeterminado. Si Radar ya está corriendo en ese puerto, solo abre la ventana.
 
 from __future__ import annotations
 
+import logging
 import os
 import socket
 import sys
@@ -55,9 +56,14 @@ def open_window(url: str) -> bool:
     except ImportError:
         webbrowser.open(url)
         return False
-    webview.create_window("Radar", url, width=1360, height=900, min_size=(900, 600))
-    webview.start()
-    return True
+    try:
+        webview.create_window("Radar", url, width=1360, height=900, min_size=(900, 600))
+        webview.start()
+        return True
+    except Exception:
+        logging.getLogger(__name__).exception("Desktop renderer failed; opening the browser")
+        webbrowser.open(url)
+        return False
 
 
 def smoke(port: int) -> int:
@@ -67,7 +73,7 @@ def smoke(port: int) -> int:
     from radar.mcp.server import mcp
 
     free = _free_port()
-    server = uvicorn.Server(uvicorn.Config("radar.api:app", host=HOST, port=free, log_level="warning"))
+    server = uvicorn.Server(uvicorn.Config("radar.api:app", host=HOST, port=free, log_level="warning", log_config=None))
     threading.Thread(target=server.run, daemon=True, name="radar-smoke").start()
     try:
         if not wait_until_ready(free, 40):
@@ -77,10 +83,22 @@ def smoke(port: int) -> int:
             html_ok = page.status == 200 and b"<html" in page.read(2000).lower()
         tools_ok = len(mcp._tool_manager.list_tools()) > 10
         preview_ok = _preview_works()
-        print(json.dumps({"api": True, "frontend": html_ok, "mcp_tools": tools_ok, "cv_preview": preview_ok, "port": free}))
-        return 0 if html_ok and tools_ok and preview_ok else 1
+        jobspy_ok = _jobspy_works()
+        print(json.dumps({"api": True, "frontend": html_ok, "mcp_tools": tools_ok, "cv_preview": preview_ok, "jobspy_runtime": jobspy_ok, "port": free}))
+        return 0 if html_ok and tools_ok and preview_ok and jobspy_ok else 1
     finally:
         server.should_exit = True
+
+
+def _jobspy_works() -> bool:
+    if not getattr(sys, "frozen", False):
+        return True
+    import jobspy  # noqa: F401 - verifies packaged optional imports
+    from curl_cffi.requests import Session
+
+    session = Session()
+    session.close()
+    return True
 
 
 def _preview_works() -> bool:
@@ -100,6 +118,11 @@ def _free_port() -> int:
 
 def main() -> None:
     restrict_umask()
+    from radar.paths import state_dir
+
+    folder = state_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(filename=folder / "desktop.log", level=logging.INFO)
     port = int(os.getenv("RADAR_API_PORT", str(DEFAULT_PORT)))
     if "--smoke" in sys.argv:
         raise SystemExit(smoke(port))
@@ -109,7 +132,7 @@ def main() -> None:
         if not is_radar(port):
             raise SystemExit(f"El puerto {port} está ocupado por otro programa. Define RADAR_API_PORT con un puerto libre.")
     else:
-        server = uvicorn.Server(uvicorn.Config("radar.api:app", host=HOST, port=port, log_level="warning"))
+        server = uvicorn.Server(uvicorn.Config("radar.api:app", host=HOST, port=port, log_level="warning", log_config=None))
         threading.Thread(target=server.run, daemon=True, name="radar-api").start()
         if not wait_until_ready(port):
             raise SystemExit("Radar no pudo iniciar la API. Revisa el registro en la carpeta de estado.")

@@ -39,7 +39,11 @@ def test_schedule_is_managed_without_systemd(monkeypatch):
 
 def test_tick_runs_one_capture_at_a_time_and_records_the_time(monkeypatch):
     done = []
-    monkeypatch.setattr("radar.capture.run_capture", lambda log=print, **_: done.append(1) or log("ok"))
+    def successful_capture(log=print, **_):
+        done.append(1)
+        log("ok")
+        return {"status": "success"}
+    monkeypatch.setattr("radar.capture.run_capture", successful_capture)
     started = []
     real = scheduler.threading.Thread
 
@@ -67,3 +71,21 @@ def test_internal_scheduler_does_not_start_when_systemd_timer_exists(monkeypatch
     monkeypatch.setattr(scheduler, "systemd_timer_installed", lambda: False)
     monkeypatch.setenv("RADAR_INTERNAL_SCHEDULER", "0")
     assert scheduler.should_start() is False
+
+
+@pytest.mark.parametrize("outcome", ["failed", "partial", "exception"])
+def test_failed_capture_preserves_last_success_and_has_retry_backoff(monkeypatch, outcome):
+    previous = (datetime.now(UTC)-timedelta(days=10)).isoformat()
+    set_setting("refresh_last_at", previous)
+    def run(**kwargs):
+        if outcome == "exception":
+            raise RuntimeError("portal failed")
+        return {"status": outcome}
+    monkeypatch.setattr("radar.capture.run_capture", run)
+    scheduler._capture()
+    assert get_setting("refresh_last_at") == previous
+    assert get_setting("refresh_last_status") == ("failed" if outcome == "exception" else outcome)
+    assert get_setting("refresh_last_attempt_at")
+    assert not scheduler.is_due(datetime.now(UTC))
+    assert scheduler.is_due(datetime.now(UTC)+timedelta(minutes=16))
+    assert scheduler._running is False

@@ -4,9 +4,11 @@ import datetime
 import os
 import re
 import sqlite3
+import threading
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -138,6 +140,13 @@ def _schema_section(start_marker: str, end_marker: str) -> str:
 
 def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     """Apply small additive guarantees to databases created before migrations."""
+    conn.executescript(_schema_section("-- Independent market projections", "-- End independent market projections"))
+    run_columns = {row[1] for row in conn.execute("PRAGMA table_info(ingestion_runs)").fetchall()}
+    if run_columns and "context" not in run_columns:
+        conn.execute("ALTER TABLE ingestion_runs ADD COLUMN context TEXT NOT NULL DEFAULT '{}'")
+    score_columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)").fetchall()}
+    if score_columns and "assessment" not in score_columns:
+        conn.execute("ALTER TABLE job_scores ADD COLUMN assessment TEXT NOT NULL DEFAULT '{}'")
     columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
     if "relevance_tier" not in columns:
         conn.execute("ALTER TABLE jobs ADD COLUMN relevance_tier TEXT NOT NULL DEFAULT 'out_of_focus'")
@@ -149,6 +158,7 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = 1")
     # Sin este índice cada oferta escaneaba toda la tabla job_sources (4 s por consulta con ~2 000 ofertas).
     conn.execute("CREATE INDEX IF NOT EXISTS job_sources_job_seen_idx ON job_sources (job_id, last_seen_at DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS job_sources_external_idx ON job_sources (source_id, external_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS job_scores_profile_idx ON job_scores (profile_id, total_score DESC)")
     conn.execute("CREATE INDEX IF NOT EXISTS applications_job_idx ON applications (job_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active)")
@@ -186,6 +196,11 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
 _SCHEMA_READY: set[str] = set()
 
 
+@cache
+def _schema_lock(database: str):
+    return threading.RLock()
+
+
 def _configure_connection(conn: RadarConnection) -> None:
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
@@ -203,17 +218,31 @@ def connection() -> Iterator[RadarConnection]:
     db_file = database_path()
     created_dir = not db_file.parent.exists()
     db_file.parent.mkdir(parents=True, exist_ok=True)
-    is_new = not db_file.exists()
-    conn = sqlite3.connect(str(db_file), factory=RadarConnection, timeout=10.0)
-    _configure_connection(conn)
     key = str(db_file)
-    if is_new:
-        _init_sqlite_db(conn)
-        _SCHEMA_READY.discard(key)
-    if key not in _SCHEMA_READY:  # las garantías del esquema se aplican una vez por proceso y base
-        _ensure_runtime_schema(conn)
-        _SCHEMA_READY.add(key)
-        harden_data_dir(db_file, owned_dir=created_dir or db_file.parent == DEFAULT_DB_PATH.parent)
+    # Initialize one connection at a time; publish readiness only after committing
+    # the catalog. Otherwise parallel first requests attempt competing schema writes.
+    with _schema_lock(str(db_file.resolve())):
+        is_new = not db_file.exists()
+        conn = sqlite3.connect(str(db_file), factory=RadarConnection, timeout=10.0)
+        try:
+            _configure_connection(conn)
+            if is_new:
+                _init_sqlite_db(conn)
+                _SCHEMA_READY.discard(key)
+            if not is_new and not conn.execute("SELECT 1 FROM sqlite_master WHERE name='job_market_classifications'").fetchone():
+                folder = db_file.parent / "backups"
+                folder.mkdir(exist_ok=True)
+                backup_path = folder / f"pre-dual-market-{datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%S%f')}.db"
+                with sqlite3.connect(str(backup_path)) as backup:
+                    conn.backup(backup)
+            if key not in _SCHEMA_READY:
+                _ensure_runtime_schema(conn)
+                conn.commit()
+                _SCHEMA_READY.add(key)
+                harden_data_dir(db_file, owned_dir=created_dir or db_file.parent == DEFAULT_DB_PATH.parent)
+        except BaseException:
+            conn.close()
+            raise
     try:
         yield conn
         conn.commit()

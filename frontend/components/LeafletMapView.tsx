@@ -43,7 +43,6 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
       .catch(() => undefined);
     return () => { map.remove(); mapRef.current = null; };
     // The map instance must survive mode/filter changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -93,7 +92,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
       const selected = jobs.find((job) => districtKey(job.district) === selectedDistrictKey && job.latitude !== null && job.longitude !== null);
       if (selected) map.setView([selected.latitude as number, selected.longitude as number], Math.max(map.getZoom(), 12));
     }
-  }, [jobs, mode, radarCenter, radarDistrictKey, selectedDistrictKey, onSelectDistrict, onSelectJob, districtVersion]);
+  }, [jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectDistrict, onSelectJob, districtVersion]);
 
   return <div ref={containerRef} className="map-canvas leaflet-map" aria-label="Mapa de ofertas laborales de Lima" />;
 }

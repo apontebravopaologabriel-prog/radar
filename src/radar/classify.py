@@ -4,6 +4,7 @@ import re
 from functools import cache
 
 from radar.careers import CareerPack, default_pack
+from radar.classification_text import contains, context_evidence, job_text
 from radar.domain.models import ClassifiedJob, Evidence, RawJob
 from radar.normalize import normalize_text
 
@@ -68,31 +69,40 @@ def _area_score(title: str, description: str, phrases: tuple[str, ...], weak: fr
 
 def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     pack = pack or default_pack()
-    commercial_rules = tuple(p for rules in pack.out_of_focus_rules.values() for p in rules)
-    commercial_area = next(iter(pack.out_of_focus_rules), None)
     title = normalize_text(job.title).replace("_", " ")
-    description = normalize_text(job.description).replace("_", " ")
+    sections = job_text(job.description)
+    description = normalize_text(sections.role).replace("_", " ")
     text = f"{title} {description}"
     matched: list[tuple[float, int, Evidence]] = []
-    commercial_title = next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(title, phrase)), None)
-    commercial_text = commercial_title or next((phrase for phrase in sorted(commercial_rules, key=len, reverse=True) if _contains(description, phrase)), None)
-    if commercial_text and not commercial_title and len(_word(commercial_text).findall(description)) < 3:
-        commercial_text = None  # una mención suelta en la descripción no vuelve comercial a una oferta
-    if commercial_text and commercial_area:
-        weight = 4.0 if commercial_title else 0.5
-        matched.append((weight + len(commercial_text) / 100, -1, Evidence(commercial_area, 0.94 if commercial_title else 0.55, _evidence(text, commercial_text))))
+    commercial_title = None
+    for area, phrases in pack.out_of_focus_rules.items():
+        title_phrase = next((p for p in sorted(phrases, key=len, reverse=True) if _contains(title, p)), None)
+        phrase = title_phrase or next((p for p in phrases if len(_word(p).findall(description)) >= 3), None)
+        if phrase:
+            commercial_title = commercial_title or title_phrase
+            weight = 4.0 if title_phrase else 0.5
+            matched.append((weight + len(phrase) / 100, -1, Evidence(area, 0.94 if title_phrase else 0.55, _evidence(text, phrase))))
     excluded_title = next((p for p in pack.excluded_title_signals if _contains(title, p)), None)
     any_title_hit = False
     for order, (area, phrases) in enumerate(pack.area_rules.items()):
+        rule = pack.area_evidence_rules.get(area)
+        contextual = context_evidence(title, sections, rule) if rule else None
+        if rule and not contextual:
+            continue
         score, phrase, in_title = _area_score(title, description, phrases, pack.weak_terms)
+        if contextual and score < MIN_AREA_SCORE:
+            score, phrase = MIN_AREA_SCORE, phrase or contextual[:160]
         if not phrase or score < MIN_AREA_SCORE:
             continue
         if commercial_title and not in_title:
             score -= 0.75
         any_title_hit = any_title_hit or in_title
-        matched.append((score, order, Evidence(area, min(0.92, 0.5 + score / 10), _evidence(text, phrase))))
+        matched.append((score, order, Evidence(area, min(0.92, 0.5 + score / 10), contextual[:220] if contextual else _evidence(text, phrase))))
     if excluded_title and not any_title_hit and not commercial_title:
         matched = [(0, 0, Evidence("Otras", 0.6, f"Título fuera del foco: {excluded_title}"))]
+    excluded_role = next((p for p in pack.excluded_role_signals if contains(description, p)), None)
+    if excluded_role:
+        matched = [(0, 0, Evidence("Otras", 0.9, f"Funciones fuera del mercado: {excluded_role}"))]
     if not matched:
         evidence = Evidence("Otras", 0.35, "No se encontró una señal suficiente en el texto")
         matched = [(0, 0, evidence)]

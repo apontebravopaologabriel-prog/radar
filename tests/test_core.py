@@ -288,9 +288,10 @@ def test_infer_job_location_recovers_district_without_false_positive_substrings(
     assert infer_job_location("Lima", "Analista de Logística", "Lugar de trabajo: Ate Vitarte. Horario lunes a viernes.").label == "Ate"
 
 
-def test_target_titles_are_core_and_operational_titles_are_out_of_focus():
-    def tier(title, area="Otras"):
-        return infer_relevance(RawJob("x", title, "ACME", "https://example.com", description="Excel y SAP."), area)
+def test_target_titles_require_area_evidence_and_operators_stay_out_of_focus():
+    def tier(title, area=None):
+        raw = RawJob("x", title, "ACME", "https://example.com", description="Excel y SAP.")
+        return infer_relevance(raw, area or classify(raw).primary_area.value)
 
     assert tier("Analista de Control de Gestión").tier == "core"
     assert tier("Analista BI / Business Intelligence").tier == "core"
@@ -299,6 +300,7 @@ def test_target_titles_are_core_and_operational_titles_are_out_of_focus():
     operator = tier("Operario de Almacén", "Supply Chain, logística y compras")
     assert operator.tier == "out_of_focus" and "operativo" in operator.evidence
     assert tier("Practicante de Ingeniería Industrial").tier == "adjacent"
+    assert tier("Analista de Control de Gestión", "Otras").tier == "out_of_focus"
 
 
 def test_secondary_target_and_target_filter():
@@ -307,7 +309,7 @@ def test_secondary_target_and_target_filter():
     from radar.db.queries import list_jobs
     from radar.db.repository import ingest_jobs as store
 
-    job = infer_relevance(RawJob("x", "Analista de Compras", "ACME", "https://example.com"), "Otras")
+    job = infer_relevance(RawJob("x", "Analista de Compras", "ACME", "https://example.com"), "Supply Chain, logística y compras")
     assert job.tier == "core" and "prioridad 2" in job.evidence
     store([
         RawJob("t", "Analista BI", "A", "https://e.com/bi", location="Lima", description="Power BI",

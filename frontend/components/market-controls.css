@@ -1,0 +1,9 @@
+.market-controls { display: grid; gap: 10px; padding: 12px 0; border-bottom: 1px solid #444; margin-bottom: 12px; }
+.market-controls label { display: grid; gap: 5px; min-width: 0; }
+.market-profile-fields { display: grid; gap: 14px; }
+.market-profile-fields label { display: grid; gap: 6px; }
+.market-profile-fields textarea { min-height: 76px; }
+.market-profile-fields select[multiple] { min-height: 130px; }
+
+.market-extra-filters > summary { cursor: pointer; color: #bbb; font-size: 12px; padding: 10px 0; }
+.market-extra-filters[open] > summary { margin-bottom: 6px; }

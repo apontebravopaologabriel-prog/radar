@@ -51,9 +51,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e . pip-audit && pip-audit --skip-editable
+      - run: pip install --upgrade setuptools
+      - run: pip install -e ".[jobspy]" pip-audit && pip-audit --skip-editable
       - uses: actions/setup-node@v4
+        if: always()
         with:
           node-version: "22"
       - run: npm audit --omit=dev --audit-level=high
+        if: always()
         working-directory: frontend

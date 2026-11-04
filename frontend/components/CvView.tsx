@@ -157,7 +157,7 @@ function Meter({ readiness }: { readiness: CvReadiness }) {
 function Ranking({ items, picked, onPick, onOpen, onStudio, onRemove }: { items: CvSelectionItem[]; picked: string[]; onPick: (id: string) => void; onOpen: (id: string) => void; onStudio: (id: string) => void; onRemove: (id: string) => void }) {
   return (
     <section aria-label="Objetivos">
-      <p className="cv-note">Tus ofertas con ★, de la más a la menos alcanzable. <b>Cercanía</b> mide si tu CV demuestra los requisitos; <b>encaje</b> mide si la oferta calza con lo que buscas. Ambas las calcula Radar por reglas; marca hasta {MAX_COMPARED} para la matriz y la comparación.</p>
+      <p className="cv-note">Tus ofertas con ★, de la más a la menos alcanzable. <b>Cercanía</b> mide si tu CV demuestra los requisitos; <b>encaje</b> combina preferencias y requisitos declarados; el rango muestra la incertidumbre. Ambas las calcula Radar por reglas; marca hasta {MAX_COMPARED} para la matriz y la comparación.</p>
       <ul className="cv-rank">
         {items.map((item) => (
           <li key={item.id} className={`cv-rank-row ${picked.includes(item.id) ? "picked" : ""}`}>
@@ -169,7 +169,7 @@ function Ranking({ items, picked, onPick, onOpen, onStudio, onRemove }: { items:
             </div>
             <span className="cv-rank-scores">
               <Meter readiness={item.readiness} />
-              {item.fit_total != null && <span className="cv-fit" title="Encaje: qué tanto calza la oferta con tus preferencias (área, ubicación, nivel). No mide si tu CV lo demuestra.">{Math.round(item.fit_total)} encaje</span>}
+              {item.fit_total != null && <span className="cv-fit" title="Coincidencia respaldada por datos declarados; no es una probabilidad de contratación.">{Math.round(item.fit_total)}–{Math.round(item.fit_upper_bound ?? item.fit_total)} encaje · {Math.round(item.fit_coverage ?? 0)}% datos</span>}
             </span>
             <div className="cv-rank-actions">
               <button type="button" onClick={() => onOpen(item.id)}>Abrir</button>

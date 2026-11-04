@@ -21,6 +21,7 @@ DEFAULT_DAYS = 7
 MAX_DAYS = 30
 START_DELAY_SECONDS = 120  # equivale a «5 minutos tras el arranque» del temporizador de systemd
 TICK_SECONDS = 60
+RETRY_SECONDS = 15 * 60
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -47,7 +48,14 @@ def next_run(now: datetime | None = None) -> datetime | None:
     if interval == 0:
         return None
     last = last_run()
-    return (last + timedelta(days=interval)) if last else (now or datetime.now(UTC))
+    due = (last + timedelta(days=interval)) if last else (now or datetime.now(UTC))
+    attempted = get_setting("refresh_last_attempt_at")
+    if attempted and get_setting("refresh_last_status") in {"failed", "partial"}:
+        try:
+            due = max(due, datetime.fromisoformat(attempted) + timedelta(seconds=RETRY_SECONDS))
+        except ValueError:
+            pass
+    return due
 
 
 def is_due(now: datetime | None = None) -> bool:
@@ -67,7 +75,8 @@ def status() -> dict[str, Any]:
     return {"available": True, "backend": "internal", "every": f"{interval}d" if interval else None,
             "state": "active" if interval and _thread is not None and _thread.is_alive() else ("inactive" if not interval else "stopped"),
             "next_run": upcoming.astimezone().isoformat(timespec="minutes") if upcoming else None,
-            "last_run": last.astimezone().isoformat(timespec="minutes") if last else None, "running": _running}
+            "last_run": last.astimezone().isoformat(timespec="minutes") if last else None, "running": _running,
+            "last_attempt": get_setting("refresh_last_attempt_at"), "last_status": get_setting("refresh_last_status")}
 
 
 def run_now() -> bool:
@@ -89,15 +98,20 @@ def _capture() -> None:
     try:
         folder.mkdir(parents=True, exist_ok=True)
         with open(folder / "refresh.log", "a", encoding="utf-8") as handle:
-            def log(line: str) -> None:
+            def write_log(line: str) -> None:
                 handle.write(line + "\n")
                 handle.flush()
 
-            run_capture(log=log)
-    except Exception:  # noqa: BLE001 - una captura fallida no debe tumbar la app
+            result = run_capture(log=write_log)
+        state = result.get("status", "success") if isinstance(result, dict) else "failed"
+        set_setting("refresh_last_status", state)
+        if state == "success":
+            set_setting("refresh_last_at", datetime.now(UTC).isoformat(timespec="seconds"))
+    except Exception:
         log.exception("La captura programada falló")
+        set_setting("refresh_last_status", "failed")
     finally:
-        set_setting("refresh_last_at", datetime.now(UTC).isoformat(timespec="seconds"))
+        set_setting("refresh_last_attempt_at", datetime.now(UTC).isoformat(timespec="seconds"))
         with _lock:
             _running = False
 

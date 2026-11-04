@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+from dataclasses import replace
 from typing import Any
 
 from radar.careers import CareerPack, active_pack, effective_weights
@@ -54,10 +56,14 @@ def audit_data_quality() -> dict:
               AND lower(j.title) NOT LIKE '%postventa%'"""
         ).fetchone()[0]
         source_links = conn.execute("SELECT COUNT(*) FROM job_sources").fetchone()[0]
+        orphans = conn.execute("SELECT count(*),coalesce(sum(j.is_active),0) FROM jobs j WHERE NOT EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id=j.id)").fetchone()
+        identity_conflicts = conn.execute("SELECT count(*) FROM (SELECT source_id,external_id FROM job_sources WHERE external_id IS NOT NULL AND external_id<>'' GROUP BY source_id,external_id HAVING count(DISTINCT job_id)>1)").fetchone()[0]
         jobs = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
     return {
         "jobs": jobs,
         "source_links": source_links,
+        "jobs_without_source": orphans[0], "active_jobs_without_source": orphans[1],
+        "source_identity_conflicts": identity_conflicts,
         "exact_duplicate_groups": exact,
         "same_company_title_groups": same_role,
         "jobs_with_multiple_primary_areas": multiple_primary,
@@ -99,18 +105,22 @@ def _write_areas(conn, job_id: str, classified) -> None:
             )
 
 
-def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str, int]:
+def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None, *, run_id: str | None = None,
+                query: str = "batch", context: dict | None = None) -> dict[str, int]:
     pack = pack or active_pack()
     stats = {"found": len(jobs), "created": 0, "updated": 0, "duplicates": 0}
     with connection() as conn:
-        run = conn.execute(
-            "INSERT INTO ingestion_runs(query, jobs_found) VALUES (%s, %s) RETURNING id",
-            ("batch", len(jobs)),
+        run = run_id or conn.execute(
+            "INSERT INTO ingestion_runs(query, context, jobs_found) VALUES (%s, %s, %s) RETURNING id",
+            (query, json.dumps(context or {}), len(jobs)),
         ).fetchone()[0]
+        conn.execute("SAVEPOINT ingestion_batch")
         try:
             for raw in jobs:
                 if not raw.url:
                     continue
+                if raw.external_id is not None:
+                    raw = replace(raw, external_id=str(raw.external_id).strip() or None)
                 source_id = get_source_id(conn, raw.source)
                 company_id = None
                 if raw.company:
@@ -118,7 +128,37 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                         "INSERT INTO companies(name, normalized_name) VALUES (%s,%s) ON CONFLICT(normalized_name) DO UPDATE SET updated_at=now() RETURNING id",
                         (raw.company, normalize_text(raw.company)),
                     ).fetchone()[0]
+                # Stable source identity wins over a mutable title/location fingerprint.
+                appearances = conn.execute(
+                    "SELECT DISTINCT job_id FROM job_sources WHERE source_id=%s AND (source_url=%s OR (external_id IS NOT NULL AND external_id=%s))",
+                    (source_id, raw.url, raw.external_id),
+                ).fetchall()
+                if len(appearances) > 1:
+                    raise ValueError("La URL y el identificador del portal apuntan a ofertas distintas; requiere revisión")
                 fp = fingerprint(raw)
+                existing = appearances[0] if appearances else conn.execute(
+                    "SELECT id FROM jobs WHERE canonical_fingerprint=%s ORDER BY created_at LIMIT 1",
+                    (fp,),
+                ).fetchone()
+                if existing and not appearances and raw.external_id:
+                    distinct_publication = conn.execute(
+                        "SELECT 1 FROM job_sources WHERE job_id=%s AND source_id=%s AND external_id IS NOT NULL AND external_id<>%s LIMIT 1",
+                        (existing[0], source_id, raw.external_id),
+                    ).fetchone()
+                    if distinct_publication:
+                        fp = hashlib.sha256(f"{fp}|{raw.source}|{raw.external_id}".encode()).hexdigest()
+                        existing = conn.execute("SELECT id FROM jobs WHERE canonical_fingerprint=%s", (fp,)).fetchone()
+                retained_description = False
+                retained_title = False
+                if existing and normalize_text(raw.title) in {"", "sin titulo"}:
+                    previous_title = conn.execute("SELECT title FROM jobs WHERE id=%s", (existing[0],)).fetchone()[0]
+                    raw = replace(raw, title=previous_title)
+                    retained_title = True
+                if existing and not (raw.description or "").strip():
+                    previous = conn.execute("SELECT description_raw FROM jobs WHERE id=%s", (existing[0],)).fetchone()[0]
+                    if previous:
+                        raw = replace(raw, description=previous)
+                        retained_description = True
                 text_salary = extract_salary(raw.description, raw.title)
                 # The description is preferred when it contains an explicit
                 # salary range: portals occasionally truncate structured values.
@@ -146,15 +186,13 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                 )
                 application_status = raw.application_status if raw.application_status in {"unknown", "open", "closed", "expired"} else "unknown"
                 application_source = raw.application_status_source if application_status != "unknown" else "unknown"
-                existing = conn.execute(
-                    "SELECT id FROM jobs WHERE canonical_fingerprint=%s ORDER BY created_at LIMIT 1",
-                    (fp,),
-                ).fetchone()
                 if existing:
                     job_id = existing[0]
                     stats["duplicates"] += 1
                     conn.execute(
                         """UPDATE jobs SET updated_at=now(), is_active=TRUE, content_hash=%s,
+                        title=%s,title_normalized=%s,location=COALESCE(%s,location),
+                        location_normalized=COALESCE(%s,location_normalized),company_id=COALESCE(%s,company_id),
                         description_raw=%s, description_clean=%s, salary_min=%s, salary_max=%s,
                         salary_currency=%s, salary_period=%s, salary_source=%s,
                         seniority=%s, work_mode=%s, sector=%s, sector_confidence=%s,
@@ -164,7 +202,8 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                         application_checked_at=COALESCE(%s, application_checked_at),
                         application_status_source=COALESCE(NULLIF(%s, 'unknown'), application_status_source),
                         published_at=COALESCE(%s, published_at) WHERE id=%s""",
-                        (content_hash(raw), raw.description, clean_description(raw.description), salary_min,
+                        (content_hash(raw), raw.title, normalize_text(raw.title), raw.location or None,
+                         normalize_text(raw.location) if raw.location else None, company_id, raw.description, clean_description(raw.description), salary_min,
                          salary_max, salary_currency, salary_period, salary_source, seniority, work_mode,
                          sector, 0.75 if sector else None, relevance.tier, relevance.score, relevance.evidence,
                          hours_per_week, schedule_text,
@@ -228,9 +267,13 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                                     evidence.evidence,
                                 ),
                             )
+                from radar.markets import project_job
+
+                project_job(conn, job_id, raw)
                 conn.execute(
                     """INSERT INTO job_sources(job_id,source_id,external_id,source_url,raw_payload)
-                    VALUES (%s,%s,%s,%s,%s) ON CONFLICT(source_id,source_url) DO UPDATE SET last_seen_at=now(), raw_payload=EXCLUDED.raw_payload, is_active=TRUE""",
+                    VALUES (%s,%s,%s,%s,%s) ON CONFLICT(source_id,source_url) DO UPDATE SET last_seen_at=now(),
+                    external_id=COALESCE(EXCLUDED.external_id,external_id),raw_payload=EXCLUDED.raw_payload, is_active=TRUE""",
                     (job_id, source_id, raw.external_id, raw.url, json.dumps(_json_safe(raw.raw_payload), default=str)),
                 )
                 conn.execute(
@@ -239,14 +282,19 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None) -> dict[str,
                     (job_id, source_id, content_hash(raw), json.dumps({
                         "title": raw.title, "company": raw.company, "location": raw.location,
                         "published_at": raw.published_at, "url": raw.url, "source": raw.source,
+                        "description_retained_from_previous_observation": retained_description,
+                        "title_retained_from_previous_observation": retained_title,
                     }, default=str)),
                 )
             conn.execute(
                 "UPDATE ingestion_runs SET finished_at=now(),jobs_created=%s,jobs_updated=%s,duplicates_detected=%s,status='success' WHERE id=%s",
                 (stats["created"], stats["updated"], stats["duplicates"], run),
             )
+            conn.execute("RELEASE SAVEPOINT ingestion_batch")
             conn.commit()
         except Exception as exc:
+            conn.execute("ROLLBACK TO SAVEPOINT ingestion_batch")
+            conn.execute("RELEASE SAVEPOINT ingestion_batch")
             conn.execute(
                 "UPDATE ingestion_runs SET finished_at=now(),errors=%s,status='failed' WHERE id=%s",
                 (json.dumps([str(exc)]), run),
@@ -494,66 +542,71 @@ def save_profile(
 
 
 def recompute_scores(profile_id: str) -> int:
-    weights = effective_weights()
+    """Compute evidence outside transactions and replace only unchanged input revisions."""
+    from collections import defaultdict
+
+    from radar import cv_targets
+    from radar.db.queries import get_profile
+    from radar.markets import backfill_market
+    from radar.scoring import SCORING_VERSION, profile_fingerprint, scoring_profile
+
+    pack = active_pack()
+    backfill_market(pack.id)
+    weights = effective_weights(pack)
+    account = get_profile()
+    if not account or account["id"] != str(profile_id):
+        return 0
+    profile = scoring_profile(account, cv_targets.load_profile())
+    profile["skill_aliases"] = pack.skill_aliases
+    revision = profile_fingerprint(profile, weights, pack.id)
     with connection() as conn:
-        profile_row = conn.execute(
-            "SELECT target_roles, preferred_locations, preferred_work_modes FROM user_profile WHERE id=%s",
-            (profile_id,),
-        ).fetchone()
-        if not profile_row:
-            return 0
-        user_skills = conn.execute(
-            "SELECT s.name, us.level FROM user_skills us JOIN skills s ON s.id=us.skill_id WHERE us.profile_id=%s",
-            (profile_id,),
-        ).fetchall()
-        target_roles = json.loads(profile_row[0]) if isinstance(profile_row[0], str) else (profile_row[0] or [])
-        locations = json.loads(profile_row[1]) if isinstance(profile_row[1], str) else (profile_row[1] or [])
-        work_modes = json.loads(profile_row[2]) if isinstance(profile_row[2], str) else (profile_row[2] or [])
-        profile = {
-            "areas": target_roles,
-            "locations": locations,
-            "work_modes": work_modes,
-            "skills": dict(user_skills),
-        }
+        updated_at = conn.execute("SELECT updated_at FROM user_profile WHERE id=%s", (profile_id,)).fetchone()[0]
         jobs = conn.execute(
-            "SELECT id,title,location,work_mode FROM jobs WHERE is_active AND duplicate_status='canonical'"
+            """SELECT j.id,j.title,j.location,j.work_mode,j.description_raw,j.content_hash,
+            json_extract(m.areas,'$[0].name'),m.skills
+            FROM jobs j JOIN job_market_classifications m ON m.job_id=j.id AND m.market_id=%s
+            WHERE j.is_active=1 AND j.duplicate_status='canonical'""", (pack.id,)
         ).fetchall()
-        count = 0
-        for job_id, title, location, work_mode in jobs:
-            raw = RawJob("stored", title, None, "", location=location, work_mode=work_mode)
-            job_skills = {
-                x[0]
-                for x in conn.execute(
-                    "SELECT s.name FROM job_skills js JOIN skills s ON s.id=js.skill_id WHERE js.job_id=%s",
-                    (job_id,),
-                ).fetchall()
-            }
-            area = conn.execute(
-                "SELECT ia.name FROM job_areas ja JOIN industrial_areas ia ON ia.id=ja.area_id WHERE ja.job_id=%s AND ja.is_primary",
-                (job_id,),
-            ).fetchone()
-            result = score_job(raw, profile, job_skills, area[0] if area else None, weights)
-            conn.execute(
-                """INSERT INTO job_scores(job_id,profile_id,algorithm_version,total_score,area_score,skills_score,seniority_score,education_score,location_score,preference_score,strong_matches,missing_skills,reason)
-                VALUES (%s,%s,'v1.0',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(job_id,profile_id) DO UPDATE SET algorithm_version='v1.0',total_score=EXCLUDED.total_score,area_score=EXCLUDED.area_score,skills_score=EXCLUDED.skills_score,seniority_score=EXCLUDED.seniority_score,education_score=EXCLUDED.education_score,location_score=EXCLUDED.location_score,preference_score=EXCLUDED.preference_score,strong_matches=EXCLUDED.strong_matches,missing_skills=EXCLUDED.missing_skills,reason=EXCLUDED.reason,computed_at=now()""",
-                (
-                    job_id,
-                    profile_id,
-                    result.total,
-                    result.area,
-                    result.skills,
-                    result.seniority,
-                    result.education,
-                    result.location,
-                    result.preference,
-                    json.dumps(result.strong_matches),
-                    json.dumps(result.missing_skills),
-                    result.reason,
-                ),
-            )
-            count += 1
-        conn.commit()
+        skills = defaultdict(set)
+        requirements = defaultdict(dict)
+        for row in jobs:
+            for item in json.loads(row[7]):
+                if item["name"] in pack.skills and pack.skills[item["name"]].type != "soft":
+                    skills[row[0]].add(item["name"])
+                    requirements[row[0]][item["name"]] = item["requirement_type"]
+        jobs = [row[:7] for row in jobs]
+    count = 0
+    for offset in range(0, len(jobs), 50):
+        prepared = []
+        for job_id, title, location, work_mode, description, old_hash, area in jobs[offset:offset+50]:
+            raw = RawJob("stored", title, None, "", location=location, work_mode=work_mode, description=description)
+            result = score_job(raw, {**profile, "skill_requirement_types": requirements[job_id]}, skills[job_id], area, weights)
+            result.assessment.update(profile_hash=revision, content_hash=old_hash, market_id=pack.id, weights=weights)
+            prepared.append((job_id, old_hash, result))
+        # A factual CV or preference edit during computation must not overwrite its newer scores.
+        if profile_fingerprint(scoring_profile(get_profile() or {}, cv_targets.load_profile()), effective_weights(), active_pack().id) != revision:
+            return count
+        with connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            for job_id, old_hash, result in prepared:
+                changed = conn.execute(
+                    """INSERT INTO job_scores(job_id,profile_id,algorithm_version,total_score,area_score,skills_score,
+                    seniority_score,education_score,location_score,preference_score,strong_matches,missing_skills,reason,assessment)
+                    SELECT %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
+                    WHERE EXISTS (SELECT 1 FROM jobs WHERE id=%s AND content_hash IS %s)
+                    AND EXISTS (SELECT 1 FROM user_profile WHERE id=%s AND updated_at IS %s)
+                    ON CONFLICT(job_id,profile_id) DO UPDATE SET algorithm_version=excluded.algorithm_version,
+                    total_score=excluded.total_score,area_score=excluded.area_score,skills_score=excluded.skills_score,
+                    seniority_score=excluded.seniority_score,education_score=excluded.education_score,
+                    location_score=excluded.location_score,preference_score=excluded.preference_score,
+                    strong_matches=excluded.strong_matches,missing_skills=excluded.missing_skills,
+                    reason=excluded.reason,assessment=excluded.assessment,computed_at=now()""",
+                    (job_id,profile_id,SCORING_VERSION,result.total,result.area,result.skills,result.seniority,
+                     result.education,result.location,result.preference,json.dumps(result.strong_matches),
+                     json.dumps(result.missing_skills),result.reason,json.dumps(result.assessment,ensure_ascii=False),
+                     job_id,old_hash,profile_id,updated_at),
+                ).rowcount
+                count += changed
     return count
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import wraps
 from typing import Any
 
 from pydantic import create_model
@@ -39,7 +40,6 @@ from radar.db.queries import (
     job_history,
     list_jobs,
     market_history,
-    market_summary,
     recommendations,
     remove_job_favorite,
     set_job_favorite,
@@ -97,14 +97,56 @@ class Tool:
             for name, p in inspect.signature(self.fn).parameters.items()
         }
         model = create_model(f"{self.name}_args", **fields)  # type: ignore[call-overload]
-        return self.fn(**model(**arguments).model_dump())
+        parsed = model(**arguments)
+        return self.fn(**parsed.model_dump(exclude_unset=True))
 
 
 REGISTRY: dict[str, Tool] = {}
 
+MARKET_READS = frozenset({
+    "search_saved_jobs", "get_market_summary", "list_recommended_jobs", "get_today_feed",
+    "find_jobs_near", "get_job_details", "explain_job_fit", "compare_jobs", "get_skill_demand",
+    "get_market_breakdown", "get_place_profile", "compare_places", "get_salary_stats",
+    "plan_learning", "get_skill_impact", "audit_classification",
+})
+
+
+def _market_reader(fn):
+    from radar.query_context import CURRENT_QUERY, resolve_context, using_query
+
+    signature = inspect.signature(fn)
+
+    @wraps(fn)
+    def scoped(*args, **kwargs):
+        market_id = kwargs.pop("market_id", None)
+        supplied = dict(signature.bind_partial(*args, **kwargs).arguments)
+        if fn.__name__ in {"find_jobs_near", "compare_places"}:
+            supplied["place"] = ""
+            supplied["near"] = ""
+        base = CURRENT_QUERY.get()
+        if "max_age_days" not in supplied and not (base and "max_age_days" in base.values()):
+            parameter = signature.parameters.get("max_age_days")
+            supplied["max_age_days"] = parameter.default if parameter else DEFAULT_MAX_AGE_DAYS
+        scope = resolve_context({**supplied, "market_id": market_id}, base)
+        bound = signature.bind_partial(*args, **kwargs)
+        for name, value in scope.values().items():
+            if name == "place" and fn.__name__ == "find_jobs_near":
+                continue
+            if name in signature.parameters:
+                bound.arguments[name] = None if value == "" else value
+        with using_query(scope):
+            result = fn(*bound.args, **bound.kwargs)
+        return {**result, "query_context": scope.values()}
+
+    scoped.__signature__ = signature.replace(parameters=[*signature.parameters.values(),
+        inspect.Parameter("market_id", inspect.Parameter.KEYWORD_ONLY, default=None, annotation=str | None)])
+    return scoped
+
 
 def tool(*, write: bool = False, chat: bool = True):
     def register(fn: Callable[..., dict]) -> Callable[..., dict]:
+        if fn.__name__ in MARKET_READS:
+            fn = _market_reader(fn)
         REGISTRY[fn.__name__] = Tool(
             fn.__name__, inspect.getdoc(fn) or fn.__name__, fn, write, chat
         )
@@ -171,9 +213,8 @@ def search_saved_jobs(
     include_applied: bool = False,
     include_hidden: bool = False,
 ) -> dict:
-    """Ofertas guardadas (título, empresa, lugar, área, sector, salario, `url`, score y extracto). Excluye postuladas
-    u ocultas salvo `include_applied` o `include_hidden`. `search` busca en texto; `sector` filtra uno y
-    `exclude_sector` excluye varios separados por coma."""
+    """Busca ofertas del mercado. Excluye cerradas, postuladas y ocultas. `search`: texto;
+    `exclude_sector`: sectores separados por coma. Devuelve IDs y enlaces."""
     limit = min(max(limit, 1), 30)
     excluded = [x.strip() for x in (exclude_sector or "").split(",") if x.strip()]
     jobs = list_jobs(
@@ -201,7 +242,11 @@ def search_saved_jobs(
 @tool(chat=False)
 def get_market_summary() -> dict:
     """Devuelve métricas objetivas del mercado almacenado."""
-    return market_summary()
+    areas = insights.market_breakdown("area", limit=30)
+    demand = insights.skill_demand(limit=30)
+    return {"total_active_jobs": areas["total"],
+            "by_area": [{"area": r["value"], "job_count": r["jobs"]} for r in areas["rows"]],
+            "top_skills": [{"skill": r["skill"], "job_count": r["jobs"]} for r in demand["skills"]]}
 
 
 @tool(chat=False)
@@ -267,10 +312,8 @@ def get_skill_demand(area: str | None = None, max_age_days: int = 30, limit: int
 def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10, area: str | None = None,
                          place: str | None = None, sector: str | None = None, exclude_sector: str | None = None,
                          search: str | None = None) -> dict:
-    """Cuenta ofertas vigentes agrupadas por `by` (area, place, company, work_mode, seniority, sector o source), con
-    filtros opcionales: area, place, sector, exclude_sector (varios con coma) y search (texto en título o empresa).
-    Con by=place, una fila con `precision` "city" o "department" (p.ej. "Lima") agrupa ofertas sin distrito preciso;
-    no la presentes junto a los distritos reales como si fuera uno más."""
+    """Cuenta ofertas del mercado por area/place/company/work_mode/seniority/sector/source.
+    `exclude_sector`: varios con coma. En place, precision city/department no es un distrito."""
     return insights.market_breakdown(by, max_age_days, limit, area, place, sector, exclude_sector, search)
 
 
@@ -308,13 +351,10 @@ def get_data_schema() -> dict:
 
 @tool()
 def run_readonly_sql(sql: str) -> dict:
-    """SQL de solo lectura (SELECT/WITH, máx. 50 filas) para lo que las demás herramientas no cubren; úsala como
-    último recurso y con pocos intentos. Ofertas vigentes: FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
-    WHERE j.is_active=1 AND j.duplicate_status='canonical' AND j.relevance_tier IN ('core','adjacent'). Área: JOIN
-    job_areas ja ON ja.job_id=j.id AND ja.is_primary=1 JOIN industrial_areas ia ON ia.id=ja.area_id. Columnas útiles
-    de jobs: title, location, sector, work_mode, seniority, salary_min/max, published_at (texto ISO). Si falla, el error
-    trae el esquema: no hace falta llamar a get_data_schema."""
-    return insights.readonly_sql(sql)
+    """SELECT/WITH, máx. 50 filas; último recurso. Alcance no verificado: no equivale a esta vista.
+    Clasificación por mercado: job_market_classifications (job_id,market_id,areas,skills,relevance_tier).
+    El error incluye el esquema. Prefiere herramientas de mercado para conteos y vigencia."""
+    return {**insights.readonly_sql(sql), "query_scope": "unscoped_sql"}
 
 
 @tool(chat=False)
@@ -332,7 +372,7 @@ def get_job_history(job_id: str, limit: int = 20) -> dict:
 @tool()
 def get_market_history(limit: int = 90) -> dict:
     """Consulta snapshots históricos semanales o mensuales del mercado."""
-    return {"snapshots": market_history(min(limit, 90))}
+    return {"snapshots": market_history(min(limit, 90)), "scope": "legacy_reference_snapshots"}
 
 
 @tool(write=True, chat=False)
@@ -815,7 +855,9 @@ def audit_classification(sample: int = 12) -> dict:
     """Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes.
     Devuelve el % de desfase, las transiciones más comunes y ejemplos. Úsala cuando los conteos por área
     o distrito parezcan raros o la persona pida revisar la calidad de los datos."""
-    return maintenance.classification_audit(sample)
+    from radar.query_context import CURRENT_QUERY
+
+    return maintenance.classification_audit(sample, CURRENT_QUERY.get().values()["market_id"])
 
 
 @tool(write=True)

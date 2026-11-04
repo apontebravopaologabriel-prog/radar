@@ -5,6 +5,7 @@ import { api, type AgentSettings, type Career } from "../../lib/mobile-api";
 import CustomCareerForm from "./CustomCareerForm";
 import McpConnect from "./McpConnect";
 import ProfileTab from "./ProfileTab";
+import MarketProfileEditor from "../MarketProfileEditor";
 import RefreshPanel from "./RefreshPanel";
 import "./settings.css";
 
@@ -32,6 +33,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [note, setNote] = useState("");
   const [tab, setTab] = useState<SettingsTab>("perfil");
   const [lite, setLite] = useState(false);
+  useEffect(() => { if (window.location.hash === "#mercados") setTab("busqueda"); }, []);
   useEffect(() => { try { setLite(localStorage.getItem("radar.perf") === "lite"); } catch { /* sin almacenamiento */ } }, []);
   const toggleLite = (on: boolean) => {
     setLite(on);
@@ -67,12 +69,13 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         {TABS.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
       </nav>
       <div className="set-content">
-      {tab === "perfil" && <ProfileTab career={career} onError={onError} />}
+      {tab === "perfil" && <><a className="m-link" href="/radar?inicio=1">Importar CV o retomar configuración →</a><a className="m-link" href="/radar" onClick={() => { try { localStorage.setItem("radar.tips.pending", "1"); } catch { /* Optional. */ } }}>Ver guía rápida →</a><ProfileTab career={career} onError={onError} /></>}
 
       {tab === "busqueda" && (<>
+      <MarketProfileEditor />
       <section className="set-section">
-        <h2>Carrera</h2>
-        <p className="m-sub">Define las áreas, competencias y pesos con que se clasifican las ofertas nuevas.</p>
+        <h2>Carrera de referencia</h2>
+        <p className="m-sub">Carrera de referencia para tu perfil y recomendaciones. Para explorar Industrial o Sistemas, elige Mercado en los filtros del mapa.</p>
         <select value={career.active} onChange={async (e) => { try { const c = await api.setCareer(e.target.value); setCareer(c); setWeights(c.weights); flash("Carrera cambiada"); } catch (error) { onError(error); } }} aria-label="Carrera">
           {career.tracks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
@@ -82,8 +85,8 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
 
       <section className="set-section">
         <h2>Mercado</h2>
-        <p className="m-sub">Trae ofertas nuevas de tu carrera en tus ubicaciones y recalcula tu puntaje. Corre en tu equipo.</p>
-        <RefreshPanel places={[]} onError={onError} />
+        <p className="m-sub">Actualiza Industrial, Sistemas o ambos mercados. La captura corre en tu equipo; puedes seguir usando el mapa.</p>
+        <RefreshPanel places={[]} onError={onError} chooseMarkets />
       </section>
 
       <details className="set-section set-advanced">

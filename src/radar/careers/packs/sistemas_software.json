@@ -109,7 +109,6 @@
    "azure",
    "google cloud",
    "gcp",
-   "infraestructura",
    "administrador de sistemas",
    "sysadmin",
    "linux",
@@ -120,7 +119,10 @@
    "arquitecto de soluciones",
    "solutions architect",
    "kubernetes",
-   "terraform"
+   "terraform",
+   "infraestructura ti",
+   "infraestructura tecnologica",
+   "administracion de servidores"
   ],
   "DevOps y SRE": [
    "devops",
@@ -132,7 +134,6 @@
    "gitlab ci",
    "github actions",
    "docker",
-   "contenedores",
    "infraestructura como codigo",
    "observabilidad",
    "automatizacion de despliegues",
@@ -698,19 +699,13 @@
  ],
  "context_terms": [
   "software",
-  "sistemas",
-  "desarrollo",
   "programacion",
-  "datos",
   "cloud",
-  "infraestructura",
   "devops",
   "seguridad informatica",
-  "ti",
   "tecnologia",
   "aplicaciones",
   "base de datos",
-  "api",
   "erp"
  ],
  "weak_terms": [
@@ -766,5 +761,645 @@
   "soporte técnico TI mesa de ayuda",
   "practicante de sistemas tecnología",
   "administrador de base de datos DBA"
- ]
+ ],
+ "area_evidence_rules": {
+  "Desarrollo de software": {
+   "title_any": [
+    "desarrollador",
+    "developer",
+    "software engineer",
+    "ingeniero de software",
+    "backend",
+    "frontend",
+    "full stack",
+    "fullstack",
+    "analista programador",
+    "desarrollo de software",
+    "desarrollo web",
+    "programador de aplicaciones",
+    "programador python",
+    "programador java",
+    "programador .net",
+    "programador web",
+    "programador php",
+    "programador de sistemas"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "desarroll",
+      "program",
+      "implement",
+      "integr",
+      "mantener",
+      "mantien",
+      "develop",
+      "build",
+      "implement",
+      "maintain",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "software",
+      "aplicaciones web",
+      "microservicios",
+      "apis",
+      "api rest",
+      "codigo",
+      "scripts",
+      "python",
+      "javascript",
+      "aplicaciones informaticas",
+      "aplicaciones moviles",
+      "applications",
+      "source code",
+      "web applications",
+      "software applications",
+      "scripts"
+     ],
+     "gap_excludes": [
+      "using",
+      "utilizando",
+      "mediante el uso de",
+      "software de planificacion",
+      "empleando",
+      "herramientas de",
+      "herramientas como"
+     ]
+    }
+   ],
+   "title_none": [
+    "cnc",
+    "textil",
+    "inmobiliario",
+    "desarrollo comercial",
+    "curricular",
+    "curriculo",
+    "inmobiliario",
+    "desarrollador comercial",
+    "programador de mantenimiento",
+    "programador de produccion"
+   ]
+  },
+  "Datos e inteligencia artificial": {
+   "title_any": [
+    "data engineer",
+    "ingeniero de datos",
+    "data scientist",
+    "cientifico de datos",
+    "machine learning engineer",
+    "ingeniero de inteligencia artificial",
+    "especialista de inteligencia artificial",
+    "analista de automatizacion de datos",
+    "ai engineer",
+    "ai agentic engineer",
+    "agentic ai engineer",
+    "analytics engineer",
+    "ingeniero de data"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "constru",
+      "desarroll",
+      "implement",
+      "entren",
+      "disen",
+      "despleg",
+      "automatiz",
+      "optimiz",
+      "supervis",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "modelos predictivos",
+      "machine learning",
+      "inteligencia artificial",
+      "pipelines",
+      "etl",
+      "data lake",
+      "data warehouse",
+      "modelos de datos",
+      "procesos de datos",
+      "data pipelines",
+      "predictive models",
+      "artificial intelligence",
+      "machine learning models",
+      "data warehouse",
+      "data models",
+      "agentes digitales",
+      "agentes de ia",
+      "agentes de inteligencia artificial"
+     ]
+    }
+   ]
+  },
+  "Infraestructura y cloud": {
+   "title_any": [
+    "cloud engineer",
+    "ingeniero cloud",
+    "arquitecto cloud",
+    "sysadmin",
+    "administrador de sistemas",
+    "administrador de servidores",
+    "infraestructura ti",
+    "infraestructura tecnologica",
+    "infraestructura informatica",
+    "arquitecto de soluciones cloud",
+    "infrastructure engineer",
+    "cloud architect",
+    "systems administrator"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "administr",
+      "configur",
+      "despleg",
+      "implement",
+      "gestion",
+      "monitore",
+      "disen",
+      "mantener",
+      "mantien",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "servidores",
+      "linux",
+      "windows server",
+      "aws",
+      "azure",
+      "gcp",
+      "google cloud",
+      "vmware",
+      "infraestructura ti",
+      "infraestructura tecnologica",
+      "infraestructura informatica",
+      "servicios cloud",
+      "servers",
+      "cloud infrastructure",
+      "cloud services",
+      "virtual machines"
+     ],
+     "gap_excludes": [
+      "como",
+      "normas",
+      "estandares",
+      "asme",
+      "aisc"
+     ]
+    }
+   ]
+  },
+  "DevOps y SRE": {
+   "title_any": [
+    "devops",
+    "sre",
+    "site reliability",
+    "release engineer",
+    "ingeniero de plataforma"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "despleg",
+      "automatiz",
+      "implement",
+      "configur",
+      "gestion",
+      "administr",
+      "disen",
+      "mantener",
+      "mantien",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "docker",
+      "kubernetes",
+      "ci/cd",
+      "cicd",
+      "jenkins",
+      "gitlab ci",
+      "github actions",
+      "terraform",
+      "despliegues",
+      "infraestructura como codigo"
+     ]
+    }
+   ]
+  },
+  "Ciberseguridad": {
+   "title_any": [
+    "ciberseguridad",
+    "seguridad informatica",
+    "seguridad de la informacion",
+    "soc analyst",
+    "analista soc",
+    "pentester",
+    "ciso",
+    "hacking etico"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "gestion",
+      "analiz",
+      "monitore",
+      "implement",
+      "evalu",
+      "identific",
+      "investig",
+      "proteg",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "ciberseguridad",
+      "amenazas informaticas",
+      "seguridad de la informacion",
+      "siem",
+      "identidades digitales",
+      "vulnerabilidades informaticas",
+      "vulnerabilidades de seguridad informatica",
+      "riesgos ciberneticos",
+      "incidentes de ciberseguridad",
+      "incidentes informaticos"
+     ]
+    }
+   ]
+  },
+  "Calidad y pruebas (QA)": {
+   "title_any": [
+    "qa",
+    "tester",
+    "sdet",
+    "quality assurance",
+    "test automation",
+    "pruebas de software",
+    "qa automation"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "ejecut",
+      "automatiz",
+      "disen",
+      "desarroll",
+      "valid",
+      "prob",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "pruebas de software",
+      "pruebas funcionales",
+      "casos de prueba",
+      "selenium",
+      "cypress",
+      "pruebas automatizadas",
+      "software testing",
+      "test cases",
+      "automated tests"
+     ]
+    }
+   ],
+   "title_none": [
+    "textil",
+    "alimentos",
+    "laboratorio clinico"
+   ]
+  },
+  "Análisis de sistemas y producto": {
+   "title_any": [
+    "analista de sistemas",
+    "analista funcional",
+    "analista programador",
+    "consultor funcional",
+    "consultor sap",
+    "product owner",
+    "practicante de sistemas",
+    "practicante de ti",
+    "practicante de tecnologia",
+    "practicante de informatica",
+    "asistente de sistemas",
+    "ingeniero de sistemas",
+    "trainee de sistemas",
+    "trainee de tecnologia",
+    "consultor de sap",
+    "sap specialist",
+    "sap consultant",
+    "especialista sap",
+    "especialista de aplicaciones sap",
+    "analista sap",
+    "especialista tecnico erp",
+    "analista de soluciones sap",
+    "especialista funcional erp",
+    "practicante profesional de sap"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "configur",
+      "implement",
+      "integr",
+      "parametriz",
+      "desarroll",
+      "relev",
+      "levant",
+      "analiz",
+      "disen",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "modulos",
+      "sap",
+      "erp",
+      "dynamics 365",
+      "oracle ebs",
+      "requerimientos funcionales",
+      "requerimientos tecnicos",
+      "historias de usuario",
+      "sistemas de informacion",
+      "soluciones tecnologicas",
+      "producto digital",
+      "business requirements",
+      "functional requirements",
+      "user stories",
+      "system implementations"
+     ]
+    }
+   ],
+   "title_none": [
+    "sistemas integrados de gestion",
+    "sistema integrado de gestion",
+    "sistemas de gestion de calidad"
+   ]
+  },
+  "Data / BI": {
+   "title_any": [
+    "analista bi",
+    "analista de bi",
+    "analista de power bi",
+    "analista de datos",
+    "data analyst",
+    "business intelligence",
+    "ingeniero bi",
+    "desarrollador bi",
+    "data analytics",
+    "people analytics",
+    "reporting y data",
+    "data management",
+    "analista de informacion"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "constru",
+      "desarroll",
+      "disen",
+      "automatiz",
+      "implement",
+      "elabor",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy",
+      "crear",
+      "crea"
+     ],
+     "objects": [
+      "dashboards",
+      "dashboard",
+      "tableros",
+      "modelos de datos",
+      "power bi",
+      "tableau",
+      "power query",
+      "reportes automatizados",
+      "reportes automaticos",
+      "pipelines"
+     ]
+    }
+   ]
+  },
+  "Soporte TI y redes": {
+   "title_any": [
+    "soporte ti",
+    "soporte informatico",
+    "tecnico informatico",
+    "help desk",
+    "helpdesk",
+    "service desk",
+    "mesa de ayuda",
+    "administrador de redes",
+    "ingeniero de redes",
+    "dba",
+    "administrador de base de datos",
+    "soporte de instalacion de atm",
+    "analista noc",
+    "soporte de aplicaciones",
+    "application support",
+    "network engineer",
+    "network administrator",
+    "tecnico de sistemas",
+    "soporte administrativo y ti",
+    "soporte middleware",
+    "soporte y sistemas",
+    "operador de computo",
+    "systems operator"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "administr",
+      "configur",
+      "resolv",
+      "atend",
+      "soport",
+      "instal",
+      "gestion",
+      "monitore",
+      "mantener",
+      "mantien",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "redes informaticas",
+      "redes de datos",
+      "equipos de computo",
+      "equipos informaticos",
+      "usuarios de sistemas",
+      "incidentes informaticos",
+      "incidentes de ti",
+      "soporte informatico",
+      "cisco",
+      "servidores",
+      "atm",
+      "servers",
+      "computer networks",
+      "databases",
+      "it incidents",
+      "workstations",
+      "sql server",
+      "postgresql",
+      "mysql",
+      "oracle database",
+      "servidores de base de datos"
+     ]
+    }
+   ]
+  },
+  "Diseño UX/UI": {
+   "title_any": [
+    "ux",
+    "ui",
+    "ux/ui",
+    "product designer",
+    "disenador de interfaces",
+    "disenador ux",
+    "disenador ui"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "disen",
+      "investig",
+      "prototip",
+      "valid",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy",
+      "crear",
+      "crea"
+     ],
+     "objects": [
+      "interfaces",
+      "experiencia de usuario",
+      "experiencias de usuario",
+      "prototipos",
+      "figma",
+      "usabilidad"
+     ]
+    }
+   ]
+  },
+  "Gestión de proyectos TI": {
+   "title_any": [
+    "scrum master",
+    "agile coach",
+    "jefe de proyectos ti",
+    "proyectos de ti",
+    "proyectos ti",
+    "pmo ti",
+    "tech lead",
+    "lider tecnico",
+    "jefe de sistemas",
+    "gerente de ti",
+    "gerente de tecnologia",
+    "cto"
+   ],
+   "duty_groups": [
+    {
+     "actions": [
+      "gestion",
+      "lider",
+      "coordin",
+      "planific",
+      "supervis",
+      "implement",
+      "develop",
+      "build",
+      "design",
+      "implement",
+      "configur",
+      "maintain",
+      "administr",
+      "integrat",
+      "deploy"
+     ],
+     "objects": [
+      "proyectos tecnologicos",
+      "proyectos de ti",
+      "proyectos de software",
+      "implementacion de sap",
+      "implementacion de sistemas",
+      "transformacion digital",
+      "desarrollos sap",
+      "agentes digitales",
+      "software projects",
+      "it projects",
+      "sap implementation",
+      "technology projects"
+     ]
+    }
+   ]
+  }
+ }
 }

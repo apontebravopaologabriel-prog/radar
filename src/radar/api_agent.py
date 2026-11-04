@@ -203,6 +203,7 @@ def create_custom_career(payload: CustomCareer) -> dict[str, Any]:
 
 
 class RefreshRequest(BaseModel):
+    market_ids: list[str] = Field(default_factory=list, max_length=4)
     places: list[str] = Field(default_factory=list, max_length=3)
     limit: int = Field(default=15, ge=1, le=50)
 
@@ -210,7 +211,9 @@ class RefreshRequest(BaseModel):
 @router.post("/refresh", status_code=202)
 def refresh(payload: RefreshRequest) -> dict[str, Any]:
     try:
-        return start_refresh(payload.places or None, limit=payload.limit)
+        return start_refresh(payload.places or None, limit=payload.limit, market_ids=payload.market_ids or None)
+    except CareerPackError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -635,3 +638,31 @@ def delete_all_conversations() -> dict[str, int]:
     with connection() as conn:
         deleted = conn.execute("DELETE FROM conversations").rowcount
     return {"deleted": deleted}
+
+
+@router.get('/markets')
+def markets() -> dict:
+    """Describe both independent market taxonomies without changing the active career."""
+    return {'markets': [{'id': pack.id, 'name': pack.name,
+                         'areas': {'core': sorted(pack.core_areas), 'adjacent': sorted(pack.adjacent_areas)}}
+                        for pack in list_packs()]}
+
+
+@router.get('/markets/{market_id}/profile')
+def market_profile(market_id: str) -> dict:
+    from radar.markets import search_profile
+
+    try:
+        return search_profile(market_id)
+    except CareerPackError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.put('/markets/{market_id}/profile')
+def update_market_profile(market_id: str, preferences: dict[str, list[str]]) -> dict:
+    from radar.markets import save_search_profile
+
+    try:
+        return save_search_profile(market_id, preferences)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from radar.careers import CareerPack, default_pack
+from radar.classification_text import contains, context_evidence, job_text
 from radar.domain.models import RawJob
 from radar.normalize import normalize_text
 
@@ -21,25 +22,11 @@ class Relevance:
     evidence: str
 
 
-_LEGACY_CORE_AREAS = frozenset({
-    "Automatización", "Calidad", "Compras", "Demand Planning", "Logística", "Mantenimiento",
-    "Mejora continua", "Operaciones", "Planeamiento", "Procesos", "Producción", "Supply Chain",
-})
-_LEGACY_ADJACENT_AREAS = frozenset({
-    "Analytics", "Data / BI", "Finanzas / Control de gestión", "Proyectos / PMO",
-    "Recursos Humanos / People Analytics", "Seguridad y Salud en el Trabajo",
-})
-
-
 def _tier_for_area(area: str | None, pack: CareerPack) -> str:
+    area = pack.legacy_area_aliases.get(area, area)
     if area in pack.core_areas:
         return "core"
     if area in pack.adjacent_areas:
-        return "adjacent"
-    # Compatibility for callers/tests that still pass a pre-ISEBoK label.
-    if area in _LEGACY_CORE_AREAS:
-        return "core"
-    if area in _LEGACY_ADJACENT_AREAS:
         return "adjacent"
     return "out_of_focus"
 
@@ -58,36 +45,43 @@ def infer_relevance(
     """
     pack = pack or default_pack()
     title = normalize_text(job.title)
-    description = normalize_text(job.description or "")
+    sections = job_text(job.description)
+    description = normalize_text(sections.role)
     areas = [area for area in [primary_area, *(secondary_areas or [])] if area]
-    tiers = [_tier_for_area(area, pack) for area in areas]
-    tier = "core" if "core" in tiers else "adjacent" if "adjacent" in tiers else "out_of_focus"
+    tier = _tier_for_area(primary_area, pack)
 
-    excluded = next((phrase for phrase in pack.excluded_title_signals if phrase in title), None)
+    excluded = next((phrase for phrase in pack.excluded_title_signals if contains(title, phrase)), None)
     if excluded:
         return Relevance("out_of_focus", 0.98, f"Título excluido: {excluded}")
 
-    operational = next((phrase for phrase in pack.operational_titles if phrase in title), None)
+    excluded_role = next((p for p in pack.excluded_role_signals if contains(description, p)), None)
+    if excluded_role:
+        return Relevance("out_of_focus", 0.9, f"Funciones fuera del mercado: {excluded_role}")
+    rule = pack.area_evidence_rules.get(primary_area)
+    if rule and not context_evidence(title, sections, rule):
+        return Relevance("out_of_focus", 0.8, "Sin funciones o título suficientes para el área")
+
+    operational = next((phrase for phrase in pack.operational_titles if contains(title, phrase)), None)
     if operational:
         return Relevance("out_of_focus", 0.9, f"Puesto operativo: {operational}")
-    target = next((phrase for phrase in pack.target_titles if phrase in title), None)
-    if target:
+    target = next((phrase for phrase in pack.target_titles if contains(title, phrase)), None)
+    if target and tier == "core":
         return Relevance("core", 0.97, f"Cargo objetivo: {target}")
-    secondary = next((phrase for phrase in pack.target_secondary_titles if phrase in title), None)
-    if secondary:
+    secondary = next((phrase for phrase in pack.target_secondary_titles if contains(title, phrase)), None)
+    if secondary and tier == "core":
         return Relevance("core", 0.92, f"Cargo objetivo (prioridad 2): {secondary}")
 
     area_evidence = ", ".join(areas) or "sin área suficiente"
-    adjacent_title = next((phrase for phrase in pack.adjacent_title_signals if phrase in title), None)
+    adjacent_title = next((phrase for phrase in pack.adjacent_title_signals if contains(title, phrase)), None)
     if adjacent_title and tier == "out_of_focus":
         return Relevance("adjacent", 0.7, f"Carrera en el título: {adjacent_title}")
     has_operational_context = any(
-        phrase in f"{title} {description}" for phrase in pack.context_terms
+        contains(f"{title} {description}", phrase) for phrase in pack.context_terms
     )
     title_has_area = primary_area is not None and any(
-        token in title for token in normalize_text(primary_area).split() if len(token) > 3
+        contains(title, token) for token in normalize_text(primary_area).split() if len(token) > 3
     )
-    education_only = any(phrase in description and phrase not in title for phrase in pack.education_only)
+    education_only = any(contains(description, phrase) and not contains(title, phrase) for phrase in pack.education_only)
 
     if tier == "core":
         if title_has_area or has_operational_context:

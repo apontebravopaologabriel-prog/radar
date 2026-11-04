@@ -31,7 +31,7 @@ No external service is needed. SQLite is created on first use.
 | `RADAR_ACCESS_TOKEN` | unset | Enables the access key for `/api/*` (see Remote access) |
 | `RADAR_CAREER` | `industrial_engineering` | Default career pack when none is stored |
 | `RADAR_JOBSPY_SITES` | `indeed,linkedin` | JobSpy portals |
-| `RADAR_COMPUTRABAJO_COMMAND` / `_ARGS` | `npx` / `-y,mcp-computrabajo@1.0.0` | Computrabajo MCP adapter command (version pinned in `sources/computrabajo.py`) |
+| `RADAR_COMPUTRABAJO_COMMAND` / `_ARGS` | unset | Optional legacy MCP command/arguments; default capture uses native Python HTTP |
 | `RADAR_COMPUTRABAJO_ENABLED` | `1` | `0` pauses Computrabajo in the refresh |
 | `RADAR_COMPUTRABAJO_DETAILS` | on | `0` skips the per-offer detail call (fast tests) |
 | `RADAR_MAX_AGE_DAYS` | `10` | Freshness window of the refresh script |
@@ -41,6 +41,18 @@ No external service is needed. SQLite is created on first use.
 | `RADAR_MCP_TRANSPORT` | `stdio` | MCP transport |
 
 ## Ingestion
+
+Search runs retain the actual query and a JSON `context` (requested source, location, limit,
+freshness window, reference market and requested markets). Failed/timed-out downloads are recorded
+even when no offer is stored. Legacy `batch` rows remain unchanged; missing context is not invented.
+Network deadlines bound fetching only: a late download cannot call ingestion. Local classification and
+writes finish in the foreground. A failed batch rolls back job/source writes while retaining diagnostics.
+
+Portal URL and nonempty portal ID resolve identity before a title/location fingerprint. Changed titles,
+locations and URL aliases retain job ID and personal state. Distinct IDs and URLs on the same source
+are separate publications even when title/company/location match. Conflicting source identities fail
+for review. Missing descriptions retain the previous text with an observation flag; absent title,
+company and location fields do not erase known values. Historical orphan records are not auto-merged.
 
 ```bash
 .venv/bin/radar ingest --source computrabajo --query "practicante de procesos" --location Lima --limit 10
@@ -56,8 +68,9 @@ No external service is needed. SQLite is created on first use.
   .venv/bin/radar ingest --source jobspy --query "practicante ingeniería industrial" --location Lima --limit 10
   ```
 
-- `--max-age-days` defaults to 14 on the CLI; the web UI defaults to 7 and offers 14, 30 and 90. Offers
-  without a date, in the future or out of range are stored but never recommended.
+- `--max-age-days` defaults to 14 on the CLI; the web UI defaults to 7 and offers 14, 30 and 90. Search
+  results without a date, in the future or out of range are discarded before ingestion and counted.
+  Stored historical offers remain; direct file imports use their separate admission path.
 
 ### Assisted import (portals without a permitted connector)
 
@@ -112,6 +125,14 @@ frontend and the MCP tools, and exits (used by the release CI). The Windows inst
 [packaging.md](packaging.md).
 
 ## Scheduled refresh
+
+The optional JSON setting `capture_market_ids` selects scheduled markets, for example
+`["industrial_engineering", "sistemas_software"]`. Without it, capture uses the reference career.
+Multi-market plans interleave queries and deduplicate identical source/query/location steps while
+retaining every originating market. Manual refresh records its requested markets separately.
+The internal scheduler records `refresh_last_attempt_at` and `refresh_last_status`; only complete
+success updates `refresh_last_at`. Partial/failing overdue runs back off for 15 minutes before retrying.
+These fields describe the internal scheduler; systemd controls its own timer cadence.
 
 The capture itself is `radar refresh [--cities A,B] [--max-age-days N] [--no-computrabajo]` (`src/radar/capture.py`):
 cross-platform, in-process, driven by the active career pack (`market_queries` for Lima, `queries` for extra cities).
@@ -245,3 +266,11 @@ cd frontend && npm run lint && npm test && npm run build
 Manual logical backup: `sqlite3 ~/.local/share/radar/radar.db ".backup '/path/radar-$(date +%F).db'"`. Include
 `cv_master.json`, `targets/`, `photo.jpg` and `careers/` in any backup. Do not edit the schema by hand; see
 [database.md](database.md).
+
+## First-run CV setup and updates
+
+Setup accepts local text PDF/DOCX drafts and requires review/confirmation before updating factual history.
+Reopen it from Settings → Profile. First confirmed setup starts capture; later draft saves do not.
+Mechanical is experimental and must be explicitly selected; "main markets" selects Industrial and Systems.
+Application-release notices link to the official release page and do not install automatically. See
+[implementation notes](windows-cv-markets-2026-11-04.md) for extraction limits and remaining Windows gates.

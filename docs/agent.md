@@ -8,11 +8,11 @@ tool registry (`src/radar/tools.py`) with the MCP server, so an external agent c
 ## Identity
 
 The system prompt has two parts: operational rules (`SYSTEM_PROMPT` in `src/radar/agent/loop.py`) and the
-persona (`src/radar/agent/soul.md`, packaged with the `radar` package). The persona is a senior industrial and
-systems engineer using the **ISE Body of Knowledge (IISE, 2026)** and Peruvian market judgment: direct,
+persona (`src/radar/agent/soul.md`, packaged with the `radar` package). The persona covers Industrial and
+Systems/Software using validated market packs and Peruvian market judgment: direct,
 realistic, independent, loyal to the data and to the person's future rather than to agreeing with them.
 
-- Uses the 14 BoK areas under Radar's names (plus `Otras` and `Ventas / Comercial`, out of focus).
+- Loads the selected pack's areas; ISEBoK describes Industrial, not the Systems/Software taxonomy.
 - Separates data (tool output) from inference or projection and states its confidence.
 - When comparing, always states the criterion (volume, median salary, mode, seniority, area mix).
 - Answers a greeting without calling tools; never runs `get_setup_status` or `get_today_feed` on its own.
@@ -22,6 +22,25 @@ realistic, independent, loyal to the data and to the person's future rather than
 - Replies in Spanish, without announcing what it is about to do.
 
 Change personality in `soul.md`; update `help.md` when something visible changes.
+
+## Market-scoped reads
+
+Market read tools accept an optional `market_id`. Chat resolves an immutable per-turn context from the
+UI's market, period, filters, selected skill, district or radius. Each parallel worker receives it
+explicitly and resets its context on exit. An explicit alternate market clears incompatible area/skill/
+profile filters; comparisons can query both markets with the same dates. MCP without UI uses the
+reference career, with resolved scope returned as `query_context`. Existing signatures remain callable.
+
+Search, breakdowns, sources, skills, salaries, nearby and details use market projections. Source totals
+count unique offers even when source rows overlap. Details remain available for historical offers.
+Reference-career scores are labelled; another market receives recent offers without fabricated scores,
+and its unavailable score simulator says so. Raw SQL is explicitly unscoped, historical snapshots are
+labelled legacy, and classification audits inspect all saved offers in the selected projection.
+
+Ordinary opportunities exclude closed/expired publications and retain unknown status. This is separate
+from user-hidden or applied state. The view uses seven calendar dates in Lima; capture overlap is unchanged.
+No historical offers or personal state are deleted. Source-level verification and versioned history
+remain later phases of [the lifecycle plan](design-market-lifecycle-agent.md).
 
 ## Tools: 63 in the registry, 50 in the chat, 21 that write
 
@@ -154,3 +173,11 @@ deletes offers and leaves a reversible copy when applicable.
   read-only mode (spends tokens, recorded in `agent_usage`). Last real run (DeepSeek, 2026-09-20): all 17
   chose the right tool; it refused "apply for me and write the recruiter" and resisted an injected
   instruction. Re-run after changing tools, grouping or prompts.
+
+### Evidence-aware fit
+
+`explain_job_fit` and offer detail now include the `v2.0-evidence` assessment: supported point range,
+coverage, description quotes, academic/experience status and declared skill-level gaps. These do not
+establish hiring probability, verified proficiency or employer acceptance. Ignore stale scores for
+current comparisons. Personal scores remain scoped to the reference career even when querying another
+market; never invent a second factual profile. Unknown and unmet requirements must remain distinct.

@@ -493,7 +493,7 @@ export default function AnalysisView({ onApplyFilter, onContextChange }: { onApp
     if (!hydratedRef.current) return;
     const timer = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ gravity, windows: windows.map(({ result: _result, ...rest }) => rest) }));
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ gravity, windows: windows.map((win) => ({ ...win, result: undefined })) }));
       } catch {
         /* almacenamiento lleno o bloqueado */
       }
@@ -617,6 +617,7 @@ export default function AnalysisView({ onApplyFilter, onContextChange }: { onApp
     <div className="analysis-view">
       <div className="analysis-desktop" ref={desktopRef}>
         <div className="analysis-desktop-toolbar">
+          <span className="eyebrow" title="Las consultas SQL pueden explorar todos los mercados de la base">Base completa</span>
           <button type="button" className={gravity ? "active" : ""} onClick={toggleGravity} aria-pressed={gravity} aria-label="Modo tetris" title={gravity ? "Modo tetris activo: desactivar" : "Modo tetris: las ventanas caen y se apilan con física"}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="14" width="7" height="6" /><rect x="13" y="14" width="7" height="6" /><rect x="8" y="5" width="8" height="6" /></svg>
           </button>

@@ -57,6 +57,9 @@ class CareerPack:
     target_secondary_titles: tuple[str, ...] = ()  # cargos objetivo de prioridad 2
     operational_titles: tuple[str, ...] = ()  # puestos operativos: fuera de foco salvo que sean cargo objetivo
     adjacent_title_signals: tuple[str, ...] = ()  # el título garantiza al menos adyacente
+    area_evidence_rules: dict[str, dict] = field(default_factory=dict)
+    excluded_role_signals: tuple[str, ...] = ()
+    legacy_area_aliases: dict[str, str] = field(default_factory=dict)
 
     @property
     def skill_aliases(self) -> dict[str, tuple[str, ...]]:
@@ -79,9 +82,33 @@ def _validate(raw: dict, source: str) -> None:
     known = set(raw["areas"].get("core", [])) | set(raw["areas"].get("adjacent", [])) | set(
         raw["areas"].get("out_of_focus", [])
     )
-    unknown = (set(raw["area_rules"]) | set(raw.get("out_of_focus_rules", {}))) - known
+    unknown = (set(raw["area_rules"]) | set(raw.get("out_of_focus_rules", {}))
+               | set(raw.get("area_evidence_rules", {}))) - known
     if unknown:
         raise CareerPackError(f"{source}: reglas para áreas no declaradas: {sorted(unknown)}")
+    for rule in raw.get("area_evidence_rules", {}).values():
+        if not isinstance(rule, dict) or set(rule) - {"title_any", "title_none", "duty_groups"}:
+            raise CareerPackError(f"{source}: regla contextual inválida")
+        for key in ("title_any", "title_none"):
+            if key in rule and (not isinstance(rule[key], list)
+                                or any(not isinstance(x, str) or not x.strip() for x in rule[key])):
+                raise CareerPackError(f"{source}: {key} debe contener frases")
+        groups = rule.get("duty_groups", [])
+        if not isinstance(groups, list):
+            raise CareerPackError(f"{source}: duty_groups debe ser una lista")
+        for group in groups:
+            if (not isinstance(group, dict) or not {"actions", "objects"} <= set(group)
+                    or set(group) - {"actions", "objects", "gap_excludes"}):
+                raise CareerPackError(f"{source}: grupo contextual inválido")
+            if any(not isinstance(group[k], list) or not group[k]
+                   or any(not isinstance(x, str) or not x.strip() for x in group[k])
+                   for k in ("actions", "objects")):
+                raise CareerPackError(f"{source}: actions y objects deben contener frases")
+            if "gap_excludes" in group and (not isinstance(group["gap_excludes"], list)
+                    or any(not isinstance(x, str) or not x.strip() for x in group["gap_excludes"])):
+                raise CareerPackError(f"{source}: gap_excludes debe contener frases")
+    if set(raw.get("legacy_area_aliases", {}).values()) - known:
+        raise CareerPackError(f"{source}: alias para áreas no declaradas")
 
 
 def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
@@ -113,6 +140,9 @@ def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
         target_secondary_titles=tuple(normalize_text(t) for t in raw.get("target_secondary_titles", [])),
         operational_titles=tuple(normalize_text(t) for t in raw.get("operational_titles", [])),
         adjacent_title_signals=tuple(normalize_text(t) for t in raw.get("adjacent_title_signals", [])),
+        area_evidence_rules=raw.get("area_evidence_rules", {}),
+        excluded_role_signals=tuple(normalize_text(t) for t in raw.get("excluded_role_signals", [])),
+        legacy_area_aliases=dict(raw.get("legacy_area_aliases", {})),
     )
 
 

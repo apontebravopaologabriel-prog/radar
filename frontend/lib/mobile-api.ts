@@ -21,6 +21,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export type TodayJob = {
   id: string; title: string; company: string | null; location: string | null; url: string | null;
   published_at: string | null; work_mode: string | null; score: number | null;
+  fit_assessment?: { lower_bound: number; upper_bound: number; coverage: number };
   strong_matches: string[]; missing_skills: string[]; why: string; is_favorite: boolean;
 };
 export type NearbyJob = { id: string; title: string; company: string | null; location: string | null; place: string;
@@ -102,7 +103,7 @@ export const api = {
     request<Career>("/api/career/weights", { method: "PUT", body: JSON.stringify({ weights }) }),
   createCustomCareer: (body: { name: string; areas: Record<string, string[]>; skills: string[] }) =>
     request<Career>("/api/career/custom", { method: "POST", body: JSON.stringify(body) }),
-  startRefresh: (places: string[]) => request<RefreshState>("/api/refresh", { method: "POST", body: JSON.stringify({ places, limit: 15 }) }),
+  startRefresh: (places: string[], market_ids?: string[]) => request<RefreshState>("/api/refresh", { method: "POST", body: JSON.stringify({ places, market_ids, limit: 15 }) }),
   refreshStatus: () => request<RefreshState>("/api/refresh/status"),
   me: () => request<{ profile: MeProfile }>("/api/me").then((r) => r.profile),
   patchMe: (fields: Record<string, unknown>) => request<MePatchResult>("/api/me", { method: "PATCH", body: JSON.stringify(fields) }),

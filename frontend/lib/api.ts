@@ -9,6 +9,7 @@ export async function fetchJobs(filters: Filters, signal?: AbortSignal): Promise
     if (value) params.set(key, value);
   }
   params.set("slim", "1"); // sin descripciones: pesan ~80 % del listado; se piden al abrir una oferta
+  params.set("include_applied", "false");
   const response = await fetch(`${API_URL}/api/jobs?${params.toString()}`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   const payload = (await response.json()) as { jobs: Job[] };
@@ -53,8 +54,9 @@ export async function updateJobFavorite(id: string, favorite: boolean): Promise<
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }
 
-export async function fetchSkillOverview(filters: Pick<Filters, "area" | "seniority" | "work_mode" | "max_age_days">, signal?: AbortSignal): Promise<SkillOverview> {
+export async function fetchSkillOverview(filters: Pick<Filters, "area" | "seniority" | "work_mode" | "max_age_days" | "geo_scope" | "market_id" | "profile_mode" | "relevance_tier">, signal?: AbortSignal): Promise<SkillOverview> {
   const params = new URLSearchParams();
+  params.set("include_applied", "false");
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   const response = await fetch(`${API_URL}/api/skills/overview?${params.toString()}`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);

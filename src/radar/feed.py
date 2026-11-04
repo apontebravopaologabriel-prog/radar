@@ -34,7 +34,12 @@ def _why(job: dict[str, Any]) -> str:
     if strong:
         parts.append("Coincide en " + ", ".join(strong[:3]))
     if missing:
-        parts.append("te falta " + ", ".join(missing[:2]))
+        parts.append("por acreditar o reforzar: " + ", ".join(missing[:2]))
+    evidence = job.get("fit_assessment") or {}
+    if evidence:
+        parts.append(f"cobertura {evidence['coverage']:g}%")
+        if evidence.get("unaccredited_requirements"):
+            parts.append("requisitos no acreditados")
     return " · ".join(parts) or job.get("reason") or "Sin señales suficientes"
 
 
@@ -79,22 +84,37 @@ def today_feed(limit: int = 5, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> dict
 def skill_impact(limit: int = 8, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> dict[str, Any]:
     """Qué skill faltante sube más el encaje si la aprendes (nivel básico).
 
-    Aprender una skill mueve un requisito de "falta" a "coincide"; el efecto en el score de una
-    oferta con `n` skills es `peso_skills * 100 / n`. Es una simulación, no una promesa.
+    Reuses saved requirement levels and weights. Basic proficiency does not satisfy advanced
+    requirements; this simulates supported points, not the likelihood of being hired.
     """
     profile = get_profile()
+    from radar.careers import active_pack
+    from radar.query_context import CURRENT_QUERY
+
+    scope = CURRENT_QUERY.get()
+    if scope and scope.values()["market_id"] != active_pack().id:
+        return {"profile_configured": bool(profile), "available": False, "skills": [],
+                "threshold": HIGH_FIT,
+                "message": "El simulador de puntaje usa la carrera de referencia; no calcula impacto para este mercado."}
     if not profile:
         return {"profile_configured": False, "skills": []}
     weight = effective_weights()["skills"]
     jobs = recommendations(50, max_age_days)["jobs"]
     impact: dict[str, dict[str, Any]] = {}
     for job in jobs:
-        strong, missing = job["strong_matches"], job["missing_skills"]
-        total_skills = len(strong) + len(missing)
-        if not total_skills:
-            continue
-        gain = round(weight * 100 / total_skills, 2)
-        for skill in missing:
+        from radar.scoring import LEVELS
+
+        skills = job.get("fit_assessment", {}).get("skills", [])
+        denominator = sum(1 if item["required"] else 0.5 for item in skills)
+        for item in skills:
+            if item["declared_level"] not in {None, "none"}:
+                continue
+            expected = item["required_level"]
+            lower = min(1, LEVELS["basic"]/LEVELS[expected])*100 if expected else 50
+            gain = round(weight * (lower-item["lower"]) * (1 if item["required"] else 0.5) / denominator, 2)
+            if gain <= 0:
+                continue
+            skill = item["name"]
             entry = impact.setdefault(skill, {"skill": skill, "jobs": 0, "total_gain": 0.0, "crossing": 0})
             entry["jobs"] += 1
             entry["total_gain"] += gain

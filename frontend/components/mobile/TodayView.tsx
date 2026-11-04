@@ -52,7 +52,7 @@ export default function TodayView({ onSetup, onError, onContextChange }: { onSet
               <h2>{job.title}</h2>
               <p className="m-sub">{[job.company, job.location, ago(job.published_at)].filter(Boolean).join(" · ")}</p>
             </div>
-            {job.score !== null && <span className="m-score" aria-label={`Encaje ${Math.round(job.score)} por ciento`}>{Math.round(job.score)}%</span>}
+            {job.score !== null && <span className="m-score" aria-label={`Coincidencia respaldada ${Math.round(job.score)} puntos`}>{Math.round(job.score)}–{Math.round(job.fit_assessment?.upper_bound ?? job.score)}</span>}
           </div>
           <p className="m-why">{job.why}</p>
           <div className="m-actions">
@@ -66,10 +66,10 @@ export default function TodayView({ onSetup, onError, onContextChange }: { onSet
       {impact?.profile_configured && impact.skills.length > 0 && (
         <section className="m-card">
           <h2>Qué aprender primero</h2>
-          <p className="m-sub">Simulación: cuánto sube tu encaje si dominas la skill (nivel básico), sobre {impact.jobs_considered} ofertas.</p>
+          <p className="m-sub">Simulación: cuánto sube tu encaje si declaras nivel básico en una skill pendiente, sobre {impact.jobs_considered} ofertas.</p>
           <ul className="m-list">
             {impact.skills.map((s) => (
-              <li key={s.skill}><strong>{s.skill}</strong><span>+{s.avg_gain} pts en {s.jobs} ofertas{s.crossing ? ` · ${s.crossing} pasan a encaje alto` : ""}</span></li>
+              <li key={s.skill}><strong>{s.skill}</strong><span>+{s.avg_gain} pts en {s.jobs} ofertas{s.crossing ? ` · ${s.crossing} superan 70 puntos` : ""}</span></li>
             ))}
           </ul>
         </section>

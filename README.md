@@ -12,7 +12,7 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 - **Source of truth:** a local SQLite file. No server, no cloud.
 - **Backend:** FastAPI (`radar-api`, port 8100). **Frontend:** Next.js static export served by FastAPI.
 - **Careers are data:** taxonomy, skills and score weights live in `src/radar/careers/packs/*.json`
-  (see [docs/careers.md](docs/careers.md)). Packs today: Industrial Engineering and Systems/Software.
+  (see [docs/careers.md](docs/careers.md)). Main packs: Industrial Engineering and Systems/Software; Mechanical Engineering is experimental.
 - **Hard limits:** no automatic applications, no messages sent, no personal portal sessions, the LLM never
   decides a score, a competency level or whether an offer is still open.
 
@@ -27,6 +27,12 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
 | Target CVs and CV Studio | Hypothetical ideal candidate per ★ offer, gap matrix, closure plan; **Studio**: your real CV as pages with the agent beside it, suggestions you accept, PDF/Word export into one folder per application. See [docs/cv.md](docs/cv.md) |
 | Refresh & Import | Scheduled or in-app market pull across Computrabajo, Bumeran, Empleos Perú, and Indeed/LinkedIn (JobSpy). Single-URL instant import from the UI (`+ Agregar por link`) or agent (`/importar`). See [docs/operations.md](docs/operations.md) and [docs/data-sources.md](docs/data-sources.md) |
+
+On desktop, **Filters → Market** switches Industrial/Systems without overwriting classifications.
+The market is saved automatically; both markets open with all areas, core and related roles from the
+last seven days. Extra criteria are collapsed under **Filter offers**. Systems classification requires
+digital role evidence; using a tool alone does not establish an IT occupation.
+**Settings → Search** contains capture controls for either market or both. See [career markets](docs/careers.md).
 
 ## Quick start
 
@@ -51,7 +57,9 @@ radar profile --name "Ana" --area "Procesos" --location Lima --skill Excel=advan
 radar ingest --source computrabajo --query "practicante de procesos" --location Lima --limit 10
 ```
 
-Radar also asks for career, city and skills on first launch (desktop and mobile), so the CLI is optional.
+On first launch, choose a market and optionally import a local PDF/DOCX CV, review the extracted fields and confirm.
+Setup can be resumed from Settings. Tools mentioned in a CV receive no invented proficiency level.
+The desktop defaults to Lima/Callao, all market areas and seven days. See [implementation notes](docs/windows-cv-markets-2026-11-04.md).
 
 ## Documentation
 

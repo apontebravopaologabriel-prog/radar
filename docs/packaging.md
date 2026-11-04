@@ -42,10 +42,21 @@ dependencies, runs the tests, builds the executables, runs `Radar.exe --smoke`, 
 everything to the GitHub release. Bump `radar.__version__`, `pyproject.toml` and `frontend/package.json` together, then
 tag.
 
-## Not verified yet (needs a Windows machine)
+## Verification status (reviewed 2026-11-04)
 
-- The Windows build itself (the workflow is the first real run), WebView2 behavior, the credential store, the
-  installer wizard, SmartScreen reputation of an unsigned build.
+The published v1.0.2 installer and a later October 21 packaging PR build exist. The latter passed the
+packaged smoke check; October 28 Windows/Python CI passed too. These older builds do not include current
+uncommitted changes. See the [release and onboarding review](release-onboarding-careers-2026-11-04.md)
+for exact runs, confirmed transport limitations and a proposed clean-machine release gate.
+
+Still requiring interactive Windows validation:
+
+- WebView2 behavior, the credential store, the installer wizard, upgrade with retained user data and
+  SmartScreen behavior of the unsigned build. The checked signing steps were skipped.
 - Native PDF fonts on Windows (Calibri/Arial are searched in `C:\Windows\Fonts`).
-- `npx` on Windows for the Computrabajo adapter: it requires Node.js; replacing it with a native Python adapter is the
-  main pending piece of the plan (see [roadmap.md](roadmap.md#remaining-for-v10-ordered)).
+- The new native Computrabajo connector needs no Node. Its optional legacy MCP reader is now portable;
+  the native path's clean-Windows live availability still needs checking. The development-host probe returned
+  HTTP 403, reported as an isolated source failure. See [implementation notes](windows-cv-markets-2026-11-04.md).
+
+JobSpy 1.4.1 uses curl_cffi. The spec explicitly collects its native runtime and the frozen smoke test
+initializes a session offline; verify this on the Windows runner before distributing the next installer.

@@ -1,10 +1,18 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 from radar.domain.models import RawJob
 
 DEFAULT_MAX_AGE_DAYS = 14
+
+
+def visible_date_bounds(days: int, now: datetime | None = None) -> tuple[str, str]:
+    """Calendar-date bounds for Peru views; capture overlap uses its own age policy."""
+    if days < 1:
+        raise ValueError("La ventana visible debe tener al menos un día")
+    today = (now or datetime.now(UTC)).astimezone(timezone(timedelta(hours=-5))).date()
+    return (today - timedelta(days=days - 1)).isoformat(), (today + timedelta(days=1)).isoformat()
 
 
 def is_recent(

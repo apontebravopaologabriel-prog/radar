@@ -28,13 +28,6 @@ _ALIASES = {
     "lean manufacturing": ["lean"],
 }
 _WEIGHT = {"required": 1.0, "unknown": 0.8, "preferred": 0.6, "desirable": 0.4}
-_YEARS = [
-    re.compile(r"(\d+)\s*(?:a|-|y)\s*(\d+)\s*a[nñ]os?\s+de\s+experiencia", re.IGNORECASE),
-    re.compile(r"experiencia\s+(?:m[ií]nima\s+)?(?:de\s+)?(\d+)(?:\s*(?:a|-)\s*(\d+))?\s*a[nñ]os?", re.IGNORECASE),
-    re.compile(r"(\d+)\+?\s*a[nñ]os?\s+de\s+experiencia", re.IGNORECASE),
-]
-_DEGREE = re.compile(r"\b(bachiller|egresad[oa]|titulad[oa])\b", re.IGNORECASE)
-_STUDENT = re.compile(r"\b(estudiante|practicante|pr[aá]cticas)\b", re.IGNORECASE)
 
 
 def _norm(value: str) -> str:
@@ -112,62 +105,27 @@ def _months(start: str | None, end: str | None) -> int:
     return max(0, (last.year - first.year) * 12 + last.month - first.month + 1) if first else 0
 
 
-def _relevant_months(profile: dict[str, Any], skill_names: list[str]) -> int:
-    """Meses de experiencias cuyo rol, viñetas o skills mencionan alguna de las skills de la oferta."""
-    terms = {term for name in skill_names for term in _terms(name)}
-    total = 0
-    for job in profile.get("experience", []):
-        haystack = " ".join([job.get("role") or "", *job.get("bullets", []), *job.get("skills", [])])
-        if any(_contains(haystack, term) for term in terms):
-            total += _months(job.get("from"), job.get("to"))
-    return total
+def _requirement_item(value: dict, key: str, label: str, category: str) -> dict | None:
+    if not value["quote"]:
+        return None
+    return {"key": key, "label": label, "category": category,
+            "requirement": "required" if value["required"] else "preferred",
+            "blocker": value["required"] and value["status"] == "missing",
+            "status": {"met": "cubierto", "missing": "falta"}.get(value["status"], "parcial"),
+            "uncertain": value["status"] == "unknown", "reason": value["reason"], "quote": value["quote"]}
 
 
 def _experience_item(description: str, profile: dict[str, Any], skill_names: list[str] | None = None) -> dict[str, Any] | None:
-    for pattern in _YEARS:
-        match = pattern.search(description)
-        if match:
-            required = int(match.group(1))
-            quote = description[max(0, match.start() - 20) : match.end() + 20].strip()
-            years = sum(_months(j.get("from"), j.get("to")) for j in profile.get("experience", [])) / 12
-            related = _relevant_months(profile, skill_names or []) / 12
-            if required > years:
-                status, blocker = "falta", True
-                reason = f"Suman ~{years:.1f} años entre todas tus experiencias"
-            elif related >= required:
-                status, blocker = "cubierto", False
-                reason = f"~{related:.1f} años en experiencias que mencionan las skills de la oferta"
-            else:
-                status, blocker = "parcial", False
-                reason = (f"Sumas ~{years:.1f} años, pero solo ~{related:.1f} en experiencias que mencionan "
-                          "las skills de la oferta")
-            return {
-                "key": "experiencia-previa", "label": f"Experiencia previa (mín. {required} {'año' if required == 1 else 'años'})",
-                "requirement": "required", "category": "experience", "blocker": blocker,
-                "status": status, "reason": reason, "quote": quote,
-            }
-    return None
+    from radar.requirements import experience_assessment
+
+    return _requirement_item(experience_assessment(description, profile, skill_names or []),
+                             "experiencia-previa", "Experiencia previa", "experience")
 
 
 def _education_item(description: str, profile: dict[str, Any]) -> dict[str, Any] | None:
-    studying = [s for s in profile.get("education", []) if "curso" in str(s.get("status", ""))]
-    degree, student = _DEGREE.search(description), _STUDENT.search(description)
-    if not degree and not student:
-        return None
-    current = studying[0] if studying else None
-    until = f" (hasta {current['to']})" if current else ""
-    if degree and student:
-        status, reason = "parcial", "Acepta estudiantes de últimos ciclos" + until
-    elif degree:
-        status, reason = "falta", "Pide grado; aún cursas " + (current["program"] if current else "estudios") + until
-    else:
-        status, reason = "cubierto", "Cursas " + (current["program"] if current else "estudios") + until
-    quote = (degree or student).group(0)
-    return {
-        "key": "formacion", "label": "Grado o estudios", "requirement": "required",
-        "category": "education", "blocker": status == "falta", "status": status,
-        "reason": reason, "quote": quote,
-    }
+    from radar.requirements import education_assessment
+
+    return _requirement_item(education_assessment(description, profile), "formacion", "Grado o estudios", "education")
 
 
 def baseline(job_id: str, profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -193,10 +151,18 @@ def baseline(job_id: str, profile: dict[str, Any] | None = None) -> list[dict[st
             status, reason = "parcial", "Sin certificado ni proyecto: " + "; ".join(weak[:3])
         else:
             status, reason = "falta", "No aparece en tu perfil"
+        from radar.requirements import skill_level
+        from radar.scoring import LEVELS
+
+        needed, level_quote, _ = skill_level(job.get("description") or "", name, _terms(name))
+        declared = (profile.get("tools_declared_in_db") or {}).get(name)
+        if needed and (declared not in LEVELS or LEVELS[declared] < LEVELS[needed]):
+            status = "parcial"
+            reason = f"Nivel solicitado: {needed}; nivel declarado: {declared or 'sin especificar'}. La evidencia no certifica ese nivel."
         items.append({
             "key": _slug(name), "label": name, "requirement": requirement or "unknown",
             "category": "skill", "blocker": False, "status": status, "reason": reason,
-            "quote": _clean_quote(quote),
+            "quote": _clean_quote(level_quote or quote),
         })
     description = job.get("description") or ""
     skill_names = [row[0] for row in rows if row[3] != "soft"]
@@ -218,14 +184,14 @@ def readiness(items: list[dict[str, Any]], description: str = "") -> dict[str, A
     for item in items:
         weight = _WEIGHT.get(item.get("requirement", "unknown"), 0.8)
         total += weight
-        gained += weight * {"cubierto": 1.0, "parcial": 0.5}.get(item["status"], 0.0)
+        gained += weight * (0 if item.get("uncertain") else {"cubierto": 1.0, "parcial": 0.5}.get(item["status"], 0.0))
     return {
         "percent": round(100 * gained / total) if total else None,
         "covered": sum(i["status"] == "cubierto" for i in items),
         "partial": sum(i["status"] == "parcial" for i in items),
         "missing": sum(i["status"] == "falta" for i in items),
         "blockers": sum(1 for i in items if i.get("blocker") and i["status"] == "falta"),
-        "low_data": len(items) < 3 or len(description) < 300,
+        "low_data": sum(not i.get("uncertain") for i in items) < 3 or len(description) < 300,
     }
 
 
@@ -295,7 +261,7 @@ def _fit_total(job_id: str, profile_id: str | None) -> float | None:
     if profile_id is None:
         return None
     fit = insights._fit(job_id, profile_id)
-    return fit["total"] if fit else None
+    return fit["total"] if fit and not fit.get("stale") else None
 
 
 def read_of(fit: float | None, percent: int | None, low_data: bool) -> str | None:
@@ -305,9 +271,9 @@ def read_of(fit: float | None, percent: int | None, low_data: bool) -> str | Non
     if fit >= 60 and percent < 50:
         return "Encaja con lo que buscas, pero te falta evidencia: buen candidato para cerrar brechas."
     if fit < 45 and percent >= 60:
-        return "Cumples los requisitos, pero encaja poco con tus preferencias."
+        return "Tu CV aporta evidencia, aunque la coincidencia respaldada es baja."
     if fit >= 60 and percent >= 60:
-        return "Encaja y cumples: candidato para postular ya."
+        return "La oferta tiene coincidencias y evidencia en tu CV; revisa los requisitos pendientes antes de postular."
     return None
 
 
@@ -321,9 +287,15 @@ def ranked_selection() -> list[dict[str, Any]]:
         target = combined_target(job_id, profile)
         if target:
             item = {k: target[k] for k in ("id", "title", "company", "location", "readiness", "has_enrichment")}
-            item["fit_total"] = _fit_total(job_id, profile_id)
+            fit = insights._fit(job_id, profile_id) if profile_id else None
+            evidence = fit.get("assessment", {}) if fit and not fit.get("stale") else {}
+            item["fit_total"] = fit["total"] if evidence else None
+            item["fit_coverage"] = evidence.get("coverage")
+            item["fit_upper_bound"] = evidence.get("upper_bound")
             readiness_ = item["readiness"]
             item["read"] = read_of(item["fit_total"], readiness_["percent"], readiness_["low_data"])
+            if (item["fit_coverage"] or 0) < 60:
+                item["read"] = "Datos insuficientes para estimar el encaje con confianza."
             ranked.append(item)
     # Con datos suficientes primero, luego sin bloqueadores, luego por cercanía.
     ranked.sort(key=lambda t: (t["readiness"]["low_data"], t["readiness"]["blockers"],

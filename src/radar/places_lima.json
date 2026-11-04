@@ -1,0 +1,517 @@
+[
+  {
+    "id": "pe:lima-callao:san-borja",
+    "key": "san borja",
+    "name": "San Borja",
+    "latitude": -12.103,
+    "longitude": -76.998,
+    "aliases": [
+      "san borja"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:jesus-maria",
+    "key": "jesus maria",
+    "name": "Jesús María",
+    "latitude": -12.078,
+    "longitude": -77.043,
+    "aliases": [
+      "jesus maria"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:pachacamac",
+    "key": "pachacamac",
+    "name": "Pachacamac",
+    "latitude": -12.1557,
+    "longitude": -76.78761,
+    "aliases": [
+      "pachacamac"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-luis",
+    "key": "san luis",
+    "name": "San Luis",
+    "latitude": -12.076,
+    "longitude": -76.998,
+    "aliases": [
+      "san luis"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:la-molina",
+    "key": "la molina",
+    "name": "La Molina",
+    "latitude": -12.08,
+    "longitude": -76.938,
+    "aliases": [
+      "la molina"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:ancon",
+    "key": "ancon",
+    "name": "Ancon",
+    "latitude": -11.69862,
+    "longitude": -77.10158,
+    "aliases": [
+      "ancon"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:villa-el-salvador",
+    "key": "villa el salvador",
+    "name": "Villa El Salvador",
+    "latitude": -12.214,
+    "longitude": -76.943,
+    "aliases": [
+      "ves",
+      "villa el salvador"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:santiago-de-surco",
+    "key": "santiago de surco",
+    "name": "Santiago de Surco",
+    "latitude": -12.144,
+    "longitude": -76.995,
+    "aliases": [
+      "santiago de surco",
+      "surco"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:ate",
+    "key": "ate",
+    "name": "Ate",
+    "latitude": -12.025,
+    "longitude": -76.917,
+    "aliases": [
+      "ate",
+      "santa clara",
+      "vitarte"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:callao",
+    "key": "callao",
+    "name": "Callao",
+    "latitude": -12.056,
+    "longitude": -77.118,
+    "aliases": [
+      "callao"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:los-olivos",
+    "key": "los olivos",
+    "name": "Los Olivos",
+    "latitude": -11.982,
+    "longitude": -77.071,
+    "aliases": [
+      "los olivos"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:lurigancho",
+    "key": "lurigancho",
+    "name": "Lurigancho-Chosica",
+    "latitude": -11.936,
+    "longitude": -76.7,
+    "aliases": [
+      "huachipa",
+      "lurigancho",
+      "lurigancho-chosica",
+      "nana"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:comas",
+    "key": "comas",
+    "name": "Comas",
+    "latitude": -11.95,
+    "longitude": -77.058,
+    "aliases": [
+      "comas"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:ventanilla",
+    "key": "ventanilla",
+    "name": "Ventanilla",
+    "latitude": -11.875,
+    "longitude": -77.118,
+    "aliases": [
+      "ventanilla"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:santa-rosa",
+    "key": "santa rosa",
+    "name": "Santa Rosa",
+    "latitude": -11.80408,
+    "longitude": -77.16644,
+    "aliases": [
+      "santa rosa"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:puente-piedra",
+    "key": "puente piedra",
+    "name": "Puente Piedra",
+    "latitude": -11.86,
+    "longitude": -77.076,
+    "aliases": [
+      "puente piedra"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:carmen-de-la-legua-reynoso",
+    "key": "carmen de la legua reynoso",
+    "name": "Carmen De La Legua Reynoso",
+    "latitude": -12.04245,
+    "longitude": -77.09034,
+    "aliases": [
+      "carmen de la legua reynoso"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:cieneguilla",
+    "key": "cieneguilla",
+    "name": "Cieneguilla",
+    "latitude": -12.07266,
+    "longitude": -76.7801,
+    "aliases": [
+      "cieneguilla"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:pucusana",
+    "key": "pucusana",
+    "name": "Pucusana",
+    "latitude": -12.46848,
+    "longitude": -76.77852,
+    "aliases": [
+      "pucusana"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:lince",
+    "key": "lince",
+    "name": "Lince",
+    "latitude": -12.086,
+    "longitude": -77.03,
+    "aliases": [
+      "lince"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:rimac",
+    "key": "rimac",
+    "name": "Rímac",
+    "latitude": -12.02,
+    "longitude": -77.03,
+    "aliases": [
+      "rimac"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:chaclacayo",
+    "key": "chaclacayo",
+    "name": "Chaclacayo",
+    "latitude": -11.982,
+    "longitude": -76.768,
+    "aliases": [
+      "chaclacayo"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:surquillo",
+    "key": "surquillo",
+    "name": "Surquillo",
+    "latitude": -12.115,
+    "longitude": -77.014,
+    "aliases": [
+      "surquillo"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:miraflores",
+    "key": "miraflores",
+    "name": "Miraflores",
+    "latitude": -12.126,
+    "longitude": -77.031,
+    "aliases": [
+      "miraflores"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:la-punta",
+    "key": "la punta",
+    "name": "La Punta",
+    "latitude": -12.07099,
+    "longitude": -77.16366,
+    "aliases": [
+      "la punta"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:pueblo-libre",
+    "key": "pueblo libre",
+    "name": "Pueblo Libre",
+    "latitude": -12.077,
+    "longitude": -77.062,
+    "aliases": [
+      "pueblo libre"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:santa-anita",
+    "key": "santa anita",
+    "name": "Santa Anita",
+    "latitude": -12.043,
+    "longitude": -76.971,
+    "aliases": [
+      "santa anita"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:la-perla",
+    "key": "la perla",
+    "name": "La Perla",
+    "latitude": -12.071,
+    "longitude": -77.106,
+    "aliases": [
+      "la perla"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-miguel",
+    "key": "san miguel",
+    "name": "San Miguel",
+    "latitude": -12.077,
+    "longitude": -77.093,
+    "aliases": [
+      "san miguel"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:la-victoria",
+    "key": "la victoria",
+    "name": "La Victoria",
+    "latitude": -12.072,
+    "longitude": -77.018,
+    "aliases": [
+      "la victoria"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:bellavista",
+    "key": "bellavista",
+    "name": "Bellavista",
+    "latitude": -12.05977,
+    "longitude": -77.11095,
+    "aliases": [
+      "bellavista"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:carabayllo",
+    "key": "carabayllo",
+    "name": "Carabayllo",
+    "latitude": -11.855,
+    "longitude": -77.037,
+    "aliases": [
+      "carabayllo"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:brena",
+    "key": "brena",
+    "name": "Breña",
+    "latitude": -12.058,
+    "longitude": -77.05,
+    "aliases": [
+      "brena"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:lurin",
+    "key": "lurin",
+    "name": "Lurín",
+    "latitude": -12.276,
+    "longitude": -76.869,
+    "aliases": [
+      "lurin"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-bartolo",
+    "key": "san bartolo",
+    "name": "San Bartolo",
+    "latitude": -12.36703,
+    "longitude": -76.72851,
+    "aliases": [
+      "san bartolo"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:santa-maria-del-mar",
+    "key": "santa maria del mar",
+    "name": "Santa Maria Del Mar",
+    "latitude": -12.40763,
+    "longitude": -76.76734,
+    "aliases": [
+      "santa maria del mar"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:punta-hermosa",
+    "key": "punta hermosa",
+    "name": "Punta Hermosa",
+    "latitude": -12.336,
+    "longitude": -76.822,
+    "aliases": [
+      "punta hermosa"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:punta-negra",
+    "key": "punta negra",
+    "name": "Punta Negra",
+    "latitude": -12.29816,
+    "longitude": -76.71918,
+    "aliases": [
+      "punta negra"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:barranco",
+    "key": "barranco",
+    "name": "Barranco",
+    "latitude": -12.149,
+    "longitude": -77.021,
+    "aliases": [
+      "barranco"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:chorrillos",
+    "key": "chorrillos",
+    "name": "Chorrillos",
+    "latitude": -12.171,
+    "longitude": -77.018,
+    "aliases": [
+      "chorrillos"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-juan-de-miraflores",
+    "key": "san juan de miraflores",
+    "name": "San Juan de Miraflores",
+    "latitude": -12.162,
+    "longitude": -76.963,
+    "aliases": [
+      "ciudad de dios",
+      "san juan de miraflores",
+      "sjm"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:villa-maria-del-triunfo",
+    "key": "villa maria del triunfo",
+    "name": "Villa María del Triunfo",
+    "latitude": -12.16,
+    "longitude": -76.94,
+    "aliases": [
+      "villa maria del triunfo",
+      "vmt"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:mi-peru",
+    "key": "mi peru",
+    "name": "Mi Perú",
+    "latitude": -11.85353,
+    "longitude": -77.12062,
+    "aliases": [
+      "mi peraz",
+      "mi peru"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:lima",
+    "key": "lima",
+    "name": "Cercado de Lima",
+    "latitude": -12.046,
+    "longitude": -77.043,
+    "aliases": [
+      "cercado de lima"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:el-agustino",
+    "key": "el agustino",
+    "name": "El Agustino",
+    "latitude": -12.048,
+    "longitude": -77.0,
+    "aliases": [
+      "el agustino"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:independencia",
+    "key": "independencia",
+    "name": "Independencia",
+    "latitude": -11.99,
+    "longitude": -77.045,
+    "aliases": [
+      "independencia"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-martin-de-porres",
+    "key": "san martin de porres",
+    "name": "San Martín de Porres",
+    "latitude": -11.989,
+    "longitude": -77.085,
+    "aliases": [
+      "san martin de porres",
+      "smp"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-juan-de-lurigancho",
+    "key": "san juan de lurigancho",
+    "name": "San Juan de Lurigancho",
+    "latitude": -12.015,
+    "longitude": -76.995,
+    "aliases": [
+      "campoy",
+      "san juan de lurigancho",
+      "sjl"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:magdalena-del-mar",
+    "key": "magdalena del mar",
+    "name": "Magdalena del Mar",
+    "latitude": -12.093,
+    "longitude": -77.076,
+    "aliases": [
+      "magdalena",
+      "magdalena del mar"
+    ]
+  },
+  {
+    "id": "pe:lima-callao:san-isidro",
+    "key": "san isidro",
+    "name": "San Isidro",
+    "latitude": -12.097,
+    "longitude": -77.037,
+    "aliases": [
+      "san isidro"
+    ]
+  }
+]

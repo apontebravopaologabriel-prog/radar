@@ -7,6 +7,8 @@ import { useProgressiveList } from "./useProgressiveList";
 import { districtKey } from "../lib/districts";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
 import AnalysisView from "./AnalysisView";
+import MarketControls from "./MarketControls";
+import { fetchMarkets, type Market } from "../lib/markets-api";
 import { OPEN_JOB_EVENT } from "./agent/Markdown";
 import ApplicationsView from "./ApplicationsView";
 import CvView from "./CvView";
@@ -23,8 +25,7 @@ function LoadingDots() {
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima<LoadingDots /></div> });
 
-const AREAS = ["", "Diseño y medición del trabajo", "Investigación de operaciones y optimización", "Ingeniería económica y control", "Facilities, energía y mantenimiento", "Calidad y confiabilidad", "Ergonomía y factores humanos", "Operaciones y productividad", "Supply Chain, logística y compras", "Ingeniería de gestión y proyectos", "Seguridad y riesgos", "Información, analítica y sistemas", "Diseño y manufactura", "Diseño de producto y desarrollo", "Ingeniería de sistemas"];
-const INITIAL_FILTERS: Filters = { search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "core" };
+const INITIAL_FILTERS: Filters = { geo_scope: "lima_callao", market_id: "industrial_engineering", profile_mode: "market", search: "", area: "", seniority: "", work_mode: "", min_salary: "", max_age_days: "7", source: "", relevance_tier: "market" };
 const RADAR_RADII = [2, 5, 10] as const;
 type RadarView = "map" | "analysis" | "cvs" | "applications";
 type AnalysisFilterColumn = "area" | "skill" | "seniority" | "work_mode" | "district";
@@ -305,6 +306,46 @@ const JobCard = memo(function JobCard({ job, selected, showHidden, applied, onSe
 
 export default function RadarClient({ onAgentContextChange }: { onAgentContextChange?: (context: AgentContext) => void }) {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
+  const currentFiltersRef = useRef(filters);
+  currentFiltersRef.current = filters;
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketReady, setMarketReady] = useState(false);
+  const marketId = filters.market_id || "industrial_engineering";
+  const currentMarket = markets.find((market) => market.id === marketId);
+  const areas = ["", ...new Set([...(currentMarket?.areas.core || []), ...(currentMarket?.areas.adjacent || [])])];
+  const refreshMarketResults = useCallback(() => setFilters((current) => ({ ...current })), []);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchMarkets(controller.signal).then(({ markets: choices }) => {
+      setMarkets(choices);
+      try {
+        const saved = localStorage.getItem("radar.market");
+        if (saved && choices.some((market) => market.id === saved)) {
+          setFilters({ ...INITIAL_FILTERS, market_id: saved });
+        }
+      } catch { /* Storage is optional. */ }
+      setMarketReady(true);
+    }).catch((reason) => { if (reason.name !== "AbortError") { setStatusError("No se pudo cargar la lista de mercados."); setMarketReady(true); } });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (!marketReady) return;
+    try {
+      localStorage.setItem("radar.market", marketId);
+    } catch { /* Storage is optional. */ }
+  }, [marketId, marketReady]);
+  useEffect(() => {
+    const onFocus = () => refreshMarketResults();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshMarketResults]);
+  const changeMarket = (id: string) => {
+    const next = { ...INITIAL_FILTERS, market_id: id };
+    try { localStorage.setItem("radar.market", id); } catch { /* Storage is optional. */ }
+    setFilters(next); setDraftSearch(next.search); setSelectedSkill(null); setSelectedId(null);
+    setJobs([]); setSkillOverview(null); setChatJobs([]); setSelectedDistrictKey(null);
+    setShowFavorites(false); setShowHidden(false); setShowApplied(false);
+  };
   const [draftSearch, setDraftSearch] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [hiddenJobs, setHiddenJobs] = useState<Job[]>([]);
@@ -340,7 +381,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [hideReasonFor, setHideReasonFor] = useState<string | null>(null);
   const [hideReason, setHideReason] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
-  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [, setFavoriteBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [offerPanelHeight, setOfferPanelHeight] = useState<number | null>(null);
   const offerPanelRef = useRef<HTMLDivElement | null>(null);
@@ -367,28 +408,30 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   );
 
   useEffect(() => {
+    if (!marketReady) return;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
     const queryFilters = { ...filters };
     delete queryFilters.source;
     fetchJobs(selectedSkill ? { ...queryFilters, skill: selectedSkill } : queryFilters, controller.signal)
-      .then((result) => setJobs(result))
+      .then((result) => { if (!controller.signal.aborted) setJobs(result); })
       .catch((reason: Error) => {
-        if (reason.name !== "AbortError") setError("No se pudo conectar con Radar API. Inicia `radar-api` y vuelve a cargar.");
+        if (reason.name !== "AbortError") setError("No se pudieron cargar las ofertas. Recarga Radar; si hay una captura activa, espera a que termine.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [filters, selectedSkill]);
+  }, [filters, selectedSkill, marketReady]);
 
   useEffect(() => {
     if (!filtersOpen) return;
     const controller = new AbortController();
     setSkillsLoading(true);
+    setSkillOverview(null);
     fetchSkillOverview(filters, controller.signal)
-      .then((result) => setSkillOverview(result))
+      .then((result) => { if (!controller.signal.aborted) setSkillOverview(result); })
       .catch(() => {})
-      .finally(() => setSkillsLoading(false));
+      .finally(() => { if (!controller.signal.aborted) setSkillsLoading(false); });
     return () => controller.abort();
   }, [filtersOpen, filters, mode]);
 
@@ -438,7 +481,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       }
       return selectedDistrictKey ? portalJobs.filter((job) => districtKey(job.district) === selectedDistrictKey) : portalJobs;
     },
-    [mode, portalJobs, radarCenter, radarRadiusKm, selectedDistrictKey],
+    [mode, portalJobs, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey],
   );
   const selectedDistrict = districtStats.find((district) => district.key === selectedDistrictKey) || null;
   const radarDistrict = districtStats.find((district) => district.key === radarDistrictKey) || null;
@@ -451,30 +494,30 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     mode: activeView === "map" ? (mode === "heatmap" ? "districts" : mode === "radar" ? "radar" : "jobs") : undefined,
     district: (mode === "radar" ? radarDistrict?.district : browsedDistrict?.district) || undefined,
     radar: mode === "radar" && radarDistrict ? { center: radarDistrict.district, radiusKm: radarRadiusKm } : undefined,
-    filters: activeView === "applications" ? (applicationsContext ? { status: applicationsContext.status } : undefined) : Object.fromEntries(Object.entries(filters).filter(([, value]) => Boolean(value))),
+    filters: activeView === "applications" ? (applicationsContext ? { status: applicationsContext.status } : undefined) : Object.fromEntries([...Object.entries(filters).filter(([key, value]) => key === "relevance_tier" || Boolean(value)), ...(selectedSkill ? [["skill", selectedSkill]] : [])]),
     selectedJob: selectedJob ? { id: selectedJob.id, title: selectedJob.title, company: selectedJob.company || undefined, district: selectedJob.district || undefined } : undefined,
     visibleCount: activeView === "applications" ? applicationsContext?.count : visibleJobs.length,
     districtJobs: mode === "radar" ? undefined : browsedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
     cvStudio: activeView === "cvs" ? studioContext ?? undefined : undefined,
-  }), [activeView, analysisContext, applicationsContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, visibleJobs.length]);
+  }), [activeView, analysisContext, applicationsContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, selectedSkill, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
     [portalJobs, radarCenter, radarDistrictKey],
   );
   const radarCountsMap = useMemo(() => Object.fromEntries(radarRadiusCounts.map((item) => [item.radius, item.count])), [radarRadiusCounts]);
-  const countValues = (read: (job: Job) => string | null) => {
+  const countValues = useCallback((read: (job: Job) => string | null) => {
     const counts = new Map<string, number>();
     for (const job of visibleJobs) {
       const value = read(job)?.trim() || "No indicado";
       counts.set(value, (counts.get(value) || 0) + 1);
     }
     return Object.fromEntries(counts);
-  };
-  const areaCounts = useMemo(() => countValues((job) => job.primary_area), [visibleJobs]);
-  const seniorityCounts = useMemo(() => countValues((job) => ({ intern: "Practicante", junior: "Junior", mid: "Intermedio", senior: "Senior" } as Record<string, string>)[job.seniority || ""] || job.seniority), [visibleJobs]);
-  const modalityCounts = useMemo(() => countValues((job) => ({ onsite: "Presencial", hybrid: "Híbrido", remote: "Remoto" } as Record<string, string>)[job.work_mode || ""] || job.work_mode), [visibleJobs]);
+  }, [visibleJobs]);
+  const areaCounts = useMemo(() => countValues((job) => job.primary_area), [countValues]);
+  const seniorityCounts = useMemo(() => countValues((job) => ({ intern: "Practicante", junior: "Junior", mid: "Intermedio", senior: "Senior" } as Record<string, string>)[job.seniority || ""] || job.seniority), [countValues]);
+  const modalityCounts = useMemo(() => countValues((job) => ({ onsite: "Presencial", hybrid: "Híbrido", remote: "Remoto" } as Record<string, string>)[job.work_mode || ""] || job.work_mode), [countValues]);
   const archivedJobs = useMemo(() => archiveReason ? hiddenJobs.filter((job) => job.user_reason === archiveReason) : hiddenJobs, [archiveReason, hiddenJobs]);
   const listedJobs = showHidden ? archivedJobs : showFavorites ? favoriteJobs : showApplied ? appliedJobs : visibleJobs;
   const signalJobs = listedJobs;
@@ -630,7 +673,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       setHiddenJobs((current) => current.filter((item) => item.id !== job.id));
       if (showHidden) setSelectedId(null);
       const refreshed = await fetchJobs(filters);
-      setJobs(refreshed);
+      if (currentFiltersRef.current === filters) setJobs(refreshed);
       setToast(null);
     } catch {
       setStatusError("No se pudo restaurar la oferta.");
@@ -714,7 +757,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
 
   useEffect(() => {
     function onJobsChanged() {
-      void fetchJobs(filters).then(setJobs).catch(() => undefined);
+      void fetchJobs(filters).then((result) => { if (currentFiltersRef.current === filters) setJobs(result); }).catch(() => undefined);
       void fetchAppliedJobs().then((list) => {
         setAppliedJobIds(new Set(list.map((job) => job.id)));
         if (showApplied) setAppliedJobs(list);
@@ -782,7 +825,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
 
   function applyAnalysisFilter(column: AnalysisFilterColumn, value: string): boolean {
     const normalized = value.trim().toLowerCase();
-    if (column === "area" && AREAS.includes(value)) updateFilter("area", value);
+    if (column === "area" && areas.includes(value)) updateFilter("area", value);
     else if (column === "skill") setSelectedSkill(value);
     else if (column === "seniority" && SENIORITY_VALUES[normalized]) updateFilter("seniority", SENIORITY_VALUES[normalized]);
     else if (column === "work_mode" && WORK_MODE_VALUES[normalized]) updateFilter("work_mode", WORK_MODE_VALUES[normalized]);
@@ -861,16 +904,17 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
             <div><p className="eyebrow">Control room / 01</p><h1>Market scan</h1></div>
             <span className="result-count" key={loading ? "loading" : mappedCount}>{loading ? "---" : `${mappedCount}`}</span>
           </div>
+          <MarketControls markets={markets} marketId={marketId} onMarket={changeMarket} />
           <form className="search-box" onSubmit={submitSearch}><span>⌕</span><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="..." /><button type="submit" aria-label="Buscar">↵</button></form>
 
-          <div className="filter-section"><div className="section-label">Filtros activos <span>{Object.values(filters).filter(Boolean).length + (selectedSkill ? 1 : 0)}{(filters.search || filters.area || filters.seniority || filters.work_mode || filters.min_salary || filters.source || selectedSkill || filters.relevance_tier !== INITIAL_FILTERS.relevance_tier || filters.max_age_days !== INITIAL_FILTERS.max_age_days) && <button type="button" className="clear-all-filters" onClick={() => { setFilters(INITIAL_FILTERS); setDraftSearch(""); setSelectedSkill(null); }}>Limpiar</button>}</span></div>
-            <label>Relevancia<select value={filters.relevance_tier || ""} onChange={(event) => updateFilter("relevance_tier", event.target.value)}><option value="target">★ Mis cargos target</option><option value="core">Core · foco industrial</option><option value="adjacent">Adyacente · BI, PMO, SST</option><option value="out_of_focus">Fuera de foco</option><option value="">Todas</option></select></label>
-            <label>Área profesional<select value={filters.area} onChange={(event) => updateFilter("area", event.target.value)}>{AREAS.map((area) => <option key={area} value={area}>{area || `Todas las áreas · ${visibleJobs.length || 0}`}{area && ` · ${areaCounts[area] || 0}`}</option>)}</select></label>
+          <details className="market-extra-filters"><summary>Filtrar ofertas</summary><div className="filter-section"><div className="section-label">Filtros activos <span>{Object.entries(filters).filter(([key, value]) => value && key !== "market_id" && key !== "profile_mode").length + (selectedSkill ? 1 : 0)}{(filters.search || filters.area || filters.seniority || filters.work_mode || filters.min_salary || filters.source || selectedSkill || filters.relevance_tier !== INITIAL_FILTERS.relevance_tier || filters.max_age_days !== INITIAL_FILTERS.max_age_days) && <button type="button" className="clear-all-filters" onClick={() => { setFilters({ ...INITIAL_FILTERS, market_id: marketId }); setDraftSearch(""); setSelectedSkill(null); }}>Limpiar</button>}</span></div>
+            <label>Relevancia<select value={filters.relevance_tier || ""} onChange={(event) => updateFilter("relevance_tier", event.target.value)}><option value="market">Todo el mercado</option><option value="target">Puestos priorizados del mercado</option><option value="core">Núcleo del mercado</option><option value="adjacent">Áreas relacionadas</option><option value="out_of_focus">Fuera de foco</option><option value="">Incluir ofertas ajenas al mercado</option></select></label>
+            <label>Área profesional<select value={filters.area} onChange={(event) => updateFilter("area", event.target.value)}>{areas.map((area) => <option key={area} value={area}>{area || `Todas las áreas · ${visibleJobs.length || 0}`}{area && ` · ${areaCounts[area] || 0}`}</option>)}</select></label>
             <div className="two-columns"><label>Seniority<select value={filters.seniority} onChange={(event) => updateFilter("seniority", event.target.value)}><option value="">Todos{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="intern">Practicante · {seniorityCounts.Practicante || 0}</option><option value="junior">Junior · {seniorityCounts.Junior || 0}</option><option value="mid">Intermedio · {seniorityCounts.Intermedio || 0}</option><option value="senior">Senior · {seniorityCounts.Senior || 0}</option></select></label><label>Modalidad<select value={filters.work_mode} onChange={(event) => updateFilter("work_mode", event.target.value)}><option value="">Todas{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="onsite">Presencial · {modalityCounts.Presencial || 0}</option><option value="hybrid">Híbrido · {modalityCounts.Híbrido || 0}</option><option value="remote">Remoto · {modalityCounts.Remoto || 0}</option></select></label></div>
             <div className="two-columns"><label>Salario mínimo<input type="number" min="0" placeholder="S/" value={filters.min_salary} onChange={(event) => updateFilter("min_salary", event.target.value)} /></label><label>Antigüedad<select value={filters.max_age_days} onChange={(event) => updateFilter("max_age_days", event.target.value)}><option value="7">7 días</option><option value="14">14 días</option><option value="30">30 días</option><option value="90">90 días</option></select></label></div>
             <div className="salary-presets" aria-label="Atajos de sueldo">{([["", "Todos"], ["500", "Con sueldo"], ["1500", "S/ 1,500+"], ["2500", "S/ 2,500+"]] as const).map(([val, label]) => <button key={val || "all"} type="button" className={filters.min_salary === val ? "active" : ""} onClick={() => updateFilter("min_salary", val)}>{label}</button>)}</div>
             <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos los portales · {activeBaseJobs.length}</option><option value="indeed">Indeed · {portalCounts.indeed || 0}</option><option value="computrabajo">Computrabajo · {portalCounts.computrabajo || 0}</option><option value="linkedin">LinkedIn · {portalCounts.linkedin || 0}</option><option value="google">Google Jobs · {portalCounts.google || 0}</option><option value="bumeran">Bumeran · {portalCounts.bumeran || 0}</option><option value="laborum">Laborum · {portalCounts.laborum || 0}</option><option value="empleos">Empleos Perú · {portalCounts.empleos || 0}</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas las competencias</option>{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{skill.name} · {skill.job_count}</option>)}</select></label></div>
-          </div>
+          </div></details>
 
           <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><div className="radar-locate-row"><button className="radar-locate" type="button" onClick={locateMe}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>usar mi ubicación</button><small>o haz clic en el mapa</small></div><span className="radar-readout">CENTER // {radarLabel || radarDistrict?.district || "LIMA"} · RANGE // {radarRadiusKm} KM · {visibleJobs.length} MATCHES</span><div className="radar-radius">{radarRadiusCounts.map(({ radius, count }) => <button key={radius} className={radarRadiusKm === radius ? "active" : ""} type="button" onClick={() => { setRadarRadiusKm(radius); setSelectedId(null); }}><strong>{radius} KM</strong><span>{count} ofertas</span></button>)}</div></div>}</div>
           <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : showApplied ? "Postuladas" : selectedSkill ? `Ofertas con ${selectedSkill}` : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && !showHidden && !showFavorites && !showApplied ? "…" : `${showHidden ? archivedJobs.length : showFavorites ? favoriteJobs.length : showApplied ? appliedJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "archivadas" : showFavorites ? "guardadas" : showApplied ? "postuladas" : "en mapa"}`}</span>{selectedSkill && !showHidden && !showFavorites && !showApplied && <button className="clear-skill-filter" type="button" onClick={() => setSelectedSkill(null)} aria-label="Quitar filtro de competencia" title="Quitar filtro de competencia">×</button>}</div></div>
@@ -878,7 +922,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           {showHidden && <div className="archive-filters" aria-label="Filtrar archivo por motivo">{ARCHIVE_FILTERS.map(([value, label]) => <button key={value} type="button" className={archiveReason === value ? "active" : ""} onClick={() => setArchiveReason(value)}>{label}</button>)}</div>}
           {showApplied && <button type="button" className="applied-tray-link" onClick={() => selectView("applications")}>Abrir tablero de Postulaciones →</button>}
           {statusError && <div className="status-error">{statusError}</div>}
-          <div className="job-list" ref={containerRef}>{loading && !showHidden && !showFavorites && !showApplied && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && !showApplied && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "No hay ofertas con estos filtros."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} applied={appliedJobIds.has(job.id)} onSelect={selectJob} onToggleFavorite={toggleFavorite} onToggleApplied={(target) => void setApplied(target.id, !appliedJobIds.has(target.id))} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
+          <div className="job-list" ref={containerRef}>{loading && !showHidden && !showFavorites && !showApplied && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && !showApplied && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "No hay ofertas con estos filtros. Prueba a limpiar los filtros o ampliar la antigüedad."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} applied={appliedJobIds.has(job.id)} onSelect={selectJob} onToggleFavorite={toggleFavorite} onToggleApplied={(target) => void setApplied(target.id, !appliedJobIds.has(target.id))} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}</div>
         </aside>
 
         <section className={`map-panel ${mode === "jobs" ? "reading-panel" : mode === "analysis" || mode === "cvs" || mode === "applications" ? "analysis-mode-panel" : ""}`}>
@@ -975,7 +1019,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
               </div>
               <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
                 <MapView radarCounts={radarCountsMap} onPickRadarCenter={(center) => pickRadarCenter(center, "PUNTO EN MAPA")} jobs={visibleJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span>SEÑALES // OFERTAS</span><div className="offer-scroll-tools"><strong>{signalJobs.length.toString().padStart(3, "0")}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites && !showApplied], ["favorites", "favoritos", showFavorites], ["applied", "postuladas", showApplied], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-label={label} title={label} aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}><ViewIcon view={view} /></button>)}</div></div></div>{showApplied && <button type="button" className="applied-tray-link" onClick={() => selectView("applications")}>Abrir tablero de Postulaciones →</button>}<div className="offer-scroll-list" ref={containerRef2}>{trimmed2 && <div style={{ height: spacerHeight2 }} aria-hidden="true" />}{pagedJobsMap.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} applied={appliedJobIds.has(job.id)} onSelect={selectJob} onToggleFavorite={toggleFavorite} onToggleApplied={(target) => void setApplied(target.id, !appliedJobIds.has(target.id))} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{!loading && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "Selecciona un distrito para cargar señales"}</span>}</div></aside>}
+                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span title={currentMarket?.name}>{showHidden || showFavorites || showApplied ? "SEÑALES // TODOS" : `SEÑALES // ${marketId === "industrial_engineering" ? "INDUSTRIAL" : marketId === "sistemas_software" ? "SISTEMAS" : "MERCADO"}`}</span><div className="offer-scroll-tools"><strong>{loading && !showHidden && !showFavorites && !showApplied ? "…" : signalJobs.length.toString().padStart(3, "0")}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites && !showApplied], ["favorites", "favoritos", showFavorites], ["applied", "postuladas", showApplied], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-label={label} title={label} aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}><ViewIcon view={view} /></button>)}</div></div></div>{showApplied && <button type="button" className="applied-tray-link" onClick={() => selectView("applications")}>Abrir tablero de Postulaciones →</button>}<div className="offer-scroll-list" ref={containerRef2}>{trimmed2 && <div style={{ height: spacerHeight2 }} aria-hidden="true" />}{pagedJobsMap.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} applied={appliedJobIds.has(job.id)} onSelect={selectJob} onToggleFavorite={toggleFavorite} onToggleApplied={(target) => void setApplied(target.id, !appliedJobIds.has(target.id))} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{loading && !showHidden && !showFavorites && !showApplied && <span className="offer-scroll-empty">Cargando ofertas del mercado…</span>}{!loading && error && <span className="offer-scroll-empty" role="alert">{error}</span>}{!loading && !error && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : showApplied ? "> aún no registras postulaciones" : "No hay ofertas con estos filtros. Amplía la antigüedad o limpia los filtros."}</span>}</div></aside>}
                 <div className="map-scan-label map-scan-label-top"><span className="scan-live-dot" />{mode === "radar" ? "RADAR LOCK" : mode === "heatmap" ? "DATA ANALYSIS" : "COLLECTING DATA"}<small>{"/// LIMA METROPOLITANA"}</small></div>
                 <div className="map-scan-label map-scan-label-bottom"><span>COORD // 12°02&apos;46.0&quot;S 77°02&apos;35.0&quot;W</span><span>TRACKING // {visibleJobs.length.toString().padStart(3, "0")} SIGNALS</span></div>
                 {mode === "heatmap" && districtStats.length > 0 && <aside className="district-map-overlay" aria-label="Distritos con ofertas"><div className="district-overlay-list"><button className={`district-row district-row-all ${selectedDistrictKey === null ? "selected" : ""}`} onClick={() => { setSelectedDistrictKey(null); setSelectedId(null); }} type="button"><span className="district-row-top"><strong>Todos</strong><span>{mappedCount}</span></span><span className="district-bar"><i style={{ width: "100%" }} /></span></button>{districtStats.map((district) => <button key={district.key} className={`district-row ${selectedDistrictKey === district.key ? "selected" : ""}`} onClick={() => selectDistrict(district.key)} type="button"><span className="district-row-top"><strong>{district.district}</strong><span>{district.count}</span></span><span className="district-bar"><i style={{ width: `${Math.max(10, (district.count / districtStats[0].count) * 100)}%` }} /></span></button>)}</div></aside>}
@@ -996,6 +1040,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                     <div><span>Modalidad</span><strong>{selectedJob.work_mode === "hybrid" ? "Híbrido" : selectedJob.work_mode === "remote" ? "Remoto" : selectedJob.work_mode === "onsite" ? "Presencial" : "No indicada"}</strong></div>
                     <div><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div>
                     <div><span>Publicado</span><strong>{formatDate(selectedJob.published_at)}</strong></div>
+                    <div><span>Estado de publicación</span><strong>{selectedJob.application_status === "closed" ? "Cerrada" : selectedJob.application_status === "expired" ? "Vencida" : selectedJob.application_status === "open" ? "Abierta según última consulta" : "Vigencia sin verificar"}</strong></div>
                   </div>
                   {selectedJob.description && <div className="popover-description-wrap"><div className="description-toggle" role="button" tabIndex={0} aria-label="Ver descripción completa" title="Ver descripción completa" aria-expanded={expandedDescriptionId === selectedJob.id} onClick={() => setExpandedDescriptionId((current) => current === selectedJob.id ? null : selectedJob.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedDescriptionId((current) => current === selectedJob.id ? null : selectedJob.id); } }}><div className="popover-description">{renderMarkdown(selectedJob.description)}</div></div></div>}
                   <div className="popover-actions">

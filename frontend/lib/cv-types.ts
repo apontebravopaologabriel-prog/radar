@@ -50,6 +50,8 @@ export type CvSelectionItem = {
   readiness: CvReadiness;
   has_enrichment: boolean;
   fit_total?: number | null;
+  fit_coverage?: number | null;
+  fit_upper_bound?: number | null;
   read?: string | null;
 };
 

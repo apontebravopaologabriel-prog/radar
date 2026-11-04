@@ -3,15 +3,12 @@ y, con confirmación, reclasificar. Nunca borra ofertas; antes de escribir guard
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections import Counter
-from datetime import UTC, datetime
 from typing import Any
 
-from radar.careers import active_pack
+from radar.careers import active_pack, list_packs
 from radar.classify import classify
-from radar.db.database import connection, database_path
+from radar.db.database import connection
 from radar.db.repository import _write_areas, recompute_scores
 from radar.domain.models import RawJob
 from radar.settings import get_setting, set_setting
@@ -22,12 +19,9 @@ RULES_KEY = "classification_rules_hash"
 
 def rules_fingerprint(pack=None) -> str:
     """Huella de las reglas que deciden áreas y relevancia; cambia cuando se editan."""
-    pack = pack or active_pack()
-    payload = json.dumps([pack.id, sorted(pack.core_areas), sorted(pack.adjacent_areas), pack.area_rules,
-                          pack.out_of_focus_rules, sorted(pack.weak_terms), pack.excluded_title_signals,
-                          pack.target_titles, pack.target_secondary_titles, pack.operational_titles, pack.adjacent_title_signals],
-                         ensure_ascii=False, sort_keys=True, default=list)
-    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+    from radar.markets import pack_hash
+
+    return pack_hash(pack or active_pack())
 
 
 def rules_stale() -> bool:
@@ -35,11 +29,18 @@ def rules_stale() -> bool:
     return get_setting(RULES_KEY) != rules_fingerprint()
 
 
-def _stored() -> list[tuple]:
+def _stored(market_id: str | None = None) -> list[tuple]:
     with connection() as conn:
+        if market_id:
+            return conn.execute(
+                """SELECT j.id,j.title,j.description_raw,j.location,c.name,json_extract(m.areas,'$[0].name'),
+                m.relevance_tier,m.relevance_score,m.relevance_evidence,j.content_hash
+                FROM jobs j LEFT JOIN companies c ON c.id=j.company_id
+                LEFT JOIN job_market_classifications m ON m.job_id=j.id AND m.market_id=%s""", (market_id,)
+            ).fetchall()
         return conn.execute(
             """SELECT j.id, j.title, j.description_raw, j.location, co.name, ia.name, j.relevance_tier,
-            j.relevance_score, j.relevance_evidence
+            j.relevance_score, j.relevance_evidence, j.content_hash
             FROM jobs j LEFT JOIN companies co ON co.id=j.company_id
             LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary
             LEFT JOIN industrial_areas ia ON ia.id=ja.area_id"""
@@ -54,10 +55,12 @@ def _reclassified(row: tuple, pack):
     return classified, relevance
 
 
-def classification_audit(sample: int = 12) -> dict[str, Any]:
+def classification_audit(sample: int = 12, market_id: str | None = None) -> dict[str, Any]:
     """Solo lectura: compara lo guardado con lo que las reglas vigentes clasificarían hoy."""
-    pack = active_pack()
-    rows = _stored()
+    from radar.careers import load_pack
+
+    pack = load_pack(market_id) if market_id else active_pack()
+    rows = _stored(market_id)
     stored = Counter(r[5] or "sin área" for r in rows)
     drift: list[dict[str, Any]] = []
     transitions: Counter = Counter()
@@ -69,6 +72,7 @@ def classification_audit(sample: int = 12) -> dict[str, Any]:
             drift.append({"job_id": row[0], "title": row[1], "stored_area": row[5], "stored_tier": row[6],
                           "current_area": new_area, "current_tier": relevance.tier, "why": classified.primary_area.evidence[:120]})
     return {
+        "scope": "all_saved_offers", "market_id": pack.id,
         "jobs": len(rows), "drifted": len(drift),
         "drift_pct": round(len(drift) / len(rows) * 100, 1) if rows else 0,
         "stored_by_area": stored.most_common(), "top_transitions": transitions.most_common(8),
@@ -78,31 +82,43 @@ def classification_audit(sample: int = 12) -> dict[str, Any]:
 
 
 def reclassify_jobs() -> dict[str, Any]:
-    """Reaplica las reglas vigentes a todas las ofertas guardadas (áreas y relevancia). Guarda una copia
-    de lo anterior en un JSON junto a la base de datos."""
+    """Back up first, then rebuild canonical and independent market classifications."""
+    from radar.markets import backfill_market
+    from radar.system import backup_database
+
+    backup = backup_database()
     pack = active_pack()
     rows = _stored()
-    backup, changed = [], 0
+    changed = skipped = 0
+    for offset in range(0, len(rows), 50):
+        # Parsing must not hold a read snapshot or a write lock during computation.
+        prepared = [(row, *_reclassified(row, pack)) for row in rows[offset:offset + 50]]
+        with connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            for row, classified, relevance in prepared:
+                updated = conn.execute(
+                    """UPDATE jobs SET relevance_tier=%s,relevance_score=%s,relevance_evidence=%s
+                    WHERE id=%s AND content_hash IS %s""",
+                    (relevance.tier, relevance.score, relevance.evidence, row[0], row[9]),
+                ).rowcount
+                if not updated:
+                    skipped += 1
+                    continue
+                _write_areas(conn, row[0], classified)
+                conn.execute("DELETE FROM job_skills WHERE job_id=%s", (row[0],))
+                for skill, evidence in classified.skills:
+                    conn.execute(
+                        """INSERT INTO job_skills(job_id,skill_id,requirement_type,importance,confidence,evidence)
+                        SELECT %s,id,%s,0.7,%s,%s FROM skills WHERE name=%s""",
+                        (row[0], evidence.requirement_type, evidence.confidence, evidence.evidence, skill),
+                    )
+                changed += int((row[5], row[6], row[7], row[8]) != (
+                    classified.primary_area.value, relevance.tier, relevance.score, relevance.evidence))
+    projections = {p.id: backfill_market(p.id) for p in list_packs()}
     with connection() as conn:
-        for row in rows:
-            classified, relevance = _reclassified(row, pack)
-            if (
-                (row[5] or "sin área") == classified.primary_area.value
-                and row[6] == relevance.tier
-                and row[7] == relevance.score
-                and row[8] == relevance.evidence
-            ):
-                continue
-            backup.append({"job_id": row[0], "area": row[5], "tier": row[6], "score": row[7], "evidence": row[8]})
-            _write_areas(conn, row[0], classified)
-            conn.execute("UPDATE jobs SET relevance_tier=%s, relevance_score=%s, relevance_evidence=%s WHERE id=%s",
-                         (relevance.tier, relevance.score, relevance.evidence, row[0]))
-            changed += 1
-        conn.commit()
         profile = conn.execute("SELECT id FROM user_profile ORDER BY updated_at DESC LIMIT 1").fetchone()
-    path = database_path().parent / f"reclassify-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}.json"
-    path.write_text(json.dumps(backup, ensure_ascii=False), encoding="utf-8")
     set_setting(RULES_KEY, rules_fingerprint(pack))
     if profile:
         recompute_scores(str(profile[0]))
-    return {"reclassified": changed, "unchanged": len(rows) - changed, "backup": str(path)}
+    return {"reclassified": changed, "unchanged": len(rows) - changed - skipped,
+            "skipped_changed_content": skipped, "market_projections": projections, "backup": backup["backup"]}

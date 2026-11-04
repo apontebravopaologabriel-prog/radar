@@ -13,23 +13,23 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 |---|---|---|---|
 | `ingest_jobs` | escribe | Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario. | source: string, query: string, location?: string, limit?: integer, max_age_days?: integer |
 | `health` | lee | Indica que Radar está disponible. |  |
-| `search_saved_jobs` | lee | Ofertas guardadas (título, empresa, lugar, área, sector, salario, `url`, score y extracto). Excluye postuladas | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null, include_applied?: boolean, include_hidden?: boolean |
-| `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. |  |
-| `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. Excluye por defecto postuladas y ocultas. | limit?: integer, max_age_days?: integer, include_applied?: boolean, include_hidden?: boolean |
-| `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer |
-| `find_jobs_near` | lee | Ofertas en un radio (km) de un distrito o ciudad por cercanía. Excluye postuladas u ocultas salvo | place: string, radius_km?: number, limit?: integer, include_applied?: boolean, include_hidden?: boolean |
-| `get_job_details` | lee | Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de | job_id: string |
-| `explain_job_fit` | lee | Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y | job_id: string |
-| `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array |
-| `get_skill_demand` | lee | Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una. | area?: string|null, max_age_days?: integer, limit?: integer |
-| `get_market_breakdown` | lee | Cuenta ofertas vigentes agrupadas por `by` (area, place, company, work_mode, seniority, sector o source), con | by: string, max_age_days?: integer, limit?: integer, area?: string|null, place?: string|null, sector?: string|null, exclude_sector?: string|null, search?: string|null |
-| `get_place_profile` | lee | Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad, | place: string, max_age_days?: integer |
-| `compare_places` | lee | Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción. | place_a: string, place_b: string, max_age_days?: integer, focus?: string|null |
-| `get_salary_stats` | lee | Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran). | area?: string|null, place?: string|null, max_age_days?: integer |
-| `plan_learning` | lee | Skills que más suben tu encaje si las aprendes, con su demanda en el mercado. Base para un plan. | limit?: integer |
+| `search_saved_jobs` | lee | Busca ofertas del mercado. Excluye cerradas, postuladas y ocultas. `search`: texto; | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null, include_applied?: boolean, include_hidden?: boolean, market_id?: string|null |
+| `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. | market_id?: string|null |
+| `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. Excluye por defecto postuladas y ocultas. | limit?: integer, max_age_days?: integer, include_applied?: boolean, include_hidden?: boolean, market_id?: string|null |
+| `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer, market_id?: string|null |
+| `find_jobs_near` | lee | Ofertas en un radio (km) de un distrito o ciudad por cercanía. Excluye postuladas u ocultas salvo | place: string, radius_km?: number, limit?: integer, include_applied?: boolean, include_hidden?: boolean, market_id?: string|null |
+| `get_job_details` | lee | Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de | job_id: string, market_id?: string|null |
+| `explain_job_fit` | lee | Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y | job_id: string, market_id?: string|null |
+| `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array, market_id?: string|null |
+| `get_skill_demand` | lee | Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una. | area?: string|null, max_age_days?: integer, limit?: integer, market_id?: string|null |
+| `get_market_breakdown` | lee | Cuenta ofertas del mercado por area/place/company/work_mode/seniority/sector/source. | by: string, max_age_days?: integer, limit?: integer, area?: string|null, place?: string|null, sector?: string|null, exclude_sector?: string|null, search?: string|null, market_id?: string|null |
+| `get_place_profile` | lee | Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad, | place: string, max_age_days?: integer, market_id?: string|null |
+| `compare_places` | lee | Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción. | place_a: string, place_b: string, max_age_days?: integer, focus?: string|null, market_id?: string|null |
+| `get_salary_stats` | lee | Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran). | area?: string|null, place?: string|null, max_age_days?: integer, market_id?: string|null |
+| `plan_learning` | lee | Skills que más suben tu encaje si las aprendes, con su demanda en el mercado. Base para un plan. | limit?: integer, market_id?: string|null |
 | `get_data_schema` | lee | Tablas y columnas consultables con run_readonly_sql. |  |
-| `run_readonly_sql` | lee | SQL de solo lectura (SELECT/WITH, máx. 50 filas) para lo que las demás herramientas no cubren; úsala como | sql: string |
-| `get_skill_impact` | lee | Simula qué skill faltante sube más el encaje si se aprende (nivel básico). | limit?: integer |
+| `run_readonly_sql` | lee | SELECT/WITH, máx. 50 filas; último recurso. Alcance no verificado: no equivale a esta vista. | sql: string |
+| `get_skill_impact` | lee | Simula qué skill faltante sube más el encaje si se aprende (nivel básico). | limit?: integer, market_id?: string|null |
 | `get_job_history` | lee | Devuelve observaciones históricas de una oferta sin borrar registros antiguos. | job_id: string, limit?: integer |
 | `get_market_history` | lee | Consulta snapshots históricos semanales o mensuales del mercado. | limit?: integer |
 | `capture_market_history` | escribe | Guarda una fotografía del mercado activo para comparaciones futuras. | snapshot_date?: string|null |
@@ -66,7 +66,7 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `close_gap` | escribe | Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha | skill: string, kind: string, name: string, issuer?: string|null, date?: string|null, description?: string|null, link?: string|null |
 | `get_target_matrix` | lee | Matriz de brechas entre los CVs objetivo guardados (requisitos con `key` por puesto). |  |
 | `resolve_nearest_districts` | lee | Distritos más cercanos a una zona mencionada en una oferta, con km aproximados. | reference: string, limit?: integer |
-| `audit_classification` | lee | Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes. | sample?: integer |
+| `audit_classification` | lee | Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes. | sample?: integer, market_id?: string|null |
 | `reclassify_jobs` | escribe | Reclasifica todas las ofertas guardadas con las reglas vigentes (áreas y relevancia). No borra |  |
 | `refresh_market` | escribe | Busca ofertas nuevas enfocadas en un distrito o ciudad (Indeed/LinkedIn y Computrabajo) y las guarda. Corre en | place: string, limit?: integer |
 | `get_refresh_status` | lee | Avance de la captura de ofertas en curso o de la última: pasos hechos, ofertas nuevas y errores. |  |
@@ -100,11 +100,19 @@ Radar cubre todo el Perú: ordena las ofertas de empleo por lo bien que encajan 
 
 ### hoy
 
-La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una línea (skills que coinciden y las que te faltan). Acciones: Guardar (pasa a Seguimiento), ★ (favorita), No me interesa (la oculta) y Abrir (enlace original). Abajo, "Qué aprender primero" simula cuánto sube tu encaje al dominar cada skill faltante. Sin perfil no hay puntaje: configúralo primero.
+La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una línea (skills que coinciden y las que te faltan). Acciones: Guardar (pasa a Seguimiento), ★ (favorita), No me interesa (la oculta) y Abrir (enlace original). Abajo, "Qué aprender primero" simula cuánto sube tu encaje al declarar nivel básico en una skill pendiente; respeta el nivel requerido y no simula dominarla por completo. Sin perfil no hay puntaje: configúralo primero.
 
 ### seguimiento
 
 Seguimiento lleva cada oferta por: Guardadas, Postulé, Entrevista, Oferta y Descartadas. Los botones mueven la oferta al siguiente estado y conservan el historial. Si llevas 7 días o más en "Postulé" sin novedad, Radar sugiere hacer seguimiento. Radar solo registra: la postulación la haces tú en el portal. En el escritorio, cada tarjeta de oferta y el detalle incluyen el botón `✓` (atajo `p`): al marcar que ya postulaste, la oferta sale automáticamente de las ofertas activas (`◉`) para no mezclarse con las pendientes y pasa tanto a la pestaña `✓` de la bandeja como a la vista completa Postulaciones (icono `✓` de la barra izquierda). En la vista Postulaciones puedes filtrar por estado o texto, agregar una oferta externa pegando su enlace con `+ Agregar por link`, editar notas en línea, abrir la ficha en el mapa, ver la carpeta de CV de cada postulación y exportar todo tu registro a CSV compatible con Excel. También puedes pasarle cualquier enlace de oferta al agente (o usar `/importar <url>`) para que la extraiga, calcule tu encaje y la registre en tu seguimiento.
+
+### primer-inicio
+
+Al abrir Radar por primera vez, elige Mercado y adjunta tu CV PDF con texto o Word .docx (hasta 8 MB). Se lee en este equipo, sin clave de IA. Revisa nombre, contacto, estudios y experiencia antes de confirmar. Puedes corregir o añadir registros y guardar un borrador para continuar después desde Ajustes → Perfil → Importar CV. Un escaneo o un Word .doc requiere conversión. Las herramientas detectadas quedan sin nivel: decláralo después en Ajustes. Confirmar inicia una captura; guardar borrador no. La guía rápida opcional explica distrito, favoritos y postulaciones y se puede volver a abrir desde Ajustes.
+
+### actualizaciones
+
+«Actualizar mercado ahora» busca ofertas. Un aviso de nueva versión de Radar abre la página oficial de descarga; no instala automáticamente. La comprobación de versión no bloquea el uso sin conexión. En Windows la captura programada funciona mientras Radar está abierto; si falla la ventana puede abrirse el navegador y el registro queda en desktop.log. Computrabajo usa un conector nativo sin Node; si el portal bloquea la consulta, se informa el error y continúan las otras fuentes.
 
 ### perfil
 
@@ -112,7 +120,19 @@ El perfil tiene nombre, formación, áreas que buscas, ubicaciones, modalidad y 
 
 ### carrera
 
-Si tu carrera no está en la lista, créala en el primer inicio o en Ajustes: indicas tus áreas de trabajo con palabras clave y las skills que quieres buscar; se guarda en tu equipo, junto a tu base de datos. La carrera activa define las áreas, competencias, señales de título y pesos con que se clasifican las ofertas nuevas (hoy: Ingeniería Industrial y Contabilidad). Cambiarla afecta a las ofertas que se ingesten desde ese momento; las ya guardadas conservan su clasificación. Se cambia en Ajustes.
+En el mapa, abre Filtros → Mercado para alternar entre Ingeniería Industrial, Sistemas/Software y Mecánica (experimental). Industrial y Sistemas son los mercados principales. Mecánica tiene reglas propias para mantenimiento, diseño, manufactura, sistemas térmicos y proyectos; todavía requiere más revisión de ofertas reales. La elección se guarda automáticamente en ese navegador. Cada mercado tiene sus áreas, competencias y clasificaciones independientes; una oferta puede pertenecer a ambos sin duplicarse. Cambiar de mercado muestra todas sus áreas, con puestos del núcleo y relacionados de los últimos 7 días, y limpia filtros anteriores que podrían ocultar ofertas. No modifica tu formación real ni inicia una captura.
+
+La clasificación de Sistemas exige un título profesional o funciones digitales concretas. Usar SAP o Power BI no basta: configurar módulos, desarrollar aplicaciones o construir dashboards sí aporta evidencia. La infraestructura física y los contenedores marítimos no se interpretan como cloud o DevOps. El texto explícito de la empresa y los beneficios se separan del puesto; los requisitos se conservan como conocimientos, pero no sustituyen las funciones. «Todo el mercado» excluye ofertas ajenas; puedes incluirlas explícitamente desde Relevancia para revisar la clasificación. La afinidad con un mercado no garantiza que acepten tu carrera ni que cumplas la experiencia requerida.
+
+El panel muestra solo Mercado y la búsqueda. Despliega «Filtrar ofertas» para ajustar relevancia, área, seniority, modalidad, antigüedad, portal o competencia. Mientras se cargan las ofertas aparece un indicador de carga; un error de lectura se informa como error y no como una base vacía.
+
+En Ajustes → Búsqueda puedes actualizar Industrial, Sistemas o ambos y editar preferencias avanzadas por mercado. Favoritos, postulaciones, archivo y tu experiencia real son compartidos. Las herramientas de consulta del agente usan el mercado, periodo, competencia y zona o radio que estás viendo; también pueden consultar otro mercado si lo pides. Tu formación sigue siendo una sola. El puntaje de encaje existente se identifica como de la carrera de referencia; no se presenta como un puntaje nuevo de Sistemas. Análisis SQL libre y las fotografías históricas conservan su alcance general o de referencia. Si tu carrera no está incluida, puedes crear un pack desde Ajustes.
+
+Las ofertas con publicación cerrada o vencida salen de las oportunidades del mapa, búsquedas, competencias y recomendaciones. Se conservan en la base y siguen accesibles desde favoritos, postulaciones o su detalle. «Vigencia sin verificar» indica que no hay confirmación: no significa cerrada. El detalle muestra el estado de publicación separado de tu postulación. Los últimos 7 días visibles son hoy y los seis días anteriores según la fecha de Lima; la captura mantiene su ventana de solapamiento.
+
+### encaje
+
+El encaje muestra un rango de puntos respaldados y cobertura de datos, no una probabilidad de contratación. Compara la descripción con tu carrera y grado, experiencia con fechas y niveles autodeclarados de herramientas, además de tus preferencias. Los datos desconocidos no se dan por cumplidos. Los meses de trabajos simultáneos no se cuentan dos veces; experiencia ajena no acredita automáticamente la especialidad solicitada. «Afines» queda por revisar si no incluye tu carrera expresamente. Un certificado no acredita por sí solo un nivel avanzado. El detalle del agente explica las citas y requisitos pendientes. En CVs y Hoy verás el rango; CVs muestra también la cobertura. Cambiar estudios o experiencia recalcula el encaje; los puntajes desactualizados se excluyen de las recomendaciones actuales. El cálculo sigue siendo de la carrera de referencia.
 
 ### pesos
 
@@ -131,6 +151,12 @@ En la ventana del agente escribe `/` para ver los comandos (Tab completa, ↑↓
 La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Callao, y ciudades del resto del país) con la cantidad de ofertas. Toca un punto o elige un lugar de referencia y un radio (2, 5, 10, 25 o 100 km, o Todo Perú): abajo verás las ofertas de la más cercana a la más lejana. La distancia es entre centroides de distrito o ciudad, así que es aproximada; un punto punteado y "dpto." significan que la oferta solo indica el departamento y se ubica en su capital. El mapa carga los mosaicos de un servidor externo (OpenStreetMap), que ve qué zona miras. El mapa completo de escritorio (distritos y radar) está en Ajustes → modo avanzado, y ahí también Análisis (consultas SQL de solo lectura) y CVs (tus brechas contra los puestos con ★).
 
 ### actualizar
+
+En Ajustes → Búsqueda → Mercado puedes actualizar Industrial, Sistemas o ambos. La captura corre en tu equipo y muestra progreso y búsquedas con error; puedes cambiar de mercado mientras sigue trabajando. Las ofertas nuevas o modificadas se clasifican para ambos mercados.
+
+Cada búsqueda conserva su consulta, fuente, lugar y mercados solicitados, incluso cuando falla o agota el tiempo. Una descarga tardía ya no puede insertar ofertas después del error. La URL o identificador del portal conserva la identidad de una oferta aunque cambie su título o ubicación; las publicaciones distintas se mantienen separadas. Una descripción vacía no borra la anterior. Los conflictos históricos se conservan para revisión, sin borrar ofertas ni postulaciones.
+
+La captura programada puede configurarse para ambos mercados. En el planificador interno, un fallo no cuenta como actualización exitosa y se distingue el último intento del último éxito; si seguía pendiente, reintenta después de 15 minutos. El temporizador de systemd mantiene su propia frecuencia.
 
 En Ajustes → "Actualizar mercado ahora" Radar busca ofertas de tu carrera en tus ubicaciones (Computrabajo, Bumeran, Empleos Perú y, si está instalado, Indeed/LinkedIn) y recalcula tu puntaje; tarda unos minutos y se ejecuta en tu equipo. También puedes usar el refresco programado o `radar ingest`. El agente puede lanzar esa captura para un distrito o ciudad (refresh_market, con tu confirmación) y contarte el avance; no postula ni contacta a nadie. Si "Hoy" está vacío, actualiza el mercado.
 

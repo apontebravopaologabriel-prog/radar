@@ -101,3 +101,24 @@ def test_bumeran_and_empleos_peru_map_to_rawjob():
     assert ep_jobs[0].source == "Empleos Perú"
     assert ep_jobs[0].salary_min == 1800.0
     assert ep_jobs[0].salary_currency == "PEN"
+
+
+def test_native_computrabajo_cards_and_public_detail():
+    from radar.sources.computrabajo_native import cards, detail
+
+    html = '''<article class="box_offer" data-id="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"><h2><a class="js-o-link" href="/ofertas-de-trabajo/oferta-1#detalle">Ingeniero mecánico</a></h2><a offer-grid-article-company-url="1">ACME</a><p class="fs16 fc_base mt5"><span class="mr10">Bellavista, Callao</span></p><p class="fs13 fc_aux">Hoy</p></article>'''
+    [card] = cards(html)
+    assert card['url'] == 'https://pe.computrabajo.com/ofertas-de-trabajo/oferta-1'
+    assert card['location'] == 'Bellavista, Callao' and card['publishedDate'] == 'Hoy'
+    payload = detail({'o': {'ld':'<p>Diseñar componentes</p><p>SolidWorks</p>', 't':'Ingeniero', 'lha':'https://candidato.pe.computrabajo.com/apply'}})
+    assert payload['description'] == 'Diseñar componentes\nSolidWorks' and 'applyUrl' not in payload
+
+
+def test_native_computrabajo_challenge_is_an_error_not_empty_market():
+    import pytest
+
+    from radar.sources.computrabajo_native import cards
+
+    with pytest.raises(RuntimeError, match='tarjetas'):
+        cards('<html><title>Verify you are human</title></html>')
+    assert cards('<html>No se encontraron ofertas</html>') == []

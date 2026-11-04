@@ -35,3 +35,12 @@ Radar uses open-source libraries (FastAPI, Next.js, MapLibre, Leaflet, pypdfium2
 own licenses; see each package. Map data © OpenStreetMap contributors, served by OpenFreeMap.
 
 Radar is not affiliated with Indeed, LinkedIn, Computrabajo, Bumeran, or Empleos Perú.
+
+## Computrabajo transport (2026-11-04)
+
+The default is native Python HTTP for public search cards and public offer detail, with bounded downloads,
+no portal cookies and no application/profile actions. `sources/computrabajo_native.py` documents the
+parser. The public markup/field conventions were reviewed against `mcp-computrabajo` 1.0.0 (MIT); see
+[upstream package](https://www.npmjs.com/package/mcp-computrabajo). The Node distribution is not bundled.
+Legacy MCP is explicit opt-in and still requires the user's configured runtime. HTTP 403 or challenge
+pages are isolated source failures; Radar does not bypass them or treat them as a successfully empty market.

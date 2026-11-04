@@ -14,7 +14,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from radar.careers import active_pack
+from radar.careers import active_pack, load_pack
 
 STEP_TIMEOUT = 180
 DEFAULT_MAX_AGE_DAYS = 10
@@ -82,6 +82,7 @@ def run_capture(
     computrabajo: bool | None = None,
     log: Callable[[str], None] = lambda line: print(line, flush=True),  # sin búfer: `tail -f refresh.log` ve el avance
     step_timeout: float = STEP_TIMEOUT,
+    market_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     from radar.db.repository import capture_market_snapshot, expire_stale_jobs, repair_data_quality
     from radar.liveness import check_application_status
@@ -90,8 +91,24 @@ def run_capture(
 
     age = max_age_days if max_age_days is not None else int(os.getenv("RADAR_MAX_AGE_DAYS", DEFAULT_MAX_AGE_DAYS))
     use_computrabajo = computrabajo if computrabajo is not None else _flag("RADAR_COMPUTRABAJO_ENABLED", True)
-    pack = active_pack()
-    steps = plan_steps(_cities(cities), use_computrabajo, pack.market_queries, pack.queries)
+    from radar.settings import get_json_setting
+
+    selected = market_ids or get_json_setting("capture_market_ids", []) or [active_pack().id]
+    packs = [load_pack(key) for key in dict.fromkeys(selected)]
+    planned = [plan_steps(_cities(cities), use_computrabajo, p.market_queries, p.queries) for p in packs]
+    steps = []
+    # Interleave packs so a limited run does not systematically starve the second market.
+    by_key = {}
+    for i in range(max((len(p) for p in planned), default=0)):
+        for pack, plan in zip(packs, planned, strict=True):
+            if i >= len(plan):
+                continue
+            step = plan[i]
+            key = (step["source"], step["query"], step["location"])
+            if key not in by_key:
+                by_key[key] = {**step, "market_ids": []}
+                steps.append(by_key[key])
+            by_key[key]["market_ids"].append(pack.id)
     failed: list[str] = []
     created = 0
 
@@ -106,12 +123,13 @@ def run_capture(
             failed.append(label)
             return None
 
-    log(f"{datetime.now(UTC).isoformat(timespec='seconds')} Radar capture: career={pack.id} max_age_days={age} steps={len(steps)}")
+    log(f"{datetime.now(UTC).isoformat(timespec='seconds')} Radar capture: markets={','.join(p.id for p in packs)} max_age_days={age} steps={len(steps)}")
     for step in steps:
         where = "" if step["location"] == "Lima" else f" [{step['location']}]"
         stats = run_step(
             f"{step['source']}{where}: {step['query']}",
-            lambda s=step: run_ingestion(s["source"], s["query"], s["location"], s["limit"], age),
+            lambda s=step: run_ingestion(s["source"], s["query"], s["location"], s["limit"], age,
+                                         search_timeout=step_timeout, market_ids=s["market_ids"]), limited=False,
         )
         if isinstance(stats, dict):
             created += int(stats.get("created", 0))
@@ -120,7 +138,10 @@ def run_capture(
     run_step("quality: check-applications", lambda: check_application_status(int(os.getenv("RADAR_LIVENESS_CHECK_LIMIT", DEFAULT_LIVENESS_LIMIT))), limited=False)
     run_step("market: snapshot", capture_market_snapshot, limited=False)
     run_step("backup: sqlite", backup_database, limited=False)
-    summary = {"steps": len(steps), "failed": failed, "created": created}
+    source_failures = sum(1 for label in failed if not label.startswith(("quality:", "market:", "backup:")))
+    summary = {"steps": len(steps), "failed": failed, "created": created,
+               "source_successes": len(steps) - source_failures,
+               "status": "success" if not failed else "failed" if source_failures == len(steps) else "partial"}
     log(f"SUMMARY: {len(failed)} step(s) failed: {', '.join(failed)}" if failed else "SUMMARY: all steps completed")
     log(datetime.now(UTC).isoformat(timespec="seconds"))
     return summary

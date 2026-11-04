@@ -1,0 +1,15 @@
+{
+  "industrial_engineering": ["ingenieria industrial", "ing industrial", "industrial engineering"],
+  "industrial_administration": ["administracion industrial", "administrador industrial"],
+  "systems": ["ingenieria de sistemas", "ingenieria en sistemas", "ing de sistemas", "ingenieria informatica", "informatica", "systems engineering"],
+  "software": ["ingenieria de software", "software engineering", "ciencias de la computacion", "computer science"],
+  "administration": ["administracion de empresas", "administracion y negocios", "business administration"],
+  "accounting": ["contabilidad", "contador publico", "accounting"],
+  "economics": ["economia", "economics"],
+  "mechanical": ["ingenieria mecanica", "mechanical engineering"],
+  "electrical": ["ingenieria electrica", "ingenieria electronica"],
+  "civil": ["ingenieria civil", "civil engineering"],
+  "medical_technology": ["tecnologia medica", "tecnologo medico"],
+  "medicine": ["medicina humana", "medico cirujano"],
+  "law": ["derecho", "abogado"]
+}
