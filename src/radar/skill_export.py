@@ -12,14 +12,14 @@ from radar import tools
 from radar.help import help_topics, read_help
 
 WORKFLOWS = """\
-## Flujos recomendados
+## Flujos recomendados (mínimas llamadas)
 
-1. **Primera vez:** `get_setup_status` → preguntar lo que falta → `update_profile` (con confirmación).
-2. **Ver qué hay hoy:** `get_today_feed`; para una oferta concreta, `get_job_details` y `explain_job_fit`.
+1. **Entrevistas y análisis profundo de puesto (1 llamada):** `get_interview_dossier(query_or_job_id)` busca incluso en ofertas postuladas u ocultas y devuelve oferta, encaje, brecha determinista, selección de CV y `cv_master`.
+2. **Ver qué hay hoy y detalle:** `get_today_feed` o `search_saved_jobs`; `get_job_details(job_id)` ya incluye el desglose completo de encaje (`fit`).
 3. **Por zona:** `find_jobs_near(place, radius_km)`; el lugar puede ser un distrito de Lima o una ciudad del Perú.
-4. **Qué aprender:** `plan_learning` y `get_skill_demand`; el detalle por oferta con `explain_job_fit`.
-5. **Preguntas abiertas de datos:** `get_data_schema` y luego `run_readonly_sql` (solo SELECT/WITH).
-6. **Seguimiento:** `track_job_application`, `favorite_job` (escrituras: confirmar con la persona antes).
+4. **CV, perfil y qué aprender:** `get_my_cv` (incluye CV maestro y perfil de skills), `get_closure_plan` y `get_skill_demand`.
+5. **Preguntas abiertas de datos:** `run_readonly_sql` (solo SELECT/WITH; si falla devuelve el esquema automáticamente).
+6. **Seguimiento e Inbox:** `track_job_application`, `favorite_job`, `import_job_url` (escrituras: confirmar con la persona antes).
 """
 
 RULES = """\
@@ -66,7 +66,7 @@ def render() -> str:
         "| Herramienta | Tipo | Qué hace | Parámetros |",
         "|---|---|---|---|",
     ]
-    for t in tools.REGISTRY.values():
+    for t in tools.mcp_tools():
         summary = t.description.splitlines()[0].replace("|", "\\|")
         lines.append(f"| `{t.name}` | {'escribe' if t.write else 'lee'} | {summary} | {_params(t)} |")
     lines += ["", WORKFLOWS, RULES, "## Ayuda del producto", ""]

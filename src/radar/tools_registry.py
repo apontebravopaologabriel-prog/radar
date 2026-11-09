@@ -37,6 +37,11 @@ class Tool:
             # El modelo decide qué omitir por `required` (o su ausencia), no por el valor por defecto:
             # Tool.call() ya lo aplica al ejecutar. Quitarlo ahorra bytes en cada mensaje sin cambiar nada.
             prop.pop("default", None)
+            any_of = prop.get("anyOf")
+            if isinstance(any_of, list) and len(any_of) == 2 and {"type": "null"} in any_of:
+                non_null = next(item for item in any_of if item != {"type": "null"})
+                prop.pop("anyOf")
+                prop.update(non_null)
         return schema
 
     def call(self, arguments: dict[str, Any]) -> dict:
@@ -109,6 +114,45 @@ def tool(*, write: bool = False, chat: bool = True):
 
 def chat_tools() -> list[Tool]:
     return [t for t in REGISTRY.values() if t.chat]
+
+
+# Superficie curada para el servidor MCP externo (Antigravity, Claude Code, etc.).
+# Excluye herramientas acopladas a la UI web (get_help, get_setup_status, cv_doc_*, memoria del chat interno),
+# alias duplicados (build_cv, explain_job_fit, get_user_profile, get_my_profile, plan_learning, get_skill_impact,
+# get_market_summary, list_recommended_jobs) y escrituras administrativas pesadas sin tarjeta de confirmación.
+MCP_TOOLS: frozenset[str] = frozenset({
+    # War-Room, exploración y detalle de ofertas (con fit integrado)
+    "get_interview_dossier",
+    "get_today_feed",
+    "search_saved_jobs",
+    "find_jobs_near",
+    "get_job_details",
+    "compare_jobs",
+    # Seguimiento e Inbox
+    "track_job_application",
+    "favorite_job",
+    "list_job_applications",
+    "import_job_url",
+    # CV, perfil y cierre de brechas
+    "get_my_cv",
+    "update_cv",
+    "update_profile_fields",
+    "get_closure_plan",
+    "close_gap",
+    "prepare_application",
+    # Inteligencia de mercado y SQL
+    "get_market_breakdown",
+    "get_skill_demand",
+    "get_salary_stats",
+    "get_place_profile",
+    "run_readonly_sql",
+    # Diagnóstico
+    "health",
+})
+
+
+def mcp_tools() -> list[Tool]:
+    return [t for t in REGISTRY.values() if t.name in MCP_TOOLS and not (t.write and not t.chat)]
 
 
 # Grupos que el chat carga bajo demanda con `load_tools`: sus esquemas pesan en cada mensaje y casi nunca

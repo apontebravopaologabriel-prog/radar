@@ -59,13 +59,19 @@ def search_saved_jobs(
     area: str | None = None,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
     search: str | None = None,
+    work_mode: str | None = None,
+    min_salary: float | None = None,
+    max_salary: float | None = None,
+    place: str | None = None,
+    skill: str | None = None,
+    relevance_tier: str | None = None,
     sector: str | None = None,
     exclude_sector: str | None = None,
     include_applied: bool = False,
     include_hidden: bool = False,
 ) -> dict:
-    """Busca ofertas del mercado. Excluye cerradas, postuladas y ocultas. `search`: texto (centra `snippet` en la
-    coincidencia dentro de la descripción); `exclude_sector`: sectores separados por coma. Devuelve IDs y enlaces."""
+    """Busca ofertas activas (excluye cerradas, postuladas y ocultas). Filtra por `min_salary`/`max_salary` (S/), `place`,
+    `work_mode`, `skill`, `area`, `seniority`, `relevance_tier`, `sector`, `exclude_sector` (coma) y `search` (centra `snippet`)."""
     limit = min(max(limit, 1), 30)
     excluded = [x.strip() for x in (exclude_sector or "").split(",") if x.strip()]
     jobs = list_jobs(
@@ -74,6 +80,11 @@ def search_saved_jobs(
         area,
         max_age_days,
         search=search,
+        work_mode=work_mode,
+        min_salary=min_salary,
+        max_salary=max_salary,
+        skill=skill,
+        relevance_tier=relevance_tier,
         sector=sector,
         exclude_sectors=excluded or None,
         include_applied=include_applied,
@@ -126,23 +137,20 @@ def find_jobs_near(
     include_applied: bool = False,
     include_hidden: bool = False,
 ) -> dict:
-    """Ofertas en un radio (km) de un distrito o ciudad por cercanía. Excluye postuladas u ocultas salvo
-    `include_applied` o `include_hidden`. En `by_place`, `precision` "district" es distrito real; "city"/"department"
-    son ofertas sin distrito específico."""
+    """Ofertas en un radio (km) de un distrito o ciudad. Excluye postuladas/ocultas salvo `include_applied` o
+    `include_hidden`. `precision`: district, city o department."""
     return nearby(place, radius_km, limit, include_applied=include_applied, include_hidden=include_hidden)
 
 
 @tool()
 def get_job_details(job_id: str) -> dict:
-    """Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de
-    encaje y tu seguimiento. Los ids salen de search_saved_jobs, get_today_feed o find_jobs_near."""
+    """Ficha completa de una oferta: descripción, skills, salario, ubicación, seguimiento y desglose de encaje (`fit`)."""
     return insights.job_details(job_id)
 
 
 @tool()
 def explain_job_fit(job_id: str) -> dict:
-    """Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y
-    las que faltan."""
+    """Desglose del puntaje de encaje: aporte por dimensión, skills que coinciden y faltantes."""
     return insights.explain_fit(job_id)
 
 
@@ -163,15 +171,13 @@ def get_skill_demand(area: str | None = None, max_age_days: int = 30, limit: int
 def get_market_breakdown(by: str, max_age_days: int = 14, limit: int = 10, area: str | None = None,
                          place: str | None = None, sector: str | None = None, exclude_sector: str | None = None,
                          search: str | None = None) -> dict:
-    """Cuenta ofertas del mercado por area/place/company/work_mode/seniority/sector/source.
-    `exclude_sector`: varios con coma. En place, precision city/department no es un distrito."""
+    """Cuenta ofertas por area/place/company/work_mode/seniority/sector/source (`exclude_sector` con coma)."""
     return insights.market_breakdown(by, max_age_days, limit, area, place, sector, exclude_sector, search)
 
 
 @tool()
 def get_place_profile(place: str, max_age_days: int = 30) -> dict:
-    """Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad,
-    seniority, salario mediano y señales de producción. Úsala cuando la persona pregunte por el distrito seleccionado."""
+    """Radiografía de un distrito o ciudad: ofertas de ese lugar, áreas, empresas, modalidad, seniority y salario mediano."""
     return insights.place_profile(place, max_age_days)
 
 
@@ -202,9 +208,7 @@ def get_data_schema() -> dict:
 
 @tool()
 def run_readonly_sql(sql: str) -> dict:
-    """SELECT/WITH, máx. 50 filas; último recurso. Alcance no verificado: no equivale a esta vista.
-    Clasificación por mercado: job_market_classifications (job_id,market_id,areas,skills,relevance_tier).
-    El error incluye el esquema. Prefiere herramientas de mercado para conteos y vigencia."""
+    """SELECT/WITH en SQLite (máx. 50 filas; último recurso). Empresa: `LEFT JOIN companies c ON c.id=j.company_id` (`c.name`, no existe `j.company`); fechas SQLite: `date('now','-7 days')` (no `INTERVAL`). Clasificación por mercado: `job_market_classifications m ON m.job_id=j.id AND m.market_id='...'` (`m.relevance_tier`, `m.areas`, `m.skills`). Prefiere `search_saved_jobs`."""
     return {**insights.readonly_sql(sql), "query_scope": "unscoped_sql"}
 
 

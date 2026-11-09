@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
+from functools import cache
 
 from radar.domain.models import RawJob
 from radar.normalize import normalize_text
@@ -48,20 +49,47 @@ def _tokens(text: str) -> set[str]:
     return {t for t in re.findall(r"\w+", text) if len(t) > 2 or t == "bi"}
 
 
+@cache
+def _legacy_area_map() -> dict[str, set[str]]:
+    from radar.careers import list_packs
+
+    mapping: dict[str, set[str]] = {}
+    for pack in list_packs():
+        for old_name, new_name in pack.legacy_area_aliases.items():
+            mapping.setdefault(normalize_text(old_name), set()).add(normalize_text(new_name))
+    return mapping
+
+
 def area_matches(job_area: str | None, desired_areas: set[str]) -> bool:
     """El área de la oferta coincide con lo que la persona escribió, aunque sea texto libre.
 
     "Procesos y mejora continua" cubre las áreas Procesos y Mejora continua; "Data/BI y reporting"
-    cubre Data / BI. Coincide si el nombre del área es igual, está contenido o si todas sus palabras
-    significativas aparecen en la frase.
+    cubre Data / BI; y nombres cortos como "Operaciones", "Logística" o "Compras" cubren las áreas
+    compuestas del paquete ("Operaciones y productividad", "Supply Chain, logística y compras") y
+    sus `legacy_area_aliases`.
     """
     if not job_area:
         return False
     area = normalize_text(job_area)
     area_tokens = _tokens(area)
-    for phrase in desired_areas:
-        if area == phrase or area in phrase or (area_tokens and area_tokens <= _tokens(phrase)):
+    legacy_map = _legacy_area_map()
+    for raw_phrase in desired_areas:
+        phrase = normalize_text(raw_phrase)
+        if not phrase:
+            continue
+        phrase_tokens = _tokens(phrase)
+        if (
+            area == phrase
+            or area in phrase
+            or phrase in area
+            or (area_tokens and area_tokens <= phrase_tokens)
+            or (phrase_tokens and phrase_tokens <= area_tokens)
+            or area in legacy_map.get(phrase, set())
+        ):
             return True
+        for alias_key, targets in legacy_map.items():
+            if area in targets and _tokens(alias_key) and _tokens(alias_key) <= phrase_tokens:
+                return True
     return False
 
 

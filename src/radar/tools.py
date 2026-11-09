@@ -73,11 +73,13 @@ from radar.tools_profile import (
 )
 from radar.tools_registry import (
     MARKET_READS,
+    MCP_TOOLS,
     REGISTRY,
     TOOL_GROUPS,
     Tool,
     chat_tools,
     group_of,
+    mcp_tools,
     tool,
 )
 from radar.tools_system import (
@@ -95,6 +97,7 @@ from radar.tools_system import (
 
 __all__ = [
     "MARKET_READS",
+    "MCP_TOOLS",
     "PREVIEWS",
     "REGISTRY",
     "TOOL_GROUPS",
@@ -145,6 +148,7 @@ __all__ = [
     "list_job_applications",
     "list_recommended_jobs",
     "list_targets",
+    "mcp_tools",
     "plan_learning",
     "prepare_application",
     "preview_cv",

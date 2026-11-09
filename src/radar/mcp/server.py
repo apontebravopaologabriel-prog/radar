@@ -10,7 +10,7 @@ from mcp.types import ToolAnnotations
 from radar.help import help_topics, read_help
 from radar.insights import data_schema
 from radar.settings import get_setting
-from radar.tools import REGISTRY
+from radar.tools import mcp_tools
 
 load_dotenv()
 
@@ -31,16 +31,18 @@ MCP_INSTRUCTIONS = (
     "Radar es el observatorio de inteligencia laboral e Inbox de triaje de Paolo en SQLite "
     "(~/.local/share/radar/radar.db + cv_master.json), articulado con /home/paolo/Documents/Work/Postulaciones/<Empresa>/ "
     "(War-Room en Markdown para preparación de entrevistas y narrativa STAR).\n\n"
-    "PROTOCOLO RÁPIDO PARA AGENTES EXTERNOS (Antigravity, Claude Code, Pi):\n"
+    "PROTOCOLO DE MÁXIMA EFICIENCIA (MÍNIMAS LLAMADAS) PARA AGENTES EXTERNOS (Antigravity, Claude Code):\n"
     "1. PREPARACIÓN DE ENTREVISTAS Y NARRATIVA (1 sola llamada): Usa `get_interview_dossier(query_or_job_id)` cuando "
     "la persona pida preparar una entrevista, guion STAR o análisis de una empresa/puesto. Busca automáticamente "
     "incluso en ofertas ya marcadas como `applied` (postuladas) u ocultas y devuelve en un solo paso la descripción "
-    "congelada de la oferta, puntaje/evidencia de encaje, brecha determinista (`baseline`) y el `cv_master` real.\n"
-    "2. INBOX Y TRIAJE: `search_saved_jobs` y `find_jobs_near` excluyen por defecto ofertas a las que ya postuló "
+    "congelada de la oferta, puntaje/evidencia de encaje (`fit`), brecha determinista (`baseline`) y el `cv_master` real.\n"
+    "2. FICHA Y FIT EN 1 LLAMADA: `get_job_details(job_id)` ya incluye el desglose completo de `fit` (dimensiones, "
+    "evidencia, coincidencias y brechas). `get_my_cv()` ya incluye tanto `cv_master` como el `profile` de skills y áreas.\n"
+    "3. INBOX Y TRIAJE: `search_saved_jobs` y `find_jobs_near` excluyen por defecto ofertas a las que ya postuló "
     "(`applied`) u ocultas (`hidden`). Si buscas una oferta a la que ya postuló, pasa `include_applied=True` o usa "
     "`list_job_applications` / `get_interview_dossier`. Para archivar en el Inbox usa `track_job_application` "
     "(`applied`, `interview`, `ignored`), `favorite_job` o `import_job_url`.\n"
-    "3. REGLAS DE INTEGRIDAD: El puntaje de encaje y la brecha (`baseline`) los calcula el código determinista de Radar; "
+    "4. REGLAS DE INTEGRIDAD: El puntaje de encaje y la brecha (`baseline`) los calcula el código determinista de Radar; "
     "nunca inventes datos en el CV (`update_cv` exige hechos dictados por la persona y `cv_facts` bloquea invenciones). "
     "Antes de ejecutar herramientas de escritura (`readOnlyHint=False`), pide confirmación a la persona."
 )
@@ -65,12 +67,9 @@ def _guarded(fn, name: str):
     return wrapper
 
 
-# Las herramientas viven en radar.tools y son las mismas que usa el agente de chat de la app.
-# Las de escritura marcadas `chat=False` (ingest_jobs, update_profile...) quedan fuera: se excluyeron
-# del chat a propósito por no pasar por una confirmación previa, y aquí tampoco hay dónde pedirla.
-for _tool in REGISTRY.values():
-    if _tool.write and not _tool.chat:
-        continue
+# El servidor MCP expone la superficie curada `mcp_tools()` (22 herramientas de alta cohesión),
+# omitiendo herramientas acopladas a la UI web, alias duplicados y escrituras sin confirmación.
+for _tool in mcp_tools():
     _fn = _guarded(_tool.fn, _tool.name) if _tool.write else _tool.fn
     _annotations = WRITE_TOOL if _tool.write else READ_ONLY
     mcp.tool(name=_tool.name, description=_tool.description, annotations=_annotations)(_fn)

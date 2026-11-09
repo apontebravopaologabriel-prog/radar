@@ -15,13 +15,23 @@ from radar.tools_registry import tool
 
 @tool()
 def get_my_cv() -> dict:
-    """Tu CV real (cv_master): resumen, experiencia, formación, certificaciones, idiomas, herramientas declaradas y
-    brechas de evidencia. Úsala cuando pregunten por tu experiencia, formación, certificaciones o cómo te ves
-    frente a un puesto. Es la fuente sobre tu trayectoria; get_user_profile solo trae skills y preferencias."""
+    """Tu CV real (cv_master) y preferencias de perfil en 1 llamada: resumen, experiencia, formación,
+    certificaciones, idiomas, proyectos, áreas objetivo, modalidades y herramientas declaradas con nivel.
+    Úsala cuando pregunten por tu trayectoria, skills o cómo te ves frente a un puesto."""
+    from radar.db.queries import get_profile
+
     cv = cv_targets.load_profile()
+    profile = get_profile()
     if cv is None:
-        return {"cv": None, "note": "Aún no hay CV cargado. Abre Mi CV para importar un PDF/Word o completar tus datos."}
-    return {"cv": {k: v for k, v in cv.items() if not k.startswith("_") and k != "has_photo"}}
+        return {
+            "cv": None,
+            "profile": profile,
+            "note": "Aún no hay CV cargado. Abre Mi CV para importar un PDF/Word o completar tus datos.",
+        }
+    return {
+        "cv": {k: v for k, v in cv.items() if not k.startswith("_") and k != "has_photo"},
+        "profile": profile,
+    }
 
 
 @tool(write=True)

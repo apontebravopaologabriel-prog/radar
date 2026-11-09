@@ -11,79 +11,37 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 
 | Herramienta | Tipo | Qué hace | Parámetros |
 |---|---|---|---|
-| `get_my_cv` | lee | Tu CV real (cv_master): resumen, experiencia, formación, certificaciones, idiomas, herramientas declaradas y |  |
-| `update_cv` | escribe | Edita tu CV real (Mi CV). section: certifications {name, issuer, date AAAA-MM}, experience {role, | section: string, action: string, item?: object|null, match?: string|null |
-| `get_target_context` | lee | Contexto para redactar CVs objetivo hipotéticos: ofertas (requisitos, skills, descripción, | job_ids: array |
-| `list_targets` | lee | Objetivos actuales (ofertas con estrella) ordenados por cercanía al perfil real, con su brecha |  |
-| `save_target_profile` | escribe | Guarda un CV objetivo HIPOTÉTICO (nunca el CV real ni enviable). `profile` lleva `sections` | job_id: string, profile: object |
+| `get_my_cv` | lee | Tu CV real (cv_master) y preferencias de perfil en 1 llamada: resumen, experiencia, formación, |  |
+| `update_cv` | escribe | Edita tu CV real (Mi CV). section: certifications {name, issuer, date AAAA-MM}, experience {role, | section: string, action: string, item?: object, match?: string |
 | `get_closure_plan` | lee | Plan para cerrar brechas entre tus objetivos (ofertas con estrella): qué skills cerrar primero, cuántos | limit?: integer |
-| `preview_cv` | lee | Vista previa del CV descargable para una oferta, sin escribir archivos: qué se incluye de tu CV real, qué | job_id: string |
-| `build_cv` | escribe | Descarga el CV vigente para una oferta (formats: pdf, docx) a su carpeta de postulación. | job_id: string, formats?: array|null |
-| `cv_doc_get` | lee | Estado del CV de una oferta en el Estudio, tal como lo ve la persona: líneas incluidas (con `id`, texto y de qué cargo | job_id: string |
-| `cv_doc_propose` | lee | Propone cambios al CV de una oferta; NO cambian nada hasta que la persona los acepte en el Estudio (antes/después). | job_id: string, ops: array, note?: string |
-| `prepare_application` | escribe | Prepara la postulación: exporta el CV vigente del Estudio (formats: pdf, docx) a la carpeta de esa oferta, junto con una | job_id: string, formats?: array|null |
-| `list_application_packages` | lee | Postulaciones preparadas: oferta, carpeta, archivos, estado (preparada o enviada) y fechas. Responde «¿qué CV mandé a | limit?: integer |
-| `close_gap` | escribe | Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha | skill: string, kind: string, name: string, issuer?: string|null, date?: string|null, description?: string|null, link?: string|null |
-| `get_target_matrix` | lee | Matriz de brechas entre los CVs objetivo guardados (requisitos con `key` por puesto). |  |
-| `resolve_nearest_districts` | lee | Distritos más cercanos a una zona mencionada en una oferta, con km aproximados. | reference: string, limit?: integer |
+| `prepare_application` | escribe | Prepara la postulación: exporta el CV vigente del Estudio (formats: pdf, docx) a la carpeta de esa oferta, junto con una | job_id: string, formats?: array |
+| `close_gap` | escribe | Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha | skill: string, kind: string, name: string, issuer?: string, date?: string, description?: string, link?: string |
 | `get_interview_dossier` | lee | Dossier completo en 1 sola llamada para preparar entrevistas o narrativa en Markdown: busca la oferta por ID o | query_or_job_id: string |
-| `ingest_jobs` | escribe | Busca e importa ofertas. Nunca postula ni modifica el perfil del usuario. | source: string, query: string, location?: string, limit?: integer, max_age_days?: integer |
 | `health` | lee | Indica que Radar está disponible. |  |
-| `search_saved_jobs` | lee | Busca ofertas del mercado. Excluye cerradas, postuladas y ocultas. `search`: texto (centra `snippet` en la | limit?: integer, seniority?: string|null, area?: string|null, max_age_days?: integer, search?: string|null, sector?: string|null, exclude_sector?: string|null, include_applied?: boolean, include_hidden?: boolean, market_id?: string|null |
-| `get_market_summary` | lee | Devuelve métricas objetivas del mercado almacenado. | market_id?: string|null |
-| `list_recommended_jobs` | lee | Devuelve recomendaciones recientes y verificables con enlace directo. Excluye por defecto postuladas y ocultas. | limit?: integer, max_age_days?: integer, include_applied?: boolean, include_hidden?: boolean, market_id?: string|null |
-| `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer, market_id?: string|null |
-| `find_jobs_near` | lee | Ofertas en un radio (km) de un distrito o ciudad por cercanía. Excluye postuladas u ocultas salvo | place: string, radius_km?: number, limit?: integer, include_applied?: boolean, include_hidden?: boolean, market_id?: string|null |
-| `get_job_details` | lee | Ficha completa de una oferta: descripción, skills exigidas, salario, ubicación, tu puntaje de | job_id: string, market_id?: string|null |
-| `explain_job_fit` | lee | Desglose del puntaje de encaje de una oferta: aporte de cada dimensión, skills que coinciden y | job_id: string, market_id?: string|null |
-| `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array, market_id?: string|null |
-| `get_skill_demand` | lee | Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una. | area?: string|null, max_age_days?: integer, limit?: integer, market_id?: string|null |
-| `get_market_breakdown` | lee | Cuenta ofertas del mercado por area/place/company/work_mode/seniority/sector/source. | by: string, max_age_days?: integer, limit?: integer, area?: string|null, place?: string|null, sector?: string|null, exclude_sector?: string|null, search?: string|null, market_id?: string|null |
-| `get_place_profile` | lee | Radiografía de UN distrito o ciudad: nº de ofertas de ese lugar (no del total), áreas, empresas, modalidad, | place: string, max_age_days?: integer, market_id?: string|null |
-| `compare_places` | lee | Compara dos distritos en volumen, áreas, modalidad, seniority, salario mediano y señales de producción. | place_a: string, place_b: string, max_age_days?: integer, focus?: string|null, market_id?: string|null |
-| `get_salary_stats` | lee | Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran). | area?: string|null, place?: string|null, max_age_days?: integer, market_id?: string|null |
-| `plan_learning` | lee | Skills que más suben tu encaje si las aprendes, con su demanda en el mercado. Base para un plan. | limit?: integer, market_id?: string|null |
-| `get_data_schema` | lee | Tablas y columnas consultables con run_readonly_sql. |  |
-| `run_readonly_sql` | lee | SELECT/WITH, máx. 50 filas; último recurso. Alcance no verificado: no equivale a esta vista. | sql: string |
-| `get_skill_impact` | lee | Simula qué skill faltante sube más el encaje si se aprende (nivel básico). | limit?: integer, market_id?: string|null |
-| `get_job_history` | lee | Devuelve observaciones históricas de una oferta sin borrar registros antiguos. | job_id: string, limit?: integer |
-| `get_market_history` | lee | Consulta snapshots históricos semanales o mensuales del mercado. | limit?: integer |
-| `capture_market_history` | escribe | Guarda una fotografía del mercado activo para comparaciones futuras. | snapshot_date?: string|null |
-| `get_user_profile` | lee | Devuelve el perfil separado de las estadísticas del mercado. |  |
-| `get_user_memory` | lee | Busca memoria durable aprobada por la persona. No incluye el historial completo del chat. | query?: string, limit?: integer |
-| `search_past_conversations` | lee | Busca en tus conversaciones anteriores con el agente (todas las palabras de `query`) y devuelve título, fecha y | query: string, limit?: integer |
-| `remember_user` | escribe | Guarda una preferencia, meta o decisión durable después de que la persona la confirme. | topic_key: string, content: string, memory_type?: string |
-| `get_my_profile` | lee | Tu perfil completo tal como lo ve la persona en Ajustes: nombre, titular, resumen, distrito de casa, contacto, |  |
-| `update_profile_fields` | escribe | Edita SOLO los campos que pases del perfil (lo que se ve y edita en Ajustes); lo demás no se toca. Pasa | name?: string|null, headline?: string|null, summary?: string|null, home_district?: string|null, education?: string|null, contact?: object|null, areas?: array|null, areas_add?: array|null, areas_remove?: array|null, locations?: array|null, locations_add?: array|null, locations_remove?: array|null, work_modes?: array|null, skills?: object|null |
-| `update_profile` | escribe | Crea o actualiza el perfil real. `skills` mapea skill -> none\|basic\|intermediate\|advanced. | name: string, areas: array, locations: array, skills: object, education?: string|null, work_modes?: array|null |
-| `get_career_timeline` | lee | Devuelve la evolución del perfil y los eventos profesionales registrados. | limit?: integer |
-| `record_career_event` | escribe | Registra en la línea de tiempo una meta, nota, entrevista o logro. Certificaciones, empleos y estudios que deban | event_type: string, title: string, description?: string|null, started_on?: string|null, ended_on?: string|null |
-| `list_career_tracks` | lee | Carreras disponibles y la carrera activa (define áreas, competencias y pesos del score). |  |
-| `set_career_track` | escribe | Cambia la carrera activa. Afecta a las ofertas que se ingesten y clasifiquen desde ahora. | career_id: string |
-| `create_career_pack` | escribe | Crea una carrera propia y la activa. `areas` mapea cada área de trabajo a sus palabras clave | name: string, areas: object, skills?: array|null |
+| `search_saved_jobs` | lee | Busca ofertas activas (excluye cerradas, postuladas y ocultas). Filtra por `min_salary`/`max_salary` (S/), `place`, | limit?: integer, seniority?: string, area?: string, max_age_days?: integer, search?: string, work_mode?: string, min_salary?: number, max_salary?: number, place?: string, skill?: string, relevance_tier?: string, sector?: string, exclude_sector?: string, include_applied?: boolean, include_hidden?: boolean, market_id?: string |
+| `get_today_feed` | lee | Ofertas frescas que encajan con el perfil, con el motivo en una línea. Excluye las ocultas | limit?: integer, market_id?: string |
+| `find_jobs_near` | lee | Ofertas en un radio (km) de un distrito o ciudad. Excluye postuladas/ocultas salvo `include_applied` o | place: string, radius_km?: number, limit?: integer, include_applied?: boolean, include_hidden?: boolean, market_id?: string |
+| `get_job_details` | lee | Ficha completa de una oferta: descripción, skills, salario, ubicación, seguimiento y desglose de encaje (`fit`). | job_id: string, market_id?: string |
+| `compare_jobs` | lee | Compara 2 a 4 ofertas: datos clave, encaje, skills comunes y exclusivas de cada una. | job_ids: array, market_id?: string |
+| `get_skill_demand` | lee | Skills más pedidas por el mercado (nº de ofertas y % del total), con tu nivel en cada una. | area?: string, max_age_days?: integer, limit?: integer, market_id?: string |
+| `get_market_breakdown` | lee | Cuenta ofertas por area/place/company/work_mode/seniority/sector/source (`exclude_sector` con coma). | by: string, max_age_days?: integer, limit?: integer, area?: string, place?: string, sector?: string, exclude_sector?: string, search?: string, market_id?: string |
+| `get_place_profile` | lee | Radiografía de un distrito o ciudad: ofertas de ese lugar, áreas, empresas, modalidad, seniority y salario mediano. | place: string, max_age_days?: integer, market_id?: string |
+| `get_salary_stats` | lee | Mínimo, mediana y máximo de los salarios publicados (solo ofertas que los declaran). | area?: string, place?: string, max_age_days?: integer, market_id?: string |
+| `run_readonly_sql` | lee | SELECT/WITH en SQLite (máx. 50 filas; último recurso). Empresa: `LEFT JOIN companies c ON c.id=j.company_id` (`c.name`, no existe `j.company`); fechas SQLite: `date('now','-7 days')` (no `INTERVAL`). Clasificación por mercado: `job_market_classifications m ON m.job_id=j.id AND m.market_id='...'` (`m.relevance_tier`, `m.areas`, `m.skills`). Prefiere `search_saved_jobs`. | sql: string |
+| `update_profile_fields` | escribe | Edita SOLO los campos que pases del perfil (lo que se ve y edita en Ajustes); lo demás no se toca. Pasa | name?: string, headline?: string, summary?: string, home_district?: string, education?: string, contact?: object, areas?: array, areas_add?: array, areas_remove?: array, locations?: array, locations_add?: array, locations_remove?: array, work_modes?: array, skills?: object |
 | `favorite_job` | escribe | Marca o desmarca una oferta con estrella (★). | job_id: string, favorite?: boolean |
-| `track_job_application` | escribe | Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas). | job_id: string, status?: string, notes?: string|null |
+| `track_job_application` | escribe | Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas). | job_id: string, status?: string, notes?: string |
 | `list_job_applications` | lee | Lista postulaciones registradas con su estado y enlace original. | limit?: integer |
 | `import_job_url` | escribe | Importa una oferta por su URL (Computrabajo, LinkedIn, Bumeran, Empleos Perú u otra web) y calcula su encaje. | url: string, title?: string, company?: string, location?: string, description?: string, favorite?: boolean, application_status?: string |
-| `get_setup_status` | lee | Qué falta para dejar Radar listo (perfil, carrera, mercado, clave de IA) y el siguiente paso. |  |
-| `get_help` | lee | Explica cómo usar Radar. Apóyate solo en este texto al explicar funciones; no inventes otras. | topic?: string |
-| `audit_classification` | lee | Solo lectura: verifica si las áreas y la relevancia guardadas coinciden con las reglas vigentes. | sample?: integer, market_id?: string|null |
-| `reclassify_jobs` | escribe | Reclasifica todas las ofertas guardadas con las reglas vigentes (áreas y relevancia). No borra |  |
-| `refresh_market` | escribe | Busca ofertas nuevas enfocadas en un distrito o ciudad (Indeed/LinkedIn y Computrabajo) y las guarda. Corre en | place: string, limit?: integer |
-| `get_refresh_status` | lee | Avance de la captura de ofertas en curso o de la última: pasos hechos, ofertas nuevas y errores. |  |
-| `get_system_status` | lee | Estado del sistema: BD (tamaño, integridad, respaldos), ofertas por tier, última captura, temporizador de |  |
-| `set_refresh_schedule` | escribe | Cambia cada cuántos días corre la captura automática (1-30; 0 la desactiva). `on_boot` añade o quita el | days: integer, on_boot?: boolean|null |
-| `run_maintenance` | escribe | Mantenimiento de la BD. task: backup (copia consistente, guarda las últimas 5), repair_data (completa modalidad, | task: string, days?: integer, limit?: integer |
-| `set_score_weights` | escribe | Ajusta los pesos del puntaje de encaje (claves: area, skills, seniority, education, location, preference; cada | weights: object |
 
-## Flujos recomendados
+## Flujos recomendados (mínimas llamadas)
 
-1. **Primera vez:** `get_setup_status` → preguntar lo que falta → `update_profile` (con confirmación).
-2. **Ver qué hay hoy:** `get_today_feed`; para una oferta concreta, `get_job_details` y `explain_job_fit`.
+1. **Entrevistas y análisis profundo de puesto (1 llamada):** `get_interview_dossier(query_or_job_id)` busca incluso en ofertas postuladas u ocultas y devuelve oferta, encaje, brecha determinista, selección de CV y `cv_master`.
+2. **Ver qué hay hoy y detalle:** `get_today_feed` o `search_saved_jobs`; `get_job_details(job_id)` ya incluye el desglose completo de encaje (`fit`).
 3. **Por zona:** `find_jobs_near(place, radius_km)`; el lugar puede ser un distrito de Lima o una ciudad del Perú.
-4. **Qué aprender:** `plan_learning` y `get_skill_demand`; el detalle por oferta con `explain_job_fit`.
-5. **Preguntas abiertas de datos:** `get_data_schema` y luego `run_readonly_sql` (solo SELECT/WITH).
-6. **Seguimiento:** `track_job_application`, `favorite_job` (escrituras: confirmar con la persona antes).
+4. **CV, perfil y qué aprender:** `get_my_cv` (incluye CV maestro y perfil de skills), `get_closure_plan` y `get_skill_demand`.
+5. **Preguntas abiertas de datos:** `run_readonly_sql` (solo SELECT/WITH; si falla devuelve el esquema automáticamente).
+6. **Seguimiento e Inbox:** `track_job_application`, `favorite_job`, `import_job_url` (escrituras: confirmar con la persona antes).
 
 ## Reglas
 

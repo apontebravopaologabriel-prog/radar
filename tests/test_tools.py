@@ -9,24 +9,29 @@ def _db(tmp_path, monkeypatch):
     monkeypatch.setenv("RADAR_DB_PATH", str(tmp_path / "radar.db"))
 
 
-def test_mcp_exposes_the_shared_registry_minus_unconfirmed_writes():
+def test_mcp_exposes_the_curated_minimal_surface_minus_unconfirmed_writes():
     import asyncio
 
     exposed = {t.name for t in asyncio.run(server.mcp.list_tools())}
     risky = {n for n, t in tools.REGISTRY.items() if t.write and not t.chat}
     assert risky  # si esto queda vacío, el resto del test no prueba nada
-    assert exposed == set(tools.REGISTRY) - risky
+    assert exposed == tools.MCP_TOOLS
+    assert not (exposed & risky)
+    # Cohesión: herramientas núcleo están presentes y las acopladas a la UI/duplicadas quedan fuera del MCP
+    assert {"get_interview_dossier", "search_saved_jobs", "get_my_cv", "track_job_application", "run_readonly_sql"} <= exposed
+    assert not ({"get_help", "get_setup_status", "build_cv", "explain_job_fit", "get_user_memory", "cv_doc_propose"} & exposed)
 
 
 def test_mcp_write_tools_respect_read_only():
     from radar.settings import set_setting
 
-    fn = server.mcp._tool_manager._tools["record_career_event"].fn
+    job_id = _seed_market()[0]["id"]
+    fn = server.mcp._tool_manager._tools["favorite_job"].fn
     set_setting("agent_read_only", "1")
     with pytest.raises(ValueError, match="solo lectura"):
-        fn(event_type="note", title="x")
+        fn(job_id=job_id, favorite=True)
     set_setting("agent_read_only", None)
-    fn(event_type="note", title="x")  # sin el ajuste, escribe normalmente
+    fn(job_id=job_id, favorite=True)  # sin el ajuste, escribe normalmente
 
 
 def test_write_tools_are_classified_and_chat_excludes_risky_ones():

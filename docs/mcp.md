@@ -2,7 +2,7 @@
 
 Radar works fully on its own with the integrated agent ([agent.md](agent.md)). The MCP server is an optional
 door for people who prefer an external agent (Claude Code, Antigravity, Hermes, any MCP client). It exposes
-the same registry the chat uses (`src/radar/tools.py`) over stdio (`radar-mcp`, FastMCP): 58 of its 62 tools (see "Same as the in-app agent?" below). Nothing
+a curated, high-cohesion subset of the registry (`MCP_TOOLS` in `src/radar/tools_registry.py`, 22 tools) over stdio (`radar-mcp`, FastMCP), omitting UI-only tools, duplicate aliases and unconfirmed system writes (see "Same as the in-app agent?" below). Nothing
 is registered or exposed unless you configure a client.
 
 An external agent can combine Radar with other MCP servers (calendar, mail, notes); the integrated agent cannot.
@@ -65,7 +65,7 @@ Same registry and same functions, with these differences:
 
 | | In-app agent | MCP server |
 | --- | --- | --- |
-| Tools | 49 | **58**: the same 49 plus 9 read-only extras (`get_market_summary`, `list_recommended_jobs`, `get_job_history`, `get_skill_impact`, `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts`, `health`) |
+| Tools | 50 (with on-demand groups) | **22 curated tools (`MCP_TOOLS`)**: focused on 1-call War-Room (`get_interview_dossier`), offer triage (`get_today_feed`, `search_saved_jobs`, `find_jobs_near`, `get_job_details`, `compare_jobs`), tracking (`track_job_application`, `favorite_job`, `list_job_applications`, `import_job_url`), CV & gap closure (`get_my_cv`, `update_cv`, `update_profile_fields`, `get_closure_plan`, `close_gap`, `prepare_application`), market analytics (`get_market_breakdown`, `get_skill_demand`, `get_salary_stats`, `get_place_profile`, `run_readonly_sql`) and `health`. UI-coupled tools (`get_help`, `get_setup_status`, `cv_doc_*`, chat memory) and duplicate aliases (`build_cv`, `explain_job_fit`, `get_user_profile`, `plan_learning`) are omitted to maximize tool-selection accuracy and minimize round-trips |
 | Not exposed in either | `ingest_jobs`, `capture_market_history`, `update_profile`, `save_target_profile` (writes that skip the confirmation card; CLI and onboarding only) | |
 | Writes | Always a confirmation card; none in plan or read-only mode | **Run directly**, with no card. Only Radar's read-only setting (`agent_read_only`) blocks them, plus whatever approval the client asks for |
 | Tool loading | `cv`, `perfil`, `sistema` groups load on demand | All tools visible at once (heavier for the client's context) |

@@ -69,8 +69,8 @@ herramienta devuelve una fila "Lima" con `precision` "city" o "department" (o si
 ofertas cuya ubicación no se pudo precisar más allá de la ciudad — nunca la tabules junto a los distritos reales \
 como si fuera uno más; acláralo aparte (p.ej. «642 sin distrito específico») y no la sumes ni la confundas con el \
 total de Lima Metropolitana.
-- Vía más corta: herramientas directas primero (get_market_breakdown y search_saved_jobs admiten filtros por área, \
-lugar, sector, exclusión de sectores y texto; get_place_profile para un distrito; compare_places para dos; \
+- Vía más corta: herramientas directas primero (get_market_breakdown y search_saved_jobs admiten filtros por min_salary, \
+max_salary, place, work_mode, skill, área, seniority, sector, exclusión de sectores y texto; get_place_profile para un distrito; compare_places para dos; \
 get_skill_demand; get_salary_stats; find_jobs_near; get_job_details y explain_job_fit para una oferta). \
 run_readonly_sql solo como último recurso, máximo 2 intentos y sin get_data_schema (los errores traen el esquema). \
 Si tras 3 consultas no tienes lo necesario, responde con lo que hay y di qué falta.
