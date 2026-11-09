@@ -18,7 +18,7 @@ class QueryContext:
 
 
 CURRENT_QUERY: ContextVar[QueryContext | None] = ContextVar("radar_query", default=None)
-FILTERS = {"geo_scope", "market_id", "max_age_days", "area", "seniority", "work_mode", "min_salary",
+FILTERS = {"geo_scope", "market_id", "max_age_days", "area", "seniority", "work_mode", "min_salary", "max_salary",
            "source", "skill", "search", "relevance_tier", "profile_mode", "place", "near", "radius_km",
            "include_applied", "include_hidden"}
 
@@ -43,8 +43,13 @@ def resolve_context(values: dict, base: QueryContext | None = None) -> QueryCont
         result["max_age_days"] = int(result["max_age_days"])
         if not 1 <= result["max_age_days"] <= 365:
             raise ValueError("Antigüedad inválida")
-    if "min_salary" in result:
-        result["min_salary"] = float(result["min_salary"]) if result["min_salary"] != "" else ""
+    for key in ("min_salary", "max_salary"):
+        if key in result and result[key] != "":
+            result[key] = float(result[key])
+            if result[key] < 0:
+                raise ValueError("Sueldo inválido")
+    if result.get("min_salary", "") != "" and result.get("max_salary", "") != "" and result["min_salary"] > result["max_salary"]:
+        raise ValueError("El mínimo no puede superar el máximo")
     return QueryContext(tuple(sorted(result.items())))
 
 

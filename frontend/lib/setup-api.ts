@@ -2,6 +2,8 @@ export type CvEntry = Record<string, string | string[]>;
 export type SetupDraft = {
   career_id: string; name: string; contact: Record<string, string>;
   education: CvEntry[]; experience: CvEntry[]; detected_skills: string[];
+  certifications?: CvEntry[]; projects?: CvEntry[]; languages?: CvEntry[];
+  headline?: string; summary?: string; source_id?: string; base_revision?: string;
   source_text: string; source_name: string; warnings?: string[];
 };
 const base = process.env.NEXT_PUBLIC_RADAR_API_URL || (typeof window !== "undefined" && window.location.port !== "3000" ? window.location.origin : "http://127.0.0.1:8100");
@@ -17,7 +19,9 @@ const json = (method: string, draft: SetupDraft) => ({ method, headers: {"Conten
 export const setupApi = {
   state: () => request<{ completed: boolean; draft: SetupDraft | null }>("/setup"),
   save: (draft: SetupDraft) => request<SetupDraft>("/setup/draft", json("PUT", draft)),
-  confirm: (draft: SetupDraft) => request<{ saved: boolean; warnings: string[] }>("/setup/confirm", json("POST", draft)),
+  confirm: (draft: SetupDraft) => request<{ saved: boolean; warnings: string[]; undo: { backup: string; revision: string } | null }>("/setup/confirm", json("POST", draft)),
+  undoImport: (undo: { backup: string; revision: string }) => request<{ saved: boolean; warnings: string[] }>("/cv/undo-import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(undo) }),
+  changes: (draft: SetupDraft) => request<{ diff: Record<string, { before: unknown; after: unknown }>; revision: string }>("/cv/changes", json("POST", draft)),
   preview: (file: File, career: string) => {
     const data = new FormData(); data.set("file", file); data.set("career_id", career);
     return request<SetupDraft>("/cv/preview", {method: "POST", body: data});

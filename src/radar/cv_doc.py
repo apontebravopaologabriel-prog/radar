@@ -260,6 +260,7 @@ def state(job_id: str) -> dict[str, Any]:
     if over:
         warnings.append(f"El CV ocupa {rendered.pages} páginas y el presupuesto para esta oferta es {final['pages_budget']}: quita líneas o cambia de plantilla.")
     return {
+        "revision": hashlib.sha256(rendered.pdf).hexdigest(),
         "job_id": job_id, "selection": final, "stale_ops": stale,
         "document": {"template": doc["template"], "photo": doc["photo"], "pages_budget": final["pages_budget"], "ops": len(doc["ops"]),
                      "can_undo": bool(doc["ops"]), "can_redo": bool(doc["redo"]), "updated_at": doc["updated_at"]},

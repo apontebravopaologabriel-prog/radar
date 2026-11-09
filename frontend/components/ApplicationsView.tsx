@@ -1,8 +1,10 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { fetchApplications, importJobUrl, removeApplication, updateApplication, type TrackedApplication } from "../lib/api";
+import { importJobUrl } from "../lib/api";
+import { fetchApplications, removeApplication, updateApplication, type TrackedApplication } from "../lib/applications-api";
 import { studioApi, type StudioPackage } from "../lib/cv-studio-api";
+import { PREPARE_CV_EVENT } from "../lib/cv-events";
 import { OPEN_JOB_EVENT } from "./agent/Markdown";
 import "./applications.css";
 
@@ -32,9 +34,6 @@ const MOVES: Record<string, [string, string][]> = {
   rejected: [["applied", "Reabrir postulación"], ["saved", "Mover a guardadas"]],
 };
 
-function daysSince(iso: string | null): number | null {
-  return iso ? Math.max(0, Math.floor((Date.now() - new Date(iso.replace(" ", "T")).getTime()) / 86_400_000)) : null;
-}
 
 function formatDay(iso: string | null): string {
   if (!iso) return "—";
@@ -224,11 +223,11 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
   }
 
   return (
-    <section className="applications-view" aria-label="Postulaciones">
+    <section className="applications-view" aria-label="Historial de postulaciones">
       <header className="applications-head">
         <div>
-          <h2>Postulaciones</h2>
-          <p>Dónde postulaste y en qué va cada proceso. Al marcar «✓ Postulé» en una oferta, sale de tu bandeja activa y pasa a este registro.</p>
+          <h2>Historial de postulaciones</h2>
+          <p>Registro anterior, importación por enlace y exportación. Añadir una solicitud aquí no inicia un proceso.</p>
         </div>
         <div className="applications-toolbar">
           <input
@@ -296,14 +295,13 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
           {query.trim()
             ? "Ninguna postulación coincide con tu búsqueda."
             : tab === "applied"
-              ? "Aún no registras postulaciones. Pulsa «✓» en cualquier tarjeta de oferta o usa «+ Agregar por link»."
+              ? "Este historial está vacío. Puedes importar un registro antiguo con «+ Agregar por link»."
               : "Sin ofertas en este estado."}
         </p>
       )}
       <ul className="applications-list">
         {shown.map((item) => {
           const pkg = packages[item.job_id];
-          const waiting = item.status === "applied" ? daysSince(item.applied_at ?? item.updated_at) : null;
           const workMode = formatWorkMode(item.work_mode);
           const salary = formatAppSalary(item);
           const metaParts = [
@@ -323,7 +321,6 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
                   <strong>{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title} ↗</a> : item.title}</strong>
                 </div>
                 <small>{metaParts.join(" · ")}</small>
-                {waiting !== null && waiting >= 7 && <small className="applications-nudge">Hace {waiting} días sin novedad: considera hacer seguimiento.</small>}
                 {isEditingNote ? (
                   <div className="applications-note-editor">
                     <input
@@ -361,6 +358,7 @@ export default function ApplicationsView({ onContextChange }: { onContextChange?
                 )}
               </div>
               <div className="applications-actions">
+                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(PREPARE_CV_EVENT, { detail: { jobId: item.job_id } }))}>{pkg ? "Revisar CV" : "Preparar CV"}</button>
                 <button type="button" onClick={() => openInMap(item.job_id)} title="Abrir la ficha de esta oferta en el mapa">Ver ficha</button>
                 {(MOVES[item.status] ?? []).map(([status, label]) => <button key={status} type="button" onClick={() => void move(item, status)}>{label}</button>)}
                 <button type="button" className="applications-remove" title="Quita esta oferta del seguimiento y la devuelve a las ofertas activas. No borra la oferta." onClick={() => void remove(item)} onBlur={() => setConfirmRemove(null)}>{confirmRemove === item.job_id ? "¿Seguro?" : "Quitar"}</button>

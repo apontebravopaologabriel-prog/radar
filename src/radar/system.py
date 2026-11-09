@@ -63,13 +63,19 @@ def schedule_status() -> dict[str, Any]:
         next_run, last_run = stamp(row.get("next")), stamp(row.get("last"))
     except (ValueError, TypeError):
         pass
+    from radar.scheduled_capture import next_due, read_state
+
+    persisted = read_state()
+    if persisted and interval and re.fullmatch(r"\d+d", interval.group(1)):
+        next_run = next_due(persisted, int(interval.group(1)[:-1]), datetime.now(UTC)).astimezone().isoformat(timespec="minutes")
+        last_run = persisted.get("completed_at", last_run)
     return {"available": True, "every": interval.group(1) if interval else None,
             "on_boot": on_boot.group(1) if on_boot else None, "state": state, "next_run": next_run, "last_run": last_run}
 
 
 def set_schedule(days: int, on_boot: bool | None = None) -> dict[str, Any]:
     """Cambia la frecuencia de la captura automática (`days` 1-30; 0 la desactiva). `on_boot` añade o quita el
-    disparo 5 min después de cada arranque."""
+    chequeo de vencimiento 5 min después de cada arranque."""
     if _use_internal():
         from radar import scheduler
 
@@ -89,6 +95,8 @@ def set_schedule(days: int, on_boot: bool | None = None) -> dict[str, Any]:
         text = re.sub(r"^OnBootSec=.*\n", "", text, flags=re.MULTILINE)
     elif on_boot is True and not re.search(r"^OnBootSec=", text, re.MULTILINE):
         text = text.replace("[Timer]\n", "[Timer]\nOnBootSec=5min\n", 1)
+    if "OnCalendar=" not in text:
+        text = text.replace("[Timer]\n", "[Timer]\nOnCalendar=hourly\n", 1)
     path.write_text(text, encoding="utf-8")
     _systemctl("daemon-reload")
     _systemctl("enable", "--now", TIMER_UNIT)

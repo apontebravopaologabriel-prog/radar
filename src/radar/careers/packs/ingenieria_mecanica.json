@@ -1,6 +1,6 @@
 {
   "id": "ingenieria_mecanica",
-  "name": "Ingeniería Mecánica (experimental)",
+  "name": "Ingeniería Mecánica",
   "country": "PE",
   "language": "es",
   "areas": {
@@ -444,6 +444,14 @@
     "planner mantenimiento",
     "disenador mecanico",
     "ingeniero manufactura",
-    "ingeniero hvac"
+    "ingeniero hvac",
+    "ingeniero confiabilidad",
+    "supervisor mantenimiento mecanico",
+    "ingeniero proyectos mecanicos",
+    "ingeniero produccion metalmecanica",
+    "ingeniero mecanico solidworks",
+    "ingeniero equipos rotativos",
+    "ingeniero refrigeracion climatizacion",
+    "ingeniero mantenimiento planta"
   ]
 }

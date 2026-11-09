@@ -35,6 +35,7 @@ never executed).
 | `app_settings` | Settings such as the chosen career and `classification_rules_hash` |
 | `agent_usage` | Token usage per month |
 | `conversations` | Saved chat conversations |
+| `agent_pending_proposals` | Server-verified pending write-tool proposals awaiting user confirmation |
 | `agent_memories` (+ FTS tables) | Durable agent memory with text search |
 
 There is no `user_id`: one installation is one user. `application_status` (does the source still accept
@@ -116,3 +117,7 @@ It stores the scoring version, six requirement assessments, skill levels, quotes
 supported lower/upper bounds, coverage, effective weights, market and profile/content hashes. Old rows
 remain readable but are stale. Factual profile edits refresh active canonical scores; no offer, application,
 favorite or CV fact is rewritten by score recomputation. Back up existing databases before bulk recalculation.
+
+## Processes (schema version 4)
+
+The additive `processes` table owns company/title, optional job_id and source_application_id, optional URL, stage, next_step, due_date (local ISO date), notes and timestamps. Job/source uniqueness makes migration idempotent. Interview/offer applications are copied only during the version-4 upgrade; application rows/events remain intact. Closing retains inbox exclusions. Existing databases receive a pre-schema-upgrade backup. No fake jobs or automatic stars are created.

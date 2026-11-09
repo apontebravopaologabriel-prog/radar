@@ -48,6 +48,12 @@ def next_run(now: datetime | None = None) -> datetime | None:
     if interval == 0:
         return None
     last = last_run()
+    completed = get_setting("refresh_last_completed_at")
+    if completed:
+        try:
+            last = datetime.fromisoformat(completed)
+        except ValueError:
+            pass
     due = (last + timedelta(days=interval)) if last else (now or datetime.now(UTC))
     attempted = get_setting("refresh_last_attempt_at")
     if attempted and get_setting("refresh_last_status") in {"failed", "partial"}:
@@ -105,6 +111,8 @@ def _capture() -> None:
             result = run_capture(log=write_log)
         state = result.get("status", "success") if isinstance(result, dict) else "failed"
         set_setting("refresh_last_status", state)
+        if state in {"success", "partial"}:
+            set_setting("refresh_last_completed_at", datetime.now(UTC).isoformat(timespec="seconds"))
         if state == "success":
             set_setting("refresh_last_at", datetime.now(UTC).isoformat(timespec="seconds"))
     except Exception:

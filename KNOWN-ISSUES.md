@@ -10,13 +10,12 @@ than this version meets; they are listed here so nobody finds out the hard way.
 - **The installer is unsigned** (no code-signing certificate), so Windows SmartScreen will warn.
 
 ## Missing from the 1.0 plan
-- No schema versioning or migrations: the database upgrades only through additive runtime changes. Back up
-  (`radar` maintenance → backup) before updating.
-- Computrabajo still needs Node.js (`npx`); there is no native adapter yet.
-- No CV import from Word/PDF: `cv_master.json` is filled by hand or through the agent.
-- No first-run wizard with an automatic first capture.
-- Only two career packs ship (Industrial Engineering, Systems/Software), not three.
-- Backup, restore and data export are not in the UI.
+- Schema upgrades rely on additive runtime migrations tracked via `PRAGMA user_version` (`SCHEMA_VERSION` in `src/radar/db/database.py`); there is no downgrade path. Back up (`radar` maintenance → backup, or Ajustes → Respaldo local de datos) before major updates.
+- Computrabajo now defaults to native Python HTTP (`sources/computrabajo_native.py`), HTML request compatibility was corrected on 2026-11-09 (live HTTP 200 after the original headers returned 403); future HTTP 403/challenges remain explicit source failures; legacy MCP via Node.js (`npx`) remains an opt-in fallback.
+- Local CV import from PDF/DOCX (`cv_import.py`) handles standard text layouts conservatively (no OCR for scanned PDFs; complex layouts may require manual review before confirmation).
+- First-run setup allows choosing a market, importing a CV and triggering capture, though full interactive validation on a clean Windows VM is still pending.
+- Two main career packs ship (Industrial Engineering, Systems/Software), plus Mechanical Engineering as an experimental pack.
+- One-click database backup is available in Ajustes (`POST /api/system/backup`), while full restore and bulk data export are still CLI/manual operations.
 - The map was verified to build and load with MapLibre 6, but not on every GPU/browser; report a blank map if you see one.
 
 ## Behavior to know

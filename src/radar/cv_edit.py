@@ -82,7 +82,7 @@ def _find(section: str, items: list[dict[str, Any]], match: str) -> int:
 
 def _backup_and_write(cv: dict[str, Any]) -> str:
     path = _path()
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
     backup = path.with_name(f"{path.name}.bak-{stamp}")
     if path.exists():  # un CV nuevo (primer guardado) no tiene nada que respaldar
         backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
@@ -116,6 +116,13 @@ def set_fields(updates: dict[str, Any]) -> str | None:
 
 
 def update_cv(section: str, action: str, item: dict[str, Any] | None = None, match: str | None = None) -> dict[str, Any]:
+    from radar.cv_profile import lock
+
+    with lock(str(_path().resolve())):
+        return _update_cv(section, action, item, match)
+
+
+def _update_cv(section: str, action: str, item: dict[str, Any] | None, match: str | None) -> dict[str, Any]:
     if section not in SECTIONS:
         raise ValueError(f"section debe ser una de: {', '.join(SECTIONS)}. Las skills y herramientas se cambian con update_profile.")
     if action not in ACTIONS and section not in TEXT_SECTIONS:

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, AuthRequired, type AgentContext } from "../../lib/mobile-api";
+import { AuthRequired } from "../../lib/http";
+import { api, type AgentContext } from "../../lib/mobile-api";
 import "./mobile.css";
 import AgentView from "./AgentView";
 import Onboarding from "./Onboarding";
@@ -14,7 +15,7 @@ type Tab = "today" | "map" | "pipeline" | "agent" | "settings";
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "today", label: "Hoy", icon: "◉" },
   { id: "map", label: "Mapa", icon: "◎" },
-  { id: "pipeline", label: "Proceso", icon: "☰" },
+  { id: "pipeline", label: "Procesos", icon: "☰" },
   { id: "agent", label: "Agente", icon: "✦" },
   { id: "settings", label: "Ajustes", icon: "⚙" },
 ];

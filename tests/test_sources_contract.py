@@ -102,6 +102,18 @@ def test_bumeran_and_empleos_peru_map_to_rawjob():
     assert ep_jobs[0].salary_min == 1800.0
     assert ep_jobs[0].salary_currency == "PEN"
 
+    ep_ubigeo = EmpleosPeruSource()._to_job({
+        "id": "EP-100",
+        "positionTitle": "Analista de Créditos - Trujillo",
+        "companyName": "ACME",
+        "location": {"COUNTRY": "PE", "DEPARTMENT": "13", "PROVINCE": "1301", "DISTRICT": "130101"},
+        "companyDescription": "Misión corporativa",
+        "jobDescription": "Evaluar cartera",
+    })
+    assert "Trujillo" in (ep_ubigeo.location or "")
+    assert "Evaluar cartera" in (ep_ubigeo.description or "")
+    assert "Empresa: Misión corporativa" in (ep_ubigeo.description or "")
+
 
 def test_native_computrabajo_cards_and_public_detail():
     from radar.sources.computrabajo_native import cards, detail
@@ -122,3 +134,45 @@ def test_native_computrabajo_challenge_is_an_error_not_empty_market():
     with pytest.raises(RuntimeError, match='tarjetas'):
         cards('<html><title>Verify you are human</title></html>')
     assert cards('<html>No se encontraron ofertas</html>') == []
+
+
+def test_native_computrabajo_http_search_keeps_identity_and_enriches(monkeypatch):
+    import httpx
+
+    from radar.sources import computrabajo_native as native
+
+    real_client = httpx.Client
+    requests = []
+    offer_id = "A" * 32
+    def respond(request):
+        requests.append(request)
+        assert "Radar/" in request.headers["user-agent"]
+        assert request.headers["accept-language"].startswith("es-PE")
+        assert "cookie" not in request.headers and "authorization" not in request.headers
+        if request.url.host == "pe.computrabajo.com":
+            assert request.headers["accept"].startswith("text/html")
+            return httpx.Response(200, text=f'''<article class="box_offer" data-id="{offer_id}"><h2><a class="js-o-link" href="/ofertas-de-trabajo/oferta-1">Analista de logística</a></h2><a offer-grid-article-company-url="1">ACME</a><p class="fs16 fc_base mt5"><span class="mr10">Lima</span></p><p class="fs13 fc_aux">Hoy</p></article>''')
+        return httpx.Response(200, json={"o": {"t": "Analista", "ld": "<p>Inventarios y compras</p>"}})
+    monkeypatch.setattr(native.httpx, "Client", lambda **kwargs: real_client(**kwargs, transport=httpx.MockTransport(respond)))
+    [job] = ComputrabajoSource().search("analista logistica", "Lima", 1)
+    assert job.external_id == offer_id and job.published_at is not None
+    assert job.url == "https://pe.computrabajo.com/ofertas-de-trabajo/oferta-1"
+    assert "Inventarios y compras" in job.description
+    assert len(requests) == 2
+
+
+def test_native_computrabajo_http_403_is_not_retried_or_hidden(monkeypatch):
+    import httpx
+    import pytest
+
+    from radar.sources import computrabajo_native as native
+
+    real_client = httpx.Client
+    requests = []
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(403, text="Forbidden")
+    monkeypatch.setattr(native.httpx, "Client", lambda **kwargs: real_client(**kwargs, transport=httpx.MockTransport(respond)))
+    with pytest.raises(httpx.HTTPStatusError):
+        native.search("analista", "Lima", 10)
+    assert len(requests) == 1

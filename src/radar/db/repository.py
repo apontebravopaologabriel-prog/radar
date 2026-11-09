@@ -190,7 +190,9 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None, *, run_id: s
                     job_id = existing[0]
                     stats["duplicates"] += 1
                     conn.execute(
-                        """UPDATE jobs SET updated_at=now(), is_active=TRUE, content_hash=%s,
+                        """UPDATE jobs SET updated_at=now(),
+                        is_active=CASE WHEN COALESCE(NULLIF(%s, 'unknown'), application_status) IN ('closed', 'expired') THEN 0 ELSE 1 END,
+                        content_hash=%s,
                         title=%s,title_normalized=%s,location=COALESCE(%s,location),
                         location_normalized=COALESCE(%s,location_normalized),company_id=COALESCE(%s,company_id),
                         description_raw=%s, description_clean=%s, salary_min=%s, salary_max=%s,
@@ -202,7 +204,7 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None, *, run_id: s
                         application_checked_at=COALESCE(%s, application_checked_at),
                         application_status_source=COALESCE(NULLIF(%s, 'unknown'), application_status_source),
                         published_at=COALESCE(%s, published_at) WHERE id=%s""",
-                        (content_hash(raw), raw.title, normalize_text(raw.title), raw.location or None,
+                        (application_status, content_hash(raw), raw.title, normalize_text(raw.title), raw.location or None,
                          normalize_text(raw.location) if raw.location else None, company_id, raw.description, clean_description(raw.description), salary_min,
                          salary_max, salary_currency, salary_period, salary_source, seniority, work_mode,
                          sector, 0.75 if sector else None, relevance.tier, relevance.score, relevance.evidence,
@@ -454,7 +456,7 @@ def repair_data_quality() -> dict[str, int]:
 
 
 def expire_stale_jobs(stale_after_days: int = 45) -> int:
-    """Desactiva ofertas que ninguna fuente volvió a ver en stale_after_days.
+    """Desactiva ofertas que ninguna fuente volvió a ver en stale_after_days o cerradas/vencidas.
 
     El filtro de frescura de list_jobs ya oculta ofertas viejas de la vista,
     pero is_active nunca bajaba, así que la tabla crecía sin límite. Un valor
@@ -464,12 +466,16 @@ def expire_stale_jobs(stale_after_days: int = 45) -> int:
         cursor = conn.execute(
             """UPDATE jobs SET is_active = 0, updated_at = now()
             WHERE is_active = 1
-            AND NOT EXISTS (
-                SELECT 1 FROM job_sources js
-                WHERE js.job_id = jobs.id
-                AND date(js.last_seen_at) >= date('now', '-' || %s || ' days')
+            AND (
+                application_status IN ('closed', 'expired')
+                OR (published_at IS NOT NULL AND date(published_at) < date('now', '-' || %s || ' days'))
+                OR NOT EXISTS (
+                    SELECT 1 FROM job_sources js
+                    WHERE js.job_id = jobs.id
+                    AND date(js.last_seen_at) >= date('now', '-' || %s || ' days')
+                )
             )""",
-            (stale_after_days,),
+            (stale_after_days, stale_after_days),
         )
         conn.commit()
         return cursor.rowcount

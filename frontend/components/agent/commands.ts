@@ -1,4 +1,6 @@
-import { api, STATUS_LABELS, STATUS_ORDER, type ConversationInfo } from "../../lib/mobile-api";
+import { fetchProcesses, STAGES } from "../../lib/processes-api";
+import { api, type ConversationInfo } from "../../lib/mobile-api";
+import { startRefresh } from "../../lib/refresh-api";
 import { BASE_PROMPT_TOKENS } from "./useAgentChat";
 
 /** Comandos con `/` del agente. Los "local" se resuelven con la API de Radar (sin gastar tokens);
@@ -85,12 +87,11 @@ export const COMMANDS: Command[] = [
       const rows = data.jobs.slice(0, 10).map((j) => `| ${esc(cut(j.title))} | ${esc(cut(j.company, 22))} | ${esc(j.place)} | ${j.precision === "department" ? "dpto." : `${Math.round(j.km)} km`} |`);
       return [`**${data.total}** ofertas a ${km} km de **${data.origin}**`, "", "| Oferta | Empresa | Lugar | Dist. |", "|---|---|---|---|", ...rows].join("\n");
     } },
-  { name: "pipeline", aliases: ["proceso", "tracking"], hint: "Tu seguimiento de postulaciones", kind: "local", run: async () => {
-      const { applications } = await api.applications();
-      if (!applications.length) return "Aún no sigues ninguna oferta. Guarda alguna desde `/today`.";
-      const counts = STATUS_ORDER.map((s) => `${STATUS_LABELS[s]}: **${applications.filter((a) => a.status === s).length}**`).join(" · ");
-      const recent = applications.slice(0, 6).map((a) => `- ${a.title} — ${a.company ?? "—"} \`${a.status}\``);
-      return [counts, "", ...recent].join("\n");
+  { name: "pipeline", aliases: ["proceso", "procesos", "tracking"], hint: "Procesos donde ya hubo respuesta", kind: "local", run: async () => {
+      const processes = await fetchProcesses();
+      const active = processes.filter((p) => p.stage !== "closed");
+      if (!active.length) return "Sin procesos activos. Añade uno en Procesos cuando te contacten.";
+      return [`**${active.length}** procesos activos`, "", ...active.slice(0, 10).map((p) => `- ${esc(p.title)} — ${esc(p.company)} · ${STAGES[p.stage ?? "contact"]}${p.next_step ? ` · ${esc(p.next_step)}` : ""}${p.due_date ? ` · ${p.due_date}` : ""}`)].join("\n");
     } },
   { name: "skills", hint: "Qué skill te sube más el encaje", kind: "local", run: async () => {
       const data = await api.impact();
@@ -163,7 +164,7 @@ export const COMMANDS: Command[] = [
     } },
   { name: "exit", aliases: ["salir", "cerrar", "quit"], hint: "Cierra la ventana del agente", kind: "local", run: async (_a, ctx) => { ctx.close?.(); return null; } },
   { name: "refresh", aliases: ["actualizar"], hint: "Traer ofertas nuevas de tu carrera", kind: "local", run: async () => {
-      const state = await api.startRefresh([]);
+      const state = await startRefresh({});
       return `Actualizando el mercado: ${state.total} búsquedas. Puedes seguir usando Radar; revisa \`/hoy\` en unos minutos.`;
     } },
   { name: "readonly", aliases: ["solo-lectura"], args: "[on|off]", hint: "Impide que el agente guarde cambios", kind: "local", run: async (args, ctx) => {
@@ -264,6 +265,18 @@ export const COMMANDS: Command[] = [
     } },
   { name: "summary", aliases: ["resumen"], hint: "Resumen del mercado de hoy", kind: "prompt", run: async (_a, ctx) => {
       await ctx.send("Resume el mercado de hoy con cifras: get_market_breakdown por área y lugar, y las skills más pedidas.");
+      return null;
+    } },
+  { name: "beneficios", aliases: ["perks", "almuerzo"], args: "[término]", hint: "Busca ofertas con beneficios o requisitos específicos en la descripción", kind: "prompt", run: async (args, ctx) => {
+      const term = args.trim() || "almuerzo, comedor, alimentación cubierta o utilidades";
+      await ctx.send(`Busca en las ofertas activas cuáles mencionan explícitamente «${term}» usando search_saved_jobs y muéstrame las mejores con el fragmento exacto donde lo ofrecen.`);
+      return null;
+    } },
+  { name: "triaje", aliases: ["triage", "inbox"], args: "[distrito]", hint: "Top 5 ofertas activas sin gestionar listas para decidir (★ o 👁)", kind: "prompt", run: async (args, ctx) => {
+      const place = args.trim();
+      await ctx.send(place
+        ? `Hazme un triaje rápido de las 5 mejores ofertas activas cerca de ${place} que aún no haya postulado ni ocultado: puesto, empresa, salario/modalidad y por qué vale la pena o no.`
+        : "Hazme un triaje rápido de las 5 mejores ofertas activas de hoy que aún no haya postulado ni ocultado: puesto, empresa, distrito, salario/modalidad y por qué vale la pena.");
       return null;
     } },
   { name: "importar", aliases: ["import", "link", "agregar"], args: "<url> [postule|fav]", hint: "Importa una oferta desde su link (Computrabajo, LinkedIn, Bumeran…)", kind: "local", run: async (args) => {

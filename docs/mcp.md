@@ -87,6 +87,7 @@ person accepts them in the Studio.
 | `list_recommended_jobs(limit=10, max_age_days=14)` | Active, dated, within range, with link, date, mode, sector, salary, hours; needs a profile. LinkedIn offers additionally need `application_status=open` and a recent check |
 | `get_job_history(job_id, limit=20)` | Time series of one offer |
 | `list_targets()`, `get_target_context(job_ids)`, `get_target_matrix()`, `resolve_nearest_districts(reference, limit=3)` | Read-only target CV data: [cv.md](cv.md#mcp-tools) |
+| `get_interview_dossier(query_or_job_id)` | Single-call interview prep dossier (searches active, applied and hidden offers up to 365 days; returns offer details, fit, deterministic baseline gap, tailored CV selection and `cv_master.json`) |
 
 `search_saved_jobs(limit, seniority, area, max_age_days=14, search, sector, exclude_sector)` excludes hidden
 offers and returns a description excerpt. `run_readonly_sql` accepts only a single `SELECT`/`WITH` (max 50 rows).

@@ -50,9 +50,9 @@ def run_ingestion(
         source = resolve_source(source_name)
         fetch = lambda: list(source.search(query, location, limit))
         if search_timeout is not None:
-            from radar.capture import _run_with_timeout
+            from radar.source_fetch import fetch_jobs
 
-            jobs = _run_with_timeout(fetch, search_timeout)
+            jobs = fetch_jobs(source_name, query, location, limit, search_timeout)
         else:
             jobs = fetch()
         recent_jobs, discarded = filter_recent_jobs(jobs, max_age_days)

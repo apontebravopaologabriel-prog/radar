@@ -2,10 +2,7 @@
 
 ## Context
 
-Radar is a local Career Intelligence app for exploring job offers in Peru (Lima is the main market, plus other
-cities). SQLite (a local file, no server) is the source of truth; FastAPI exposes the API; Next.js builds the
-static frontend that FastAPI serves at `/radar`. UI strings, help text and the agent persona are in Spanish;
-code, comments for new code and docs are in English.
+Radar is a local Career Intelligence app for exploring job offers in Peru (Lima is the main market, plus other cities). SQLite (a local file, no server) is the source of truth; FastAPI exposes the API; Next.js builds the static frontend that FastAPI serves at `/radar`. UI strings, help text and the agent persona are in Spanish; code, comments for new code and docs are in English.
 
 Read before changing behavior, in this order:
 
@@ -18,26 +15,26 @@ Read before changing behavior, in this order:
 
 Backend (`src/radar/`):
 
-- `api.py`: HTTP endpoints, static frontend mount. `api_cv.py` (`/api/cv/*`, read-only), `api_me.py` (profile, photo), `api_agent.py` (chat, mobile API, settings), `auth.py` (access token), `feed.py` (Today feed), `settings.py` (settings, `secrets.json`).
+- `api.py`: HTTP endpoints and static frontend mount. `api_cv.py`: target CV reads, Studio edits and exports. `api_me.py`: profile and photo. `api_agent.py`: chat, applications, processes, mobile API and settings. `auth.py`: access token. `feed.py`: Today feed. `settings.py`: settings and `secrets.json`.
 - `db/`: connection, repository, queries, read-only analytics. Schema: `db/schema_sqlite.sql`.
-- `careers/`: career packs (`packs/*.json`) plus the loader. `classify.py` and `taxonomy.py` are engines that read the active pack; no career-specific rules in Python.
+- `careers/`: career packs (`packs/*.json`) plus the loader (cached by file `mtime_ns`). `classify.py`, `classification_text.py`, `taxonomy.py`, and `markets.py` (per-market projections in `job_market_classifications`) are engines that read the active or requested pack; no career-specific rules in Python.
 - `classify.py`, `normalize.py`, `scoring.py`, `enrichment.py`, `salary.py`, `freshness.py`, `liveness.py`: the deterministic pipeline.
-- `sources/`: portal adapters (`jobspy.py`, `computrabajo.py`). `pipeline.py` and `importers.py` run them; `refresh.py` is the in-app market refresh.
+- `sources/`: portal adapters (`jobspy.py` for Indeed/LinkedIn, `computrabajo.py` + `computrabajo_native.py`, `bumeran.py`, `empleos_peru.py`). `pipeline.py` and `importers.py` run them; `refresh.py` is the in-app market refresh.
 - `geolocation.py`: Lima/Callao districts, cities, departments. Resolution order: city (whole word) → Lima district → department → Lima. A bare "Perú" does not locate. Add cities in `_CITIES`.
-- `tools.py`: the single tool registry (MCP and chat). Each tool declares `write` and `chat`. `TOOL_GROUPS` defines on-demand groups (`cv`, `perfil`, `sistema`).
+- `tools.py` (+ `tools_registry.py`, `tools_market.py`, `tools_profile.py`, `tools_cv.py`, `tools_system.py`): the single tool registry (MCP and chat), split by domain and re-exported through `tools.py`. Each tool declares `write` and `chat`. `TOOL_GROUPS` defines on-demand groups (`cv`, `perfil`, `sistema`).
 - `agent/`: OpenAI-compatible provider, agent loop, memory (`memory.py`), conversation search (`history.py`), persona (`soul.md`, ISE BoK framework). Reference: `docs/agent.md`.
 - `mcp/server.py`: stdio MCP server over the registry. `mcp_config.py` + `api_mcp.py`: "Connect an AI client" (snippets and confirmed install for Claude Desktop, Cursor, Gemini CLI).
-- `capture.py` (`radar refresh`): the scheduled market capture, cross-platform and driven by the active pack. `scheduler.py`: in-process scheduler used where there is no systemd timer. `refresh.py`: the in-app "update now" run (same ingestion, in-process).
+- `capture.py` (`radar refresh`), `scheduled_capture.py`, `source_fetch.py`: the scheduled market capture, cross-platform and driven by the active pack. `scheduler.py`: in-process scheduler used where there is no systemd timer. `refresh.py`: the in-app "update now" run (same ingestion, in-process).
 - `app.py` (`radar-app`): desktop entry (API + window + scheduler, `--smoke`). `paths.py`: OS-specific data/state/frontend folders. `security.py`: Host/Origin guard, headers, file permissions. `settings.py`: settings and secrets (OS credential store on Windows).
 - `insights.py`: read-only queries behind open questions (job card, fit, demand, breakdowns, salaries, SQL). `skill_export.py` generates `docs/skills/radar/SKILL.md`.
-- `cv_targets.py`, `cv_baseline.py`, `cv_plan.py`, `cv_build.py` (deterministic selection), `cv_doc.py` (per-offer document, operations, suggestions), `cv_facts.py` (fact guard), `cv_render.py` (templates, PDF, hit map, page images), `cv_packages.py` (folder per application), `cv_docx.py`, `cv_pdf.py`, `cv_edit.py`, `cv_photo.py`, `profile_edit.py`: CV and profile logic. See `docs/cv.md`.
+- `cv_targets.py`, `cv_baseline.py`, `cv_plan.py`, `cv_build.py` (deterministic selection), `cv_doc.py` (per-offer document, operations, suggestions), `cv_facts.py` (fact guard), `cv_render.py` (templates, PDF, hit map, page images), `cv_packages.py` (folder per application), `cv_docx.py`, `cv_pdf.py`, `cv_edit.py`, `cv_import.py`, `cv_profile.py`, `cv_photo.py`, `profile_edit.py`, `processes.py`: CV, profile and recruitment process logic. See `docs/cv.md`.
 - `maintenance.py`, `system.py`: classification audit/reclassification, system status, systemd timer. Closed action lists, confirmation, backup first; they never delete offers.
 - `help.md` + `help.py`: curated product help; the agent explains the product only from it (`get_help`). Update it when a visible feature changes.
 
 Frontend (`frontend/`):
 
-- `components/RadarClient.tsx`: state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx`, `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
-- `components/ApplicationsView.tsx` (+ `applications.css`): the Postulaciones view. `scripts/copy-maplibre-worker.mjs` (npm `prebuild`) copies the MapLibre 6 worker to `public/maplibre/`, served at `/maplibre`; without it the map is blank. Chat links `radar:job:<id>` open an offer through the `radar:open-job` event (`agent/Markdown.tsx`).
+- `components/RadarClient.tsx` (+ `components/radar/JobCards.tsx`, `components/radar/JobDetailViews.tsx`, `lib/radar-format.tsx`): state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx` (+ `components/analysis.css`), `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
+- `components/ApplicationsView.tsx` (+ `applications.css`): the secondary application history; `ProcessesView.tsx` and `ProcessForm.tsx` implement response-driven follow-up. `scripts/copy-maplibre-worker.mjs` (npm `prebuild`) copies the MapLibre 6 worker to `public/maplibre/`, served at `/maplibre`; without it the map is blank. Chat links `radar:job:<id>` open an offer through the `radar:open-job` event (`agent/Markdown.tsx`).
 - `components/agent/`: shared chat (`useAgentChat`, `AgentChatPanel`) and the desktop window (`AgentDock`, mounted in `app/radar/page.tsx`). Two modes: floating window and panel pinned right (`--agent-dock-w`, container `.radar-stage`). It exists only when the agent is enabled; do not reintroduce a permanent button when it is off (only the link to `/ajustes` remains). `commands.ts` holds the `/` commands (`local` ones use the API and spend no tokens; add one = one entry in `COMMANDS`). `Markdown.tsx` is the safe renderer (no raw HTML, only http/https/mailto links). `RadarMark.tsx` is the agent symbol.
 - `components/CvStudio.tsx` (+ `cv-studio.css`, `lib/cv-studio-api.ts`): the Studio tab; it asks the agent dock to pin itself (`radar:agent-layout` event) and publishes `cvStudio` in the agent context.
 - `components/mobile/` and `app/m/`: the PWA at `/m`. `public/` holds manifest and service worker.
@@ -49,14 +46,14 @@ Frontend (`frontend/`):
 ## Desktop interface contracts
 
 - The main screen is `/radar`, centered on Lima/Callao and the `Districts` view by default.
-- The map fills the background. Controls are floating tools: Filters, Radar, Analysis and CVs. Do not reintroduce a top bar, a bottom bar or map zoom controls.
+- The map fills the background. Controls are floating tools: Filters, Radar, Analysis and CVs. Do not reintroduce a top bar, a bottom bar, map zoom controls or map attribution badges.
 - Monochrome design: black, graphite, grays. No green accents without an explicit product decision.
-- Auto-refresh queries Indeed and LinkedIn through JobSpy and Computrabajo through its MCP adapter; each portal runs isolated so one failure does not stop the refresh.
-- Districts shows compact labels `District · count`; avoid overlapping circles.
-- Radar requires a selected district and offers 2, 5 and 10 km radii. Its selector may open upward and the panel floats bottom-right.
-- Postulaciones (`ApplicationsView.tsx`, ✓ in the rail) is a full-screen view over `/api/applications` and `/api/cv/packages`; the offer detail has a "Ya postulé" button. It only records state; never automate applying.
-- Analysis and CVs replace the map with a full-screen view (no side panel). CVs leaves the left margin free for the toolbar, marks every target CV `HIPOTÉTICO — no enviar` and offers no export. Targets are the ★ offers: do not create another selection mechanism.
-- Offers appear in a floating tray, resizable from the top handle, with internal scroll. Cards keep a compact height even with few offers. The tray also exposes compact icons to toggle favorites, applied (✓, `/api/jobs/applied`) and hidden offers.
+- Auto-refresh queries Computrabajo (native HTTP adapter), Bumeran, Empleos Perú, and Indeed/LinkedIn (through JobSpy) by default. Each portal runs isolated so one failure does not stop the refresh.
+- Districts shows compact labels `District · count` with collision handling and a selector listing every district/count; avoid overlapping circles and a permanent ranking panel.
+- Radar requires a selected district and offers 2, 5 and 10 km radii. Its district selector may open upward; the radius uses a compact select and the panel floats bottom-right. Salary uses optional From/To inputs without preset buttons.
+- Procesos (`ProcessesView.tsx`, ✓ in the rail) is a full-screen optional follow-up over `/api/processes`. Company and role suffice; job linkage is optional. “Me contactaron” opens a confirmation form. `ApplicationsView.tsx` remains secondary history; legacy endpoints keep their meaning. Never automate applying.
+- Analysis and Mi CV replace the map with full-screen views, leaving room for the toolbar. Mi CV edits the real profile and opens offer-specific PDF previews; Studio is optional via "Editar en detalle". Mi CV owns prepared files and contextual comparisons of ★ offers. Historical target CVs remain hypothetical and must never be exported as real CVs. Do not create another target-selection mechanism.
+- Offers appear in a floating tray, resizable from the top handle, with internal scroll. Cards keep a compact height even with few offers. The tray also exposes compact icons to toggle favorites and hidden offers. Cards expose only favorite and archive actions; no application checkbox or p shortcut.
 - Per signal, the source (`Indeed`, `LinkedIn`, …) appears next to the area on hover or focus; the title is the direct link to the original offer and must not open the detail by accident.
 - The company may show a discreet `⌖` icon that opens an external Google Maps search (company + location). Do not turn it into an API integration or auto-draw sites on the map.
 - The filter panel has portal and competency selectors; both reuse the API filters and stay in sync with the map.

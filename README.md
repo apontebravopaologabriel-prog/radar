@@ -20,12 +20,12 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 
 | Area | What it does |
 | --- | --- |
-| Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), hidden offers, `Analysis` (read-only SQL with charts) and `CVs` (gap analysis) |
-| Postulaciones | ✓ in the offer detail records "applied" (undoable); tray tab and full view by status with notes, files per application and follow-up nudges. Radar only records |
+| Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), hidden offers, `Analysis` (read-only SQL with charts) and `Mi CV` (import, profile and offer-specific preparation) |
+| Processes | Optional follow-up after a recruiter response: contact, assessment, interview, offer or closed. Company and role suffice; next step and local date are optional. Previous applications remain in secondary history |
 | Mobile PWA `/m` | `Today` feed, `Map`, `Pipeline` (saved → applied → interview → offer), `Agent`, `Settings`, offline last feed |
 | Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval; offers in its answers link to the map detail. See [docs/agent.md](docs/agent.md) |
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
-| Target CVs and CV Studio | Hypothetical ideal candidate per ★ offer, gap matrix, closure plan; **Studio**: your real CV as pages with the agent beside it, suggestions you accept, PDF/Word export into one folder per application. See [docs/cv.md](docs/cv.md) |
+| My CV | Drop a local PDF/DOCX, review and reuse your information. Prepare a CV from an offer, preview and download; detailed Studio editing is optional. My CV keeps prepared files and starred-offer comparisons. See [docs/cv.md](docs/cv.md) |
 | Refresh & Import | Scheduled or in-app market pull across Computrabajo, Bumeran, Empleos Perú, and Indeed/LinkedIn (JobSpy). Single-URL instant import from the UI (`+ Agregar por link`) or agent (`/importar`). See [docs/operations.md](docs/operations.md) and [docs/data-sources.md](docs/data-sources.md) |
 
 On desktop, **Filters → Market** switches Industrial/Systems without overwriting classifications.
@@ -47,7 +47,8 @@ pytest
 
 The database is created on first use at `~/.local/share/radar/radar.db` (override with `RADAR_DB_PATH`).
 Windows users download the installer instead ([docs/guia-usuario.md](docs/guia-usuario.md), build in [docs/packaging.md](docs/packaging.md)).
-Desktop window without the installer: `radar-app`. Dev mode: run `radar-api`, then `cd frontend && npm run dev` and open `http://localhost:3000/radar`.
+Desktop window without the installer: `radar-app`. FastAPI serves the built frontend at `http://127.0.0.1:8100/radar`.
+For frontend development, run `radar-api`, then `cd frontend && npm run dev` and open `http://localhost:3000/radar`.
 Desktop launcher: `scripts/radar-launch.sh` (see operations).
 
 First data:
@@ -59,7 +60,7 @@ radar ingest --source computrabajo --query "practicante de procesos" --location 
 
 On first launch, choose a market and optionally import a local PDF/DOCX CV, review the extracted fields and confirm.
 Setup can be resumed from Settings. Tools mentioned in a CV receive no invented proficiency level.
-The desktop defaults to Lima/Callao, all market areas and seven days. See [implementation notes](docs/windows-cv-markets-2026-11-04.md).
+The desktop defaults to Lima/Callao, all market areas and seven days. See [docs/careers.md](docs/careers.md).
 
 ## Documentation
 
@@ -76,7 +77,7 @@ Read in this order when changing behavior:
 | [docs/guia-usuario.md](docs/guia-usuario.md) | End-user guide (Spanish) |
 | [docs/agent.md](docs/agent.md) | Chat agent: modes, tools, memory, UI |
 | [docs/mcp.md](docs/mcp.md) | External MCP clients |
-| [docs/cv.md](docs/cv.md) | Target CVs, gap analysis, downloadable CV |
+| [docs/cv.md](docs/cv.md) | My CV, local import, optional detailed editing and saved-offer comparisons |
 | [docs/security.md](docs/security.md) | Threat model, controls, compliance |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom → fix |
 | [docs/data-sources.md](docs/data-sources.md) | Portal adapters, data privacy, and third-party notices |

@@ -17,6 +17,7 @@ export type StudioSuggestion = { id: string; note: string; ops: StudioOp[]; flag
 export type StudioFile = { name: string; format: string; size: number; pages: number | null; exists?: boolean; modified_after_export?: boolean };
 export type StudioPackage = { id: string; job_id: string; folder: string; folder_exists: boolean; files: StudioFile[]; status: "prepared" | "applied"; exported_at: string | null; applied_at: string | null; title: string; company: string };
 export type StudioState = {
+  revision: string;
   job_id: string;
   selection: {
     job: { id: string; title: string; company: string | null; url?: string | null }; language: "es" | "en"; pages_budget: number;
@@ -55,6 +56,7 @@ export const studioApi = {
     return (await call<{ jobs: StudioCandidate[] }>(`/api/jobs?${params.toString()}`, undefined, signal)).jobs;
   },
   state: (jobId: string, signal?: AbortSignal) => call<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}`, undefined, signal),
+  useOriginal: (jobId: string) => post<{ files: StudioFile[]; package: StudioPackage }>(`/api/cv/packages/${encodeURIComponent(jobId)}/original`),
   pageUrl: (jobId: string, page: number, version: string) => `${API_URL}/api/cv/studio/${encodeURIComponent(jobId)}/page/${page}.png?v=${encodeURIComponent(version)}`,
   ops: (jobId: string, ops: StudioOp[]) => post<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}/ops`, { ops }),
   options: (jobId: string, options: { template?: string; photo?: boolean; pages?: number }) => post<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}/options`, options),
@@ -64,7 +66,7 @@ export const studioApi = {
   accept: (jobId: string, id: string) => post<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}/suggestions/${encodeURIComponent(id)}/accept`),
   reject: (jobId: string, id: string) => post<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}/suggestions/${encodeURIComponent(id)}/reject`),
   acceptSafe: (jobId: string) => post<StudioState>(`/api/cv/studio/${encodeURIComponent(jobId)}/suggestions/accept-safe`),
-  exportFiles: (jobId: string, formats: string[]) => post<{ folder: string; files: StudioFile[]; pages: number; warnings: string[]; over_budget: boolean; package: StudioPackage }>(`/api/cv/studio/${encodeURIComponent(jobId)}/export`, { formats }),
+  exportFiles: (jobId: string, formats: string[], revision?: string) => post<{ folder: string; files: StudioFile[]; pages: number; warnings: string[]; over_budget: boolean; package: StudioPackage }>(`/api/cv/studio/${encodeURIComponent(jobId)}/export`, { formats, revision }),
   packages: () => call<{ packages: StudioPackage[]; settings: StudioSettings }>("/api/cv/packages"),
   fileUrl: (jobId: string, name: string) => `${API_URL}/api/cv/packages/${encodeURIComponent(jobId)}/files/${encodeURIComponent(name)}`,
   openFolder: (jobId: string) => post<{ opened: string }>(`/api/cv/packages/${encodeURIComponent(jobId)}/open-folder`),

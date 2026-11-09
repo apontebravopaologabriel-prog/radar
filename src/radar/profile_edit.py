@@ -244,6 +244,13 @@ def preview(fields: dict[str, Any]) -> list[str]:
 
 def patch(fields: dict[str, Any], *, dry_run: bool = False) -> dict[str, Any]:
     """Aplica un cambio parcial al perfil. Solo se tocan los campos indicados."""
+    from radar.cv_profile import lock
+
+    with lock(str(cv_edit._path().resolve())):
+        return _patch(fields, dry_run=dry_run)
+
+
+def _patch(fields: dict[str, Any], *, dry_run: bool = False) -> dict[str, Any]:
     cur = current()
     new, warnings = _plan(fields, cur)
     diff, undo = _diff(cur, new)

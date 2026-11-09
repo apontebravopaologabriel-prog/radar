@@ -18,9 +18,10 @@ from radar.db.repository import recompute_scores
 from radar.geolocation import infer_location
 
 STEP_TIMEOUT = 150
-MAX_STEPS = 24
 MAX_LOCATIONS = 3
+# Place-focused requests remain small; full multi-market refresh uses all configured queries.
 MAX_QUERIES = 4
+MAX_STEPS = 24
 
 _lock = threading.Lock()
 _state: dict[str, Any] = {"running": False, "done": 0, "total": 0, "created": 0, "errors": [],
@@ -88,19 +89,22 @@ def _work(steps: list[dict[str, Any]]) -> None:
 def start_refresh(
     places: list[str] | None = None,
     queries: list[str] | None = None,
-    limit: int = 15,
+    limit: int = 50,
     max_age_days: int = 14,
     market_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     sources = _sources()
     locations = search_locations(places)
     packs = [load_pack(key) for key in dict.fromkeys(market_ids)] if market_ids else [active_pack()]
-    chosen = list(dict.fromkeys(q for q in (queries or [q for pack in packs for q in pack.queries])
+    per_pack = [list(dict.fromkeys([*getattr(pack, "market_queries", ()), *pack.queries])) for pack in packs]
+    # Give each selected market an early turn; merge shared queries without duplicate downloads.
+    interleaved = [items[i] for i in range(max((len(items) for items in per_pack), default=0)) for items in per_pack if i < len(items)]
+    chosen = list(dict.fromkeys(q for q in (queries if queries is not None else interleaved)
                                 if q and not q.startswith("-")))
     steps = [
         {"source": source, "query": query, "location": location, "limit": min(max(limit, 1), 50), "max_age_days": max_age_days,
-         "market_ids": [p.id for p in packs if queries or query in p.queries]}
-        for location in locations for query in chosen for source in sources
+         "market_ids": [pack.id for pack, items in zip(packs, per_pack, strict=True) if queries is not None or query in items]}
+        for query in chosen for location in locations for source in sources
     ]
     with _lock:
         if _state["running"]:

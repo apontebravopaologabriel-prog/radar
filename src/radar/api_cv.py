@@ -1,4 +1,4 @@
-"""Endpoints de solo lectura de la vista CVs (objetivos = favoritos). Ver docs/cv.md."""
+"""Factual CV preparation, optional detailed editing, and saved-offer comparisons."""
 
 from __future__ import annotations
 
@@ -38,26 +38,27 @@ class BuildRequest(BaseModel):
 
 @router.get("/build/preview")
 def cv_build_preview(job_id: str = Query(min_length=1, max_length=64)) -> dict[str, Any]:
-    """Qué entraría en el CV para esta oferta y qué se omite, sin escribir archivos."""
+    """Preview the current document, including confirmed per-offer edits."""
     try:
-        return cv_build.select(job_id)
+        return cv_doc.state(job_id)["selection"]
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/build")
 def cv_build_files(request: BuildRequest) -> dict[str, Any]:
-    """Genera el DOCX/PDF del CV para la oferta (carpeta ``cvs/<fecha>/``, sin sobrescribir)."""
+    """Compatibility route: export the current document to its application folder."""
     try:
-        return cv_build.build(request.job_id, request.formats)
+        result = cv_packages.export(request.job_id, request.formats)
+        return {**result, "files": [{**item, "path": f"{request.job_id}/{item['name']}"} for item in result["files"]]}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/files/{day}/{name}")
 def cv_generated_file(day: str, name: str) -> FileResponse:
-    # Solo archivos ya generados bajo cvs/, con extensión permitida: nunca una ruta arbitraria.
-    path = cv_build.resolve_file(f"{day}/{name}")
+    # Retain old download links and serve new package files without accepting arbitrary paths.
+    path = cv_build.resolve_file(f"{day}/{name}") or cv_packages.file_path(day, name)
     if path is None:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
     return FileResponse(str(path), filename=path.name, headers={"Cache-Control": "no-store"})
@@ -106,6 +107,7 @@ class OptionsRequest(BaseModel):
 
 class ExportRequest(BaseModel):
     formats: list[str] = Field(default_factory=lambda: ["pdf"], max_length=2)
+    revision: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 @router.get("/studio/{job_id}")
@@ -161,7 +163,7 @@ def studio_accept_safe(job_id: str) -> dict[str, Any]:
 
 @router.post("/studio/{job_id}/export")
 def studio_export(job_id: str, request: ExportRequest) -> dict[str, Any]:
-    return _studio_call(cv_packages.export, job_id, request.formats)
+    return _studio_call(cv_packages.export, job_id, request.formats, request.revision)
 
 
 @router.get("/packages")
@@ -180,6 +182,11 @@ def package_file(job_id: str, name: str) -> FileResponse:
 @router.post("/packages/{job_id}/open-folder")
 def package_open_folder(job_id: str) -> dict[str, Any]:
     return _studio_call(cv_packages.open_folder, job_id)
+
+
+@router.post("/packages/{job_id}/original")
+def package_original(job_id: str) -> dict[str, Any]:
+    return _studio_call(cv_packages.use_original, job_id)
 
 
 class AppliedRequest(BaseModel):

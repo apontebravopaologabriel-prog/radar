@@ -47,6 +47,8 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
    evidence and leaving `NULL` when nothing reliable is found.
 5. `freshness.py` filters connector search results by `published_at` before ingestion. Undated, future
    and out-of-range results are counted as discarded. Already stored history is never removed by this filter.
+   Visible offer windows use Lima calendar days. Queries convert timestamps with a zone to Lima and keep
+   the recorded day for values without a zone.
 6. `scoring.py` computes the deterministic personal score from the pack weights. Saving the profile
    recalculates all scores. Version `v2.0-evidence` uses the full description, factual CV education/experience
    and declared skill levels. `requirements.py` also serves CV gaps. Unknown inputs produce an interval rather
@@ -64,15 +66,28 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
   automatic fallback when WebGL2 is missing. Detection happens before MapLibre is created.
 - `/m`: separate mobile PWA (`components/mobile/`).
 - `/ajustes`: settings page (career, profile, agent, access, data).
+- Map controls use opaque graphite surfaces. The district selector replaces the permanent ranking.
+  Filters show market, search, area and period first, with advanced criteria collapsed. Loading is shown
+  inside the tray while data is requested. The agent uses a floating window when pinning would leave
+  less than 640 px for the map; CV Studio retains its requested pinned layout.
 - Theme: graphite dark (`#212121` work area, `#171717` navigation, `#2f2f2f` controls and cards).
 - Performance: list endpoints use an index on `job_sources(job_id, last_seen_at)`, selective gzip (not for
   `/api/chat`), `slim` listings without descriptions (fetched on open via `/api/jobs/{id}/description`),
-  a sliding-window offer list, and MapLibre loaded on demand.
+  an offer list window sized from its viewport with four extra rows per edge, and MapLibre loaded on demand.
+  Fixed-height cards preserve the scroll range using top and bottom spacers; keyboard selection scrolls into view.
+  District selection changes the highlight and list without rebuilding the market map sources.
+  The generated offer contract distinguishes the `slim` row, which carries `has_description`, from the
+  full row, which carries a nullable `description`. The by-ID lookup returns a slim row even outside the current filters.
 - Offer tray views: active, favorites (`/api/jobs/favorites`), applied (`/api/jobs/applied`) and archive
   (`/api/jobs/hidden`); `GET /api/jobs/{id}` returns one offer (used when the chat opens an offer that is not in the
   current lists). Tracking: `GET/PUT/DELETE /api/applications[/{job_id}]` (`DELETE` removes only your tracking record).
-  `ApplicationsView.tsx` is the full Postulaciones view; the chat opens offers through the `radar:open-job` window event
+  `ProcessesView.tsx` is the response-driven follow-up view; `ApplicationsView.tsx` is its lazy-loaded legacy history; the chat opens offers through the `radar:open-job` window event
   (`Markdown.tsx` -> `RadarClient.tsx`).
+  Desktop, mobile and the local agent command use the shared `applications-api.ts` client and types
+  generated from the tracking operations in FastAPI. Onboarding, Settings and the local `/refresh` command
+  use `refresh-api.ts` for the in-app market refresh. Its generated status includes the current search,
+  completed and created counts, timestamps and errors. With the Python environment active, run
+  `npm run api:generate` from `frontend/` after changing the contract. `npm run api:check` verifies it in CI.
 - MapLibre 6 loads its worker as a separate module: `frontend/scripts/copy-maplibre-worker.mjs` (the `prebuild` step)
   copies it to `public/maplibre/`, the API serves it at `/maplibre` and `MapView.tsx` calls `setWorkerUrl`. Without it the
   map stays blank ("Worker failed to load").
@@ -116,8 +131,9 @@ needs the API on `127.0.0.1:8101`).
 - `Districts` uses Lima/Callao boundaries, color by filtered count, selection synced with ranking and list.
 - Analysis sends SQL to `/api/analytics/query`, which accepts only read-only queries; `/api/analytics/schema`
   describes the tables.
-- CVs reads `/api/cv/*`. Targets are the favorites; data files live next to the database, outside Git and
-  outside SQLite.
+- Mi CV shares factual editing/import through `/api/me/cv*` and prepares offer-specific documents through
+  `/api/cv/*`. Studio is optional detailed editing. Mi CV owns prepared files and contextual comparisons of favorites. The factual CV and immutable imported sources (`cv_imports/`) live beside the
+  database outside Git; document operations and package indexes live in SQLite. See [cv.md](cv.md).
 
 ## Boundaries with other systems
 
@@ -154,3 +170,17 @@ resumable drafts and explicit completion. Preview does not write factual history
 GitHub release checks independently of offer capture. `places_lima.json` supplies shared polygon keys,
 aliases and approximate centroids to both API and frontend; the desktop sends `geo_scope=lima_callao`.
 See [implementation and verification scope](windows-cv-markets-2026-11-04.md).
+
+Radar map sources use the radius-filtered offers; Districts keeps the full market source. Switching map modes closes filters immediately. Compact cards show the source beside the company; translucent surfaces do not use backdrop blur.
+
+Map tray titles use a single ellipsized line (full title in the detail and native tooltip). Location has no decorative prefix. The detail exposes one compact Prepare CV action, isolated from the My CV page button styles.
+
+## Response-driven processes
+
+`processes.py` exposes typed GET/POST `/api/processes` and PUT `/api/processes/{process_id}`. A process owns company and title; its job reference and URL are optional. The stages are contact, assessment, interview, offer and closed. Next step, local calendar date and notes are optional; there are no reminders or outbound messages. The same form, contact dialog and Processes view serve desktop and mobile. Closing retains the row and its inbox exclusion.
+
+Schema version 4 adds `processes` independently of `applications`. Before an existing database is upgraded a backup is created. Existing interview/offer rows are copied once, retaining their source ID; unique job/source indexes prevent duplicates, and subsequent history edits never overwrite a process. Legacy APIs/tools keep their meaning. Main inbox queries and the Today feed exclude linked processes regardless of stage. Favorites and direct job reads retain access.
+
+Prepared files and starred-offer comparisons live in Mi CV; the detail also exposes prepared files. Package loading errors do not block Processes. No CV export or portal link implicitly records submission or creates a process.
+
+Salary filtering accepts optional min_salary/max_salary in job/map APIs and market skills. Published salary bands overlap the requested band; one-sided values work, and unknown salaries are excluded only when a bound is present. Amounts retain the existing source currency semantics (no conversion). Invalid/reversed ranges return 422 and show a local UI explanation. The query context carries both bounds to agent queries.

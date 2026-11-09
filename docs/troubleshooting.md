@@ -14,7 +14,7 @@
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Computrabajo returns nothing | Use a shorter query and confirm `location=Lima`. Default capture is native Python. HTTP 403/challenge pages are reported as source failures; other sources continue. Node/npm are needed only for explicitly configured legacy MCP |
+| Computrabajo returns nothing | Use a shorter query and confirm `location=Lima`. Default capture is native Python. Update the adapter if using the pre-2026-11-09 request headers: the public HTML request now uses compatible, explicitly Radar-identified headers and Spanish negotiation. Remaining HTTP 403/challenge pages are reported as source failures; other sources continue. Node/npm are needed only for explicitly configured legacy MCP |
 | JobSpy does not install | `pip install -e '.[jobspy]'` in the main environment (imports verified on 3.14). If NumPy 1.26.3 fails to build on your Python, use a separate Python 3.12 environment |
 | Refresh did not run | Linux with the timer: `systemctl --user status radar-refresh.timer`. Otherwise the in-process scheduler only runs while Radar is open: check Settings or `get_system_status` (next/last run) and `refresh.log` in the state folder (`~/.local/state/radar/refresh.log` on Linux); its final summary lists failed steps |
 
@@ -31,12 +31,14 @@
 | Everything returns 401 | `RADAR_ACCESS_TOKEN` is set: sign in on the login screen of `/radar`, `/ajustes` or `/m` |
 | Everything returns 403 `Host no permitido` | You reached the API through a name that is not allowed. Add it to `RADAR_ALLOWED_HOSTS` (or bind with `RADAR_API_HOST`) |
 
-## CVs view
+## My CV
 
 | Symptom | Cause and fix |
 | --- | --- |
 | "La API respondió 404" on `/api/cv/*` | The API runs old code; restart it |
-| "Perfil real no cargado" | `cv_master.json` is missing next to the database. Without `targets/*.json` the view says there are no target CVs |
+| No profile yet | Open Mi CV and drop a PDF/DOCX or complete your information manually; hypothetical target files are not required |
+| HTTP 409 while saving/importing | Another view changed the factual CV; reload/review the new data before confirming. Pending local edits remain available |
+| Preview changed before download | Reload the preview and review it; export refuses a different PDF revision |
 | No photo | Expected `photo.jpg` (or `photo.png`) in the data folder; upload from Settings |
 | `save_target_profile` returns `errors` | Schema needs `quote` or `reason` on explicit items, `reason` on inferred and `cubierto` items, and valid `origin`, `status`, `kind` |
 | PDF has odd characters | No TrueType font was found and Helvetica (Latin-1) was used. Install Calibri/Arial/DejaVu or point `RADAR_PDF_FONT` to a folder with `regular.ttf`, `bold.ttf`, `italic.ttf` |

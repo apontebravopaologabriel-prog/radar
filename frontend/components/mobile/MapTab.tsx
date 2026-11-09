@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
+import { startProcess } from "../../lib/processes-api";
 import { api, type AgentContext, type MapPlaces, type Nearby, type NearbyJob } from "../../lib/mobile-api";
 
 const PlacesMap = dynamic(() => import("./PlacesMap"), { ssr: false, loading: () => <div className="m-map m-map-loading">Cargando mapa…</div> });
@@ -43,7 +44,6 @@ export default function MapTab({ onError, onContextChange }: { onError: (e: unkn
       setData((d) => d && { ...d, jobs: d.jobs.map((j) => j.id === job.id ? { ...j, is_favorite: !j.is_favorite } : j) });
     } catch (error) { onError(error); }
   };
-  const save = async (job: NearbyJob) => { try { await api.setApplication(job.id, "saved"); } catch (error) { onError(error); } };
 
   useEffect(() => {
     if (!place) return;
@@ -79,8 +79,9 @@ export default function MapTab({ onError, onContextChange }: { onError: (e: unkn
                 <span className="m-km">{job.precision === "department" ? "dpto." : job.km === 0 ? "aquí" : `${Math.round(job.km)} km`}</span>
               </div>
               <div className="m-actions">
-                <button onClick={() => save(job)}>Guardar</button>
+                <button onClick={async () => { try { await api.hide(job.id); await load(); } catch (error) { onError(error); } }}>Archivar</button>
                 <button aria-pressed={job.is_favorite} onClick={() => star(job)}>{job.is_favorite ? "★" : "☆"}</button>
+                <details><summary>Detalle</summary><button onClick={() => startProcess(job)}>Me contactaron</button></details>
                 {job.url && <a href={job.url} target="_blank" rel="noopener noreferrer">Abrir ↗</a>}
               </div>
             </article>

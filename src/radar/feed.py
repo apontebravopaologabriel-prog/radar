@@ -17,7 +17,7 @@ def _excluded_job_ids() -> set[str]:
     with connection() as conn:
         hidden = conn.execute("SELECT job_id FROM job_user_status WHERE status='hidden'").fetchall()
         tracked = conn.execute(
-            "SELECT job_id FROM applications WHERE status IN ('applied','interview','offer','rejected','ignored','expired')"
+            "SELECT job_id FROM applications WHERE status IN ('applied','interview','offer','rejected','ignored','expired') UNION SELECT job_id FROM processes WHERE job_id IS NOT NULL"
         ).fetchall()
     return {r[0] for r in hidden} | {r[0] for r in tracked}
 

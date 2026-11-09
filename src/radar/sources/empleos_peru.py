@@ -19,6 +19,55 @@ _USER_AGENT = (
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 
+_STOPWORDS = frozenset({"de", "del", "en", "la", "el", "los", "las", "para", "con", "por", "un", "una", "y", "o", "e"})
+
+_UBIGEO_DEPARTMENTS = {
+    "01": "Amazonas", "02": "Áncash", "03": "Apurímac", "04": "Arequipa", "05": "Ayacucho",
+    "06": "Cajamarca", "07": "Callao", "08": "Cusco", "09": "Huancavelica", "10": "Huánuco",
+    "11": "Ica", "12": "Junín", "13": "Trujillo, La Libertad", "14": "Chiclayo, Lambayeque",
+    "15": "Lima", "16": "Iquitos, Loreto", "17": "Puerto Maldonado, Madre de Dios", "18": "Moquegua",
+    "19": "Cerro de Pasco, Pasco", "20": "Piura", "21": "Puno", "22": "Tarapoto, San Martín",
+    "23": "Tacna", "24": "Tumbes", "25": "Pucallpa, Ucayali",
+}
+
+_LIMA_CALLAO_UBIGEO = {
+    "070101": "Callao", "070102": "Bellavista, Callao", "070103": "Carmen de la Legua Reynoso, Callao",
+    "070104": "La Perla, Callao", "070105": "La Punta, Callao", "070106": "Ventanilla, Callao",
+    "070107": "Mi Perú, Callao",
+    "150101": "Cercado de Lima", "150102": "Ancón, Lima", "150103": "Ate, Lima",
+    "150104": "Barranco, Lima", "150105": "Breña, Lima", "150106": "Carabayllo, Lima",
+    "150107": "Chaclacayo, Lima", "150108": "Chorrillos, Lima", "150109": "Cieneguilla, Lima",
+    "150110": "Comas, Lima", "150111": "El Agustino, Lima", "150112": "Independencia, Lima",
+    "150113": "Jesús María, Lima", "150114": "La Molina, Lima", "150115": "La Victoria, Lima",
+    "150116": "Lince, Lima", "150117": "Los Olivos, Lima", "150118": "Lurigancho, Lima",
+    "150119": "Lurín, Lima", "150120": "Magdalena del Mar, Lima", "150121": "Pueblo Libre, Lima",
+    "150122": "Miraflores, Lima", "150123": "Pachacámac, Lima", "150124": "Pucusana, Lima",
+    "150125": "Puente Piedra, Lima", "150126": "Punta Hermosa, Lima", "150127": "Punta Negra, Lima",
+    "150128": "Rímac, Lima", "150129": "San Bartolo, Lima", "150130": "San Borja, Lima",
+    "150131": "San Isidro, Lima", "150132": "San Juan de Lurigancho, Lima",
+    "150133": "San Juan de Miraflores, Lima", "150134": "San Luis, Lima",
+    "150135": "San Martín de Porres, Lima", "150136": "San Miguel, Lima",
+    "150137": "Santa Anita, Lima", "150138": "Santa María del Mar, Lima",
+    "150139": "Santa Rosa, Lima", "150140": "Santiago de Surco, Lima",
+    "150141": "Surquillo, Lima", "150142": "Villa El Salvador, Lima",
+    "150143": "Villa María del Triunfo, Lima",
+}
+
+_LIMA_PROVINCES_UBIGEO = {
+    "1502": "Barranca", "1505": "Cañete", "1506": "Huaral", "1508": "Huacho",
+}
+
+
+def _resolve_ubigeo(loc: dict[str, Any]) -> str:
+    district = str(loc.get("DISTRICT") or "").strip()
+    if district in _LIMA_CALLAO_UBIGEO:
+        return _LIMA_CALLAO_UBIGEO[district]
+    province = str(loc.get("PROVINCE") or "").strip()
+    if province in _LIMA_PROVINCES_UBIGEO:
+        return _LIMA_PROVINCES_UBIGEO[province]
+    dept = str(loc.get("DEPARTMENT") or "").strip()
+    return _UBIGEO_DEPARTMENTS.get(dept, "Lima")
+
 
 def _strip_html(raw: str | None) -> str:
     if not raw:
@@ -47,14 +96,17 @@ class EmpleosPeruSource:
 
     def _search_api(self, query: str, location: str | None, limit: int) -> list[dict[str, Any]]:
         clean_limit = min(max(limit, 1), 50)
-        # Search by positionTitle first
-        search_words = [w.strip() for w in query.split() if len(w.strip()) > 3]
-        term = search_words[0] if search_words else query.strip()
+        words = [w.strip() for w in query.split() if len(w.strip()) > 2 and w.strip().lower() not in _STOPWORDS]
+        candidates = [query.strip()]
+        if len(words) >= 2:
+            candidates.append(" ".join(words[:2]))
+        if words and words[-1].lower() not in {"practicante", "asistente", "analista", "auxiliar", "ingeniero", "supervisor", "jefe", "especialista", "coordinador"}:
+            candidates.append(words[-1])
         endpoints = [
-            f"{self.base_url}/api/jobs?positionTitle={urllib.parse.quote(term)}&limit={clean_limit}",
-            f"{self.base_url}/api/jobs?positionTitle={urllib.parse.quote(query)}&limit={clean_limit}",
+            f"{self.base_url}/api/jobs?positionTitle={urllib.parse.quote(term)}&limit={clean_limit}"
+            for term in dict.fromkeys(c for c in candidates if c)
+        ] + [
             f"{self.base_url}/api/jobs?what={urllib.parse.quote(query)}&limit={clean_limit}",
-            f"{self.base_url}/api/jobs?limit={clean_limit}",
         ]
         for url in endpoints:
             req = urllib.request.Request(
@@ -70,10 +122,29 @@ class EmpleosPeruSource:
                     data = json.loads(raw)
                     items = self._extract_jobs(data)
                     if items:
-                        return items
+                        return [self._enrich_detail(item) for item in items[:limit]]
             except (urllib.error.URLError, TimeoutError, ValueError, OSError):
                 continue
         return []
+
+    def _enrich_detail(self, item: dict[str, Any]) -> dict[str, Any]:
+        if item.get("jobDescription") or item.get("descripcion") or item.get("description"):
+            return item
+        offer_id = str(item.get("id") or item.get("idVacante") or "").strip()
+        if not offer_id or not re.fullmatch(r"[a-zA-Z0-9_\-]{8,64}", offer_id):
+            return item
+        req = urllib.request.Request(
+            f"{self.base_url}/api/jobs/{urllib.parse.quote(offer_id)}",
+            headers={"User-Agent": _USER_AGENT, "Accept": "application/json, text/plain, */*"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=min(self.timeout, 10.0)) as resp:
+                detail = json.loads(resp.read().decode("utf-8", errors="replace"))
+                if isinstance(detail, dict):
+                    return {**item, **{k: v for k, v in detail.items() if v is not None}}
+        except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+            pass
+        return item
 
     def _search_html(self, query: str, location: str | None, limit: int) -> list[dict[str, Any]]:
         params = urllib.parse.urlencode({"q": query, "ubicacion": location or "Lima"})
@@ -168,16 +239,20 @@ class EmpleosPeruSource:
             or "Lima"
         )
         if isinstance(location, dict):
-            location = "Lima"
+            location = _resolve_ubigeo(location)
 
-        detail = _strip_html(
+        role_detail = _strip_html(
             item.get("jobDescription")
-            or item.get("companyDescription")
             or item.get("descripcion")
             or item.get("description")
             or item.get("funciones")
             or item.get("requisitos")
         )
+        company_desc = _strip_html(item.get("companyDescription"))
+        detail = "\n".join(filter(None, [
+            role_detail,
+            f"Empresa: {company_desc}" if company_desc else None,
+        ]))
 
         contract = item.get("contractType")
         workday_name = contract.get("name") if isinstance(contract, dict) else (item.get("tipoJornada") or item.get("employmentType"))

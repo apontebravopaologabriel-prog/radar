@@ -6,7 +6,7 @@ const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL
 export const CV_PHOTO_URL = `${API_URL}/api/cv/photo`;
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, { signal });
+  const response = await fetch(`${API_URL}${path}`, { signal, credentials: "include" });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as T;
 }

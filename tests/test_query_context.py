@@ -114,6 +114,45 @@ def test_seven_calendar_days_and_lima_midnight():
     assert visible_date_bounds(1, datetime(2026, 11, 2, 6, tzinfo=UTC)) == ("2026-11-02", "2026-11-03")
 
 
+def test_publication_days_match_across_market_views(monkeypatch):
+    from radar.api import map_jobs
+    from radar.db.queries import recommendations, skill_overview
+    from radar.db.repository import save_profile
+    from radar.freshness import visible_date_bounds
+
+    now = datetime(2026, 11, 7, 2, tzinfo=UTC)  # November 6, 21:00 in Lima.
+    monkeypatch.setattr("radar.db.queries.visible_date_bounds", lambda days: visible_date_bounds(days, now))
+    publications = {
+        "Evening": "2026-11-07 00:38:00+00:00",
+        "End of day": "2026-11-07T04:59:59.999999Z",
+        "Next day": "2026-11-07 05:00:00+00:00",
+        "First day": "2026-10-31 00:00:00-05:00",
+        "Too old": "2026-10-31 04:59:59+00:00",
+        "Date only": "2026-10-31",
+        "No zone": "2026-10-31 00:00:00",
+        "Undated": None,
+    }
+    urls = {company: f"https://example.com/bi/{i}" for i, company in enumerate(publications)}
+    ingest_jobs([
+        RawJob("test", "Analista BI", company, url, location="Miraflores, Lima",
+               description="Power BI", published_at=now)
+        for company, url in urls.items()
+    ])
+    with connection() as conn:
+        conn.executemany(
+            "UPDATE jobs SET published_at=? WHERE id=(SELECT job_id FROM job_sources WHERE source_url=?)",
+            [(published_at, urls[company]) for company, published_at in publications.items()],
+        )
+        conn.commit()
+    save_profile("Ana", None, [], ["Lima"], [], {})
+
+    expected = {"Evening", "End of day", "First day", "Date only", "No zone"}
+    assert {job["company"] for job in list_jobs(limit=None, max_age_days=7)} == expected
+    assert {feature["properties"]["company"] for feature in map_jobs(max_age_days=7)["features"]} == expected
+    assert skill_overview(max_age_days=7)["total_jobs"] == len(expected)
+    assert {job["company"] for job in recommendations(max_age_days=7)["jobs"]} == expected
+
+
 def test_radar_scope_counts_match_list_and_skills_across_districts():
     raw = RawJob("test", "Desarrollador Java", "Example", "https://example.com/mira", location="Miraflores",
                  description="Java", published_at=datetime.now(UTC))

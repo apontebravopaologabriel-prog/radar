@@ -66,10 +66,13 @@ fi
 restart_api_if_stale() {
     api_pid=$(/usr/bin/pgrep -f "$PROJECT_DIR/.venv/bin/radar-api" | head -n 1)
     [ -n "$api_pid" ] || return 0
-    stale_source=$(find "$PROJECT_DIR/src/radar" -name '*.py' -newer "/proc/$api_pid" -print -quit)
+    stale_source=$(find "$PROJECT_DIR/src/radar" \( -name '*.py' -o -name '*.json' \) -newer "/proc/$api_pid" -print -quit)
     if [ -n "$stale_source" ]; then
         pkill -f "$PROJECT_DIR/.venv/bin/radar-api" 2>/dev/null || true
-        sleep 1
+        for _ in $(seq 1 20); do
+            /usr/bin/pgrep -f "$PROJECT_DIR/.venv/bin/radar-api" >/dev/null 2>&1 || break
+            sleep 0.25
+        done
     fi
 }
 restart_api_if_stale

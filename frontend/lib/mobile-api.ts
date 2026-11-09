@@ -1,22 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL
-  || (typeof window !== "undefined" && window.location.port !== "3000" ? window.location.origin : "http://127.0.0.1:8100");
-
-export class AuthRequired extends Error {}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    credentials: "include",
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-  });
-  if (response.status === 401) throw new AuthRequired();
-  if (!response.ok) {
-    let detail = `La API respondió ${response.status}`;
-    try { const body = await response.json(); if (typeof body.detail === "string") detail = body.detail; } catch { /* sin cuerpo */ }
-    throw new Error(detail);
-  }
-  return (await response.json()) as T;
-}
+import { API_URL, AuthRequired, requestJson as request } from "./http";
+import type { RefreshState } from "./refresh-api";
 
 export type TodayJob = {
   id: string; title: string; company: string | null; location: string | null; url: string | null;
@@ -34,8 +17,6 @@ export type MapPlaces = { places: MapPlace[]; total: number; unlocated: number }
 export type Today = { profile_configured: boolean; jobs: TodayJob[] };
 export type SkillImpact = { profile_configured: boolean; threshold?: number; jobs_considered?: number;
   skills: { skill: string; jobs: number; avg_gain: number; crossing: number }[] };
-export type Application = { id: string; job_id: string; title: string; company: string | null; status: string;
-  notes: string | null; applied_at: string | null; updated_at: string; url: string | null };
 export type Career = { active: string; name: string; areas: { core: string[]; adjacent: string[] };
   skills: { name: string; type: string; category: string | null }[]; queries: string[];
   weights: Record<string, number>; tracks: { id: string; name: string }[] };
@@ -56,8 +37,7 @@ export type AgentContext = {
   cvStudio?: { jobId: string; title: string; company: string | null; selectedLine: { id: string; text: string } | null; pendingSuggestions: number };
   analysis?: { ready: boolean; updatedAt: string; windows: { title: string; sql: string; columns: string[]; rows: (string | number | null)[][]; rowCount: number }[]; recentQueries: string[] };
 };
-export type RefreshState = { running: boolean; done: number; total: number; created: number; errors: string[]; current: string | null };
-export type Doctor = { version: string; database: { path: string; size_mb: number }; jobs: { active: number; last_14_days: number; newest_published: string | null };
+export type Doctor = { version: string; database: { path: string; size_mb: number; backups?: string[] }; jobs: { active: number; last_14_days: number; newest_published: string | null };
   career: string; agent: { enabled: boolean; provider: string; model: string; key: boolean; read_only: boolean; conversations: number }; refresh: RefreshState; tools: number };
 export type ProfileInput = { name: string; education?: string; areas: string[]; locations: string[];
   work_modes: string[]; skills: Record<string, string> };
@@ -88,9 +68,6 @@ export const api = {
   nearby: (place: string, radiusKm: number) =>
     request<Nearby>(`/api/nearby?place=${encodeURIComponent(place)}&radius_km=${radiusKm}&limit=40`),
   impact: () => request<SkillImpact>("/api/skills/impact?limit=4"),
-  applications: () => request<{ applications: Application[] }>("/api/applications"),
-  setApplication: (jobId: string, status: string, notes?: string) =>
-    request<{ status: string }>(`/api/applications/${jobId}`, { method: "PUT", body: JSON.stringify({ status, notes }) }),
   favorite: (jobId: string, on: boolean) =>
     request<{ is_favorite: boolean }>(`/api/jobs/${jobId}/favorite`, { method: on ? "PUT" : "DELETE" }),
   hide: (jobId: string) =>
@@ -103,8 +80,6 @@ export const api = {
     request<Career>("/api/career/weights", { method: "PUT", body: JSON.stringify({ weights }) }),
   createCustomCareer: (body: { name: string; areas: Record<string, string[]>; skills: string[] }) =>
     request<Career>("/api/career/custom", { method: "POST", body: JSON.stringify(body) }),
-  startRefresh: (places: string[], market_ids?: string[]) => request<RefreshState>("/api/refresh", { method: "POST", body: JSON.stringify({ places, market_ids, limit: 15 }) }),
-  refreshStatus: () => request<RefreshState>("/api/refresh/status"),
   me: () => request<{ profile: MeProfile }>("/api/me").then((r) => r.profile),
   patchMe: (fields: Record<string, unknown>) => request<MePatchResult>("/api/me", { method: "PATCH", body: JSON.stringify(fields) }),
   // Sin request(): el navegador debe fijar su propio Content-Type (con el boundary) para multipart/form-data.
@@ -139,6 +114,7 @@ export const api = {
   setMemory: (items: string[]) => request<{ items: string[] }>("/api/agent/memory", { method: "PUT", body: JSON.stringify({ items }) }),
   agentTools: () => request<{ read_only_mode: boolean; tools: { name: string; write: boolean; summary: string }[] }>("/api/agent/tools"),
   doctor: () => request<Doctor>("/api/doctor"),
+  backupDatabase: () => request<{ backup: string; size_mb: number; removed_old: number }>("/api/system/backup", { method: "POST" }),
   confirm: (body: { tool_call_id: string; name: string; arguments: Record<string, unknown>; approve: boolean }) =>
     request<{ message: ApiMessage; result: unknown }>("/api/chat/confirm", { method: "POST", body: JSON.stringify(body) }),
 };

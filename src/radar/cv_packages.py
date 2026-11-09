@@ -28,7 +28,7 @@ from typing import Any
 
 from platformdirs import user_documents_dir
 
-from radar import cv_build, cv_doc, cv_docx, cv_targets
+from radar import cv_build, cv_doc, cv_docx, cv_import, cv_targets
 from radar.db.database import connection
 from radar.db.repository import track_application
 from radar.settings import get_setting, set_setting
@@ -173,7 +173,7 @@ def _archive(folder: Path, name: str) -> None:
         shutil.move(str(current), str(old / f"{current.stem} {stamp}{current.suffix}"))
 
 
-def export(job_id: str, formats: list[str] | None = None) -> dict[str, Any]:
+def export(job_id: str, formats: list[str] | None = None, expected_revision: str | None = None) -> dict[str, Any]:
     """Escribe el CV vigente del estudio en la carpeta de la postulación (la crea la primera vez) y la registra."""
     wanted = [f for f in (formats or ["pdf"]) if f in FORMATS]
     if not wanted:
@@ -181,6 +181,8 @@ def export(job_id: str, formats: list[str] | None = None) -> dict[str, Any]:
     doc = cv_doc.get_document(job_id)
     final, _ = cv_doc._final(doc)
     pdf, pages = cv_doc.pdf_bytes(job_id)
+    if expected_revision and _sha(pdf) != expected_revision:
+        raise ValueError("El CV cambió desde la vista previa. Recárgala y revisa la versión actual antes de descargar.")
     info = _job_info(job_id)
     folder = _existing_folder(job_id)
     if folder is None or not folder.exists():
@@ -217,14 +219,43 @@ def export(job_id: str, formats: list[str] | None = None) -> dict[str, Any]:
             "package": package(job_id)}
 
 
+def use_original(job_id: str) -> dict[str, Any]:
+    """Associate an unchanged, confirmed source file with an offer, without rebuilding it."""
+    source = cv_import.original()
+    if source is None:
+        raise ValueError("Importa y confirma tu CV para usar el archivo original.")
+    info = _job_info(job_id)
+    folder = _existing_folder(job_id)
+    if folder is None or not folder.exists():
+        folder = _new_folder(job_id, info)
+    name = safe_name("CV original - " + short_role(info["title"]), 80, ascii_names()) + source[0].suffix
+    data = source[0].read_bytes()
+    _archive(folder, name)
+    (folder / name).write_bytes(data)
+    files = [{"name": name, "format": source[0].suffix[1:], "size": len(data), "sha256": _sha(data), "pages": None}]
+    (folder / "oferta.md").write_text(_offer_markdown(info), encoding="utf-8")
+    manifest = {"job_id": job_id, "source": "original", "original_name": source[1], "files": files,
+                "exported_at": datetime.now(UTC).isoformat(timespec="seconds"), "job": info}
+    (folder / "postulacion.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO application_packages(job_id, folder, files, exported_at) VALUES (%s,%s,%s,now())
+               ON CONFLICT(job_id) DO UPDATE SET folder=EXCLUDED.folder, files=EXCLUDED.files, exported_at=now(), updated_at=now()""",
+            (job_id, str(folder), json.dumps(files)))
+    return {"files": files, "package": package(job_id)}
+
+
 # --- consulta y acciones ---------------------------------------------------------------------------
 
 
 def package(job_id: str) -> dict[str, Any] | None:
     with connection() as conn:
         row = conn.execute(
-            """SELECT p.id, p.job_id, p.folder, p.files, p.status, p.notes, p.exported_at, p.applied_at, j.title, c.name
-               FROM application_packages p JOIN jobs j ON j.id=p.job_id LEFT JOIN companies c ON c.id=j.company_id WHERE p.job_id=%s""",
+            """SELECT p.id, p.job_id, p.folder, p.files,
+                      CASE WHEN a.applied_at IS NOT NULL THEN 'applied' ELSE p.status END,
+                      p.notes, p.exported_at, COALESCE(a.applied_at,p.applied_at), j.title, c.name
+               FROM application_packages p JOIN jobs j ON j.id=p.job_id LEFT JOIN companies c ON c.id=j.company_id
+               LEFT JOIN applications a ON a.job_id=p.job_id WHERE p.job_id=%s""",
             (job_id,)).fetchone()
     return _row(row) if row else None
 
@@ -243,8 +274,11 @@ def _row(row: Any) -> dict[str, Any]:
 def list_packages(limit: int = 100) -> list[dict[str, Any]]:
     with connection() as conn:
         rows = conn.execute(
-            """SELECT p.id, p.job_id, p.folder, p.files, p.status, p.notes, p.exported_at, p.applied_at, j.title, c.name
+            """SELECT p.id, p.job_id, p.folder, p.files,
+                      CASE WHEN a.applied_at IS NOT NULL THEN 'applied' ELSE p.status END,
+                      p.notes, p.exported_at, COALESCE(a.applied_at,p.applied_at), j.title, c.name
                FROM application_packages p JOIN jobs j ON j.id=p.job_id LEFT JOIN companies c ON c.id=j.company_id
+               LEFT JOIN applications a ON a.job_id=p.job_id
                ORDER BY COALESCE(p.applied_at, p.exported_at) DESC LIMIT %s""", (min(max(limit, 1), 500),)).fetchall()
     return [_row(r) for r in rows]
 

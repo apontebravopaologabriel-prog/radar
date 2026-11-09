@@ -269,6 +269,12 @@ def test_salary_extraction_ignores_placeholders_and_unescapes_markdown():
     from_title = extract_salary("Ingreso inmediato a planilla.", "Coordinador de Operaciones (2300 a 2500)")
     assert from_title is not None and (from_title.minimum, from_title.maximum) == (2300.0, 2500.0)
     assert extract_salary("Empresa global con ingresos de $83 billion anuales.") is None
+    trailing_dot = extract_salary("Beneficios: Sueldo S/ 1,500.")
+    assert trailing_dot is not None and trailing_dot.minimum == 1500.0
+    range_plus_footer = extract_salary("Beneficios:\nSueldo entre S/ 1,200 y S/ 1,500.\nSalario: S/. 1.200,00 (Mensual)")
+    assert range_plus_footer is not None and (range_plus_footer.minimum, range_plus_footer.maximum, range_plus_footer.period) == (1200.0, 1500.0, "mensual")
+    no_false_hours = extract_salary("Ayudante s/1250 + Horas extras + Movilidad")
+    assert no_false_hours is not None and no_false_hours.minimum == 1250.0 and no_false_hours.period is None
 
 
 def test_seniority_prioritizes_title_and_emits_mid_and_senior():

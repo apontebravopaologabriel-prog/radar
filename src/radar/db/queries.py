@@ -4,7 +4,18 @@ import json
 from typing import Any
 
 from radar.db.database import connection
-from radar.freshness import DEFAULT_MAX_AGE_DAYS, visible_date_bounds
+from radar.freshness import DEFAULT_MAX_AGE_DAYS, PERU_UTC_OFFSET_HOURS, visible_date_bounds
+
+# Date-only and zone-less publications retain their calendar day. For zoned timestamps,
+# drop fractional seconds before conversion to avoid rounding across midnight in SQLite.
+_VISIBLE_PUBLICATION_WINDOW = f"""(CASE
+    WHEN substr(j.published_at, -6) GLOB '[+-][0-9][0-9]:[0-9][0-9]'
+        THEN date(substr(j.published_at, 1, min(length(j.published_at) - 6, 19)) || substr(j.published_at, -6),
+                  '{PERU_UTC_OFFSET_HOURS} hours')
+    WHEN upper(substr(j.published_at, -1)) = 'Z'
+        THEN date(substr(j.published_at, 1, min(length(j.published_at) - 1, 19)), '{PERU_UTC_OFFSET_HOURS} hours')
+    ELSE date(substr(j.published_at, 1, 19))
+    END) BETWEEN %s AND date(%s, '-1 day')"""
 
 
 def list_jobs(
@@ -15,6 +26,7 @@ def list_jobs(
     search: str | None = None,
     work_mode: str | None = None,
     min_salary: float | None = None,
+    max_salary: float | None = None,
     include_hidden: bool = False,
     include_applied: bool = True,
     source: str | None = None,
@@ -44,6 +56,8 @@ def list_jobs(
         work_mode = values.get("work_mode", work_mode) or None
         min_salary = values.get("min_salary", min_salary)
         min_salary = None if min_salary == "" else min_salary
+        max_salary = values.get("max_salary", max_salary)
+        max_salary = None if max_salary == "" else max_salary
         source = values.get("source", source) or None
         skill = values.get("skill", skill) or None
         search = values.get("search", search) or None
@@ -67,8 +81,7 @@ def list_jobs(
         "COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')",
         "j.duplicate_status = 'canonical'",
         "j.published_at IS NOT NULL",
-        "date(j.published_at) >= %s",
-        "date(j.published_at) < %s",
+        _VISIBLE_PUBLICATION_WINDOW,
     ]
     start, end = visible_date_bounds(max_age_days)
     params: list[Any] = [market_id, start, end] if market_id else [start, end]
@@ -121,8 +134,15 @@ def list_jobs(
     if exclude_sectors:
         clauses.append(f"COALESCE(j.sector, '') NOT IN ({','.join(['%s'] * len(exclude_sectors))})")
         params.extend(exclude_sectors)
+    if min_salary is not None and min_salary < 0 or max_salary is not None and max_salary < 0:
+        raise ValueError("El sueldo debe ser positivo")
+    if min_salary is not None and max_salary is not None and min_salary > max_salary:
+        raise ValueError("El mínimo no puede superar el máximo")
+    if max_salary is not None:
+        clauses.append("COALESCE(j.salary_min, j.salary_max) <= %s")
+        params.append(max_salary)
     if min_salary is not None:
-        clauses.append("COALESCE(j.salary_max, j.salary_min, 0) >= %s")
+        clauses.append("COALESCE(j.salary_max, j.salary_min) >= %s")
         params.append(min_salary)
     if source:
         clauses.append(
@@ -147,7 +167,7 @@ def list_jobs(
         clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
     if not include_applied:
         clauses.append(
-            "NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected'))"
+            "NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)"
         )
     limit_clause = ""
     if limit is not None:
@@ -288,14 +308,13 @@ def skill_overview(
         "COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')",
         "j.duplicate_status = 'canonical'",
         "j.published_at IS NOT NULL",
-        "date(j.published_at) >= %s",
-        "date(j.published_at) < %s",
+        _VISIBLE_PUBLICATION_WINDOW,
         "j.relevance_tier IN ('core', 'adjacent')",
         "NOT EXISTS (SELECT 1 FROM job_user_status jus2 WHERE jus2.job_id=j.id AND jus2.status='hidden')",
     ]
     params: list[Any] = list(visible_date_bounds(max_age_days))
     if not include_applied:
-        clauses.append("NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected'))")
+        clauses.append("NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)")
     if area:
         clauses.append("EXISTS (SELECT 1 FROM job_areas ja2 JOIN industrial_areas ia2 ON ia2.id=ja2.area_id WHERE ja2.job_id=j.id AND ja2.is_primary=1 AND ia2.name=%s)")
         params.append(area)
@@ -473,7 +492,7 @@ def recommendations(
     if not include_hidden:
         extra_filters.append("AND NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
     if not include_applied:
-        extra_filters.append("AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected'))")
+        extra_filters.append("AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)")
     extra_filter_sql = ("\n            " + "\n            ".join(extra_filters)) if extra_filters else ""
 
     with connection() as conn:
@@ -493,8 +512,7 @@ def recommendations(
             AND m.relevance_tier IN ('core','adjacent')
             AND COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')
             AND j.published_at IS NOT NULL
-            AND date(j.published_at) >= %s
-            AND date(j.published_at) < %s{extra_filter_sql}
+            AND {_VISIBLE_PUBLICATION_WINDOW}{extra_filter_sql}
             ORDER BY js.total_score DESC, j.published_at DESC, j.relevance_score DESC LIMIT %s""",
             (active_pack().id, profile["id"], revision, *visible_date_bounds(max_age_days), min(max(limit, 1), 50)),
         ).fetchall()

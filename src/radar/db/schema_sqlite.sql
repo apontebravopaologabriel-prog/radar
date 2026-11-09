@@ -417,3 +417,30 @@ CREATE TABLE IF NOT EXISTS market_search_profiles (
  version INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT (now())
 );
 -- End independent market projections
+
+-- Agent pending write proposals
+CREATE TABLE IF NOT EXISTS agent_pending_proposals (
+    tool_call_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    arguments TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (now())
+);
+-- End agent pending proposals
+
+-- Response-driven processes
+CREATE TABLE IF NOT EXISTS processes (
+    id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()),
+    job_id TEXT UNIQUE REFERENCES jobs(id) ON DELETE SET NULL,
+    source_application_id TEXT UNIQUE,
+    company TEXT NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT,
+    stage TEXT NOT NULL DEFAULT 'contact' CHECK(stage IN ('contact','assessment','interview','offer','closed')),
+    next_step TEXT,
+    due_date TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (now()),
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS processes_stage_due_idx ON processes(stage, due_date);
+-- End response-driven processes

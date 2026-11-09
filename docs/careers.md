@@ -117,13 +117,8 @@ follow-up work; these corrections are covered by diagnostic regression cases, no
 
 ## Known limitations
 
-- The [Industrial / Systems audit (2026-10-31)](classification-audit-2026-10-31.md) documents confirmed
-  ambiguity errors, market/profile policy overlap and a proposed evidence-based correction sequence.
-  Current relevance is occupational keyword evidence, not proof that the employer accepts a degree.
-  The [ingestion and classification plan](design-market-ingestion-classification.md) specifies capture
-  coordination, contextual evidence, shared roles, technical specialization and all-areas view defaults.
-  The [lifecycle and agent plan](design-market-lifecycle-agent.md) specifies consistent vacancy visibility,
-  source verification, market-aware tool calls and versioned historical evidence.
+- Current relevance is occupational keyword and contextual duty evidence, not proof that the employer accepts a specific degree.
+- `industrial_engineering` covers business/process analytics and KPIs under `Información, analítica y sistemas` (mapping historical `"Ingeniería de sistemas"` via `legacy_area_aliases`) while excluding pure IT/software/cloud roles. Conversely, `sistemas_software` requires explicit IT/software role or duty evidence and excludes operational/financial end-user roles that merely use an ERP or spreadsheet.
 - The area catalog table is still named `industrial_areas` (it stores areas for every pack); renaming it is cosmetic and
   deferred because it touches many queries.
 - Keyword classification degrades on careers with ambiguous vocabulary; measure the share of `Otras` after every new
@@ -179,4 +174,4 @@ Versioned history, source-level availability verification and full market-aware 
 `ingenieria_mecanica` is an experimental third pack; Industrial and Systems remain the main capture targets.
 Mechanical uses contextual evidence gates and excludes reviewed physical trade titles and unrelated IT/tool
 mentions. Its regression fixtures are diagnostic, not a measured precision estimate. Reference scores now
-read that market's independent projection (`v2.1-evidence`). See [implementation notes](windows-cv-markets-2026-11-04.md).
+read that market's independent projection (`v2.1-evidence`).

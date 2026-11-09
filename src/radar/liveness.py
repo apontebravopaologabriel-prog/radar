@@ -72,8 +72,10 @@ def check_application_status(
         with connection() as conn:
             conn.executemany(
                 """UPDATE jobs SET application_status=%s, application_checked_at=now(),
-                application_status_source='source_page' WHERE id=%s""",
-                [(status, job_id) for job_id, status in results],
+                application_status_source='source_page',
+                is_active=CASE WHEN %s='closed' THEN 0 ELSE is_active END
+                WHERE id=%s""",
+                [(status, status, job_id) for job_id, status in results],
             )
             conn.commit()
     return stats

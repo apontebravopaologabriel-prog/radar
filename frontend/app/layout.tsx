@@ -1,3 +1,4 @@
+import ProcessContactDialog from "../components/ProcessContactDialog";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {/* Aplica el modo rendimiento antes de pintar para evitar el parpadeo de efectos. */}
         <script dangerouslySetInnerHTML={{ __html: 'try{if(localStorage.getItem("radar.perf")==="lite")document.documentElement.dataset.perf="lite"}catch(e){}' }} />
       </head>
-      <body>{children}</body>
+      <body>{children}<ProcessContactDialog /></body>
     </html>
   );
 }

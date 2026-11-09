@@ -4,6 +4,7 @@ import { PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useS
 import { runAnalyticsQuery } from "../lib/api";
 import type { AnalyticsQueryResult } from "../types";
 import type { AgentContext } from "../lib/mobile-api";
+import "./analysis.css";
 
 type AnalysisWindow = {
   id: string;

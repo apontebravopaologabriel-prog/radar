@@ -32,7 +32,7 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17, zoomControl: false, preferCanvas: true }).setView(INITIAL_CENTER, 10.7);
+    const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17, zoomControl: false, attributionControl: false, preferCanvas: true }).setView(INITIAL_CENTER, 10.7);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 19 }).addTo(map);
     mapRef.current = map;
     loadDistrictGeoJson()

@@ -154,7 +154,7 @@ export default function ProfileTab({ career, onError }: { career: Career; onErro
 
       <section className="set-section">
         <h2>Contacto</h2>
-        <p className="m-sub">Aparece en el CV que descargas. No sale de tu equipo.</p>
+        <p className="m-sub">Se reutiliza en los CV que preparas para cada oferta.</p>
         <div className="set-grid">
           {CONTACT.map(([key, label]) => <Field key={key} label={label} value={me.contact[key] ?? ""} maxLength={120} onCommit={(value) => void save({ contact: { [key]: value } })} />)}
         </div>
@@ -197,7 +197,7 @@ export default function ProfileTab({ career, onError }: { career: Career; onErro
         </form>
       </section>
 
-      <p className="set-footnote">Experiencia, certificados y proyectos se editan en la vista <a href="/radar">CVs</a> o pidiéndoselo al agente. Todo lo de esta pantalla también lo puede cambiar el agente, con tu confirmación.</p>
+      <p className="set-footnote">Los datos de esta sección se guardan al salir de cada campo y puedes deshacer el último cambio.</p>
 
       <datalist id="set-places">{places.map((place) => <option key={place} value={place} />)}</datalist>
       <datalist id="set-skills">{skillNames.map((name) => <option key={name} value={name} />)}</datalist>

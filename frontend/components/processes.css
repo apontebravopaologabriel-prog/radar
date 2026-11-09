@@ -1,0 +1,20 @@
+.processes-view { height: 100%; overflow: auto; padding: 24px 24px 32px 76px; color: #ccc; background: #191919; }
+.processes-view h2 { margin: 0; font-size: 20px; }
+.processes-view p { color: #aaa; font-size: 12px; }
+.process-actions, .process-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.processes-view button, .processes-view input, .processes-view select, .processes-view textarea, .process-form input, .process-form select, .process-form textarea, .process-form button { font: inherit; font-size: 12px; color: #ddd; background: #242424; border: 1px solid #555; padding: 7px 10px; }
+.process-tabs [aria-selected=true] { border-color: #ddd; background: #333; }
+.process-form { max-width: 620px; }
+.process-form fieldset { display: grid; gap: 12px; margin: 12px 0; padding: 16px; border: 1px solid #555; }
+.process-form label { display: grid; gap: 5px; color: #aaa; font-size: 12px; }
+.process-form input, .process-form select, .process-form textarea { width: 100%; min-width: 0; }
+.process-form textarea { min-height: 70px; resize: vertical; }
+.process-list { list-style: none; margin: 0 0 22px; padding: 0; }
+.process-list li { border-bottom: 1px solid #3a3a3a; padding: 8px 0; }
+.processes-view .process-row { display: grid; width: 100%; gap: 6px; text-align: left; border: 0; background: transparent; }
+.process-row span, .process-row small { color: #aaa; }
+.process-list a { display: inline-block; margin: 6px 10px; font-size: 11px; color: #aaa; }
+.process-dialog { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #0009; padding: 20px; }
+.process-dialog > div { width: min(560px, 100%); max-height: 90vh; overflow: auto; padding: 16px; background: #202020; border: 1px solid #666; }
+.processes-view .applications-view { padding: 16px 0; height: auto; min-height: 0; overflow: visible; }
+@media(max-width:680px) { .processes-view { padding: 16px; } .processes-view button, .process-form button, .process-form input, .process-form select { min-height: 44px; } }

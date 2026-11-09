@@ -138,47 +138,67 @@ def _schema_section(start_marker: str, end_marker: str) -> str:
     return text[start : text.index(end_marker, start)]
 
 
+SCHEMA_VERSION = 4
+
+
 def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
-    """Apply small additive guarantees to databases created before migrations."""
-    conn.executescript(_schema_section("-- Independent market projections", "-- End independent market projections"))
-    run_columns = {row[1] for row in conn.execute("PRAGMA table_info(ingestion_runs)").fetchall()}
-    if run_columns and "context" not in run_columns:
-        conn.execute("ALTER TABLE ingestion_runs ADD COLUMN context TEXT NOT NULL DEFAULT '{}'")
-    score_columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)").fetchall()}
-    if score_columns and "assessment" not in score_columns:
-        conn.execute("ALTER TABLE job_scores ADD COLUMN assessment TEXT NOT NULL DEFAULT '{}'")
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
-    if "relevance_tier" not in columns:
-        conn.execute("ALTER TABLE jobs ADD COLUMN relevance_tier TEXT NOT NULL DEFAULT 'out_of_focus'")
-    if "relevance_score" not in columns:
-        conn.execute("ALTER TABLE jobs ADD COLUMN relevance_score REAL NOT NULL DEFAULT 0")
-    if "relevance_evidence" not in columns:
-        conn.execute("ALTER TABLE jobs ADD COLUMN relevance_evidence TEXT")
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS jobs_fingerprint_unique_idx ON jobs (canonical_fingerprint)")
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = 1")
-    # Sin este índice cada oferta escaneaba toda la tabla job_sources (4 s por consulta con ~2 000 ofertas).
-    conn.execute("CREATE INDEX IF NOT EXISTS job_sources_job_seen_idx ON job_sources (job_id, last_seen_at DESC)")
-    conn.execute("CREATE INDEX IF NOT EXISTS job_sources_external_idx ON job_sources (source_id, external_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS job_scores_profile_idx ON job_scores (profile_id, total_score DESC)")
-    conn.execute("CREATE INDEX IF NOT EXISTS applications_job_idx ON applications (job_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active)")
-    conn.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (now()))")
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS agent_usage (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), provider TEXT NOT NULL, "
-        "model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0, completion_tokens INTEGER NOT NULL DEFAULT 0, "
-        "created_at TEXT NOT NULL DEFAULT (now()))"
-    )
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), title TEXT NOT NULL, "
-        "data TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()))"
-    )
-    conn.execute("CREATE TABLE IF NOT EXISTS agent_memories (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), topic_key TEXT NOT NULL UNIQUE, memory_type TEXT NOT NULL DEFAULT 'preference', content TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'user', confidence REAL NOT NULL DEFAULT 1.0, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()), last_confirmed_at TEXT)")
-    conn.execute("CREATE INDEX IF NOT EXISTS agent_memories_active_idx ON agent_memories (is_active, updated_at DESC)")
-    conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS agent_memories_fts USING fts5(topic_key, content, content='agent_memories', content_rowid='rowid')")
-    conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
-    conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); END")
-    conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
-    conn.executescript(_schema_section("-- CV Studio", "CREATE TABLE IF NOT EXISTS market_snapshots"))
+    """Apply versioned schema migrations (`PRAGMA user_version`) and sync pack catalogs."""
+    current_version = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
+    missing_market_table = not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name='job_market_classifications'"
+    ).fetchone()
+    if current_version < SCHEMA_VERSION or missing_market_table:
+        conn.executescript(_schema_section("-- Independent market projections", "-- End independent market projections"))
+        conn.executescript(_schema_section("-- Agent pending write proposals", "-- End agent pending proposals"))
+        run_columns = {row[1] for row in conn.execute("PRAGMA table_info(ingestion_runs)").fetchall()}
+        if run_columns and "context" not in run_columns:
+            conn.execute("ALTER TABLE ingestion_runs ADD COLUMN context TEXT NOT NULL DEFAULT '{}'")
+        score_columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)").fetchall()}
+        if score_columns and "assessment" not in score_columns:
+            conn.execute("ALTER TABLE job_scores ADD COLUMN assessment TEXT NOT NULL DEFAULT '{}'")
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+        if "relevance_tier" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN relevance_tier TEXT NOT NULL DEFAULT 'out_of_focus'")
+        if "relevance_score" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN relevance_score REAL NOT NULL DEFAULT 0")
+        if "relevance_evidence" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN relevance_evidence TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS jobs_fingerprint_unique_idx ON jobs (canonical_fingerprint)")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS job_areas_one_primary_idx ON job_areas (job_id) WHERE is_primary = 1")
+        # Sin este índice cada oferta escaneaba toda la tabla job_sources (4 s por consulta con ~2 000 ofertas).
+        conn.execute("CREATE INDEX IF NOT EXISTS job_sources_job_seen_idx ON job_sources (job_id, last_seen_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS job_sources_external_idx ON job_sources (source_id, external_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS job_scores_profile_idx ON job_scores (profile_id, total_score DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS applications_job_idx ON applications (job_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active)")
+        conn.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (now()))")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS agent_usage (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), provider TEXT NOT NULL, "
+            "model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL DEFAULT 0, completion_tokens INTEGER NOT NULL DEFAULT 0, "
+            "created_at TEXT NOT NULL DEFAULT (now()))"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), title TEXT NOT NULL, "
+            "data TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()))"
+        )
+        conn.execute("CREATE TABLE IF NOT EXISTS agent_memories (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), topic_key TEXT NOT NULL UNIQUE, memory_type TEXT NOT NULL DEFAULT 'preference', content TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'user', confidence REAL NOT NULL DEFAULT 1.0, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (now()), updated_at TEXT NOT NULL DEFAULT (now()), last_confirmed_at TEXT)")
+        conn.execute("CREATE INDEX IF NOT EXISTS agent_memories_active_idx ON agent_memories (is_active, updated_at DESC)")
+        conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS agent_memories_fts USING fts5(topic_key, content, content='agent_memories', content_rowid='rowid')")
+        conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
+        conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); END")
+        conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
+        conn.executescript(_schema_section("-- CV Studio", "CREATE TABLE IF NOT EXISTS market_snapshots"))
+        conn.executescript(_schema_section("-- Response-driven processes", "-- End response-driven processes"))
+        if current_version < 4:
+            conn.execute("""INSERT OR IGNORE INTO processes
+                (job_id, source_application_id, company, title, url, stage, notes, created_at, updated_at)
+                SELECT a.job_id, a.id, COALESCE(c.name, 'Empresa sin nombre'), j.title,
+                    (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY last_seen_at DESC LIMIT 1),
+                    a.status, a.notes, COALESCE(a.applied_at, a.updated_at), a.updated_at
+                FROM applications a JOIN jobs j ON j.id=a.job_id
+                LEFT JOIN companies c ON c.id=j.company_id
+                WHERE a.status IN ('interview','offer') ORDER BY a.updated_at DESC""")
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),
@@ -229,10 +249,12 @@ def connection() -> Iterator[RadarConnection]:
             if is_new:
                 _init_sqlite_db(conn)
                 _SCHEMA_READY.discard(key)
-            if not is_new and not conn.execute("SELECT 1 FROM sqlite_master WHERE name='job_market_classifications'").fetchone():
+            if not is_new and (int(conn.execute("PRAGMA user_version").fetchone()[0]) < SCHEMA_VERSION
+                               or not conn.execute("SELECT 1 FROM sqlite_master WHERE name='job_market_classifications'").fetchone()):
                 folder = db_file.parent / "backups"
                 folder.mkdir(exist_ok=True)
-                backup_path = folder / f"pre-dual-market-{datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%S%f')}.db"
+                prefix = "pre-dual-market" if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='job_market_classifications'").fetchone() else "pre-schema-upgrade"
+                backup_path = folder / f"{prefix}-{datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%S%f')}.db"
                 with sqlite3.connect(str(backup_path)) as backup:
                     conn.backup(backup)
             if key not in _SCHEMA_READY:

@@ -8,7 +8,7 @@ Radar reads public job postings and stores them in a local SQLite file. Nothing 
 | --- | --- | --- |
 | Indeed | JobSpy (scraper) | The portal's terms may prohibit automated access. Use at your own risk, at low frequency; keep it as an opt-in "advanced source". |
 | LinkedIn | JobSpy (scraper) | Same warning; LinkedIn is the most restrictive. Radar never logs into your account or uses your session. |
-| Computrabajo | `mcp-computrabajo@1.0.0` through `npx` (pinned) | Public search pages only; no cookies. |
+| Computrabajo | Native public HTTP (`computrabajo_native.py`); optional legacy `mcp-computrabajo@1.0.0` via `npx` | Public search and detail pages only; no cookies. |
 | Bumeran | Public JSON-LD / API connector | Direct public job posting queries and single URL import. |
 | Empleos Perú | Public MTPE API connector | Public Peruvian Ministry of Labor job portal. |
 | Single URL import | Direct fetch with SSRF guard | Any public offer URL from Computrabajo, LinkedIn, Indeed, Bumeran, or Empleos Perú. |
@@ -44,3 +44,7 @@ parser. The public markup/field conventions were reviewed against `mcp-computrab
 [upstream package](https://www.npmjs.com/package/mcp-computrabajo). The Node distribution is not bundled.
 Legacy MCP is explicit opt-in and still requires the user's configured runtime. HTTP 403 or challenge
 pages are isolated source failures; Radar does not bypass them or treat them as a successfully empty market.
+
+## Computrabajo HTML request compatibility (2026-11-09)
+
+The public listing opened normally in a browser, while the original native request received an awselb/2.0 403 before parsing. A standard HTML request with Spanish language negotiation and a compatible User-Agent that explicitly identifies Radar returned HTTP 200 and 20 dated, located cards. The native adapter now uses that request shape for public search/detail. No portal account, personal browser profile, proxy, CAPTCHA handling or new dependency is used. Future 403/challenge responses still fail explicitly and retain source isolation/backoff; this is not a guarantee of uninterrupted portal access.

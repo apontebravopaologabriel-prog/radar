@@ -6,7 +6,8 @@
     "dev": "node scripts/copy-maplibre-worker.mjs && next dev",
     "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "build": "next build",
-    "start": "next start",
+    "api:generate": "node scripts/generate-api-types.mjs",
+    "api:check": "node scripts/generate-api-types.mjs --check",
     "lint": "eslint .",
     "test": "vitest run"
   },
@@ -26,6 +27,7 @@
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.0",
+    "openapi-typescript": "7.13.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.7"
   }

@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
-from radar import cv_import, cv_photo, profile_edit
+from radar import cv_import, cv_photo, cv_profile, profile_edit
 
 router = APIRouter(prefix="/api/me")
 _PHOTO_FIELD = File(...)
@@ -68,6 +69,53 @@ async def preview_cv(file: UploadFile = _PHOTO_FIELD, career_id: str = Form("ind
 def confirm_setup(draft: dict) -> dict:
     try:
         return cv_import.apply(draft)
+    except cv_profile.ProfileConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/cv/changes")
+def cv_import_changes(draft: dict) -> dict:
+    try:
+        return cv_import.changes(draft)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/cv")
+def factual_cv() -> dict:
+    try:
+        original = cv_import.original()
+        return {**cv_profile.read(), "original_name": original[1] if original else None}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.patch("/cv")
+def edit_factual_cv(payload: dict) -> dict:
+    try:
+        return cv_profile.save(payload.get("sections"), payload.get("revision", ""))
+    except cv_profile.ProfileConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/cv/original")
+def original_cv() -> FileResponse:
+    found = cv_import.original()
+    if found is None:
+        raise HTTPException(status_code=404, detail="Adjunta y confirma tu CV para conservar el archivo original.")
+    return FileResponse(found[0], filename=found[1], headers={"Cache-Control": "no-store"})
+
+
+@router.post("/cv/undo-import")
+def undo_cv_import(payload: dict) -> dict:
+    try:
+        return cv_import.undo_import(payload.get("backup"), payload.get("revision", ""))
+    except cv_profile.ProfileConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

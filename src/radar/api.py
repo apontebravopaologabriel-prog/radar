@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
@@ -37,6 +37,7 @@ from radar.db.queries import (
     skill_overview,
 )
 from radar.paths import frontend_dir
+from radar.processes import router as processes_router
 from radar.security import LocalGuardMiddleware, restrict_umask
 
 FRONTEND_OUT = frontend_dir()
@@ -76,6 +77,7 @@ app.include_router(cv_router)
 app.include_router(me_router)
 app.include_router(mcp_router)
 app.include_router(agent_router)
+app.include_router(processes_router)
 
 if FRONTEND_OUT.exists():
     next_dir = FRONTEND_OUT / "_next"
@@ -151,12 +153,92 @@ def _with_location(job: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+class JobFields(BaseModel):
+    id: str
+    title: str
+    company: str | None
+    location: str | None
+    seniority: str | None
+    work_mode: str | None
+    salary_min: float | None
+    salary_max: float | None
+    salary_currency: str | None
+    url: str | None
+    published_at: str | None
+    primary_area: str | None
+    sector: str | None
+    relevance_tier: str
+    relevance_score: float
+    relevance_evidence: str | None
+    hours_per_week: float | None
+    schedule_text: str | None
+    application_status: str
+    application_checked_at: str | None
+    user_status: str
+    user_reason: str | None
+    is_favorite: bool
+    user_application: str | None
+    latitude: float | None
+    longitude: float | None
+    district: str | None
+    place_id: str | None
+    location_precision: str
+    location_confidence: float
+    geocoding_source: str | None
+
+
+class SlimJob(JobFields):
+    has_description: bool
+
+
+class FullJob(JobFields):
+    description: str | None
+
+
+class JobPage(BaseModel):
+    jobs: list[SlimJob | FullJob]
+    total: int
+    offset: int
+
+
+class FullJobList(BaseModel):
+    jobs: list[FullJob]
+    total: int
+
+
+class JobById(BaseModel):
+    job: SlimJob
+
+
+class JobDescription(BaseModel):
+    id: str
+    description: str | None
+
+
+class JobMapPoint(BaseModel):
+    type: Literal["Point"]
+    coordinates: tuple[float, float]
+
+
+class JobMapFeature(BaseModel):
+    type: Literal["Feature"]
+    geometry: JobMapPoint
+    properties: SlimJob | FullJob
+
+
+class JobMap(BaseModel):
+    type: Literal["FeatureCollection"]
+    features: list[JobMapFeature]
+    total: int
+    mapped: int
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
 
 
-@app.get("/api/jobs")
+@app.get("/api/jobs", response_model=JobPage)
 def jobs(
     geo_scope: str | None = Query(default=None, pattern="^lima_callao$"),
     market_id: str | None = None,
@@ -168,7 +250,8 @@ def jobs(
     source: str | None = None,
     skill: str | None = None,
     relevance_tier: str | None = None,
-    min_salary: float | None = None,
+    min_salary: Annotated[float | None, Query(ge=0)] = None,
+    max_salary: Annotated[float | None, Query(ge=0)] = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
     include_hidden: bool = False,
     include_applied: bool = True,
@@ -177,6 +260,8 @@ def jobs(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
     """Sin `limit` devuelve todo (lo que usa el mapa); con `limit`/`offset` pagina y `total` sigue siendo el conteo completo."""
+    if min_salary is not None and max_salary is not None and min_salary > max_salary:
+        raise HTTPException(422, "El mínimo no puede superar el máximo")
     if profile_mode == "saved" and not market_id:
         raise HTTPException(status_code=422, detail="El perfil necesita un mercado")
     if market_id:
@@ -197,6 +282,7 @@ def jobs(
         search=search,
         work_mode=work_mode,
         min_salary=min_salary,
+        max_salary=max_salary,
         include_hidden=include_hidden,
         include_applied=include_applied,
         source=source,
@@ -207,7 +293,7 @@ def jobs(
     return {"jobs": [_slimmed(_with_location(row), slim) for row in page], "total": len(rows), "offset": offset}
 
 
-@app.get("/api/jobs/{job_id}/description")
+@app.get("/api/jobs/{job_id}/description", response_model=JobDescription)
 def job_description(job_id: str) -> dict[str, Any]:
     """Descripción completa de una oferta; los listados con `slim=1` no la incluyen (pesa ~80 % del payload)."""
     from radar.db.database import connection
@@ -219,7 +305,7 @@ def job_description(job_id: str) -> dict[str, Any]:
     return {"id": job_id, "description": row[0]}
 
 
-@app.get("/api/map/jobs")
+@app.get("/api/map/jobs", response_model=JobMap)
 def map_jobs(
     search: str | None = None,
     seniority: str | None = None,
@@ -227,10 +313,13 @@ def map_jobs(
     work_mode: str | None = None,
     source: str | None = None,
     relevance_tier: str | None = None,
-    min_salary: float | None = None,
+    min_salary: Annotated[float | None, Query(ge=0)] = None,
+    max_salary: Annotated[float | None, Query(ge=0)] = None,
     max_age_days: int = Query(default=14, ge=1, le=365),
     slim: bool = False,
 ) -> dict[str, Any]:
+    if min_salary is not None and max_salary is not None and min_salary > max_salary:
+        raise HTTPException(422, "El mínimo no puede superar el máximo")
     rows = list_jobs(
         limit=None,
         seniority=seniority,
@@ -239,6 +328,7 @@ def map_jobs(
         search=search,
         work_mode=work_mode,
         min_salary=min_salary,
+        max_salary=max_salary,
         source=source,
         relevance_tier=relevance_tier,
     )
@@ -280,13 +370,16 @@ def skills_overview(
     relevance_tier: str | None = None,
     search: str | None = None,
     source: str | None = None,
-    min_salary: float | None = None,
+    min_salary: Annotated[float | None, Query(ge=0)] = None,
+    max_salary: Annotated[float | None, Query(ge=0)] = None,
     max_age_days: int = Query(default=30, ge=1, le=365),
     area: str | None = None,
     seniority: str | None = None,
     work_mode: str | None = None,
     include_applied: bool = True,
 ) -> dict[str, Any]:
+    if min_salary is not None and max_salary is not None and min_salary > max_salary:
+        raise HTTPException(422, "El mínimo no puede superar el máximo")
     if profile_mode == "saved" and not market_id:
         raise HTTPException(status_code=422, detail="El perfil necesita un mercado")
     if market_id:
@@ -296,7 +389,7 @@ def skills_overview(
         try:
             return market_skills(market_id, geo_scope=geo_scope, max_age_days=max_age_days, area=area, seniority=seniority,
                                  work_mode=work_mode, profile_mode=profile_mode, relevance_tier=relevance_tier,
-                                 search=search, source=source, min_salary=min_salary, include_applied=include_applied)
+                                 search=search, source=source, min_salary=min_salary, max_salary=max_salary, include_applied=include_applied)
         except CareerPackError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
     return skill_overview(max_age_days=max_age_days, area=area, seniority=seniority, work_mode=work_mode,
@@ -314,19 +407,19 @@ class JobStatusUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
-@app.get("/api/jobs/hidden")
+@app.get("/api/jobs/hidden", response_model=FullJobList)
 def hidden_jobs() -> dict[str, Any]:
     rows = list_hidden_jobs()
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
 
 
-@app.get("/api/jobs/favorites")
+@app.get("/api/jobs/favorites", response_model=FullJobList)
 def favorite_jobs() -> dict[str, Any]:
     rows = list_favorite_jobs()
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
 
 
-@app.get("/api/jobs/applied")
+@app.get("/api/jobs/applied", response_model=FullJobList)
 def applied_jobs() -> dict[str, Any]:
     rows = list_applied_jobs()
     return {"jobs": [_with_location(row) for row in rows], "total": len(rows)}
@@ -366,7 +459,7 @@ def import_job_by_url(payload: JobUrlImport) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.get("/api/jobs/{job_id}")
+@app.get("/api/jobs/{job_id}", response_model=JobById)
 def job_by_id(job_id: str) -> dict[str, Any]:
     """Una oferta por id: lo usa el chat para abrir en el mapa una oferta que no está en la vista actual."""
     row = get_job(job_id)
@@ -425,6 +518,9 @@ def analytics_schema() -> dict[str, Any]:
 
 
 def main() -> None:
+    from multiprocessing import freeze_support
+
+    freeze_support()
     restrict_umask()
     uvicorn.run(
         "radar.api:app",

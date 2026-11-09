@@ -14,6 +14,13 @@ from radar.normalize import normalize_text
 BASE = "https://pe.computrabajo.com"
 DETAIL = "https://oferta.computrabajo.com/offer/"
 
+# Use standard HTML content negotiation while keeping Radar's identity explicit.
+HEADERS = {
+    "User-Agent": f"Mozilla/5.0 (compatible; Radar/{__version__}; +https://github.com/apontebravopaologabriel-prog/radar)",
+    "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "es-PE,es;q=0.9",
+}
+
 
 def _slug(text):
     return re.sub(r"[^a-z0-9-]", "", re.sub(r"\s+", "-", normalize_text(text)))[:200]
@@ -74,8 +81,7 @@ def search(query, location, limit, enrich=True):
     url = BASE + "/trabajo-de-" + _slug(query)
     if location:
         url += "-en-" + _slug(location)
-    headers = {"User-Agent": f"Radar/{__version__} (+https://github.com/apontebravopaologabriel-prog/radar)", "Accept": "text/html,application/json"}
-    with httpx.Client(timeout=30, headers=headers, follow_redirects=False) as client:
+    with httpx.Client(timeout=30, headers=HEADERS, follow_redirects=False) as client:
         selected = cards(fetch(client, url))[:max(0, min(limit, 50))]
         if enrich:
             for item in selected:

@@ -16,6 +16,7 @@ from radar.agent.loop import (
     agent_enabled,
     autocompact_pct,
     compact,
+    consume_pending_proposal,
     context_window,
     execute_tool,
     get_memory,
@@ -99,7 +100,29 @@ def impact(limit: int = Query(default=8, ge=1, le=30)) -> dict[str, Any]:
     return skill_impact(limit)
 
 
-@router.get("/applications")
+class ApplicationItem(BaseModel):
+    id: str
+    job_id: str
+    title: str
+    company: str | None
+    status: str  # Existing rows may contain statuses outside the HTTP write set.
+    notes: str | None
+    applied_at: str | None
+    updated_at: str
+    url: str | None
+    location: str | None
+    work_mode: str | None
+    salary_min: float | None
+    salary_max: float | None
+    salary_currency: str | None
+    primary_area: str | None
+
+
+class ApplicationList(BaseModel):
+    applications: list[ApplicationItem]
+
+
+@router.get("/applications", response_model=ApplicationList)
 def list_applications() -> dict[str, Any]:
     return {"applications": applications(200)}
 
@@ -109,7 +132,12 @@ class ApplicationUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
 
 
-@router.put("/applications/{job_id}")
+class ApplicationUpdated(BaseModel):
+    application_id: str
+    status: str
+
+
+@router.put("/applications/{job_id}", response_model=ApplicationUpdated)
 def update_application(job_id: str, payload: ApplicationUpdate) -> dict[str, str]:
     try:
         application_id = track_application(job_id, payload.status, payload.notes)
@@ -118,7 +146,11 @@ def update_application(job_id: str, payload: ApplicationUpdate) -> dict[str, str
     return {"application_id": application_id, "status": payload.status}
 
 
-@router.delete("/applications/{job_id}")
+class ApplicationRemoved(BaseModel):
+    removed: bool
+
+
+@router.delete("/applications/{job_id}", response_model=ApplicationRemoved)
 def remove_application(job_id: str) -> dict[str, bool]:
     """Quita el seguimiento de una oferta (error al marcar «postulé»). No toca la oferta."""
     return {"removed": untrack_application(job_id)}
@@ -205,10 +237,22 @@ def create_custom_career(payload: CustomCareer) -> dict[str, Any]:
 class RefreshRequest(BaseModel):
     market_ids: list[str] = Field(default_factory=list, max_length=4)
     places: list[str] = Field(default_factory=list, max_length=3)
-    limit: int = Field(default=15, ge=1, le=50)
+    limit: int = Field(default=50, ge=1, le=50)
 
 
-@router.post("/refresh", status_code=202)
+class RefreshStatus(BaseModel):
+    running: bool
+    done: int
+    total: int
+    created: int
+    errors: list[str]
+    current: str | None
+    started_at: float | None
+    finished_at: float | None
+    market_ids: list[str] = Field(default_factory=list)
+
+
+@router.post("/refresh", status_code=202, response_model=RefreshStatus, response_model_exclude_unset=True)
 def refresh(payload: RefreshRequest) -> dict[str, Any]:
     try:
         return start_refresh(payload.places or None, limit=payload.limit, market_ids=payload.market_ids or None)
@@ -218,7 +262,7 @@ def refresh(payload: RefreshRequest) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/refresh/status")
+@router.get("/refresh/status", response_model=RefreshStatus, response_model_exclude_unset=True)
 def refresh_state() -> dict[str, Any]:
     return refresh_status()
 
@@ -451,10 +495,15 @@ def doctor() -> dict[str, Any]:
         ).fetchone()[0]
         newest = conn.execute("SELECT max(published_at) FROM jobs").fetchone()[0]
         conversations = conn.execute("SELECT count(*) FROM conversations").fetchone()[0]
+    backups = sorted((path.parent / "backups").glob("radar-*.db"))
     config = load_config()
     return {
         "version": __version__,
-        "database": {"path": str(path), "size_mb": round(path.stat().st_size / 1e6, 1) if path.exists() else 0},
+        "database": {
+            "path": str(path),
+            "size_mb": round(path.stat().st_size / 1e6, 1) if path.exists() else 0,
+            "backups": [b.name for b in backups][-5:],
+        },
         "jobs": {"active": jobs, "last_14_days": fresh, "newest_published": str(newest) if newest else None},
         "career": active_pack().name,
         "agent": {"enabled": agent_enabled(), "provider": config.provider, "model": config.model,
@@ -462,6 +511,14 @@ def doctor() -> dict[str, Any]:
         "refresh": refresh_status(),
         "tools": len(tools.chat_tools()),
     }
+
+
+@router.post("/system/backup")
+def create_backup() -> dict[str, Any]:
+    """Crea una copia consistente de la base de datos SQLite en la carpeta `backups/`."""
+    from radar.system import backup_database
+
+    return backup_database()
 
 
 @router.post("/chat/compact")
@@ -486,17 +543,25 @@ class ConfirmRequest(BaseModel):
 
 @router.post("/chat/confirm")
 def confirm(payload: ConfirmRequest) -> dict[str, Any]:
-    """Ejecuta (o rechaza) una escritura propuesta por el agente. Solo herramientas de escritura."""
+    """Ejecuta (o rechaza) una escritura propuesta por el agente. Vincula nombre y argumentos si existe propuesta registrada."""
     if not agent_enabled():
         raise HTTPException(status_code=403, detail="agent_disabled")
-    entry = tools.REGISTRY.get(payload.name)
+    stored = consume_pending_proposal(payload.tool_call_id)
+    if stored is not None:
+        stored_name, stored_args = stored
+        if stored_name != payload.name or stored_args != payload.arguments:
+            raise HTTPException(status_code=422, detail="La propuesta no coincide con la acción registrada")
+        tool_name, tool_args = stored_name, stored_args
+    else:
+        tool_name, tool_args = payload.name, payload.arguments
+    entry = tools.REGISTRY.get(tool_name)
     if entry is None or not entry.chat or not entry.write or read_only():
         raise HTTPException(status_code=422, detail="Herramienta no confirmable")
     if not payload.approve:
         result: Any = {"cancelado_por_el_usuario": True}
     else:
         try:
-            result = execute_tool(payload.name, payload.arguments)
+            result = execute_tool(tool_name, tool_args)
         except Exception as exc:  # noqa: BLE001
             result = {"error": str(exc)[:500]}
     from radar.agent.loop import wrap_untrusted

@@ -9,17 +9,19 @@ from radar.careers import load_pack
 def _env(tmp_path, monkeypatch):
     monkeypatch.setenv("RADAR_DB_PATH", str(tmp_path / "radar.db"))
     monkeypatch.delenv("RADAR_CITIES", raising=False)
+    for flag in ("RADAR_EXTRA_SOURCES", "RADAR_BUMERAN_ENABLED", "RADAR_EMPLEOS_ENABLED"):
+        monkeypatch.delenv(flag, raising=False)
 
 
 def test_plan_uses_pack_queries_for_lima_and_short_queries_for_cities():
     pack = load_pack("industrial_engineering")
     steps = capture.plan_steps(["Arequipa"], True, pack.market_queries, pack.queries)
     lima = [s for s in steps if s["location"] == "Lima"]
-    assert len(lima) == 2 * len(pack.market_queries) == 32 and {s["limit"] for s in lima} == {50}
+    assert len(lima) == 4 * len(pack.market_queries) == 64 and {s["limit"] for s in lima} == {50}
     arequipa = [s for s in steps if s["location"] == "Arequipa"]
-    assert len(arequipa) == 2 * len(pack.queries) and {s["limit"] for s in arequipa} == {25}
+    assert len(arequipa) == 4 * len(pack.queries) and {s["limit"] for s in arequipa} == {25}
     no_ct = capture.plan_steps([], False, pack.market_queries, pack.queries)
-    assert {s["source"] for s in no_ct} == {"jobspy"}
+    assert {s["source"] for s in no_ct} == {"jobspy", "bumeran", "empleos"}
 
 
 def test_cities_come_from_argument_or_environment(monkeypatch):
@@ -44,7 +46,7 @@ def test_one_failing_or_hanging_step_does_not_stop_the_capture(monkeypatch):
     logs: list[str] = []
     summary = capture.run_capture(log=logs.append, step_timeout=0.3)
     pack = load_pack("industrial_engineering")
-    assert summary["steps"] == 2 * len(pack.market_queries)
+    assert summary["steps"] == 4 * len(pack.market_queries)
     assert any("analista de operaciones" in item for item in summary["failed"])
     assert any("portal caído" in line for line in logs) and any("sin respuesta" in line for line in logs)
     assert summary["created"] > 0 and len(calls) == summary["steps"]
@@ -57,7 +59,7 @@ def test_computrabajo_can_be_disabled_by_environment(monkeypatch):
     monkeypatch.setattr("radar.pipeline.run_ingestion", lambda source, *a, **kw: seen.add(source) or {"created": 0})
     monkeypatch.setenv("RADAR_COMPUTRABAJO_ENABLED", "0")
     capture.run_capture(log=lambda _: None)
-    assert seen == {"jobspy"}
+    assert seen == {"jobspy", "bumeran", "empleos"}
 
 
 def test_local_maintenance_is_never_abandoned_by_the_step_timeout(monkeypatch):

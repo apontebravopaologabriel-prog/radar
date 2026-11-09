@@ -50,11 +50,14 @@ la respuesta, lo decisivo y a lo sumo una pregunta o siguiente paso. Hasta ~120 
 
 Velocidad:
 - Pide en un mismo paso todas las herramientas independientes (varias búsquedas, varias fichas) en vez de una por una.
-- Para listar o rankear ofertas basta search_saved_jobs (trae enlace, relevancia y extracto): no abras get_job_details de cada \
-una; úsalo solo para 1 a 3 ofertas que la persona va a decidir o cuando pregunta qué exigen.
+- Para listar, rankear o buscar beneficios/requisitos específicos dentro de ofertas (ej. «almuerzo», «comedor», «SAP B1», \
+«utilidades», «horario») basta `search_saved_jobs(search=...)`: cuando pasas `search`, el campo `snippet` ya viene centrado \
+en la frase exacta donde aparece ese término dentro de la descripción. No abras `get_job_details` de cada una; úsalo solo \
+para 1 a 3 ofertas que la persona va a decidir o cuando pregunta todos los detalles de una ficha.
 - Una sola búsqueda amplia con filtros bien puestos antes que varias variantes del texto.
 
 Reglas:
+- Procesos con respuesta y el historial de postulaciones son distintos. track_job_application y list_job_applications solo gestionan el historial; nunca afirmes que crean un Proceso. Para registrar un contacto, indica «Me contactaron» o «Agregar proceso». No pidas registrar cada solicitud.
 - Filtrado por estado: Al listar, buscar o recomendar ofertas (`search_saved_jobs`, `find_jobs_near`, etc.), NUNCA \
 listes ofertas a las que la persona ya postuló (`user_application` en applied, interview, offer, rejected o ignored) ni \
 ofertas ocultas (`user_status` = hidden o ignoradas), SALVO que la persona lo pida EXPLÍCITAMENTE (ej. «incluye a las \
@@ -75,7 +78,7 @@ Si tras 3 consultas no tienes lo necesario, responde con lo que hay y di qué fa
 direcciones. Para comparar el distrito seleccionado con otro usa compare_places (lugar del contexto + el de la \
 pregunta), en todas las dimensiones; `focus` solo si piden un eje concreto.
 - No postulas ni envías mensajes. Las acciones que modifican datos las propones con su herramienta: la persona verá \
-una tarjeta y decidirá. Para el flujo de ofertas usa `favorite_job` (★ preselección/CV objetivo), `track_job_application` \
+una tarjeta y decidirá. Para la bandeja usa `favorite_job` (★ interés). Solo si se pide modificar el historial anterior, usa `track_job_application` \
 (`applied` al postular —la saca de activas—, `interview`, `offer`, `rejected`, `ignored` para ocultar si no interesa, \
 `visible` para restaurar, y `notes` para anotar detalles), `import_job_url` (cuando te pasen uno o varios links de ofertas \
 de Computrabajo —incluidos los que llevan `#HASH`—, LinkedIn, Indeed, Bumeran o Empleos Perú: llámala directo y en paralelo \
@@ -399,6 +402,28 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
     return entry.call(arguments)
 
 
+def store_pending_proposal(tool_call_id: str, name: str, arguments: dict[str, Any]) -> None:
+    """Guarda en la base local la propuesta de escritura emitida por el agente para vincular su confirmación."""
+    with connection() as conn:
+        conn.execute("DELETE FROM agent_pending_proposals WHERE created_at < datetime('now', '-7 days')")
+        conn.execute(
+            "INSERT OR REPLACE INTO agent_pending_proposals(tool_call_id, name, arguments) VALUES (%s, %s, %s)",
+            (tool_call_id, name, json.dumps(arguments, ensure_ascii=False, sort_keys=True, default=str)),
+        )
+
+
+def consume_pending_proposal(tool_call_id: str) -> tuple[str, dict[str, Any]] | None:
+    """Recupera y consume una propuesta pendiente por su `tool_call_id`."""
+    with connection() as conn:
+        row = conn.execute(
+            "DELETE FROM agent_pending_proposals WHERE tool_call_id = %s RETURNING name, arguments",
+            (tool_call_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return str(row[0]), json.loads(row[1])
+
+
 def _call_tool_safely(entry: tools.Tool, args: dict[str, Any], query=None) -> Any:
     from radar.query_context import using_query
 
@@ -598,8 +623,14 @@ def run_turn(
         prompt += "\n\n" + PLAN_PROMPT
     messages = [{"role": "system", "content": prompt}, *_trim_old_tool_results(sanitize_history(history))]
     loaded = _groups_in_history(history)
+    if isinstance(context, dict):
+        if context.get("cvStudio") or context.get("screen") == "cvs":
+            loaded.add("cv")
+        elif context.get("screen") == "analysis":
+            loaded.add("analitica")
     specs = _tool_specs(plan, loaded)
     seen_calls: set[tuple[str, str]] = set()
+    overflow_retried = False
     for step in range(MAX_STEPS):
         final_step = step == MAX_STEPS - 1
         if final_step:  # último paso: sin herramientas, para cerrar con lo obtenido en vez de fallar
@@ -633,6 +664,21 @@ def run_turn(
                         usage_event["cache_hit_tokens"] = cache_hit
                     yield usage_event
         except ProviderError as exc:
+            err_lower = str(exc).lower()
+            is_overflow = any(k in err_lower for k in ("context_length", "maximum context", "too many tokens", "context window"))
+            head, tail = split_for_compaction(history)
+            if is_overflow and not overflow_retried and not text_parts and head:
+                overflow_retried = True
+                try:
+                    comp = compact(config, head, client)
+                except ProviderError:
+                    yield {"type": "error", "message": str(exc)}
+                    return
+                history = [*summary_messages(comp["summary"]), *tail]
+                yield {"type": "compacted", "history": history, "summary": comp["summary"], "before_tokens": last_prompt_tokens,
+                       "memory_candidates": comp["memory_candidates"]}
+                messages = [{"role": "system", "content": prompt}, *_trim_old_tool_results(sanitize_history(history))]
+                continue
             yield {"type": "error", "message": str(exc)}
             return
         assistant: dict[str, Any] = {"role": "assistant", "content": "".join(text_parts) or None}
@@ -679,6 +725,7 @@ def run_turn(
                 if preview is not None:  # «antes → después» para que la persona vea qué aprueba
                     with contextlib.suppress(Exception):
                         action["preview"] = preview(args)
+                store_pending_proposal(call["id"], call["name"], args)
                 pending.append(action)
             else:
                 seen_calls.add(signature)

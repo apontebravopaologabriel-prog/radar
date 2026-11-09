@@ -73,7 +73,7 @@ def test_internal_scheduler_does_not_start_when_systemd_timer_exists(monkeypatch
     assert scheduler.should_start() is False
 
 
-@pytest.mark.parametrize("outcome", ["failed", "partial", "exception"])
+@pytest.mark.parametrize("outcome", ["failed", "exception"])
 def test_failed_capture_preserves_last_success_and_has_retry_backoff(monkeypatch, outcome):
     previous = (datetime.now(UTC)-timedelta(days=10)).isoformat()
     set_setting("refresh_last_at", previous)

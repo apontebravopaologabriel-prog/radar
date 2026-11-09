@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { startProcess } from "../../lib/processes-api";
 import { api, type AgentContext, type SkillImpact, type Today, type TodayJob } from "../../lib/mobile-api";
 
 function ago(iso: string | null): string {
@@ -23,10 +24,9 @@ export default function TodayView({ onSetup, onError, onContextChange }: { onSet
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (today) onContextChange?.({ screen: "today", visibleCount: today.jobs.length }); }, [today, onContextChange]);
 
-  const act = async (job: TodayJob, action: "save" | "hide" | "star") => {
+  const act = async (job: TodayJob, action: "hide" | "star") => {
     setBusy(job.id);
     try {
-      if (action === "save") await api.setApplication(job.id, "saved");
       if (action === "hide") await api.hide(job.id);
       if (action === "star") await api.favorite(job.id, !job.is_favorite);
       if (action === "star") setToday((t) => t && { ...t, jobs: t.jobs.map((j) => j.id === job.id ? { ...j, is_favorite: !j.is_favorite } : j) });
@@ -56,9 +56,9 @@ export default function TodayView({ onSetup, onError, onContextChange }: { onSet
           </div>
           <p className="m-why">{job.why}</p>
           <div className="m-actions">
-            <button disabled={busy === job.id} onClick={() => act(job, "save")}>Guardar</button>
             <button aria-pressed={job.is_favorite} disabled={busy === job.id} onClick={() => act(job, "star")}>{job.is_favorite ? "★" : "☆"}</button>
             <button disabled={busy === job.id} onClick={() => act(job, "hide")}>No me interesa</button>
+            <details><summary>Detalle</summary><button onClick={() => startProcess(job)}>Me contactaron</button></details>
             {job.url && <a href={job.url} target="_blank" rel="noopener noreferrer">Abrir ↗</a>}
           </div>
         </article>

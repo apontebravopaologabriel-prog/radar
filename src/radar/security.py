@@ -115,7 +115,7 @@ def harden_data_dir(db_file: Path, *, owned_dir: bool) -> None:
         _chmod(folder, 0o700)
     for name in (db_file.name, f"{db_file.name}-wal", f"{db_file.name}-shm", "secrets.json", "cv_master.json", "photo.jpg", "photo.png"):
         _chmod(folder / name, 0o600)
-    for sub in ("backups", "targets", "cvs", "careers"):
+    for sub in ("backups", "targets", "cvs", "careers", "cv_imports"):
         directory = folder / sub
         if directory.is_dir():
             _chmod(directory, 0o700)

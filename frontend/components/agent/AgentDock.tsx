@@ -17,6 +17,7 @@ const MIN_W = 320;
 const MIN_H = 300;
 const PIN_MIN = 320;
 const PIN_MAX = 760;
+const MAP_MIN_WIDTH = 640;
 
 function defaults(): Geometry {
   const w = 400; const h = 540;
@@ -39,7 +40,19 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
   const drag = useRef<{ dx: number; dy: number; x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const enabled = settings?.enabled === true;
-  const pinned = enabled && open && mode === "pinned";
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+  const studio = Boolean(context?.cvStudio);
+  const canPin = studio || viewportWidth === null || viewportWidth >= MAP_MIN_WIDTH + PIN_MIN;
+  const effectiveMode = canPin ? mode : "float";
+  const effectivePinWidth = studio || viewportWidth === null ? pinWidth : Math.min(pinWidth, viewportWidth - MAP_MIN_WIDTH);
+  const pinned = enabled && open && effectiveMode === "pinned";
+
+  useEffect(() => {
+    const resize = () => { setViewportWidth(window.innerWidth); setGeo((current) => current && clamp(current)); };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
 
   useEffect(() => { api.agentSettings().then(setSettings).catch(() => setSettings(null)); }, []);
   useEffect(() => {
@@ -59,10 +72,10 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
 
   // Al fijar el panel, el mapa cede ese ancho y se le avisa del cambio de tamaño.
   useEffect(() => {
-    document.documentElement.style.setProperty("--agent-dock-w", pinned ? `${pinWidth}px` : "0px");
+    document.documentElement.style.setProperty("--agent-dock-w", pinned ? `${effectivePinWidth}px` : "0px");
     const frame = requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
     return () => cancelAnimationFrame(frame);
-  }, [pinned, pinWidth]);
+  }, [pinned, effectivePinWidth]);
   useEffect(() => () => { document.documentElement.style.setProperty("--agent-dock-w", "0px"); }, []);
 
   // El Estudio de CV pide el panel del agente fijado a la derecha mientras está abierto y devuelve el estado anterior al salir.
@@ -98,7 +111,7 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
   // Guarda el tamaño que el usuario elige con el tirador nativo de redimensionar (ventana flotante).
   useEffect(() => {
     const el = box.current;
-    if (!el || !open || minimized || mode !== "float" || typeof ResizeObserver === "undefined") return;
+    if (!el || !open || minimized || effectiveMode !== "float" || typeof ResizeObserver === "undefined") return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
       if (timer) clearTimeout(timer);
@@ -109,12 +122,12 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
     });
     observer.observe(el);
     return () => { observer.disconnect(); if (timer) clearTimeout(timer); };
-  }, [open, minimized, enabled, mode]);
+  }, [open, minimized, enabled, effectiveMode]);
 
   // Arrastre: mientras se mueve solo se cambia `transform` (compositor, sin relayout ni re-render de React);
   // la posición se guarda en el estado una sola vez al soltar.
   const onDown = (event: React.PointerEvent<HTMLElement>) => {
-    if ((event.target as HTMLElement).closest("button") || mode !== "float" || !geo) return;
+    if ((event.target as HTMLElement).closest("button") || effectiveMode !== "float" || !geo) return;
     drag.current = { dx: event.clientX - geo.x, dy: event.clientY - geo.y, x: geo.x, y: geo.y };
     if (box.current) box.current.style.willChange = "transform";
     document.body.classList.add("is-agent-dragging");
@@ -136,7 +149,7 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
     if (d && geo && (d.x !== geo.x || d.y !== geo.y)) setGeo({ ...geo, x: d.x, y: d.y });
   };
   const onError = useCallback(() => undefined, []);
-  const dock = useMemo(() => ({ pinned: mode === "pinned", toggle: toggleMode }), [mode, toggleMode]);
+  const dock = useMemo(() => ({ pinned: effectiveMode === "pinned", toggle: toggleMode }), [effectiveMode, toggleMode]);
   const closeAgent = useCallback(() => setOpen(false), []);
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
 
@@ -146,10 +159,10 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
   const aside = useRef<HTMLElement>(null);
   const onResizeDown = (event: React.PointerEvent<HTMLElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
-    let width = pinWidth;
+    let width = effectivePinWidth;
     let raf: number | null = null;
     const move = (e: PointerEvent) => {
-      width = Math.min(Math.max(window.innerWidth - e.clientX, PIN_MIN), PIN_MAX);
+      width = Math.min(Math.max(window.innerWidth - e.clientX, PIN_MIN), studio ? PIN_MAX : Math.min(PIN_MAX, window.innerWidth - MAP_MIN_WIDTH));
       if (raf === null) raf = requestAnimationFrame(() => { raf = null; if (aside.current) aside.current.style.width = `${width}px`; });
     };
     const up = () => {
@@ -166,8 +179,8 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
     <header className="agent-titlebar" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       <span className="agent-title"><RadarMark size={12} /> radar<b className="agent-title-slot" ref={setTitleSlot} /></span>
       <div>
-        <button type="button" onClick={toggleMode} aria-label={mode === "pinned" ? "Volver a ventana" : "Fijar a la derecha"} title={mode === "pinned" ? "Ventana flotante" : "Fijar a la derecha"}>{mode === "pinned" ? "❐" : "⇥"}</button>
-        {mode === "float" && <button type="button" onClick={() => setMinimized(!minimized)} aria-label={minimized ? "Restaurar" : "Minimizar"}>{minimized ? "▢" : "–"}</button>}
+        <button type="button" onClick={toggleMode} disabled={!canPin} aria-label={effectiveMode === "pinned" ? "Volver a ventana" : "Fijar a la derecha"} title={!canPin ? "Amplía la ventana para fijar el agente" : effectiveMode === "pinned" ? "Ventana flotante" : "Fijar a la derecha"}>{effectiveMode === "pinned" ? "❐" : "⇥"}</button>
+        {effectiveMode === "float" && <button type="button" onClick={() => setMinimized(!minimized)} aria-label={minimized ? "Restaurar" : "Minimizar"}>{minimized ? "▢" : "–"}</button>}
         <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar">×</button>
       </div>
     </header>
@@ -175,19 +188,19 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
 
   return (
     <>
-      <div className="agent-dock is-autohide" aria-label="Controles de Radar">
+      <div className="agent-dock" aria-label="Controles de Radar">
         {enabled && <button className="agent-launch" type="button" onClick={toggle} aria-pressed={open} aria-label={open ? "Cerrar agente" : "Abrir agente"} title={`${open ? "Cerrar" : "Abrir"} agente (Ctrl+J)`}><RadarMark size={16} spinning={open} /></button>}
         <a href="/ajustes" title="Ajustes" aria-label="Ajustes">⚙</a>
       </div>
-      {enabled && open && mode === "float" && geo && (
+      {enabled && open && effectiveMode === "float" && geo && (
         <div ref={box} className={`agent-window m-app ${minimized ? "is-min" : ""}`} role="dialog" aria-label="Agente de Radar"
           style={{ left: geo.x, top: geo.y, width: geo.w, height: minimized ? undefined : geo.h }}>
           {titlebar}
           {!minimized && <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} titleSlot={titleSlot} />}
         </div>
       )}
-      {enabled && open && mode === "pinned" && (
-        <aside ref={aside} className="agent-pinned m-app" style={{ width: pinWidth }} aria-label="Agente de Radar">
+      {enabled && open && effectiveMode === "pinned" && (
+        <aside ref={aside} className="agent-pinned m-app" style={{ width: effectivePinWidth }} aria-label="Agente de Radar">
           <div className="agent-pinned-resize" onPointerDown={onResizeDown} role="separator" aria-orientation="vertical" aria-label="Ajustar ancho" />
           {titlebar}
           <AgentWindowBody onError={onError} dock={dock} onClose={closeAgent} context={context} titleSlot={titleSlot} />

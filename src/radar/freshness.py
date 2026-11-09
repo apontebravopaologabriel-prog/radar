@@ -5,13 +5,15 @@ from datetime import UTC, datetime, timedelta, timezone
 from radar.domain.models import RawJob
 
 DEFAULT_MAX_AGE_DAYS = 14
+PERU_UTC_OFFSET_HOURS = -5
 
 
 def visible_date_bounds(days: int, now: datetime | None = None) -> tuple[str, str]:
     """Calendar-date bounds for Peru views; capture overlap uses its own age policy."""
     if days < 1:
         raise ValueError("La ventana visible debe tener al menos un día")
-    today = (now or datetime.now(UTC)).astimezone(timezone(timedelta(hours=-5))).date()
+    peru = timezone(timedelta(hours=PERU_UTC_OFFSET_HOURS))
+    today = (now or datetime.now(UTC)).astimezone(peru).date()
     return (today - timedelta(days=days - 1)).isoformat(), (today + timedelta(days=1)).isoformat()
 
 

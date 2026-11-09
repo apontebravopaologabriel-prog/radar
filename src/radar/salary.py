@@ -13,13 +13,14 @@ class SalaryInfo:
 
 
 _AMOUNT = r"(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{3,6}(?:[.,]\d{1,2})?|\d{1,2}(?:[.,]\d{1,2})?\s*k\b|\d+(?:[.,]\d{1,2})?)"
+_END_NUM = r"(?!(?:[.,]?\d))"
 _CURR_PRE = r"(?P<currency>s\/\.?|\bsoles?\b|\bpen\b|\busd\b|\buss\b|\$)"
 _CURR_OPT = r"(?:s\/\.?|\bsoles?\b|\bpen\b|\busd\b|\buss\b|\$)?"
 _SEP = r"(?:[-–—]|(?:\ba\b|\by\b|\bhasta\b|\bal\b))"
 
 # 1) Explicit currency before numbers: "S/ 1,200 a S/ 1,500", "entre S/ 1200 y 1500"
 _RANGE_PRE = re.compile(
-    rf"{_CURR_PRE}\s*(?P<min>{_AMOUNT})(?![\d.,])\s*{_SEP}\s*{_CURR_OPT}\s*(?P<max>{_AMOUNT})(?![\d.,])",
+    rf"{_CURR_PRE}\s*(?P<min>{_AMOUNT}){_END_NUM}\s*{_SEP}\s*{_CURR_OPT}\s*(?P<max>{_AMOUNT}){_END_NUM}",
     re.IGNORECASE,
 )
 # 2) Explicit currency after numbers: "1,300 a 1,500 soles", "1200 soles"
@@ -30,12 +31,12 @@ _RANGE_POST = re.compile(
 # 3) Salary keyword + numbers >= 930 even without S/: "Sueldo 1300 a 1500", "el sueldo es de 2000"
 _KEYWORD_SALARY = re.compile(
     rf"\b(?:sueldos?|salarios?|remuneraci[oó]n(?:es)?|subvenci[oó]n(?:es)?|b[aá]sico\s+mensual|haber\s+b[aá]sico|estipendios?)\b"
-    rf"[^.\n\d]{{0,28}}?(?P<currency>s\/\.?|\busd\b|\$)?\s*(?P<min>{_AMOUNT})(?![\d.,])"
-    rf"(?:\s*{_SEP}\s*{_CURR_OPT}\s*(?P<max>{_AMOUNT})(?![\d.,]))?",
+    rf"[^.\n\d]{{0,28}}?(?P<currency>s\/\.?|\busd\b|\$)?\s*(?P<min>{_AMOUNT}){_END_NUM}"
+    rf"(?:\s*{_SEP}\s*{_CURR_OPT}\s*(?P<max>{_AMOUNT}){_END_NUM})?",
     re.IGNORECASE,
 )
 # 4) Explicit currency before single amount: "S/ 1,500"
-_SINGLE_PRE = re.compile(rf"{_CURR_PRE}\s*(?P<min>{_AMOUNT})(?![\d.,])", re.IGNORECASE)
+_SINGLE_PRE = re.compile(rf"{_CURR_PRE}\s*(?P<min>{_AMOUNT}){_END_NUM}", re.IGNORECASE)
 # 5) Explicit currency after single amount: "1,500 soles"
 _SINGLE_POST = re.compile(
     rf"(?<![\d.,])(?P<min>{_AMOUNT})\s*(?P<currency>\bsoles?\b|\bpen\b|\busd\b|\bd[oó]lares?\b)",
@@ -48,7 +49,9 @@ _TITLE_RANGE = re.compile(
 )
 
 _PERIOD = re.compile(
-    r"\b(mensual(?:es)?|mes(?:es)?|quincenal(?:es)?|semanal(?:es)?|diari(?:o|a|os|as)|horas?|anual(?:es)?)\b",
+    r"(?:\b(mensual(?:es)?|quincenal(?:es)?|semanal(?:es)?|diari(?:o|a|os|as)|anual(?:es)?)\b|"
+    r"(?:\b(?:al|por|x)|\/)\s*(mes|semana|d[ií]a|hora|a[ñn]o)\b|"
+    r"^\s*[,(\-]?\s*(mes)\b)",
     re.IGNORECASE,
 )
 _NON_SALARY_AFTER = re.compile(
@@ -210,7 +213,12 @@ def extract_salary(description: str | None, title: str | None = None) -> SalaryI
     if not candidates:
         return None
     candidates.sort(key=lambda item: item[0], reverse=True)
-    return candidates[0][1]
+    best = candidates[0][1]
+    if best.period is None:
+        for _, cand in candidates[1:]:
+            if cand.period and cand.currency == best.currency and cand.minimum == best.minimum:
+                return SalaryInfo(best.minimum, best.maximum, best.currency, cand.period)
+    return best
 
 
 def _period_near_match(description: str, match: re.Match[str]) -> str | None:
@@ -224,4 +232,7 @@ def _period_near_match(description: str, match: re.Match[str]) -> str | None:
         start_limit = max(0, match.start() - 50) if line_start == -1 else max(line_start + 1, match.start() - 50)
         before = description[start_limit : match.start()]
         period_match = _PERIOD.search(before)
-    return period_match.group(1).lower() if period_match else None
+    if not period_match:
+        return None
+    token = next((g for g in period_match.groups() if g), None)
+    return token.lower() if token else None

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-const TIPS = [["Explora por distrito", "Selecciona un distrito del mapa para ver sus ofertas. Las ubicaciones y distancias son aproximadas."], ["Revisa y guarda", "Abre una oferta para revisar la descripción. Usa ★ para guardarla y comparar sus requisitos en CVs."], ["Registra tu postulación", "El botón ✓ registra que ya postulaste y mueve la oferta a Postulaciones. La postulación se realiza en el portal."]];
+const TIPS = [["Explora por distrito", "Selecciona un distrito del mapa para ver sus ofertas. Las ubicaciones y distancias son aproximadas."], ["Revisa y guarda", "Abre una oferta para revisar la descripción. Usa ★ para guardarla y comparar sus requisitos en Mi CV."], ["Sigue solo lo que avanza", "Cuando recibas una respuesta, usa Me contactaron. Procesos guarda el próximo paso si te sirve; no necesitas registrar cada solicitud."]];
 export default function QuickTips() {
   const [step, setStep] = useState<number | null>(null);
   const finish = () => { try { localStorage.removeItem("radar.tips.pending"); } catch { /* Optional. */ } setStep(null); };

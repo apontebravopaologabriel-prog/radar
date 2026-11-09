@@ -1,15 +1,13 @@
-"""Captura programada del mercado, multiplataforma (antes `scripts/radar-refresh.sh`).
+"""Cross-platform scheduled market capture driven by the active career packs.
 
-Corre en el mismo proceso: consulta cada portal con las búsquedas del paquete de carrera activo, aísla cada paso
-(un fallo o un tiempo agotado se registra en el resumen y no detiene el resto), repara datos, desactiva ofertas
-vencidas, guarda la fotografía del mercado y hace una copia de la base. Lo usan `radar refresh`, el
-temporizador de systemd y, más adelante, el planificador interno.
+Download workers have bounded lifetimes; database writes and maintenance stay
+in the parent. Independent source failures do not stop the remaining searches.
+The CLI, systemd service and internal scheduler share this entry point.
 """
 
 from __future__ import annotations
 
 import os
-import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -29,26 +27,6 @@ def _flag(name: str, default: bool) -> bool:
     return default if raw is None else raw.strip().lower() not in {"0", "false", "no", ""}
 
 
-def _run_with_timeout(fn: Callable[[], Any], timeout: float) -> Any:
-    """Ejecuta `fn` en un hilo; si no termina a tiempo se abandona (el hilo es daemon) y se informa."""
-    box: dict[str, Any] = {}
-
-    def target() -> None:
-        try:
-            box["value"] = fn()
-        except Exception as exc:  # noqa: BLE001 - cada paso es opcional y se resume al final
-            box["error"] = exc
-
-    thread = threading.Thread(target=target, daemon=True, name="radar-capture-step")
-    thread.start()
-    thread.join(timeout)
-    if thread.is_alive():
-        raise TimeoutError(f"sin respuesta tras {int(timeout)} s")
-    if "error" in box:
-        raise box["error"]
-    return box.get("value")
-
-
 def _cities(raw: str | list[str] | None) -> list[str]:
     if raw is None:
         raw = os.getenv("RADAR_CITIES", "")
@@ -64,13 +42,15 @@ def plan_steps(
     extra_sources: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Lista ordenada de búsquedas: Lima con las amplias del paquete y cada ciudad con las cortas."""
+    configured_extras = os.getenv("RADAR_EXTRA_SOURCES", "").strip()
+    defaults = [name for name, flag in (("bumeran", "RADAR_BUMERAN_ENABLED"), ("empleos", "RADAR_EMPLEOS_ENABLED")) if _flag(flag, True)]
     extras = [
         s.strip().lower()
-        for s in (extra_sources if extra_sources is not None else os.getenv("RADAR_EXTRA_SOURCES", "").split(","))
+        for s in (extra_sources if extra_sources is not None else configured_extras.split(",") if configured_extras else defaults)
         if s and s.strip()
     ]
-    sources = ["jobspy", *(["computrabajo"] if computrabajo else []), *extras]
-    steps = [{"source": s, "query": q, "location": "Lima", "limit": LIMA_LIMIT} for s in sources for q in queries]
+    sources = list(dict.fromkeys(["jobspy", *(["computrabajo"] if computrabajo else []), *extras]))
+    steps = [{"source": s, "query": q, "location": "Lima", "limit": LIMA_LIMIT} for q in queries for s in sources]
     for city in cities:
         steps += [{"source": s, "query": q, "location": city, "limit": CITY_LIMIT} for q in city_queries for s in sources]
     return steps
@@ -111,37 +91,53 @@ def run_capture(
             by_key[key]["market_ids"].append(pack.id)
     failed: list[str] = []
     created = 0
+    blocked_counts: dict[str, int] = {}
+    skipped: list[str] = []
+    maintenance_failed: list[str] = []
 
-    def run_step(label: str, fn: Callable[[], Any], *, limited: bool = True) -> Any:
-        """`limited`: solo las consultas a portales tienen límite de tiempo. El mantenimiento local (reparar, expirar,
-        comprobar, respaldar) corre sin límite: abandonarlo a medias dejaría un hilo reteniendo la base de datos."""
+    def run_step(label: str, fn: Callable[[], Any], *, source: str | None = None) -> Any:
         log(f"[{label}]")
         try:
-            return _run_with_timeout(fn, step_timeout) if limited else fn()
-        except Exception as exc:  # noqa: BLE001
+            result = fn()
+            if source:
+                blocked_counts[source] = 0
+            return result
+        except Exception as exc:  # noqa: BLE001 - isolate independent source failures
             log(f"[{label}] FAILED: {str(exc)[:200]}")
             failed.append(label)
+            if source:
+                response = getattr(exc, "response", None)
+                status = getattr(exc, "status_code", None) or getattr(response, "status_code", None)
+                blocked_counts[source] = blocked_counts.get(source, 0) + 1 if status == 403 else 0
+            else:
+                maintenance_failed.append(label)
             return None
 
     log(f"{datetime.now(UTC).isoformat(timespec='seconds')} Radar capture: markets={','.join(p.id for p in packs)} max_age_days={age} steps={len(steps)}")
     for step in steps:
         where = "" if step["location"] == "Lima" else f" [{step['location']}]"
+        if blocked_counts.get(step["source"], 0) >= 2:
+            skipped.append(f"{step['source']}{where}: {step['query']}")
+            continue
         stats = run_step(
             f"{step['source']}{where}: {step['query']}",
             lambda s=step: run_ingestion(s["source"], s["query"], s["location"], s["limit"], age,
-                                         search_timeout=step_timeout, market_ids=s["market_ids"]), limited=False,
+                                         search_timeout=step_timeout, market_ids=s["market_ids"]), source=step["source"],
         )
         if isinstance(stats, dict):
             created += int(stats.get("created", 0))
-    run_step("quality: repair-data", repair_data_quality, limited=False)
-    run_step("quality: expire-stale", lambda: expire_stale_jobs(int(os.getenv("RADAR_STALE_AFTER_DAYS", DEFAULT_STALE_DAYS))), limited=False)
-    run_step("quality: check-applications", lambda: check_application_status(int(os.getenv("RADAR_LIVENESS_CHECK_LIMIT", DEFAULT_LIVENESS_LIMIT))), limited=False)
-    run_step("market: snapshot", capture_market_snapshot, limited=False)
-    run_step("backup: sqlite", backup_database, limited=False)
+    run_step("quality: repair-data", repair_data_quality)
+    run_step("quality: expire-stale", lambda: expire_stale_jobs(int(os.getenv("RADAR_STALE_AFTER_DAYS", DEFAULT_STALE_DAYS))))
+    run_step("quality: check-applications", lambda: check_application_status(int(os.getenv("RADAR_LIVENESS_CHECK_LIMIT", DEFAULT_LIVENESS_LIMIT))))
+    run_step("market: snapshot", capture_market_snapshot)
+    run_step("backup: sqlite", backup_database)
     source_failures = sum(1 for label in failed if not label.startswith(("quality:", "market:", "backup:")))
     summary = {"steps": len(steps), "failed": failed, "created": created,
-               "source_successes": len(steps) - source_failures,
-               "status": "success" if not failed else "failed" if source_failures == len(steps) else "partial"}
+               "source_successes": len(steps) - source_failures - len(skipped),
+               "skipped": skipped, "maintenance_failed": maintenance_failed,
+               "status": "failed" if maintenance_failed or source_failures + len(skipped) == len(steps) else "partial" if failed or skipped else "success"}
     log(f"SUMMARY: {len(failed)} step(s) failed: {', '.join(failed)}" if failed else "SUMMARY: all steps completed")
+    if skipped:
+        log(f"PAUSED: {len(skipped)} searches skipped after consecutive HTTP 403 responses")
     log(datetime.now(UTC).isoformat(timespec="seconds"))
     return summary

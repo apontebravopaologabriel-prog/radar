@@ -117,6 +117,9 @@ def _free_port() -> int:
 
 
 def main() -> None:
+    from multiprocessing import freeze_support
+
+    freeze_support()
     restrict_umask()
     from radar.paths import state_dir
 

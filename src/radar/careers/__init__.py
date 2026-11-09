@@ -185,16 +185,17 @@ def user_packs_dir() -> Path:
 
 
 @cache
-def _load(career_id: str, user_dir: str) -> CareerPack:
-    for directory in (PACKS_DIR, Path(user_dir)):
-        path = directory / f"{career_id}.json"
-        if path.is_file() and path.resolve().parent == directory.resolve():
-            return parse_pack(json.loads(path.read_text(encoding="utf-8")), path.name)
-    raise CareerPackError(f"Carrera desconocida: {career_id}")
+def _load(career_id: str, path_str: str, mtime_ns: int) -> CareerPack:
+    path = Path(path_str)
+    return parse_pack(json.loads(path.read_text(encoding="utf-8")), path.name)
 
 
 def load_pack(career_id: str) -> CareerPack:
-    return _load(career_id, str(user_packs_dir()))
+    for directory in (PACKS_DIR, user_packs_dir()):
+        path = directory / f"{career_id}.json"
+        if path.is_file() and path.resolve().parent == directory.resolve():
+            return _load(career_id, str(path), path.stat().st_mtime_ns)
+    raise CareerPackError(f"Carrera desconocida: {career_id}")
 
 
 def list_packs() -> list[CareerPack]:

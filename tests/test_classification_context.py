@@ -90,6 +90,29 @@ def test_shared_role_keeps_independent_market_evidence():
         assert relevance.tier in {"core", "adjacent"}
 
 
+@pytest.mark.parametrize(("title", "description"), [
+    ("Ingeniero DevOps", "Implementar pipelines de integracion y despliegue continuo, automatizacion y mejora continua en el ciclo de vida del software."),
+    ("QA Automatizador Senior", "Automatizacion de pruebas funcionales con Playwright y mejora continua de la calidad del equipo."),
+    ("Data Engineer AWS | Spark | SQL | ETL", "Construir pipelines ETL, data warehouse y modelos de datos en AWS."),
+    ("Senior Site Reliability Engineer (DevOps)", "Mantener confiabilidad, observabilidad y disponibilidad en AWS y Terraform."),
+    ("Senior Database Administrator (Cloud DBA)", "Mantenimiento de bases de datos SQL Server, backups, recuperacion y optimizacion de indices."),
+    ("Software Engineer (Java & Azure)", "Automatizacion de procesos mediante herramientas CI/CD y soporte en ambientes de produccion."),
+])
+def test_pure_it_roles_stay_in_systems_and_out_of_industrial(title, description):
+    assert result(title, description, "sistemas_software")[1].tier in {"core", "adjacent"}
+    assert result(title, description, "industrial_engineering")[1].tier == "out_of_focus"
+
+
+@pytest.mark.parametrize(("title", "description"), [
+    ("Jefe de Operaciones Logisticas", "Coordinar la consistencia de inventario entre el SAP del cliente y el WMS de la empresa."),
+    ("Analista de Finanzas", "Administrar y validar los procesos financieros y contables en SAP Business One."),
+    ("Analista de Mantenimiento", "Analizar metodos y proponer mejoras en los procesos del area mediante SAP."),
+    ("Analista de Control de Gestion de Costos", "Analizar y reportar datos de costos a traves del ERP Odoo."),
+])
+def test_erp_end_user_roles_stay_in_industrial_and_out_of_systems(title, description):
+    assert result(title, description, "sistemas_software")[1].tier == "out_of_focus"
+
+
 def test_industrial_occupations_are_separated_from_trade_and_clinical_roles():
     for title, desc in [
         ("Supervisor de produccion industrial", "Planificar produccion y supervisar productividad. Requiere Industrial."),

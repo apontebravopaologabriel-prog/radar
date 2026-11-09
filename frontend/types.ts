@@ -1,37 +1,9 @@
-export type WorkMode = "onsite" | "hybrid" | "remote" | "unknown";
+import type { components } from "./lib/api-schema";
 
-export type Job = {
-  id: string;
-  title: string;
-  company: string | null;
-  location: string | null;
-  district: string | null;
-  seniority: string | null;
-  work_mode: WorkMode;
-  salary_min: number | null;
-  salary_max: number | null;
-  salary_currency: string | null;
-  url: string | null;
-  published_at: string | null;
-  description: string | null;
-  primary_area: string | null;
-  sector: string | null;
-  relevance_tier: "core" | "adjacent" | "out_of_focus";
-  relevance_score: number;
-  relevance_evidence: string | null;
-  hours_per_week: number | null;
-  schedule_text: string | null;
-  application_status: string;
-  user_status?: "visible" | "hidden";
-  user_reason?: string | null;
-  is_favorite?: boolean;
-  user_application?: string | null;
-  distance_km?: number;
-  latitude: number | null;
-  longitude: number | null;
-  location_precision: "district" | "city" | "unknown";
-  location_confidence: number;
-};
+type FullJob = components["schemas"]["FullJob"];
+
+// A map row can receive its description and distance after the list is loaded.
+export type Job = Omit<FullJob, "description"> & Partial<Pick<FullJob, "description">> & { distance_km?: number };
 
 export type Filters = {
   geo_scope?: string;
@@ -42,6 +14,7 @@ export type Filters = {
   seniority: string;
   work_mode: string;
   min_salary: string;
+  max_salary: string;
   max_age_days: string;
   source?: string;
   skill?: string;
@@ -87,51 +60,4 @@ export type AnalyticsQueryResult = {
 
 export type AnalyticsSchema = {
   tables: { table: string; columns: { name: string; type: string }[] }[];
-};
-
-export type CvStatus = "cubierto" | "parcial" | "falta";
-
-export type CvItem = {
-  text: string;
-  origin: "explicito" | "inferido" | "tipico";
-  key?: string;
-  status?: CvStatus;
-  quote?: string;
-  reason?: string;
-};
-
-export type CvGap = {
-  item: string;
-  kind: "dias" | "semanas" | "no_cerrable_rapido";
-  action: string;
-  estimate_days?: number;
-  evidence_to_produce?: string;
-};
-
-export type CvTarget = {
-  id: string;
-  job_id: string;
-  title: string;
-  company: string;
-  aviso?: string;
-  location?: { job: string; km_from_home: number; home: string; method: string };
-  sections: Record<string, CvItem[]>;
-  gaps: CvGap[];
-};
-
-export type CvMatrix = {
-  columns: { id: string; title: string; company: string }[];
-  rows: { key: string; label: string; cells: Record<string, CvStatus>; open_count: number }[];
-};
-
-export type CvProfile = {
-  name: string;
-  headline: string;
-  home_district: string;
-  has_photo: boolean;
-  summary?: string;
-  education: { institution: string; program: string; status: string }[];
-  experience?: { role: string; company: string; from: string; to: string }[];
-  certifications?: { name: string; issuer: string; date: string }[];
-  tools_declared_in_db?: Record<string, string>;
 };

@@ -21,6 +21,9 @@ from radar.pipeline import run_ingestion
 
 
 def main() -> None:
+    from multiprocessing import freeze_support
+
+    freeze_support()
     from radar.security import restrict_umask
 
     restrict_umask()
@@ -67,6 +70,7 @@ def main() -> None:
     refresh = sub.add_parser("refresh", help="Captura programada del mercado con las búsquedas de la carrera activa")
     refresh.add_argument("--cities", default=None, help="Ciudades extra separadas por comas (por defecto RADAR_CITIES)")
     refresh.add_argument("--max-age-days", type=int, default=None, help="Ventana de frescura (por defecto RADAR_MAX_AGE_DAYS o 10)")
+    refresh.add_argument("--scheduled", action="store_true", help="Ejecuta solo si venció el intervalo guardado")
     refresh.add_argument("--no-computrabajo", action="store_true", help="Omite Computrabajo en esta corrida")
     career = sub.add_parser("career", help="Herramientas para paquetes de carrera")
     career.add_argument("action", choices=["validate", "list"])
@@ -151,8 +155,13 @@ def main() -> None:
     elif args.command == "refresh":
         from radar.capture import run_capture
 
-        summary = run_capture(args.cities, args.max_age_days, False if args.no_computrabajo else None)
-        raise SystemExit(1 if summary["failed"] else 0)
+        if args.scheduled:
+            from radar.scheduled_capture import run_scheduled
+
+            summary = run_scheduled(args.cities, args.max_age_days, False if args.no_computrabajo else None)
+        else:
+            summary = run_capture(args.cities, args.max_age_days, False if args.no_computrabajo else None)
+        raise SystemExit(2 if summary["status"] == "partial" else 1 if summary["status"] == "failed" else 0)
     elif args.command == "backup":
         from radar.system import backup_database
 

@@ -12,7 +12,7 @@ class JobSpySource:
     name = "JobSpy/Indeed"
 
     def __init__(self, sites: list[str] | None = None):
-        configured = os.getenv("RADAR_JOBSPY_SITES", "indeed,linkedin,google")
+        configured = os.getenv("RADAR_JOBSPY_SITES", "indeed,linkedin")
         self.sites = sites or [item.strip() for item in configured.split(",") if item.strip()]
 
     def search(self, query: str, location: str | None = None, limit: int = 25) -> list[RawJob]:

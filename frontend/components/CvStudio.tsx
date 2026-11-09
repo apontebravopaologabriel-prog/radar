@@ -43,7 +43,7 @@ function factLabel(kind: string, value: string): string {
   return `${kind === "number" ? "número" : kind === "skill" ? "herramienta" : "nombre"} «${value}»`;
 }
 
-export default function CvStudio({ jobId, onContext }: { jobId: string; onContext?: (context: StudioContext | null) => void }) {
+export default function CvStudio({ jobId, onContext, advanced = false, onToggleAdvanced, onEditProfile }: { jobId: string; onContext?: (context: StudioContext | null) => void; advanced?: boolean; onToggleAdvanced?: () => void; onEditProfile?: () => void }) {
   const [state, setState] = useState<StudioState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -80,7 +80,7 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible" || busy) return;
-      studioApi.state(jobId).then((next) => { if (alive.current) setState((current) => (current && current.document.updated_at === next.document.updated_at && current.suggestions.length === next.suggestions.length ? current : next)); }).catch(() => undefined);
+      studioApi.state(jobId).then((next) => { if (alive.current) setState((current) => (current && current.revision === next.revision && current.document.updated_at === next.document.updated_at && current.suggestions.length === next.suggestions.length ? current : next)); }).catch(() => undefined);
     }, 4000);
     return () => window.clearInterval(timer);
   }, [jobId, busy]);
@@ -93,9 +93,10 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
   }, [jobId, onContext, selected, state]);
   useEffect(() => () => onContext?.(null), [onContext]);
   useEffect(() => {
+    if (!advanced) return;
     window.dispatchEvent(new CustomEvent("radar:agent-layout", { detail: { studio: true } }));
     return () => { window.dispatchEvent(new CustomEvent("radar:agent-layout", { detail: { studio: false } })); };
-  }, []);
+  }, [advanced]);
 
   async function run(action: () => Promise<StudioState>, success?: string) {
     setBusy(true); setError(null);
@@ -108,10 +109,15 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
   async function exportFiles(formats: string[]) {
     setBusy(true); setError(null); setNotice(null);
     try {
-      const result = await studioApi.exportFiles(jobId, formats);
+      const result = await studioApi.exportFiles(jobId, formats, state?.revision);
       if (!alive.current) return;
       setPkg(result.package);
-      setNotice(`Listo: ${result.files.map((file) => file.name).join(", ")}${result.over_budget ? " (excede el presupuesto de páginas)" : ""}`);
+      setNotice(`Exportado: ${result.files.map((file) => file.name).join(", ")}${result.over_budget ? " (excede páginas)" : ""}`);
+      const file = result.files.find((item) => item.format === "pdf") ?? result.files[0];
+      if (file) {
+        const link = document.createElement("a"); link.href = studioApi.fileUrl(jobId, file.name); link.download = file.name; link.click();
+      }
+      window.dispatchEvent(new CustomEvent("radar:jobs-changed"));
     } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : "No se pudo exportar"); }
     finally { if (alive.current) setBusy(false); }
   }
@@ -123,10 +129,10 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
   }
 
   if (error && !state) return <p className="cv-note cv-problem" role="alert">{error}</p>;
-  if (!state) return <p className="cv-note">Abriendo el Estudio…</p>;
+  if (!state) return <p className="cv-note">Generando vista previa…</p>;
 
   const { selection, document: doc, render } = state;
-  const version = `${doc.updated_at}-${doc.ops}-${doc.template}-${doc.photo}-${doc.pages_budget}`;
+  const version = `${state.revision}-${doc.updated_at}-${doc.ops}-${doc.template}-${doc.photo}-${doc.pages_budget}`;
   const sidebar = doc.template === "sidebar";
 
   const reorder = (container: { id: string }[], index: number, delta: number) => {
@@ -136,7 +142,7 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
   const row = (id: string, text: string, container: { id: string }[], index: number, extra?: string) => (
     <li key={id} className={`cvs-row ${selectedId === id ? "selected" : ""}`}>
       <input type="checkbox" checked onChange={() => void apply([{ op: "omit", id }])} aria-label={`Incluir: ${text}`} title="Quitar de este CV" />
-      <button type="button" className="cvs-text" onClick={() => setSelectedId(id)}>{clip(text, 90)}{lines.get(id)?.edited && <em className="cvs-tag">{lines.get(id)?.edited === "agent" ? "reformulada" : "editada"}</em>}{extra && <small>{extra}</small>}</button>
+      <button type="button" className="cvs-text" onClick={() => setSelectedId(id)}>{clip(text, 90)}{lines.get(id)?.edited && <em className="cvs-tag">{lines.get(id)?.edited === "agent" ? "IA" : "edit"}</em>}{extra && <small>{extra}</small>}</button>
       <span className="cvs-move">
         <button type="button" onClick={() => reorder(container, index, -1)} disabled={index === 0} aria-label="Subir">↑</button>
         <button type="button" onClick={() => reorder(container, index, 1)} disabled={index === container.length - 1} aria-label="Bajar">↓</button>
@@ -145,31 +151,9 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
   );
 
   return (
-    <section className="cvs" aria-label="Estudio de CV">
-      <aside className="cvs-side">
-        <p className="eyebrow">Estudio / {selection.job.company ?? "Oferta"}</p>
-        <h3>{selection.job.title}</h3>
-
-        {state.suggestions.length > 0 && (
-          <div className="cvs-suggestions" role="region" aria-label="Sugerencias del agente">
-            <div className="cvs-suggestions-head"><b>Sugerencias del agente ({state.suggestions.length})</b>
-              {state.suggestions.some((item) => item.safe) && <button type="button" onClick={() => void run(() => studioApi.acceptSafe(jobId), "Aceptadas las sugerencias seguras")} disabled={busy}>Aceptar seguras</button>}
-            </div>
-            {state.suggestions.map((item: StudioSuggestion) => (
-              <article key={item.id} className={`cvs-suggestion ${item.safe ? "" : "unsafe"}`}>
-                {item.note && <p className="cvs-note">{item.note}</p>}
-                <ul>{item.ops.map((op, index) => <li key={index}>{describeOp(op, lines)}</li>)}</ul>
-                {item.flags.map((flag) => <p key={`${flag.op}-${flag.id}`} className="cvs-flag">⚠ Dato nuevo no verificado: {flag.facts.map((fact) => factLabel(fact.kind, fact.value)).join(", ")}. No está en tu CV: añádelo si es cierto y pídelo de nuevo.</p>)}
-                <div className="cvs-actions">
-                  <button type="button" disabled={busy || !item.safe} onClick={() => void run(() => studioApi.accept(jobId, item.id), "Cambio aceptado")}>Aceptar</button>
-                  <button type="button" disabled={busy} onClick={() => void run(() => studioApi.reject(jobId, item.id))}>Rechazar</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-
-        <h4>Contenido</h4>
+    <section className={`cvs ${advanced ? "" : "cvs-simple"}`} aria-label="Vista previa y edición del CV">
+      {advanced && <aside className="cvs-side">
+        <h4>Estructura del documento</h4>
         <ul className="cvs-list">
           <li className={`cvs-row ${selectedId === "headline" ? "selected" : ""}`}><span className="cvs-label">Titular</span><button type="button" className="cvs-text" onClick={() => setSelectedId("headline")}>{clip(selection.header.headline || "—", 90)}</button></li>
           <li className={`cvs-row ${selectedId === "summary" ? "selected" : ""}`}><span className="cvs-label">Perfil</span><button type="button" className="cvs-text" onClick={() => setSelectedId("summary")}>{clip(selection.summary || "—", 90)}</button></li>
@@ -197,67 +181,99 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
 
         {selection.omitted.length > 0 && (
           <>
-            <button type="button" className="cvs-toggle" onClick={() => setShowOmitted(!showOmitted)} aria-expanded={showOmitted}>{showOmitted ? "▾" : "▸"} Fuera de este CV ({selection.omitted.length})</button>
+            <button type="button" className="cvs-toggle" onClick={() => setShowOmitted(!showOmitted)} aria-expanded={showOmitted}>{showOmitted ? "▾" : "▸"} Omitidas ({selection.omitted.length})</button>
             {showOmitted && <ul className="cvs-list">{selection.omitted.map((item) => (
               <li key={item.id} className="cvs-row omitted">
                 <button type="button" className="cvs-text" onClick={() => setSelectedId(item.id)}>{clip(item.text, 90)}<small>{item.reason}</small></button>
-                <button type="button" onClick={() => void apply([{ op: "include", id: item.id }])} disabled={busy}>Incluir</button>
+                <button type="button" onClick={() => void apply([{ op: "include", id: item.id }])} disabled={busy}>+</button>
               </li>
             ))}</ul>}
           </>
         )}
 
-        <h4>Cobertura de la oferta</h4>
-        <p className="cvs-note"><b>Demostradas:</b> {selection.coverage.demonstrated.join(", ") || "ninguna"}<br /><b>Solo listadas:</b> {selection.coverage.listed_only.join(", ") || "ninguna"}<br /><b>Ausentes (no están en tu CV):</b> {selection.coverage.missing.join(", ") || "ninguna"}</p>
-      </aside>
+        <div className="cvs-side-foot">
+          <button type="button" onClick={onEditProfile}>+ Añadir datos a mi trayectoria</button>
+        </div>
+      </aside>}
 
       <div className="cvs-main">
         <div className="cvs-toolbar" role="toolbar" aria-label="Opciones del CV">
-          <label>Plantilla
-            <select value={doc.template} onChange={(event) => void run(() => studioApi.options(jobId, { template: event.target.value }))} disabled={busy}>
+          <button type="button" className={advanced ? "active" : ""} onClick={onToggleAdvanced} disabled={busy}>
+            {advanced ? "▾ Esquema" : "▸ Esquema"}
+          </button>
+          <label>
+            <select aria-label="Plantilla" value={doc.template} onChange={(event) => void run(() => studioApi.options(jobId, { template: event.target.value }))} disabled={busy}>
               {Object.entries(state.templates).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <label className={!sidebar || !state.photo_available ? "off" : ""} title={!state.photo_available ? "Sube tu foto en Ajustes → Perfil" : !sidebar ? "Solo la plantilla con barra lateral lleva foto" : ""}>
-            <input type="checkbox" checked={doc.photo} disabled={busy || !sidebar || !state.photo_available} onChange={(event) => void run(() => studioApi.options(jobId, { photo: event.target.checked }))} /> Con foto
-          </label>
-          <label>Páginas
-            <select value={doc.pages_budget} onChange={(event) => void run(() => studioApi.options(jobId, { pages: Number(event.target.value) }))} disabled={busy}>
-              {[1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
+          <label>
+            <select aria-label="Páginas" value={doc.pages_budget} onChange={(event) => void run(() => studioApi.options(jobId, { pages: Number(event.target.value) }))} disabled={busy}>
+              {[1, 2, 3].map((n) => <option key={n} value={n}>{n} {n === 1 ? "pág." : "págs."}</option>)}
             </select>
           </label>
+          {sidebar && (
+            <label className={!state.photo_available ? "off" : ""} title={!state.photo_available ? "Sube tu foto en Ajustes → Mi CV" : ""}>
+              <input type="checkbox" checked={doc.photo} disabled={busy || !state.photo_available} onChange={(event) => void run(() => studioApi.options(jobId, { photo: event.target.checked }))} /> Foto
+            </label>
+          )}
+          {(doc.can_undo || doc.can_redo || doc.ops > 0) && (
+            <>
+              <button type="button" onClick={() => void run(() => studioApi.undo(jobId))} disabled={busy || !doc.can_undo} title="Deshacer">↶</button>
+              <button type="button" onClick={() => void run(() => studioApi.redo(jobId))} disabled={busy || !doc.can_redo} title="Rehacer">↷</button>
+              <button type="button" onClick={() => void run(() => studioApi.reset(jobId), "Reiniciado")} disabled={busy || (doc.ops === 0 && doc.template === "ats" && !doc.photo)} title="Reiniciar cambios">Reiniciar</button>
+            </>
+          )}
           <span className="cvs-spacer" />
-          <button type="button" onClick={() => void run(() => studioApi.undo(jobId))} disabled={busy || !doc.can_undo}>Deshacer</button>
-          <button type="button" onClick={() => void run(() => studioApi.redo(jobId))} disabled={busy || !doc.can_redo}>Rehacer</button>
-          <button type="button" onClick={() => void run(() => studioApi.reset(jobId), "Documento reiniciado")} disabled={busy || (doc.ops === 0 && doc.template === "ats" && !doc.photo)}>Reiniciar</button>
-          <button type="button" className="primary" onClick={() => void exportFiles(["pdf"])} disabled={busy}>Exportar PDF</button>
-          <button type="button" onClick={() => void exportFiles(["pdf", "docx"])} disabled={busy} title="PDF exacto y Word aproximado">PDF + Word</button>
+          <button type="button" onClick={() => void exportFiles(["pdf", "docx"])} disabled={busy} title="Descargar PDF y Word">Word</button>
+          <button type="button" className="primary" onClick={() => void exportFiles(["pdf"])} disabled={busy}>↓ Descargar PDF</button>
         </div>
+
+        {state.suggestions.length > 0 && (
+          <div className="cvs-suggestions" role="region" aria-label="Sugerencias del agente">
+            <div className="cvs-suggestions-head"><b>Sugerencias del agente ({state.suggestions.length})</b>
+              {state.suggestions.some((item) => item.safe) && <button type="button" onClick={() => void run(() => studioApi.acceptSafe(jobId), "Sugerencias aplicadas")} disabled={busy}>Aceptar seguras</button>}
+            </div>
+            {state.suggestions.map((item: StudioSuggestion) => (
+              <article key={item.id} className={`cvs-suggestion ${item.safe ? "" : "unsafe"}`}>
+                {item.note && <p className="cvs-note">{item.note}</p>}
+                <ul>{item.ops.map((op, index) => <li key={index}>{describeOp(op, lines)}</li>)}</ul>
+                {item.flags.map((flag) => <p key={`${flag.op}-${flag.id}`} className="cvs-flag">⚠ Dato no verificado: {flag.facts.map((fact) => factLabel(fact.kind, fact.value)).join(", ")}</p>)}
+                <div className="cvs-actions">
+                  <button type="button" disabled={busy || !item.safe} onClick={() => void run(() => studioApi.accept(jobId, item.id), "Cambio aceptado")}>Aceptar</button>
+                  <button type="button" disabled={busy} onClick={() => void run(() => studioApi.reject(jobId, item.id))}>Rechazar</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
 
         {(state.warnings.length > 0 || error || notice || state.stale_ops.length > 0) && (
           <div className="cvs-messages" role="status">
-            {error && <p className="cvs-flag" role="alert">{error}</p>}
+            {error && <p className="cvs-flag" role="alert">{error} <button type="button" disabled={busy} onClick={() => void run(() => studioApi.state(jobId))}>Reintentar</button></p>}
             {notice && <p className="cvs-ok">{notice}</p>}
-            {state.stale_ops.length > 0 && <p className="cvs-flag">Tu CV maestro cambió: {state.stale_ops.length} cambio{state.stale_ops.length === 1 ? "" : "s"} tuyo{state.stale_ops.length === 1 ? "" : "s"} ya no aplica{state.stale_ops.length === 1 ? "" : "n"} a ninguna línea y se ignora{state.stale_ops.length === 1 ? "" : "n"}.</p>}
+            {state.stale_ops.length > 0 && <p className="cvs-flag">{state.stale_ops.length} edición anterior ya no aplica porque cambió tu trayectoria.</p>}
             {state.warnings.map((warning) => <p key={warning} className="cvs-flag">⚠ {warning}</p>)}
           </div>
         )}
 
         {selected && (
           <div className="cvs-editor">
-            <div className="cvs-editor-head"><b>{selected.kind}</b>{selected.trace && <small>De: {selected.trace}</small>}<button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar edición">×</button></div>
-            {selected.id === "name" && <p className="cvs-note">El nombre sale de tu perfil (Ajustes → Perfil).</p>}
+            <div className="cvs-editor-head">
+              <b>{selected.kind}</b>
+              {selected.trace && <small>{selected.trace}</small>}
+              <button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar edición">×</button>
+            </div>
+            {selected.id === "name" && <p className="cvs-note">El nombre se edita en Ajustes → Mi CV.</p>}
             {selected.editable ? (
               <>
-                <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={Math.min(6, Math.max(2, Math.ceil(draft.length / 70)))} maxLength={700} aria-label="Texto de la línea" />
+                <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={Math.min(5, Math.max(2, Math.ceil(draft.length / 75)))} maxLength={700} aria-label="Texto de la línea" />
                 <div className="cvs-actions">
-                  <button type="button" className="primary" disabled={busy || !draft.trim() || draft.trim() === selected.text} onClick={() => void apply([{ op: "edit", id: selected.id, text: draft.trim(), field: selected.field }], "Línea editada. Si es un dato nuevo, añádelo también a tu CV maestro.")}>Guardar cambio</button>
-                  <button type="button" disabled={busy || lines.get(selected.id)?.kind === "Omitida"} onClick={() => void apply([{ op: "omit", id: selected.id }])}>Quitar del CV</button>
+                  <button type="button" className="primary" disabled={busy || !draft.trim() || draft.trim() === selected.text} onClick={() => void apply([{ op: "edit", id: selected.id, text: draft.trim(), field: selected.field }], "Guardado en este CV")}>Guardar</button>
+                  <button type="button" disabled={busy || lines.get(selected.id)?.kind === "Omitida"} onClick={() => { void apply([{ op: "omit", id: selected.id }]); setSelectedId(null); }}>Omitir línea</button>
                 </div>
-                {state.selection.edits[selected.id] && <p className="cvs-note">Original: «{clip(state.selection.edits[selected.id].from ?? "", 200)}»</p>}
-                <p className="cvs-note">Lo que escribas aquí vale solo para este CV. Deshacer lo revierte.</p>
+                {state.selection.edits[selected.id] && <p className="cvs-note">Original: «{clip(state.selection.edits[selected.id].from ?? "", 180)}»</p>}
               </>
-            ) : selected.kind === "Omitida" ? <p className="cvs-note">Está fuera de este CV. Usa «Incluir» en la lista de la izquierda.</p> : null}
+            ) : selected.kind === "Omitida" ? <p className="cvs-note">Omitida. Usa «+» en Esquema para incluirla.</p> : null}
           </div>
         )}
 
@@ -269,71 +285,67 @@ export default function CvStudio({ jobId, onContext }: { jobId: string; onContex
               {render.boxes.filter((box) => box.page === page).map((box, index) => (
                 <button key={`${box.id}-${index}`} type="button" className={`cvs-hit ${selectedId === box.id ? "selected" : ""}`}
                   style={{ left: `${(box.x / render.page_mm[0]) * 100}%`, top: `${(box.y / render.page_mm[1]) * 100}%`, width: `${(box.w / render.page_mm[0]) * 100}%`, height: `${(box.h / render.page_mm[1]) * 100}%` }}
-                  onClick={() => setSelectedId(box.id)} aria-label={`Seleccionar: ${clip(lines.get(box.id)?.text ?? box.id, 50)}`} />
+                  onClick={() => setSelectedId((current) => current === box.id ? null : box.id)}
+                  title="Clic para editar u omitir esta línea"
+                  aria-label={`Seleccionar: ${clip(lines.get(box.id)?.text ?? box.id, 50)}`} />
               ))}
               <span className="cvs-page-number">{page} / {render.pages}</span>
             </div>
           ))}
         </div>
 
-        <section className="cvs-package" aria-label="Postulación">
-          <h4>Postulación</h4>
-          {pkg ? (
-            <>
-              <p className="cvs-note">Carpeta: <code>{pkg.folder}</code>{!pkg.folder_exists && " (ya no existe: se volverá a crear al exportar)"}</p>
-              <ul className="cvs-files">{pkg.files.map((file) => (
-                <li key={file.name}><a href={studioApi.fileUrl(jobId, file.name)} download={file.name}>{file.name}</a>{file.pages ? ` · ${file.pages} pág.` : ""}{file.modified_after_export && <em className="cvs-tag warn">modificado fuera de Radar</em>}</li>
-              ))}</ul>
-              <p className="cvs-note">Estado: <b>{pkg.status === "applied" ? `enviada ${pkg.applied_at?.slice(0, 10) ?? ""}` : "preparada, aún no enviada"}</b>. Radar nunca envía por ti: sube el archivo en el portal.</p>
-              <div className="cvs-actions">
-                <button type="button" onClick={() => void simple(() => studioApi.openFolder(jobId), "Carpeta abierta")}>Abrir carpeta</button>
-                <button type="button" onClick={() => void simple(() => navigator.clipboard.writeText(pkg.folder), "Ruta copiada")}>Copiar ruta</button>
-                {selection.job.url && <a className="cvs-button" href={selection.job.url} target="_blank" rel="noopener noreferrer">Abrir oferta</a>}
-                {pkg.status !== "applied" && <button type="button" onClick={() => void simple(() => studioApi.markApplied(jobId), "Marcada como enviada y registrada en tu seguimiento", (value) => setPkg(value))}>Ya la envié</button>}
-              </div>
-            </>
-          ) : <p className="cvs-note">Aún no exportaste este CV. «Exportar PDF» crea la carpeta de esta postulación con el CV y una copia de la oferta.</p>}
+        <footer className="cvs-foot">
+          {pkg && (
+            <div className="cvs-pkg-bar">
+              <span>Archivos generados:</span>
+              {pkg.files.map((file) => (
+                <a key={file.name} className="cvs-file-chip" href={studioApi.fileUrl(jobId, file.name)} download={file.name}>
+                  ↓ {file.name}
+                </a>
+              ))}
+              <button type="button" onClick={() => void simple(() => studioApi.openFolder(jobId), "Carpeta abierta")}>Abrir carpeta</button>
+              <button type="button" onClick={() => void simple(() => navigator.clipboard.writeText(pkg.folder), "Ruta copiada")}>Copiar ruta</button>
+              {selection.job.url && <a className="cvs-button" href={selection.job.url} target="_blank" rel="noopener noreferrer">Portal ↗</a>}
+            </div>
+          )}
           <details className="cvs-settings">
-            <summary>Carpeta y nombres de archivo</summary>
+            <summary>Ruta y formato de exportación</summary>
             {settings && (
               <div>
-                <label>Carpeta donde se guardan las postulaciones<input value={settingsDraft.export_dir} onChange={(event) => setSettingsDraft({ ...settingsDraft, export_dir: event.target.value })} /></label>
-                <label>Nombre del archivo ({settings.placeholders.map((p) => `{${p}}`).join(" ")})<input value={settingsDraft.filename_pattern} maxLength={80} onChange={(event) => setSettingsDraft({ ...settingsDraft, filename_pattern: event.target.value })} /></label>
-                <label className="inline"><input type="checkbox" checked={settingsDraft.ascii_filenames} onChange={(event) => setSettingsDraft({ ...settingsDraft, ascii_filenames: event.target.checked })} /> Sin tildes en el nombre (evita problemas en algunos portales)</label>
-                <p className="cvs-note">Ejemplo: <code>{settings.example}.pdf</code></p>
-                <button type="button" onClick={() => void simple(() => studioApi.saveSettings(settingsDraft), "Ajustes guardados", (value) => { setSettings(value); setSettingsDraft({ export_dir: value.export_dir, filename_pattern: value.filename_pattern, ascii_filenames: value.ascii_filenames }); })}>Guardar</button>
+                <label>Carpeta<input value={settingsDraft.export_dir} onChange={(event) => setSettingsDraft({ ...settingsDraft, export_dir: event.target.value })} /></label>
+                <label>Patrón ({settings.placeholders.map((p) => `{${p}}`).join(" ")})<input value={settingsDraft.filename_pattern} maxLength={80} onChange={(event) => setSettingsDraft({ ...settingsDraft, filename_pattern: event.target.value })} /></label>
+                <label className="inline"><input type="checkbox" checked={settingsDraft.ascii_filenames} onChange={(event) => setSettingsDraft({ ...settingsDraft, ascii_filenames: event.target.checked })} /> Sin tildes</label>
+                <button type="button" onClick={() => void simple(() => studioApi.saveSettings(settingsDraft), "Guardado", (value) => { setSettings(value); setSettingsDraft({ export_dir: value.export_dir, filename_pattern: value.filename_pattern, ascii_filenames: value.ascii_filenames }); })}>Guardar</button>
               </div>
             )}
           </details>
-        </section>
+        </footer>
       </div>
     </section>
   );
 }
 
-/** Entrada al Estudio sin tener que marcar una ★ antes: busca una oferta reciente y ábrela. */
+/** Buscador compacto por si se usa de forma independiente. */
 export function CvStudioPicker({ onOpen }: { onOpen: (jobId: string) => void }) {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<StudioCandidate[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      studioApi.candidates(query, controller.signal).then(setItems).catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "No se pudieron cargar las ofertas"); });
+      studioApi.candidates(query, controller.signal).then(setItems).catch(() => undefined);
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [query]);
   return (
-    <section className="cvs-picker" aria-label="Elegir una oferta para el Estudio">
-      <p className="cvs-note">Elige la oferta para la que quieres preparar tu CV. No hace falta marcarla con ★ antes. {items === null ? "" : query.trim() ? "Resultados de la búsqueda:" : "Ofertas recientes de tu carrera:"}</p>
-      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por puesto o empresa…" aria-label="Buscar oferta" />
-      {error && <p className="cvs-flag" role="alert">{error}</p>}
-      {items !== null && items.length === 0 && <p className="cvs-note">No hay ofertas que coincidan.</p>}
+    <section className="cvs-picker" aria-label="Elegir una oferta">
+      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar puesto o empresa…" aria-label="Buscar oferta" />
       <ul className="cvs-picker-list">
         {(items ?? []).map((job) => (
           <li key={job.id}>
-            <div><strong>{job.company ?? "Empresa no indicada"}</strong><small>{job.title}{job.location ? ` · ${job.location}` : ""}{job.is_favorite ? " · ★" : ""}</small></div>
-            <button type="button" onClick={() => onOpen(job.id)}>Abrir en el Estudio</button>
+            <button type="button" className="cvs-picker-row" onClick={() => onOpen(job.id)}>
+              <strong>{job.title}</strong>
+              <small>{job.company ?? "Empresa no indicada"}{job.location ? ` · ${job.location}` : ""}{job.is_favorite ? " · ★" : ""}</small>
+            </button>
           </li>
         ))}
       </ul>

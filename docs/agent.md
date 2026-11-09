@@ -54,10 +54,10 @@ available, so put heavy, rarely used tools in a group.
 | --- | --- |
 | Market and offers | `search_saved_jobs`, `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (by area, place, company, work mode, seniority, sector or portal), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`. MCP only: `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |
 | Profile, CV, memory | `get_my_profile`, `update_profile_fields`\*, `get_user_profile`, `get_my_cv`, `update_cv`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
-| Closure plan, CV studio and application packages | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* (legacy), `cv_doc_get`, `cv_doc_propose` (creates suggestions the person accepts in the Studio; nothing changes until then), `prepare_application`\* (exports the PDF/Word to the offer's folder; never submits), `list_application_packages` |
+| Closure plan, CV studio and application packages | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* (compatibility alias of `prepare_application`), `cv_doc_get`, `cv_doc_propose` (creates suggestions the person accepts in the Studio; nothing changes until then), `prepare_application`\* (exports the PDF/Word to the offer's folder; never submits), `list_application_packages` |
 | Tracking | `favorite_job`\*, `track_job_application`\*, `list_job_applications`, `import_job_url`\* |
 | Capture and system | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`. Not exposed to chat or MCP (CLI/onboarding only): `ingest_jobs`, `capture_market_history` |
-| Target CVs (MCP only, read-only) | `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts` |
+| Target CVs and interview prep (MCP only, read-only) | `get_interview_dossier`, `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts` |
 
 \* writes: the chat shows a card and runs it only after approval. `update_profile` (full replacement) and `save_target_profile` exist
 only for onboarding and the CLI; neither the chat nor the MCP server exposes them (the app agent uses `update_profile_fields`).
@@ -149,11 +149,13 @@ cut to 700 characters. Manual `/compact [focus]` uses the same code. Design and 
 
 ## CV and profile editing
 
-`update_cv(section, action, item, match)` edits `cv_master.json`, the file the CVs view reads. Sections:
+`update_cv(section, action, item, match)` edits `cv_master.json`, the factual file shared by Mi CV and Settings. Sections:
 `certifications`, `experience`, `education`, `languages`, `projects`, `contact`, `gaps`, `summary`, `headline`.
 Actions: `add`, `update`, `remove`. It validates allowed fields and `YYYY-MM` dates, rejects duplicates and
 ambiguous matches, keeps untouched keys, writes atomically and saves `cv_master.json.bak-<date>` (last 5). Only
-with what the person dictates. Details: [cv.md](cv.md).
+with what the person dictates. Users can also import, edit all factual sections and prepare/download a CV
+without chat. `preview_cv` and `build_cv` use the current offer document, including confirmed detailed edits.
+Details: [cv.md](cv.md).
 
 ## System and maintenance tools
 

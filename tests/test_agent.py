@@ -146,6 +146,38 @@ def test_confirm_endpoint_only_runs_write_tools_and_can_reject():
     assert api.get("/api/career").json()["active"] == "sistemas_software"
 
 
+def test_confirm_endpoint_verifies_stored_pending_proposal_and_backup_endpoint():
+    client, _ = _client(_call("favorite_job", {"job_id": "job-1", "favorite": True}, cid="prop-1"))
+    events = list(loop.run_turn(CONFIG, [{"role": "user", "content": "marca favorita"}], client))
+    assert any(e["type"] == "pending" for e in events)
+    api = TestClient(app)
+    # Trying to tamper with arguments for a registered proposal id must fail with 422
+    tampered = api.post("/api/chat/confirm", json={
+        "tool_call_id": "prop-1",
+        "name": "favorite_job",
+        "arguments": {"job_id": "job-2", "favorite": True},
+        "approve": True,
+    })
+    assert tampered.status_code == 422
+    # Emitting a fresh proposal and confirming with matching arguments succeeds
+    client, _ = _client(_call("load_tools", {"groups": ["perfil"]}, cid="load-1"),
+                        _call("set_career_track", {"career_id": "sistemas_software"}, cid="prop-2"))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "cambia a sistemas"}], client))
+    ok = api.post("/api/chat/confirm", json={
+        "tool_call_id": "prop-2",
+        "name": "set_career_track",
+        "arguments": {"career_id": "sistemas_software"},
+        "approve": True,
+    })
+    assert ok.status_code == 200
+    assert api.get("/api/career").json()["active"] == "sistemas_software"
+    # Verify backup endpoint and doctor backup list
+    bkp = api.post("/api/system/backup")
+    assert bkp.status_code == 200 and bkp.json()["backup"].endswith(".db")
+    doc = api.get("/api/doctor").json()
+    assert len(doc["database"]["backups"]) >= 1
+
+
 def test_access_token_protects_api(monkeypatch):
     monkeypatch.setenv("RADAR_ACCESS_TOKEN", "clave-larga")
     api = TestClient(app)
@@ -167,6 +199,37 @@ def test_today_applications_and_profile_endpoints():
     assert api.put("/api/applications/no-existe", json={"status": "saved"}).status_code == 404
     assert api.put("/api/career/weights", json={"weights": {"location": 0.9}}).status_code == 200
     assert api.put("/api/career/weights", json={"weights": {"foo": 1}}).status_code == 422
+
+
+def test_applications_http_contract_preserves_history_and_offer():
+    from radar.db.database import connection
+    from radar.db.repository import ingest_jobs, track_application
+    from radar.domain.models import RawJob
+
+    api = TestClient(app)
+    ingest_jobs([RawJob("test", "Analista BI", None, "https://example.com/bi")])
+    with connection() as conn:
+        job_id = conn.execute("SELECT id FROM jobs").fetchone()[0]
+    application_id = track_application(job_id, "reviewed")
+
+    response = api.get("/api/applications")
+    assert response.status_code == 200
+    [item] = response.json()["applications"]
+    assert item["id"] == application_id
+    assert item["status"] == "reviewed"
+    assert item["company"] is item["notes"] is item["applied_at"] is item["salary_min"] is None
+    assert api.put(f"/api/applications/{job_id}", json={"status": "reviewed"}).status_code == 422
+    assert api.put(f"/api/applications/{job_id}", json={"status": "saved", "notes": "x" * 1001}).status_code == 422
+    assert api.put("/api/applications/missing", json={"status": "saved"}).status_code == 404
+
+    response = api.put(f"/api/applications/{job_id}", json={"status": "applied", "notes": "Entrevista"})
+    assert response.json() == {"application_id": application_id, "status": "applied"}
+    [item] = api.get("/api/applications").json()["applications"]
+    assert item["notes"] == "Entrevista" and item["applied_at"]
+    assert api.delete(f"/api/applications/{job_id}").json() == {"removed": True}
+    assert api.delete(f"/api/applications/{job_id}").json() == {"removed": False}
+    assert api.get("/api/applications").json() == {"applications": []}
+    assert api.get(f"/api/jobs/{job_id}").status_code == 200
 
 
 def test_agent_is_off_by_default_and_enforced_on_the_server():
@@ -584,3 +647,27 @@ def test_deepseek_multimodal_reasoning_and_cache_hygiene():
     # Streamed reasoning and cache_hit_tokens
     assert {"type": "reasoning", "delta": "paso 1"} in events
     assert {"type": "usage", "prompt_tokens": 120, "completion_tokens": 15, "cache_hit_tokens": 96} in events
+
+
+def test_screen_context_autoloads_matching_tool_group_and_overflow_recovers():
+    # En la vista CVs o Estudio se pre-activa el grupo `cv`; en Analysis se pre-activa `analitica`.
+    client, sent = _client(_text("ok"), _text("ok"), _text("ok"))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client, context={"screen": "map"}))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client, context={"screen": "cvs"}))
+    list(loop.run_turn(CONFIG, [{"role": "user", "content": "x"}], client, context={"screen": "analysis"}))
+    assert "get_my_cv" not in _names(sent[0]) and "run_readonly_sql" not in _names(sent[0])
+    assert len(json.dumps(sent[0]["tools"])) < 8_000
+    assert "get_my_cv" in _names(sent[1])
+    assert "run_readonly_sql" in _names(sent[2])
+
+    # Si el proveedor devuelve 400 por context_length_exceeded en un historial largo, compacta y reintenta solo.
+    history = _long_history(8) + [{"role": "user", "content": "sigue"}]
+    client, _ = _client(
+        (400, b"maximum context length exceeded"),
+        _text("OBJETIVO: buscar en Lima"),
+        _text("Respuesta tras compactar"),
+    )
+    events = list(loop.run_turn(CONFIG, history, client))
+    assert any(e["type"] == "compacted" for e in events)
+    assert any(e["type"] == "text" and "Respuesta tras compactar" in e["delta"] for e in events)
+    assert events[-1]["type"] == "done"

@@ -110,14 +110,25 @@ export function useAgentChat(onError: (e: unknown) => void, context?: AgentConte
   usageRef.current = usage;  // el turno lee el tamaño real del último prompt sin volver a crear `run`
   const [planMode, setPlanModeState] = useState(false);
   const planRef = useRef(false);  // lectura síncrona: aprobar el plan y enviar ocurren en el mismo instante
-  const [autoMode, setAutoModeState] = useState(false);  // modo auto: aprueba solas las acciones de bajo riesgo
-  const autoRef = useRef(false);
+  const [autoMode, setAutoModeState] = useState(true);  // modo auto por defecto: aprueba solas las acciones de triaje personal
+  const autoRef = useRef(true);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("radar.agent.autoMode");
+      if (saved === "0" || saved === "1") {
+        const on = saved === "1";
+        autoRef.current = on;
+        setAutoModeState(on);
+      }
+    } catch { /* sin almacenamiento */ }
+  }, []);
   const setPlanMode = useCallback((value: boolean) => {
     planRef.current = value; setPlanModeState(value);
     if (value) { autoRef.current = false; setAutoModeState(false); }
   }, []);
   const setAutoMode = useCallback((value: boolean) => {
     autoRef.current = value; setAutoModeState(value);
+    try { localStorage.setItem("radar.agent.autoMode", value ? "1" : "0"); } catch { /* sin almacenamiento */ }
     if (value) { planRef.current = false; setPlanModeState(false); }
   }, []);  // modo plan: el agente investiga y propone, sin escribir
   const [planReady, setPlanReady] = useState(false);  // hay un plan esperando aprobación

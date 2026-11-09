@@ -1,52 +1,40 @@
-import type { AnalyticsQueryResult, AnalyticsSchema, CvMatrix, CvProfile, CvTarget, Filters, Job, SkillOverview } from "../types";
+import type { AnalyticsQueryResult, AnalyticsSchema, Filters, SkillOverview } from "../types";
+import type { paths } from "./api-schema";
+import { API_URL, requestJson } from "./http";
 
-const API_URL = process.env.NEXT_PUBLIC_RADAR_API_URL
-  || (typeof window !== "undefined" && window.location.port !== "3000" ? window.location.origin : "http://127.0.0.1:8100");
+type JobPage = paths["/api/jobs"]["get"]["responses"][200]["content"]["application/json"];
+type JobById = paths["/api/jobs/{job_id}"]["get"]["responses"][200]["content"]["application/json"];
+type JobDescription = paths["/api/jobs/{job_id}/description"]["get"]["responses"][200]["content"]["application/json"];
+type PersonalJobsPath = "/api/jobs/hidden" | "/api/jobs/favorites" | "/api/jobs/applied";
+type PersonalJobs = paths[PersonalJobsPath]["get"]["responses"][200]["content"]["application/json"];
 
-export async function fetchJobs(filters: Filters, signal?: AbortSignal): Promise<Job[]> {
+export async function fetchJobs(filters: Filters, signal?: AbortSignal): Promise<JobPage["jobs"]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value) params.set(key, value);
   }
   params.set("slim", "1"); // sin descripciones: pesan ~80 % del listado; se piden al abrir una oferta
   params.set("include_applied", "false");
-  const response = await fetch(`${API_URL}/api/jobs?${params.toString()}`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  const payload = (await response.json()) as { jobs: Job[] };
-  return payload.jobs;
+  return (await requestJson<JobPage>(`/api/jobs?${params.toString()}`, { signal })).jobs;
 }
 
-export async function fetchJobDescription(id: string, signal?: AbortSignal): Promise<string | null> {
-  const response = await fetch(`${API_URL}/api/jobs/${id}/description`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { description: string | null }).description;
+export async function fetchJobDescription(id: string, signal?: AbortSignal): Promise<JobDescription["description"]> {
+  return (await requestJson<JobDescription>(`/api/jobs/${encodeURIComponent(id)}/description`, { signal })).description;
 }
 
-export async function fetchHiddenJobs(signal?: AbortSignal): Promise<Job[]> {
-  const response = await fetch(`${API_URL}/api/jobs/hidden`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  const payload = (await response.json()) as { jobs: Job[] };
-  return payload.jobs;
+async function fetchPersonalJobs(path: PersonalJobsPath, signal?: AbortSignal): Promise<PersonalJobs["jobs"]> {
+  return (await requestJson<PersonalJobs>(path, { signal })).jobs;
 }
 
-export async function fetchFavoriteJobs(signal?: AbortSignal): Promise<Job[]> {
-  const response = await fetch(`${API_URL}/api/jobs/favorites`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  const payload = (await response.json()) as { jobs: Job[] };
-  return payload.jobs;
-}
+export const fetchHiddenJobs = (signal?: AbortSignal) => fetchPersonalJobs("/api/jobs/hidden", signal);
+export const fetchFavoriteJobs = (signal?: AbortSignal) => fetchPersonalJobs("/api/jobs/favorites", signal);
+export const fetchAppliedJobs = (signal?: AbortSignal) => fetchPersonalJobs("/api/jobs/applied", signal);
 
-export async function fetchJob(id: string, signal?: AbortSignal): Promise<Job | null> {
+export async function fetchJob(id: string, signal?: AbortSignal): Promise<JobById["job"] | null> {
   const response = await fetch(`${API_URL}/api/jobs/${encodeURIComponent(id)}`, { signal });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { job: Job }).job;
-}
-
-export async function fetchAppliedJobs(signal?: AbortSignal): Promise<Job[]> {
-  const response = await fetch(`${API_URL}/api/jobs/applied`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { jobs: Job[] }).jobs;
+  return ((await response.json()) as JobById).job;
 }
 
 export async function updateJobFavorite(id: string, favorite: boolean): Promise<void> {
@@ -54,20 +42,13 @@ export async function updateJobFavorite(id: string, favorite: boolean): Promise<
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }
 
-export async function fetchSkillOverview(filters: Pick<Filters, "area" | "seniority" | "work_mode" | "max_age_days" | "geo_scope" | "market_id" | "profile_mode" | "relevance_tier">, signal?: AbortSignal): Promise<SkillOverview> {
+export async function fetchSkillOverview(filters: Pick<Filters, "area" | "seniority" | "work_mode" | "max_age_days" | "geo_scope" | "market_id" | "profile_mode" | "relevance_tier" | "min_salary" | "max_salary">, signal?: AbortSignal): Promise<SkillOverview> {
   const params = new URLSearchParams();
   params.set("include_applied", "false");
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   const response = await fetch(`${API_URL}/api/skills/overview?${params.toString()}`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as SkillOverview;
-}
-
-export async function fetchJobsForSkill(skill: string, signal?: AbortSignal): Promise<Job[]> {
-  const params = new URLSearchParams({ skill, max_age_days: "365" });
-  const response = await fetch(`${API_URL}/api/jobs?${params.toString()}`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { jobs: Job[] }).jobs;
 }
 
 export async function updateJobStatus(id: string, status: "visible" | "hidden", reason?: string): Promise<void> {
@@ -97,56 +78,6 @@ export async function fetchAnalyticsSchema(signal?: AbortSignal): Promise<Analyt
   const response = await fetch(`${API_URL}/api/analytics/schema`, { signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as AnalyticsSchema;
-}
-
-export const CV_PHOTO_URL = `${API_URL}/api/cv/photo`;
-
-export async function fetchCvProfile(signal?: AbortSignal): Promise<CvProfile | null> {
-  const response = await fetch(`${API_URL}/api/cv/profile`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { profile: CvProfile | null }).profile;
-}
-
-export async function fetchCvTargets(signal?: AbortSignal): Promise<{ targets: CvTarget[]; matrix: CvMatrix }> {
-  const response = await fetch(`${API_URL}/api/cv/targets`, { signal });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return (await response.json()) as { targets: CvTarget[]; matrix: CvMatrix };
-}
-
-export type TrackedApplication = {
-  id: string;
-  job_id: string;
-  title: string;
-  company: string | null;
-  status: string;
-  notes: string | null;
-  applied_at: string | null;
-  updated_at: string;
-  url: string | null;
-  location?: string | null;
-  work_mode?: string | null;
-  salary_min?: number | null;
-  salary_max?: number | null;
-  salary_currency?: string | null;
-  primary_area?: string | null;
-};
-
-export async function fetchApplications(signal?: AbortSignal): Promise<TrackedApplication[]> {
-  const response = await fetch(`${API_URL}/api/applications`, { signal, credentials: "include" });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-  return ((await response.json()) as { applications: TrackedApplication[] }).applications;
-}
-
-export async function updateApplication(jobId: string, status: string, notes?: string | null): Promise<void> {
-  const response = await fetch(`${API_URL}/api/applications/${encodeURIComponent(jobId)}`, {
-    method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, notes: notes ?? null }),
-  });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
-}
-
-export async function removeApplication(jobId: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/applications/${encodeURIComponent(jobId)}`, { method: "DELETE", credentials: "include" });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }
 
 export type ImportedJobResult = {

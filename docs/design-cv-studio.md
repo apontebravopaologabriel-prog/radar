@@ -1,6 +1,6 @@
 # Design: CV Studio (editor, agent panel, export and application folders)
 
-Status: **phases 1–4 implemented in v0.9** (packages and naming, document model and templates, Studio UI, agent suggestions with the fact guard); import and the learning loop remain. It replaces the older "fill your own `.docx`" idea. Implementation notes and endpoints: [cv.md](cv.md#cv-studio-tab-estudio-of-the-cvs-view).
+Status: **phases 1–4 implemented in v0.9** (packages and naming, document model and templates, Studio UI, agent suggestions with the fact guard); import and the learning loop remain. It replaces the older "fill your own `.docx`" idea. Current workflow and endpoints: [cv.md](cv.md). Studio is now optional via **Editar en detalle** after the simple preview; this document preserves the original design rationale.
 
 ## Goal
 

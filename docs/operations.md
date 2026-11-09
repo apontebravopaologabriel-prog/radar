@@ -58,8 +58,8 @@ company and location fields do not erase known values. Historical orphan records
 .venv/bin/radar ingest --source computrabajo --query "practicante de procesos" --location Lima --limit 10
 ```
 
-- Computrabajo reads the result cards, then `get-job-detail` for description, salary, contract and schedule.
-  A failing detail call keeps the card and does not interrupt the batch. Relative dates ("Hace 2 días",
+- Computrabajo reads public result cards and detail pages over native HTTP by default. The optional legacy
+  MCP transport calls `get-job-detail`. A failed detail request keeps the card and does not interrupt the batch. Relative dates ("Hace 2 días",
   "Hoy", "Ayer") are parsed so fresh offers are not dropped.
 - JobSpy (Indeed, LinkedIn) installs in the main environment: `pip install -e '.[jobspy]'` (imports verified on Python 3.14
   with NumPy 1.26.3 and inside the packaged app). Use a separate environment only if that install fails on your Python.
@@ -131,28 +131,38 @@ The optional JSON setting `capture_market_ids` selects scheduled markets, for ex
 Multi-market plans interleave queries and deduplicate identical source/query/location steps while
 retaining every originating market. Manual refresh records its requested markets separately.
 The internal scheduler records `refresh_last_attempt_at` and `refresh_last_status`; only complete
-success updates `refresh_last_at`. Partial/failing overdue runs back off for 15 minutes before retrying.
-These fields describe the internal scheduler; systemd controls its own timer cadence.
+success updates `refresh_last_at`. Successful and partial captures update `refresh_last_completed_at`,
+which controls the next full-market capture. Partial captures keep their warning without repeating the
+entire market every 15 minutes. Complete failures in the internal scheduler back off for 15 minutes.
+The systemd path persists its result in `RADAR_STATE_DIR/scheduled-capture.json`, retries full failures
+after one hour, and honors the configured interval after successful or partial completion.
+A file lock serializes timer invocations.
 
 The capture itself is `radar refresh [--cities A,B] [--max-age-days N] [--no-computrabajo]` (`src/radar/capture.py`):
-cross-platform, in-process, driven by the active career pack (`market_queries` for Lima, `queries` for extra cities).
+cross-platform, driven by the active career pack (`market_queries` for Lima, `queries` for extra cities).
 Who triggers it depends on the platform:
 
 | Platform | Trigger |
 | --- | --- |
-| Linux with the systemd timer installed | `radar-refresh.timer` → `scripts/radar-refresh.sh` → `radar refresh` (log in `refresh.log`) |
-| Windows, macOS, packaged app, Linux without the timer | The in-process scheduler (`scheduler.py`): checks every minute, runs when `refresh_every_days` (default 7, 0 = off) has elapsed since `refresh_last_at`, and 2 minutes after start if overdue. Only runs while Radar is open. `set_refresh_schedule` changes the interval |
+| Linux with the systemd timer installed | `radar-refresh.timer` → `scripts/radar-refresh.sh` → `radar refresh --scheduled` (log in `refresh.log`) |
+| Windows, macOS, packaged app, Linux without the timer | The in-process scheduler (`scheduler.py`): checks every minute, runs when `refresh_every_days` (default 7, 0 = off) has elapsed since `refresh_last_completed_at` (falling back to `refresh_last_at`), and 2 minutes after start if overdue. Only runs while Radar is open. `set_refresh_schedule` changes the interval |
 
 The rest of this section describes the capture and the systemd flow.
 
 `scripts/radar-refresh.sh` runs as the user service `radar-refresh.service`, fired by `radar-refresh.timer`
-every 7 days (`OnUnitActiveSec=7d`) and 5 minutes after boot (`OnBootSec=5min`). It:
+at the configured interval (`OnUnitActiveSec=2d` on Paolo's system), five minutes after boot,
+and hourly (`OnCalendar=hourly`, `Persistent=true`). These are lightweight due checks. An actual
+capture starts only after the persisted interval has elapsed. The user service uses `Nice=10`,
+`CPUWeight=20`, and `SuccessExitStatus=2`. CLI exit codes are 0 for success or a scheduled skip,
+2 for partial source coverage, and 1 for total source failure or any maintenance/backup failure.
+Partial coverage remains visible in the log. It:
 
 1. Runs the pack's broad searches (16 for Industrial Engineering: data/BI, processes, automation, ERP, planning,
    supply chain, logistics, purchasing, production, quality, maintenance, PMO...; 18 for Systems) on Indeed and
-   LinkedIn (JobSpy, no login) and Computrabajo (MCP, full detail), then the pack's short queries per extra city.
-2. Isolates each portal and step (3-minute limit each): a failure or timeout is logged in the final summary and does
-   not block the rest.
+   LinkedIn (JobSpy, no login) and Computrabajo (native HTTP by default), then the pack's short queries per extra city.
+2. Downloads source data in spawned workers with a three-minute limit. A timed-out worker is terminated
+   before starting the next search. Database writes and maintenance stay in the main process.
+   Two consecutive HTTP 403 responses pause that source for the rest of the capture; other sources continue.
 3. Uses a 10-day window so weekly runs overlap. It never filters by salary.
 4. Runs `repair-data`, `expire-stale` and `check-applications`, saves the market snapshot and finishes with
    `radar backup`.
@@ -239,7 +249,7 @@ Everything personal lives outside the repository (and must stay out), in the dat
 | Item | Back it up? |
 | --- | --- |
 | `radar.db` (offers, profile, applications, conversations, memory) | Yes, **as a snapshot from `radar backup`**, never the live file with its `-wal`/`-shm` |
-| `cv_master.json`, `photo.jpg`, `targets/`, `cvs/`, `careers/` | Yes (your real CV and generated files) |
+| `cv_master.json`, `photo.jpg`, `cv_imports/`, `targets/`, `cvs/`, `careers/` | Yes (your real CV and generated files) |
 | `secrets.json` (provider keys) | **No.** Keys are re-enterable; keeping them out of copies avoids leaking them |
 | `backups/`, old `*.bak*` copies | These are the copies, not originals; prune the old manual ones |
 
@@ -270,7 +280,17 @@ Manual logical backup: `sqlite3 ~/.local/share/radar/radar.db ".backup '/path/ra
 ## First-run CV setup and updates
 
 Setup accepts local text PDF/DOCX drafts and requires review/confirmation before updating factual history.
-Reopen it from Settings → Profile. First confirmed setup starts capture; later draft saves do not.
+Reopen import from Mi CV or Settings → Mi CV. First confirmed setup starts capture; profile updates and
+draft saves do not. Imported originals are kept in `cv_imports/`; include them with the factual CV in
+backups. Preparation opens a PDF preview; Studio is optional via Editar en detalle. See [cv.md](cv.md).
 Mechanical is experimental and must be explicitly selected; "main markets" selects Industrial and Systems.
 Application-release notices link to the official release page and do not install automatically. See
 [implementation notes](windows-cv-markets-2026-11-04.md) for extraction limits and remaining Windows gates.
+
+## Default portal coverage
+
+Scheduled capture now includes JobSpy (configured sites), Computrabajo, Bumeran and Empleos Perú, matching manual refresh. Bumeran and Empleos can be disabled with RADAR_BUMERAN_ENABLED=0 and RADAR_EMPLEOS_ENABLED=0. RADAR_EXTRA_SOURCES explicitly overrides the additional scheduled portal list; each query cycles through sources before advancing so one portal does not consume the entire beginning of the run. HTTP 403 is a source failure, never proof of zero offers, and is not bypassed.
+
+## Three-market refresh coverage
+
+Manual refresh now combines broad market queries and the short career queries, deduplicates shared searches, and alternates selected packs before advancing. The default request limit is 50 per source/search, matching the adapter cap; this is a requested maximum, not a guarantee that a portal returns 50 or supports pagination. Todos los mercados explicitly includes Industrial, Systems/Software and Mechanical; selection no longer depends on the word experimental in display names. Sources, dates, classification and admission rules still bound the useful sample. Broader refreshes take longer; progress remains visible and the UI stays usable.

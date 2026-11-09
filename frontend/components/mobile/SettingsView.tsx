@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, type AgentSettings, type Career } from "../../lib/mobile-api";
+import { api, type AgentSettings, type Career, type Doctor } from "../../lib/mobile-api";
 import CustomCareerForm from "./CustomCareerForm";
 import McpConnect from "./McpConnect";
-import ProfileTab from "./ProfileTab";
+import MyCvProfile from "../MyCvProfile";
 import MarketProfileEditor from "../MarketProfileEditor";
 import RefreshPanel from "./RefreshPanel";
 import "./settings.css";
@@ -14,7 +14,7 @@ const WEIGHT_LABELS: Record<string, string> = {
 };
 
 type SettingsTab = "perfil" | "busqueda" | "agente" | "conectar" | "apariencia";
-const TABS: [SettingsTab, string][] = [["perfil", "Perfil"], ["busqueda", "Búsqueda"], ["agente", "Agente"], ["conectar", "Conectar IA"], ["apariencia", "Apariencia"]];
+const TABS: [SettingsTab, string][] = [["perfil", "Mi CV"], ["busqueda", "Búsqueda"], ["agente", "Agente"], ["conectar", "Conectar IA"], ["apariencia", "Apariencia"]];
 
 export default function SettingsView({ authRequired, onLogout, onError, onAgentChange }: { authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void; onAgentChange?: (enabled: boolean) => void }) {
   const [career, setCareer] = useState<Career | null>(null);
@@ -33,6 +33,8 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   const [note, setNote] = useState("");
   const [tab, setTab] = useState<SettingsTab>("perfil");
   const [lite, setLite] = useState(false);
+  const [doctorInfo, setDoctorInfo] = useState<Doctor | null>(null);
+  const [backingUp, setBackingUp] = useState(false);
   useEffect(() => { if (window.location.hash === "#mercados") setTab("busqueda"); }, []);
   useEffect(() => { try { setLite(localStorage.getItem("radar.perf") === "lite"); } catch { /* sin almacenamiento */ } }, []);
   const toggleLite = (on: boolean) => {
@@ -42,8 +44,9 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
   };
 
   useEffect(() => {
-    Promise.all([api.career(), api.agentSettings()]).then(([c, a]) => {
+    Promise.all([api.career(), api.agentSettings(), api.doctor().catch(() => null)]).then(([c, a, d]) => {
       setCareer(c); setWeights(c.weights); setAgent(a); setProvider(a.provider); setModel(a.model); setReasoningEffort(a.reasoning_effort); setCap(a.monthly_token_cap); setCtxWindow(a.context_window); setAutoPct(a.autocompact_pct); setEnabled(a.enabled); setReadOnly(a.read_only);
+      if (d) setDoctorInfo(d);
     }).catch(onError);
   }, [onError]);
 
@@ -69,7 +72,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         {TABS.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
       </nav>
       <div className="set-content">
-      {tab === "perfil" && <><a className="m-link" href="/radar?inicio=1">Importar CV o retomar configuración →</a><a className="m-link" href="/radar" onClick={() => { try { localStorage.setItem("radar.tips.pending", "1"); } catch { /* Optional. */ } }}>Ver guía rápida →</a><ProfileTab career={career} onError={onError} /></>}
+      {tab === "perfil" && <><MyCvProfile career={career} /><a className="m-link" href="/radar" onClick={() => { try { localStorage.setItem("radar.tips.pending", "1"); } catch { /* Optional. */ } }}>Ver guía rápida →</a></>}
 
       {tab === "busqueda" && (<>
       <MarketProfileEditor />
@@ -108,6 +111,37 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         <h2>Rendimiento <b>{lite ? "(modo ligero)" : "(efectos retro)"}</b></h2>
         <p className="m-sub">El modo ligero quita las líneas de escaneo, la rejilla y el barrido del mapa, y los desenfoques de los paneles. Es lo más rápido en equipos modestos. Se guarda solo en este navegador.</p>
         <label className="m-check"><input type="checkbox" checked={lite} onChange={(e) => toggleLite(e.target.checked)} />Modo ligero (sin efectos retro)</label>
+      </section>
+
+      <section className="set-section">
+        <h2>Respaldo local de datos</h2>
+        <p className="m-sub">
+          Guarda una copia consistente de tu base de datos SQLite en la carpeta <code>backups/</code> junto a tus datos locales (se conservan las últimas 5 copias).
+          {doctorInfo ? ` Tamaño actual: ${doctorInfo.database.size_mb} MB · ${doctorInfo.jobs.active.toLocaleString("es-PE")} ofertas activas.` : ""}
+        </p>
+        {doctorInfo?.database.backups && doctorInfo.database.backups.length > 0 && (
+          <p className="m-sub">Último respaldo: <code>{doctorInfo.database.backups[doctorInfo.database.backups.length - 1]}</code></p>
+        )}
+        <button
+          type="button"
+          className="m-primary"
+          disabled={backingUp}
+          onClick={async () => {
+            setBackingUp(true);
+            try {
+              const res = await api.backupDatabase();
+              const updated = await api.doctor().catch(() => null);
+              if (updated) setDoctorInfo(updated);
+              flash(`Respaldo creado (${res.size_mb} MB)`);
+            } catch (error) {
+              onError(error);
+            } finally {
+              setBackingUp(false);
+            }
+          }}
+        >
+          {backingUp ? "Creando respaldo…" : "Crear respaldo ahora"}
+        </button>
       </section>
 
       </>)}
@@ -163,7 +197,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
       )}
 
       <footer className="set-footer">
-        <a className="m-link" href="/radar">Abrir mapa, análisis y CVs</a>
+        <a className="m-link" href="/radar">Abrir mapa, análisis y Mi CV</a>
         {authRequired && <button className="m-link" onClick={onLogout}>Cerrar sesión</button>}
       </footer>
       </div>

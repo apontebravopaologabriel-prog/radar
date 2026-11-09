@@ -262,15 +262,33 @@ def test_slim_lists_drop_descriptions_and_detail_endpoint_returns_them():
     from fastapi.testclient import TestClient
 
     from radar.api import app
+    from radar.db.database import connection
 
     _seed_market()
     api = TestClient(app)
-    full = api.get("/api/jobs").json()["jobs"]
-    slim = api.get("/api/jobs?slim=true").json()["jobs"]
-    assert full[0]["description"] and "description" not in slim[0] and slim[0]["has_description"] is True
-    assert "description" not in api.get("/api/map/jobs?slim=true").json()["features"][0]["properties"]
-    detail = api.get(f"/api/jobs/{slim[0]['id']}/description").json()
-    assert detail["description"] and api.get("/api/jobs/no-existe/description").status_code == 404
+    full = api.get("/api/jobs").json()["jobs"][0]
+    job_id = full["id"]
+    assert full["description"] and "has_description" not in full
+    expected_slim = {key: value for key, value in full.items() if key != "description"}
+    expected_slim["has_description"] = True
+    assert api.get("/api/jobs?slim=1").json()["jobs"][0] == expected_slim
+    assert api.get(f"/api/jobs/{job_id}").json() == {"job": expected_slim}
+
+    feature = api.get("/api/map/jobs?slim=1").json()["features"][0]
+    assert feature["properties"] == expected_slim
+    assert feature["geometry"] == {"type": "Point", "coordinates": [full["longitude"], full["latitude"]]}
+    assert api.get(f"/api/jobs/{job_id}/description").json() == {"id": job_id, "description": full["description"]}
+    assert api.get("/api/jobs/no-existe/description").status_code == 404
+
+    # Older records can have nullable fields. Full responses must keep those keys.
+    with connection() as conn:
+        conn.execute("UPDATE jobs SET description_clean=NULL, work_mode=NULL WHERE id=?", (job_id,))
+        conn.commit()
+    assert api.get(f"/api/jobs/{job_id}/description").json() == {"id": job_id, "description": None}
+    assert api.get(f"/api/jobs/{job_id}").json()["job"]["has_description"] is False
+    tools.favorite_job(job_id)
+    [favorite] = api.get("/api/jobs/favorites").json()["jobs"]
+    assert favorite["description"] is None and favorite["work_mode"] is None
 
 
 def test_jobs_endpoint_paginates_without_changing_the_default():
@@ -595,3 +613,56 @@ def test_search_saved_jobs_and_recommendations_exclude_applied_and_hidden_by_def
     # find_jobs_near con include_applied=True incluye la postulada
     near_app = tools.find_jobs_near("Lima", radius_km=50, include_applied=True)["jobs"]
     assert p_id in {j["id"] for j in near_app}
+
+
+def test_get_interview_dossier_finds_applied_offers_in_one_call(tmp_path, monkeypatch):
+    import json
+
+    from radar import cv_targets
+
+    monkeypatch.setattr(cv_targets, "data_dir", lambda: tmp_path)
+    (tmp_path / "cv_master.json").write_text(
+        json.dumps(
+            {
+                "name": "Paolo",
+                "summary": "Ingeniero industrial con base operativa.",
+                "experience": [{"role": "Asistente de Operaciones", "company": "JAS", "from": "2024-01", "to": "2024-12", "bullets": ["Control de almacén con Excel y SAP"]}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    jobs = _seed_market()
+    p_id = next(j["id"] for j in jobs if j["title"] == "Practicante de Procesos")
+    tools.update_profile("Paolo", ["Procesos"], ["Lima"], {"Excel": "advanced"})
+    tools.track_job_application(p_id, status="applied", notes="CV enviado el lunes")
+
+    # Incluso cuando la oferta ya está marcada como `applied` (fuera de search_saved_jobs por defecto),
+    # get_interview_dossier la encuentra por nombre de empresa o puesto en una sola llamada MCP.
+    dossier = tools.get_interview_dossier("ACME")
+    assert dossier["found"] is True
+    assert dossier["job"]["id"] == p_id
+    assert dossier["job"]["your_tracking"]["status"] == "applied"
+    assert dossier["real_cv"]["summary"] == "Ingeniero industrial con base operativa."
+    assert dossier["baseline"] is not None
+
+    # También funciona pasando el job_id exacto
+    by_id = tools.get_interview_dossier(p_id)
+    assert by_id["found"] is True and by_id["job"]["id"] == p_id
+
+
+def test_search_saved_jobs_centers_snippet_on_search_match():
+    from datetime import UTC, datetime
+
+    from radar.db.repository import ingest_jobs as store
+    from radar.domain.models import RawJob
+
+    long_desc = (
+        "Importante empresa industrial líder en manufactura se encuentra en búsqueda del mejor talento. "
+        * 3
+        + "Beneficios: almuerzo cubierto al 72% en comedor de planta y utilidades."
+    )
+    store([RawJob("t", "Asistente de Planta", "Plastisur", "https://e.com/p1", location="Lima",
+                  description=long_desc, published_at=datetime.now(UTC))])
+    hits = tools.search_saved_jobs(search="almuerzo")["jobs"]
+    assert len(hits) == 1
+    assert "almuerzo cubierto al 72%" in hits[0]["snippet"]

@@ -1,5 +1,4 @@
 import json
-import threading
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -67,21 +66,13 @@ def test_partial_card_keeps_known_title_company_and_location():
         assert c.execute("SELECT j.title,j.location,c.name FROM jobs j JOIN companies c ON c.id=j.company_id").fetchall() == [("Analista de datos", "Lima", "Example")]
 
 
-def test_timeout_records_search_and_late_download_cannot_ingest(monkeypatch):
-    release, returned = threading.Event(), threading.Event()
-    class Source:
-        def search(self, *args):
-            release.wait(5)
-            returned.set()
-            return [job()]
-    monkeypatch.setattr(pipeline, "resolve_source", lambda _: Source())
-    try:
-        with pytest.raises(TimeoutError):
-            pipeline.run_ingestion("portal", "analista datos", "Lima", search_timeout=0.01,
-                                   market_ids=["sistemas_software"])
-    finally:
-        release.set()
-    assert returned.wait(5)
+def test_timeout_records_search_and_cannot_ingest(monkeypatch):
+    def timeout(*args):
+        raise TimeoutError("Source download exceeded deadline")
+    monkeypatch.setattr("radar.source_fetch.fetch_jobs", timeout)
+    with pytest.raises(TimeoutError):
+        pipeline.run_ingestion("portal", "analista datos", "Lima", search_timeout=0.01,
+                               market_ids=["sistemas_software"])
     with connection() as c:
         assert c.execute("SELECT count(*) FROM jobs").fetchone()[0] == 0
         query, context, status = c.execute("SELECT query,context,status FROM ingestion_runs").fetchone()

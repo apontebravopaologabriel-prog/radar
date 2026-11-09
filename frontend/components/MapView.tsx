@@ -193,7 +193,7 @@ export default function MapView(props: MapViewProps) {
     if (webglAvailable !== true) return;
     if (!containerRef.current) return;
     maplibregl.setWorkerUrl(`${window.location.origin}/maplibre/maplibre-gl-worker.mjs`); // ver scripts/copy-maplibre-worker.mjs
-    const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17, fadeDuration: 0, renderWorldCopies: false, maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2) });
+    const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17, fadeDuration: 0, renderWorldCopies: false, maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2), attributionControl: false });
     mapRef.current = map;
     const setMoving = (moving: boolean) => document.body.classList.toggle("is-map-moving", moving);
     map.on("movestart", () => setMoving(true));
@@ -225,10 +225,9 @@ export default function MapView(props: MapViewProps) {
         id: "district-labels",
         type: "symbol",
         source: "district-counts",
-        // Every counted district must remain discoverable; MapLibre's default
-        // collision handling could silently hide labels such as La Victoria.
+        // Collision-free labels keep the map legible; the district selector exposes every count.
         minzoom: 10.5,
-        layout: { "text-field": ["concat", ["get", "district"], " · ", ["to-string", ["get", "job_count"]]], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": true, "text-ignore-placement": true },
+        layout: { "text-field": ["concat", ["get", "district"], " · ", ["to-string", ["get", "job_count"]]], "text-size": 11, "text-font": ["Noto Sans Regular"], "text-anchor": "center", "text-allow-overlap": false, "text-ignore-placement": false },
         paint: { "text-color": "#bdbdbd", "text-halo-color": "#050505", "text-halo-width": 1.2 },
       });
       loadDistrictGeoJson()
@@ -248,7 +247,7 @@ export default function MapView(props: MapViewProps) {
       map.addLayer({ id: "radar-fill", type: "fill", source: "radar-rings", paint: { "fill-color": "#d5d5d5", "fill-opacity": ["case", ["boolean", ["get", "active"], false], 0.08, 0.008] } });
       map.addLayer({ id: "radar-lines", type: "line", source: "radar-rings", paint: { "line-color": ["case", ["boolean", ["get", "active"], false], "#ffffff", "#858585"], "line-width": ["case", ["boolean", ["get", "active"], false], 2.4, 1], "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0.72], "line-dasharray": [2, 2] } });
       map.addSource("radar-labels", { type: "geojson", data: radarLabelFeatures(radarCenter, radarCounts, radarRadiusKm) });
-      map.addLayer({ id: "radar-labels", type: "symbol", source: "radar-labels", layout: { "text-field": ["get", "label"], "text-size": 11, "text-font": ["Noto Sans Regular"], "text-anchor": "bottom", "text-offset": [0, -0.3], "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": ["case", ["boolean", ["get", "active"], false], "#ffffff", "#9a9a9a"], "text-halo-color": "#050505", "text-halo-width": 1.4 } });
+      map.addLayer({ id: "radar-labels", type: "symbol", source: "radar-labels", layout: { "text-field": ["get", "label"], "text-size": 11, "text-font": ["Noto Sans Regular"], "text-anchor": "bottom", "text-offset": [0, -0.3], "text-allow-overlap": false, "text-ignore-placement": false }, paint: { "text-color": ["case", ["boolean", ["get", "active"], false], "#ffffff", "#9a9a9a"], "text-halo-color": "#050505", "text-halo-width": 1.4 } });
       setModeVisibility(map, mode, Boolean(radarDistrictKey));
       setMapReady(true);
       map.once("idle", () => setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current)));
