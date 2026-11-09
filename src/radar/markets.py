@@ -14,18 +14,19 @@ from radar.domain.models import RawJob
 from radar.normalize import content_hash
 from radar.taxonomy import infer_relevance
 
-_PACK_HASHES: dict[int, tuple[object, str]] = {}
+_PACK_HASHES: dict[tuple[int, str], tuple[object, str]] = {}
 
 
 def pack_hash(pack) -> str:
-    cached = _PACK_HASHES.get(id(pack))
+    key = (id(pack), CLASSIFIER_VERSION)
+    cached = _PACK_HASHES.get(key)
     if cached is not None and cached[0] is pack:
         return cached[1]
     from dataclasses import asdict
 
     digest = hashlib.sha256(json.dumps([CLASSIFIER_VERSION, asdict(pack)], sort_keys=True,
                                        default=lambda x: sorted(x)).encode()).hexdigest()
-    _PACK_HASHES[id(pack)] = (pack, digest)
+    _PACK_HASHES[key] = (pack, digest)
     return digest
 
 
