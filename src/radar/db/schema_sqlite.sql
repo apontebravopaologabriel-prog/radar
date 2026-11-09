@@ -412,6 +412,7 @@ CREATE TABLE IF NOT EXISTS job_market_classifications (
  PRIMARY KEY(job_id, market_id)
 );
 CREATE INDEX IF NOT EXISTS job_market_scope_idx ON job_market_classifications(market_id, relevance_tier, job_id);
+CREATE INDEX IF NOT EXISTS jobs_active_canonical_pub_idx ON jobs(is_active, duplicate_status, published_at DESC);
 CREATE TABLE IF NOT EXISTS market_search_profiles (
  market_id TEXT PRIMARY KEY, preferences TEXT NOT NULL DEFAULT '{}',
  version INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT (now())

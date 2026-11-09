@@ -74,8 +74,13 @@ def list_jobs(
 
         backfill_market(market_id)
     relevance = "m" if market_id else "j"
+    tier_col = "+m.relevance_tier" if market_id else "j.relevance_tier"
     area_column = "json_extract(m.areas, '$[0].name')" if market_id else "ia.name"
-    market_join = "JOIN job_market_classifications m ON m.job_id=j.id AND m.market_id=%s" if market_id else ""
+    market_join = (
+        "JOIN job_market_classifications m ON m.job_id=j.id AND m.market_id=%s"
+        if market_id
+        else "LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1 LEFT JOIN industrial_areas ia ON ia.id=ja.area_id"
+    )
     clauses = [
         "j.is_active = 1",
         "COALESCE(j.application_status, 'unknown') NOT IN ('closed', 'expired')",
@@ -155,13 +160,13 @@ def list_jobs(
                        if market_id else "EXISTS (SELECT 1 FROM job_skills jskill JOIN skills skill ON skill.id=jskill.skill_id WHERE jskill.job_id=j.id AND skill.name=%s)")
         params.append(skill)
     if relevance_tier == "market":
-        clauses.append(f"{relevance}.relevance_tier IN ('core', 'adjacent')")
+        clauses.append(f"{tier_col} IN ('core', 'adjacent')")
     elif relevance_tier == "target":  # cargos objetivo del paquete (prioridad 1 y 2)
-        clauses.append(f"{relevance}.relevance_tier = 'core' AND {relevance}.relevance_evidence LIKE 'Cargo objetivo%'")
+        clauses.append(f"{tier_col} = 'core' AND {relevance}.relevance_evidence LIKE 'Cargo objetivo%'")
     elif relevance_tier:
         if relevance_tier not in {"core", "adjacent", "out_of_focus"}:
             raise ValueError("relevance_tier inválido")
-        clauses.append(f"{relevance}.relevance_tier = %s")
+        clauses.append(f"{tier_col} = %s")
         params.append(relevance_tier)
     if not include_hidden:
         clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
@@ -183,8 +188,6 @@ def list_jobs(
         EXISTS (SELECT 1 FROM job_user_favorites juf WHERE juf.job_id=j.id) AS is_favorite,
         (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
         FROM jobs j {market_join} LEFT JOIN companies c ON c.id=j.company_id
-        LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
-        LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
         LEFT JOIN job_user_status jus ON jus.job_id=j.id
         WHERE {" AND ".join(clauses)} ORDER BY j.published_at DESC NULLS LAST, j.detected_at DESC{limit_clause}"""
     with connection() as conn:
@@ -458,15 +461,22 @@ def recommendations(
                          include_applied=include_applied, include_hidden=include_hidden,
                          relevance_tier="market")
         scores = {}
-        if profile and CURRENT_QUERY.get().values()["market_id"] == active_pack().id:
+        job_ids = {job["id"] for job in jobs}
+        if profile and job_ids and CURRENT_QUERY.get().values()["market_id"] == active_pack().id:
             with connection() as conn:
-                scores = {r[0]: r[1:] for r in conn.execute(
-                    "SELECT job_id,total_score,strong_matches,missing_skills,reason,assessment FROM job_scores WHERE profile_id=%s",
-                    (profile["id"],)).fetchall()}
-                hashes = dict(conn.execute("SELECT id,content_hash FROM jobs WHERE is_active=1").fetchall())
-            scores = {id: row for id, row in scores.items()
-                      if (meta := json.loads(row[4] or '{}')).get("profile_hash") == revision
-                      and meta.get("content_hash") == hashes.get(id)}
+                rows = conn.execute(
+                    """SELECT js.job_id,js.total_score,js.strong_matches,js.missing_skills,js.reason,js.assessment,j.content_hash
+                    FROM job_scores js JOIN jobs j ON j.id=js.job_id
+                    WHERE js.profile_id=%s AND j.is_active=1""",
+                    (profile["id"],),
+                ).fetchall()
+            scores = {
+                r[0]: r[1:6]
+                for r in rows
+                if r[0] in job_ids
+                and (meta := json.loads(r[5] or "{}")).get("profile_hash") == revision
+                and meta.get("content_hash") == r[6]
+            }
         for job in jobs:
             score = scores.get(job["id"])
             job.update(score=score[0] if score else None,

@@ -14,12 +14,19 @@ from radar.domain.models import RawJob
 from radar.normalize import content_hash
 from radar.taxonomy import infer_relevance
 
+_PACK_HASHES: dict[int, tuple[object, str]] = {}
+
 
 def pack_hash(pack) -> str:
+    cached = _PACK_HASHES.get(id(pack))
+    if cached is not None and cached[0] is pack:
+        return cached[1]
     from dataclasses import asdict
 
-    return hashlib.sha256(json.dumps([CLASSIFIER_VERSION, asdict(pack)], sort_keys=True,
-                                    default=lambda x: sorted(x)).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps([CLASSIFIER_VERSION, asdict(pack)], sort_keys=True,
+                                       default=lambda x: sorted(x)).encode()).hexdigest()
+    _PACK_HASHES[id(pack)] = (pack, digest)
+    return digest
 
 
 def _projection_values(job_id, raw, pack, version=None):
@@ -62,6 +69,21 @@ def _backfill_lock(database: str):
     return threading.Lock()
 
 
+_BACKFILL_WARM: dict[tuple[str, str], tuple[int, int, str]] = {}
+
+
+def _db_stamp(db_file) -> tuple[int, int]:
+    try:
+        db_mtime = db_file.stat().st_mtime_ns
+    except OSError:
+        db_mtime = 0
+    try:
+        wal_mtime = db_file.with_name(f"{db_file.name}-wal").stat().st_mtime_ns
+    except OSError:
+        wal_mtime = 0
+    return (db_mtime, wal_mtime)
+
+
 def backfill_market(market_id: str) -> int:
     """Compute outside DB transactions; serialize rebuilds and write bounded batches.
 
@@ -72,6 +94,12 @@ def backfill_market(market_id: str) -> int:
 
     pack = load_pack(market_id)
     version = pack_hash(pack)
+    db_file = database_path().resolve()
+    cache_key = (str(db_file), market_id)
+    stamp = (*_db_stamp(db_file), version)
+    if _BACKFILL_WARM.get(cache_key) == stamp:
+        return 0
+
     def pending():
         with connection() as conn:
             return conn.execute(
@@ -83,9 +111,10 @@ def backfill_market(market_id: str) -> int:
             ).fetchall()
 
     if not pending():
+        _BACKFILL_WARM[cache_key] = (*_db_stamp(db_file), version)
         return 0
     changed = 0
-    with _backfill_lock(str(database_path().resolve())):
+    with _backfill_lock(str(db_file)):
         rows = pending()
         for offset in range(0, len(rows), 50):
             prepared = [(_projection_values(job_id, RawJob("stored", title, company, "", location=location,
@@ -95,6 +124,8 @@ def backfill_market(market_id: str) -> int:
                 conn.execute("BEGIN IMMEDIATE")
                 for values, expected_hash in prepared:
                     changed += _write_projection(conn, values, expected_hash)
+        if not pending():
+            _BACKFILL_WARM[cache_key] = (*_db_stamp(db_file), version)
     return changed
 
 

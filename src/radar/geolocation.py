@@ -181,12 +181,17 @@ def _resolve(normalized: str) -> LocationPoint | None:
     return None  # "Perú" a secas no ubica la oferta en ningún punto
 
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4096)
 def infer_location(location: str | None) -> LocationPoint | None:
     """Resuelve una ubicación del Perú a distrito (Lima/Callao), ciudad o departamento."""
     normalized = normalize_text(location)
     return _resolve(normalized) if normalized else None
 
 
+@lru_cache(maxsize=4096)
 def infer_job_location(
     location: str | None,
     title: str | None = None,
@@ -208,6 +213,7 @@ def infer_job_location(
     return base
 
 
+@lru_cache(maxsize=4096)
 def in_lima_metro(location, title=None, description=None):
     point = infer_job_location(location, title, description)
     return bool(point and (point.place_id or point.label == "Lima"))

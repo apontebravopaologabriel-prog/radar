@@ -171,6 +171,7 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS job_scores_profile_idx ON job_scores (profile_id, total_score DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS applications_job_idx ON applications (job_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS jobs_relevance_idx ON jobs (relevance_tier, relevance_score DESC, is_active)")
+        conn.execute("CREATE INDEX IF NOT EXISTS jobs_active_canonical_pub_idx ON jobs (is_active, duplicate_status, published_at DESC)")
         conn.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (now()))")
         conn.execute(
             "CREATE TABLE IF NOT EXISTS agent_usage (id TEXT PRIMARY KEY DEFAULT (gen_random_uuid()), provider TEXT NOT NULL, "
