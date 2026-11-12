@@ -19,6 +19,12 @@ def forbidden():
     httpx.Response(403, request=request).raise_for_status()
 
 
+def urllib_forbidden():
+    import urllib.error
+
+    raise urllib.error.HTTPError("https://example.com", 403, "Forbidden", None, None)
+
+
 def delayed_write(path):
     time.sleep(2)
     Path(path).write_text("late")
@@ -28,6 +34,10 @@ def test_worker_results_and_errors():
     assert run_in_process(return_value, (), 10) == [1, 2, 3]
     with pytest.raises(SourceFetchError) as exc:
         run_in_process(forbidden, (), 10)
+    assert exc.value.status_code == 403
+    # urllib raises HTTPError, which exposes `.code` and no `response.status_code`.
+    with pytest.raises(SourceFetchError) as exc:
+        run_in_process(urllib_forbidden, (), 10)
     assert exc.value.status_code == 403
 
 

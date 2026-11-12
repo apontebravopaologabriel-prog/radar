@@ -36,6 +36,7 @@ from radar.careers import (
     list_packs,
     load_pack,
 )
+from radar.db.database import connection
 from radar.db.queries import applications, get_profile
 from radar.db.repository import recompute_scores, track_application, untrack_application
 from radar.feed import (
@@ -46,6 +47,7 @@ from radar.feed import (
     skill_impact,
     today_feed,
 )
+from radar.freshness import visible_date_bounds
 from radar.geolocation import place_catalog
 from radar.refresh import refresh_status, start_refresh
 from radar.settings import set_json_setting, set_setting, write_secret
@@ -116,6 +118,8 @@ class ApplicationItem(BaseModel):
     salary_max: float | None
     salary_currency: str | None
     primary_area: str | None
+    archived_at: str | None
+    published_at: str | None
 
 
 class ApplicationList(BaseModel):
@@ -124,11 +128,32 @@ class ApplicationList(BaseModel):
 
 @router.get("/applications", response_model=ApplicationList)
 def list_applications() -> dict[str, Any]:
-    return {"applications": applications(200)}
+    return {"applications": applications(200, include_tracking_details=True)}
+
+
+class TrackingApplicationItem(ApplicationItem):
+    archived_from_applied: bool
+
+
+class TrackingApplications(BaseModel):
+    applications: list[TrackingApplicationItem]
+    activity: dict[str, int]
+
+
+@router.get("/applications/tracking", response_model=TrackingApplications)
+def tracking_applications() -> dict[str, Any]:
+    first_day, _ = visible_date_bounds(7)
+    with connection() as conn:
+        activity = dict(conn.execute(
+            """SELECT date(applied_at, '-5 hours'), COUNT(*) FROM applications
+               WHERE date(applied_at, '-5 hours') IS NOT NULL GROUP BY 1"""
+        ).fetchall())
+    return {"applications": applications(include_tracking_details=True, tracking_since=f"{first_day}T00:00:00-05:00"),
+            "activity": activity}
 
 
 class ApplicationUpdate(BaseModel):
-    status: str = Field(pattern="^(saved|applied|interview|offer|rejected|ignored)$")
+    status: str = Field(pattern="^(saved|applied|responded|interview|offer|rejected|ignored)$")
     notes: str | None = Field(default=None, max_length=1000)
 
 

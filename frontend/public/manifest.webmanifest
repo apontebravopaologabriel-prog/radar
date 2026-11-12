@@ -2,7 +2,7 @@
   "name": "Radar",
   "short_name": "Radar",
   "description": "Inteligencia de carrera: ofertas que encajan contigo y qué te falta.",
-  "start_url": "/m",
+  "start_url": "/radar",
   "scope": "/",
   "display": "standalone",
   "background_color": "#171717",

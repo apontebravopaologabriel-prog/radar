@@ -24,7 +24,10 @@ def pack_hash(pack) -> str:
         return cached[1]
     from dataclasses import asdict
 
-    digest = hashlib.sha256(json.dumps([CLASSIFIER_VERSION, asdict(pack)], sort_keys=True,
+    data = asdict(pack)
+    for skill in data["skills"].values():
+        skill.pop("analysis_group")
+    digest = hashlib.sha256(json.dumps([CLASSIFIER_VERSION, data], sort_keys=True,
                                        default=lambda x: sorted(x)).encode()).hexdigest()
     _PACK_HASHES[key] = (pack, digest)
     return digest

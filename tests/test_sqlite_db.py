@@ -120,3 +120,111 @@ def test_repair_data_only_rewrites_what_changed_and_is_idempotent():
     with connection() as conn:
         assert conn.execute("SELECT count(*) FROM job_skills WHERE job_id=%s", (job_id,)).fetchone()[0] >= 1
         assert conn.execute("SELECT work_mode FROM jobs WHERE id=%s", (job_id,)).fetchone()[0] == "hybrid"
+
+
+def test_old_hidden_reason_check_is_rebuilt_on_open():
+    """Archivar ya no pide motivo: una base antigua reconstruye `job_user_status` al abrirse."""
+    from radar.db import database as db
+    from radar.db.queries import set_job_user_status
+
+    with connection() as conn:
+        conn.executescript(
+            """
+            ALTER TABLE job_user_status RENAME TO job_user_status_legacy;
+            CREATE TABLE job_user_status (
+                job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                status TEXT NOT NULL DEFAULT 'hidden' CHECK (status IN ('visible', 'hidden')),
+                reason TEXT CHECK (reason IN ('closed', 'not_interested', 'applied', 'duplicate', 'other')),
+                note TEXT,
+                created_at TEXT NOT NULL DEFAULT (now()),
+                updated_at TEXT NOT NULL DEFAULT (now()),
+                CHECK (status = 'visible' OR reason IS NOT NULL)
+            );
+            INSERT INTO job_user_status SELECT * FROM job_user_status_legacy;
+            DROP TABLE job_user_status_legacy;
+            """
+        )
+    db._SCHEMA_READY.clear()
+    with connection() as conn:
+        table_sql = conn.execute("SELECT sql FROM sqlite_master WHERE name='job_user_status'").fetchone()[0]
+        job_id = conn.execute("SELECT id FROM jobs LIMIT 1").fetchone()[0]
+    assert "reason IS NOT NULL" not in table_sql
+    set_job_user_status(job_id, "hidden")
+    from radar.db.queries import list_hidden_jobs
+
+    assert [row["id"] for row in list_hidden_jobs()] == [job_id]
+
+
+def test_deduplicate_jobs_merges_cross_portal_and_keeps_generic_companies_separate():
+    from datetime import UTC, datetime, timedelta
+
+    from radar.db.database import connection
+    from radar.db.repository import deduplicate_jobs, ingest_jobs
+    from radar.domain.models import RawJob
+
+    now = datetime.now(UTC)
+    desc = "Gestionar inventarios, planeamiento de demanda, SQL y Power BI para operaciones logisticas."
+    ingest_jobs([
+        RawJob("linkedin", "Analista de Supply Chain", "ACME Perú S.A.C.", "https://e.com/a", location="San Isidro, Lima", description=desc, published_at=now),
+        RawJob("computrabajo", "Analista de Supply Chain", "ACME Perú", "https://e.com/b", location="Lima, Lima", description=desc, published_at=now - timedelta(days=2)),
+        RawJob("bumeran", "Analista de Supply Chain", "ACME Perú S.A.C.", "https://e.com/c", location="Lima", description=desc, published_at=now - timedelta(days=60)),
+        RawJob("bumeran", "Asistente Logístico", "Importante empresa del sector", "https://e.com/d", location="Ate, Lima", description="Apoyo en almacén de Ate y despachos.", published_at=now),
+        RawJob("computrabajo", "Asistente Logístico", "Importante empresa del sector", "https://e.com/e", location="Callao", description="Apoyo en almacén de Callao y recepción.", published_at=now),
+    ])
+    with connection() as conn:
+        # Force all to canonical first to verify deduplicate_jobs backfill behavior as well
+        conn.execute("UPDATE jobs SET duplicate_status='canonical', duplicate_group_id=NULL")
+        conn.commit()
+
+    res = deduplicate_jobs(window_days=30)
+    assert res["merged"] == 1
+    with connection() as conn:
+        statuses = dict(conn.execute("SELECT title, count(*) FROM jobs WHERE duplicate_status='canonical' GROUP BY title").fetchall())
+        merged = conn.execute("SELECT title, duplicate_group_id FROM jobs WHERE duplicate_status='merged'").fetchall()
+    assert statuses["Analista de Supply Chain"] == 2  # recent merged into 1, 60-day old stays canonical
+    assert statuses["Asistente Logístico"] == 2  # generic company not merged
+    assert len(merged) == 1 and merged[0][1] is not None
+
+
+def test_ingest_jobs_marks_recent_cross_portal_duplicate_as_merged():
+    from datetime import UTC, datetime
+
+    from radar.db.database import connection
+    from radar.db.repository import ingest_jobs
+    from radar.domain.models import RawJob
+
+    now = datetime.now(UTC)
+    desc = "Desarrollar APIs REST en Python con FastAPI, PostgreSQL y Docker."
+    ingest_jobs([RawJob("linkedin", "Backend Developer", "TechCorp", "https://e.com/10", location="Miraflores, Lima", description=desc, published_at=now)])
+    ingest_jobs([RawJob("indeed", "Backend Developer", "TechCorp", "https://e.com/11", location="Lima, PE", description=desc, published_at=now)])
+    with connection() as conn:
+        rows = conn.execute("SELECT duplicate_status, duplicate_group_id FROM jobs WHERE title='Backend Developer' ORDER BY created_at").fetchall()
+    assert rows[0][0] == "canonical"
+    assert rows[1][0] == "merged" and rows[1][1] is not None
+
+
+def test_compact_database_prunes_observations_and_orphaned_markets_without_deleting_jobs():
+    from radar.db.database import connection
+    from radar.db.repository import compact_database, ingest_jobs
+    from radar.domain.models import RawJob
+
+    ingest_jobs([RawJob("t", "Ingeniero de Procesos", "Beta SAC", "https://e.com/20", location="Lima", description="Mejora continua Lean Six Sigma.")])
+    ingest_jobs([RawJob("t", "Ingeniero de Procesos", "Beta SAC", "https://e.com/20", location="Lima", description="Mejora continua Lean Six Sigma.")])
+    with connection() as conn:
+        job_id = conn.execute("SELECT id FROM jobs WHERE title='Ingeniero de Procesos'").fetchone()[0]
+        conn.execute(
+            "INSERT INTO job_market_classifications(job_id, market_id, rules_hash, content_hash, relevance_tier, relevance_score, relevance_evidence, areas, skills) VALUES (%s, 'deleted_market', 'h', 'c', 'core', 0.9, 'ev', '[]', '[]')",
+            (job_id,),
+        )
+        conn.execute("UPDATE job_sources SET raw_payload='{\"big\":true}', last_seen_at=datetime('now', '-45 days') WHERE job_id=%s", (job_id,))
+        conn.commit()
+        jobs_before = conn.execute("SELECT count(*) FROM jobs").fetchone()[0]
+
+    res = compact_database(raw_payload_days=30)
+    assert res["orphaned_classifications_deleted"] >= 1
+    assert res["observations_pruned"] >= 1
+    assert res["raw_payloads_cleared"] >= 1
+    with connection() as conn:
+        assert conn.execute("SELECT count(*) FROM jobs").fetchone()[0] == jobs_before
+        assert conn.execute("SELECT count(*) FROM job_market_classifications WHERE market_id='deleted_market'").fetchone()[0] == 0
+        assert conn.execute("SELECT raw_payload FROM job_sources WHERE job_id=%s", (job_id,)).fetchone()[0] == "{}"

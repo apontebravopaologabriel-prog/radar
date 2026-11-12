@@ -8,15 +8,18 @@ from fastapi.openapi.utils import get_openapi
 from radar.api import app
 from radar.api_agent import router
 from radar.processes import router as processes_router
+from radar.analysis import router as analysis_router
 
-agent_paths = {"/api/applications", "/api/applications/{job_id}", "/api/refresh", "/api/refresh/status"}
+agent_paths = {"/api/applications", "/api/applications/tracking", "/api/applications/{job_id}", "/api/refresh", "/api/refresh/status"}
 job_paths = {
     "/api/processes", "/api/processes/{process_id}",
+    "/api/analytics/overview", "/api/analytics/offers",
     "/api/jobs", "/api/jobs/{job_id}", "/api/jobs/{job_id}/description", "/api/map/jobs",
     "/api/jobs/hidden", "/api/jobs/favorites", "/api/jobs/applied",
 }
 routes = [route for route in router.routes if getattr(route, "path", None) in agent_paths]
 routes += processes_router.routes
+routes += analysis_router.routes
 routes += [route for route in app.routes if getattr(route, "path", None) in job_paths]
 print(json.dumps(get_openapi(title="Radar frontend API", version="1", routes=routes)))
 `], { encoding: "utf8" });

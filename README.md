@@ -20,12 +20,11 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 
 | Area | What it does |
 | --- | --- |
-| Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), hidden offers, `Analysis` (read-only SQL with charts) and `Mi CV` (import, profile and offer-specific preparation) |
-| Processes | Optional follow-up after a recruiter response: contact, assessment, interview, offer or closed. Company and role suffice; next step and local date are optional. Previous applications remain in secondary history |
-| Mobile PWA `/m` | `Today` feed, `Map`, `Pipeline` (saved → applied → interview → offer), `Agent`, `Settings`, offline last feed |
+| Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), one-click `✓ Postulé`, reversible archive, `Analysis` (scoped market overview, drill-down and optional read-only SQL); optional `Mi CV` is accessed from Settings or an offer |
+| Mi búsqueda | Response-driven processes appear first with the next step and optional date; submitted offers remain in a compact searchable history. Open a row for actions and details. Archived shows the last seven Lima calendar days |
 | Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval; offers in its answers link to the map detail. See [docs/agent.md](docs/agent.md) |
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
-| My CV | Drop a local PDF/DOCX, review and reuse your information. Prepare a CV from an offer, preview and download; detailed Studio editing is optional. My CV keeps prepared files and starred-offer comparisons. See [docs/cv.md](docs/cv.md) |
+| My CV (optional) | Review factual profile data and prepared documents. Prepare a CV from an offer, preview and download; detailed Studio editing is optional. Analysis compares requirements across starred and submitted offers. See [docs/cv.md](docs/cv.md) |
 | Refresh & Import | Scheduled or in-app market pull across Computrabajo, Bumeran, Empleos Perú, and Indeed/LinkedIn (JobSpy). Single-URL instant import from the UI (`+ Agregar por link`) or agent (`/importar`). See [docs/operations.md](docs/operations.md) and [docs/data-sources.md](docs/data-sources.md) |
 
 On desktop, **Filters → Market** switches Industrial/Systems without overwriting classifications.
@@ -42,7 +41,7 @@ python -m venv .venv && . .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 (cd frontend && npm ci && npm run build)   # creates frontend/out (gitignored)
-.venv/bin/radar-api                        # http://127.0.0.1:8100/radar  and  /m
+.venv/bin/radar-api                        # http://127.0.0.1:8100/radar
 ```
 
 The database is created on first use at `~/.local/share/radar/radar.db` (override with `RADAR_DB_PATH`).

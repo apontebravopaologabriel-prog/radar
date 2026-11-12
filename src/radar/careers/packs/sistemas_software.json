@@ -287,14 +287,19 @@
  "skills": {
   "Python": {
    "aliases": [
-    "python"
+    "python",
+    "pyton",
+    "phyton",
+    "phython"
    ],
    "category": "lenguaje",
    "type": "technical"
   },
   "Java": {
    "aliases": [
-    "java"
+    "java",
+    "java ee",
+    "jakarta ee"
    ],
    "category": "lenguaje",
    "type": "technical"
@@ -302,14 +307,20 @@
   "JavaScript": {
    "aliases": [
     "javascript",
-    "js"
+    "js",
+    "java script",
+    "javascrip",
+    "ecmascript"
    ],
    "category": "lenguaje",
    "type": "technical"
   },
   "TypeScript": {
    "aliases": [
-    "typescript"
+    "typescript",
+    "type script",
+    "typscript",
+    "typescrit"
    ],
    "category": "lenguaje",
    "type": "technical"
@@ -354,21 +365,27 @@
   "PostgreSQL": {
    "aliases": [
     "postgresql",
-    "postgres"
+    "postgres",
+    "postgress",
+    "posgres",
+    "psql"
    ],
    "category": "datos",
    "type": "technical"
   },
   "MySQL": {
    "aliases": [
-    "mysql"
+    "mysql",
+    "my sql"
    ],
    "category": "datos",
    "type": "technical"
   },
   "MongoDB": {
    "aliases": [
-    "mongodb"
+    "mongodb",
+    "mongo db",
+    "mongo"
    ],
    "category": "datos",
    "type": "technical"
@@ -399,7 +416,8 @@
   "Node.js": {
    "aliases": [
     "node.js",
-    "nodejs"
+    "nodejs",
+    "node js"
    ],
    "category": "framework",
    "type": "technical"
@@ -434,7 +452,8 @@
     "restful"
    ],
    "category": "arquitectura",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "Microservicios": {
    "aliases": [
@@ -442,20 +461,25 @@
     "microservices"
    ],
    "category": "arquitectura",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "Git": {
    "aliases": [
     "git",
     "github",
-    "gitlab"
+    "gitlab",
+    "bitbucket"
    ],
    "category": "herramienta",
    "type": "technical"
   },
   "Docker": {
    "aliases": [
-    "docker"
+    "docker",
+    "dockers",
+    "docker compose",
+    "docker-compose"
    ],
    "category": "devops",
    "type": "technical"
@@ -463,7 +487,9 @@
   "Kubernetes": {
    "aliases": [
     "kubernetes",
-    "k8s"
+    "k8s",
+    "kubernets",
+    "kuberenetes"
    ],
    "category": "devops",
    "type": "technical"
@@ -507,7 +533,8 @@
     "gitlab ci"
    ],
    "category": "devops",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "Linux": {
    "aliases": [
@@ -518,21 +545,31 @@
   },
   "Power BI": {
    "aliases": [
-    "power bi"
+    "power bi",
+    "powerbi",
+    "power-bi",
+    "power_bi",
+    "power b.i."
    ],
    "category": "bi",
    "type": "technical"
   },
   "Tableau": {
    "aliases": [
-    "tableau"
+    "tableau",
+    "tablau",
+    "tableu"
    ],
    "category": "bi",
    "type": "technical"
   },
   "Excel": {
    "aliases": [
-    "excel"
+    "excel",
+    "ms excel",
+    "microsoft excel",
+    "excell",
+    "exel"
    ],
    "category": "herramienta",
    "type": "technical"
@@ -557,7 +594,8 @@
     "etl"
    ],
    "category": "datos",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "Machine Learning": {
    "aliases": [
@@ -565,18 +603,33 @@
     "aprendizaje automatico"
    ],
    "category": "ia",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "SAP": {
    "aliases": [
-    "sap"
+    "sap",
+    "sap s/4hana",
+    "sap s4hana",
+    "s/4hana",
+    "s4hana",
+    "sap abap",
+    "abap",
+    "sap fiori",
+    "sap hana",
+    "sap bw",
+    "sap mm",
+    "sap fi",
+    "sap sd",
+    "sap b1"
    ],
    "category": "erp",
    "type": "technical"
   },
   "Selenium": {
    "aliases": [
-    "selenium"
+    "selenium",
+    "selenium webdriver"
    ],
    "category": "pruebas",
    "type": "technical"
@@ -627,7 +680,9 @@
   },
   "ISO 27001": {
    "aliases": [
-    "iso 27001"
+    "iso 27001",
+    "iso27001",
+    "iso/iec 27001"
    ],
    "category": "seguridad",
    "type": "domain"
@@ -672,6 +727,322 @@
    ],
    "category": "habilidad",
    "type": "soft"
+  },
+  "Power Automate": {
+   "aliases": [
+    "power automate",
+    "powerautomate",
+    "power-automate",
+    "ms flow"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Power Apps": {
+   "aliases": [
+    "power apps",
+    "powerapps",
+    "power-apps"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Power Query": {
+   "aliases": [
+    "power query",
+    "powerquery",
+    "power-query"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Macros / VBA": {
+   "aliases": [
+    "vba",
+    "macros",
+    "excel vba"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Looker Studio": {
+   "aliases": [
+    "looker studio",
+    "data studio",
+    "google data studio",
+    "looker"
+   ],
+   "category": "bi",
+   "type": "technical"
+  },
+  "SQL Server": {
+   "aliases": [
+    "sql server",
+    "mssql",
+    "ms sql",
+    "t-sql",
+    "tsql"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Oracle DB": {
+   "aliases": [
+    "oracle",
+    "pl/sql",
+    "plsql",
+    "oracle database"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Redis": {
+   "aliases": [
+    "redis"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "FastAPI": {
+   "aliases": [
+    "fastapi",
+    "fast api"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Flask": {
+   "aliases": [
+    "flask"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Next.js": {
+   "aliases": [
+    "next.js",
+    "nextjs"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "React Native": {
+   "aliases": [
+    "react native",
+    "react-native"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Flutter": {
+   "aliases": [
+    "flutter",
+    "dart"
+   ],
+   "category": "framework",
+   "type": "technical"
+  },
+  "Kotlin": {
+   "aliases": [
+    "kotlin"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "Swift": {
+   "aliases": [
+    "swift",
+    "swiftui"
+   ],
+   "category": "lenguaje",
+   "type": "technical"
+  },
+  "Android": {
+   "aliases": [
+    "android",
+    "android studio",
+    "jetpack",
+    "jetpack compose"
+   ],
+   "category": "sistemas",
+   "type": "technical"
+  },
+  "iOS": {
+   "aliases": [
+    "ios",
+    "xcode"
+   ],
+   "category": "sistemas",
+   "type": "technical"
+  },
+  "GraphQL": {
+   "aliases": [
+    "graphql",
+    "graph ql"
+   ],
+   "category": "arquitectura",
+   "type": "technical"
+  },
+  "Firebase": {
+   "aliases": [
+    "firebase",
+    "firestore"
+   ],
+   "category": "cloud",
+   "type": "technical"
+  },
+  "Databricks": {
+   "aliases": [
+    "databricks"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "BigQuery": {
+   "aliases": [
+    "bigquery",
+    "big query"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Snowflake": {
+   "aliases": [
+    "snowflake"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Kafka": {
+   "aliases": [
+    "kafka",
+    "apache kafka"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "dbt": {
+   "aliases": [
+    "dbt"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Playwright": {
+   "aliases": [
+    "playwright"
+   ],
+   "category": "pruebas",
+   "type": "technical"
+  },
+  "Postman": {
+   "aliases": [
+    "postman"
+   ],
+   "category": "pruebas",
+   "type": "technical"
+  },
+  "Swagger / OpenAPI": {
+   "aliases": [
+    "swagger",
+    "openapi"
+   ],
+   "category": "arquitectura",
+   "type": "technical"
+  },
+  "Ansible": {
+   "aliases": [
+    "ansible"
+   ],
+   "category": "devops",
+   "type": "technical"
+  },
+  "SIEM / SOAR": {
+   "aliases": [
+    "siem",
+    "soar",
+    "splunk",
+    "qradar",
+    "sentinel",
+    "wazuh"
+   ],
+   "category": "seguridad",
+   "type": "technical"
+  },
+  "OWASP": {
+   "aliases": [
+    "owasp"
+   ],
+   "category": "seguridad",
+   "type": "technical"
+  },
+  "Fortinet / Palo Alto": {
+   "aliases": [
+    "fortinet",
+    "fortigate",
+    "palo alto"
+   ],
+   "category": "seguridad",
+   "type": "technical"
+  },
+  "ERP": {
+   "aliases": [
+    "erp",
+    "odoo",
+    "netsuite"
+   ],
+   "category": "erp",
+   "type": "technical"
+  },
+  "Bizagi": {
+   "aliases": [
+    "bizagi",
+    "bisagi"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Visio": {
+   "aliases": [
+    "visio",
+    "ms visio"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Confluence": {
+   "aliases": [
+    "confluence"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "MS Project": {
+   "aliases": [
+    "ms project",
+    "microsoft project",
+    "msproject"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "RPA": {
+   "aliases": [
+    "rpa",
+    "uipath",
+    "automation anywhere",
+    "blue prism"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Kanban": {
+   "aliases": [
+    "kanban",
+    "kamban"
+   ],
+   "category": "metodologia",
+   "type": "methodology"
   }
  },
  "excluded_title_signals": [
@@ -716,7 +1087,26 @@
   "ingeniero de planta",
   "seguridad y salud",
   "ssoma",
-  "prevencionista"
+  "prevencionista",
+  "call center",
+  "teleoperador",
+  "hr business partner",
+  "recursos humanos",
+  "talento humano",
+  "reclutamiento",
+  "gestion humana",
+  "abogado",
+  "asesor legal",
+  "medico ocupacional",
+  "enfermera",
+  "enfermero",
+  "asesor back office",
+  "ejecutivo back office",
+  "backoffice mesa de ayuda",
+  "back office mesa de ayuda",
+  "back office compra de deuda",
+  "asesor(a) backoffice",
+  "back office sin exp"
  ],
  "education_only": [
   "ingenieria de sistemas",
@@ -1447,5 +1837,12 @@
     }
    ]
   }
- }
+ },
+ "excluded_role_signals": [
+  "rubro de call center",
+  "equipo de backooffice por call center",
+  "mesa de ayuda - soporte tecnico claro",
+  "teleoperador(a) de mesa de ayuda",
+  "asesores(as) de mesa de ayuda tecnica"
+ ]
 }

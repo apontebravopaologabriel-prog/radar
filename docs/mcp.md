@@ -52,6 +52,14 @@ Also copy the generated skill (`radar skill export --out docs/skills` → `docs/
 client knows when and how to use each tool; it is the always-current tool list (name, read/write, parameters).
 Reload the client's MCP server after Radar gains tools.
 
+## Update an application from Antigravity
+
+When you already have the offer ID, use `track_job_application(job_id, status="interview")` to move it to
+**Seguimiento → Entrevista**. Use `status="responded"` for Contact, `status="offer"` for Offer, or `status="rejected"` to archive it. A response preserves an existing active process stage. If you need the ID, call
+`list_job_applications(compact=true)` for titles, companies, IDs, statuses, submission dates and links.
+Keep the stdio server running between requests to reuse its startup work. Mi búsqueda picks up committed
+changes on its next refresh (roughly one second while visible). The client still controls model and approval latency.
+
 ## What it publishes
 
 - **Tools:** the registry. Group overview in [agent.md](agent.md#tools-62-in-the-registry-49-in-the-chat-20-that-write).

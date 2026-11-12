@@ -217,3 +217,16 @@ def infer_job_location(
 def in_lima_metro(location, title=None, description=None):
     point = infer_job_location(location, title, description)
     return bool(point and (point.place_id or point.label == "Lima"))
+
+
+def with_location(job: dict) -> dict:
+    """Decorate a listing with the same approximate point used by map and analysis."""
+    point = infer_job_location(job.get("location"), job.get("title"), job.get("description"))
+    return {**job,
+            "latitude": point.latitude if point else None,
+            "longitude": point.longitude if point else None,
+            "district": point.label if point and point.precision == "district" else None,
+            "place_id": point.place_id if point else None,
+            "location_precision": point.precision if point else "unknown",
+            "location_confidence": point.confidence if point else 0,
+            "geocoding_source": point.source if point else None}

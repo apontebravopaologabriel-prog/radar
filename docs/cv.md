@@ -1,12 +1,12 @@
 # My CV: import once, prepare for each offer
 
 The primary workflow is **Mi CV → import/review → prepare for an offer → preview → download**.
-The same factual profile is available from the desktop rail and Settings → Mi CV on desktop/mobile.
+The workspace is optional: open it from desktop Settings → Open My CV and documents (`/radar?view=cvs`), or from Prepare CV in an offer. The factual profile remains available in Settings → Mi CV on desktop/mobile.
 No agent or API key is required. Detailed editing and agent assistance are optional.
 
 ## User-facing model
 
-- **Mesa de postulación (`Preparar CV`)** is the default view in `Mi CV` (☰), acting as the bridge between
+- **Documentos (`Preparar CV`)** opens when a job requests a document in the optional `Mi CV` workspace, acting as the bridge between
   the Inbox (`◎` Map / starred offers) and the Tracker (`✓` Procesos). It shows starred offers (`★`) with
   their requirement readiness, already-exported CV packages ready to upload or promote via **Me contactaron**,
   and a market picker to prepare a CV for any active offer without starring it first.
@@ -15,11 +15,12 @@ No agent or API key is required. Detailed editing and agent assistance are optio
   needed, and the initial screen does not pin the agent.
 - **Editar en detalle** reveals Studio: included/omitted lines, ordering, hand edits, templates, photo,
   page budget, undo/redo and optional agent suggestions. Returning to preview preserves those edits.
-- **Comparar ★ y brechas** is a dedicated tab comparing up to four starred offers against factual profile
-  evidence, surfacing what to demonstrate or improve using deterministic baseline requirements only.
+- **Analysis → Comparar ★** compares up to four starred or submitted offers against factual profile
+  evidence. A matrix cell opens the reason and the cited requirement; no probability of hiring is inferred.
 - **Mi trayectoria** edits the factual trajectory (experience, education, courses/certificates, projects,
   languages) without repeating the file-import dropzone or personal/search settings once a profile exists;
   full file import and personal/search preferences live in **Settings → Mi CV** (`/ajustes`).
+  The optional workspace opens on this factual data by default.
 
 The old Objectives/Plan/Matrix/Compare/hypothetical-CV tabs are removed from the primary interface.
 Historical hypothetical target JSON files and read APIs remain compatible; they are never presented as
@@ -111,13 +112,13 @@ Prepared packages remain accessible in Mi CV and the offer detail without a trac
 
 ## Comparison and improvement
 
-The comparison is contextual in Mi CV, using starred offers and their existing baseline engine.
+The comparison is in Analysis, using starred or submitted offers and the existing baseline engine.
 It shows requirements, evidence and reasons rather than several competing headline percentages.
 **Con evidencia**, **Por revisar**, and **Sin evidencia en tu perfil** describe what is documented;
 absence from the profile is not a claim that the person lacks the competency.
 
-The existing closure-plan engine aggregates open skills and market demand. The UI shows a short list and
-keeps structural education/experience requirements separate. Evidence can be added directly in Mi CV;
+The existing closure-plan engine remains available through the API. The comparison UI shows the most
+frequent requirements without factual evidence in the selected offers. Evidence can be added in Mi CV;
 a completed course never silently establishes advanced skill or replaces years of relevant experience.
 The regular deterministic fit score and its uncertainty semantics elsewhere in Radar are unchanged.
 

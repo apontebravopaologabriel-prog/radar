@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import "./mobile/mobile.css";
+import "./settings/terminal.css";
 import { api } from "../lib/mobile-api";
 
 type State = "checking" | "open" | "login" | "offline";

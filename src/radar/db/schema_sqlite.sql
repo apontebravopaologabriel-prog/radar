@@ -219,8 +219,7 @@ CREATE TABLE IF NOT EXISTS job_user_status (
     reason TEXT CHECK (reason IN ('closed', 'not_interested', 'applied', 'duplicate', 'other')),
     note TEXT,
     created_at TEXT NOT NULL DEFAULT (now()),
-    updated_at TEXT NOT NULL DEFAULT (now()),
-    CHECK (status = 'visible' OR reason IS NOT NULL)
+    updated_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS job_user_status_hidden_idx ON job_user_status (status, updated_at DESC);
 
@@ -441,7 +440,8 @@ CREATE TABLE IF NOT EXISTS processes (
     due_date TEXT,
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (now()),
-    updated_at TEXT NOT NULL DEFAULT (now())
+    updated_at TEXT NOT NULL DEFAULT (now()),
+    archived_at TEXT
 );
 CREATE INDEX IF NOT EXISTS processes_stage_due_idx ON processes(stage, due_date);
 -- End response-driven processes

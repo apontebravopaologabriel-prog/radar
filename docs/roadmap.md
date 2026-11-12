@@ -1,18 +1,26 @@
 # Roadmap and status
 
-Updated 2026-10-14. Single source of status; completed designs are not kept as separate plans. The code is
+## Current product direction (2026-11-10)
+
+The user's current priority is a minimal discovery inbox and useful market analysis. Analysis now opens a deterministic overview with the same map filters, geographic scope and inbox exclusions, drill-down into offers, separated salary units and relative saved views. SQL is a secondary global read-only workspace. My CV is optional through Settings or an offer; factual data, prepared files and compatibility APIs are retained. See [analysis-first implementation](design-analysis-first.md).
+
+This direction supersedes the CV-first priorities in the original v1.0 release roadmap below. Removing the underlying CV subsystem is not part of this change. The older release gates remain recorded here for reference; their status must be verified independently.
+
+## Release audit (2026-10-14)
+
+At that audit, completed designs are not kept as separate plans. The code is
 **v1.0.2**, released by the author's decision **before** several of the gates below were met (no Windows VM validation, no
 peer pilot, no schema migrations, no native Computrabajo adapter, no CV import, no code signing). Those items stay open and
 are the plan for **1.0.x**; [KNOWN-ISSUES.md](../KNOWN-ISSUES.md) says so to users.
 
-## Direction
+## Original v1.0 release direction
 
 - **v1.0 is a CV-first Windows release built around one real user (the author), then validated with 3–5 peers.** The
   hero feature is the CV: your own Word template, your photo, your exact experience, traceable line by line. Everything
   else in 1.0 exists so that someone who is not the author can install it and reach that CV.
 - **Careers are not the 1.0 axis.** Ship three packs (Industrial Engineering, Systems/Software and one that looks
   nothing like them) to prove the engine is general; more careers wait for 1.5.
-- **Mobile (`/m`) is frozen** and ships as experimental.
+- **Mobile (`/m`) is archived** in `legacy/mobile/` and is not part of 1.0.
 - **Local-first, one installation, one person.** Hosted multi-user is not planned.
 - **Radar is the "career brain", not a mail or calendar client.** Persistent connectors (mail, calendar) belong in an
   agent runtime next to Radar (OpenClaw, Hermes, Claude Desktop...) that talks to Radar over MCP. Reading mail changes the

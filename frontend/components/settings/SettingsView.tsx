@@ -16,7 +16,7 @@ const WEIGHT_LABELS: Record<string, string> = {
 type SettingsTab = "perfil" | "busqueda" | "agente" | "conectar" | "apariencia";
 const TABS: [SettingsTab, string][] = [["perfil", "Mi CV"], ["busqueda", "Búsqueda"], ["agente", "Agente"], ["conectar", "Conectar IA"], ["apariencia", "Apariencia"]];
 
-export default function SettingsView({ authRequired, onLogout, onError, onAgentChange }: { authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void; onAgentChange?: (enabled: boolean) => void }) {
+export default function SettingsView({ authRequired, onLogout, onError, onAgentChange, cvWorkspaceHref }: { cvWorkspaceHref?: string; authRequired: boolean; onLogout: () => void; onError: (e: unknown) => void; onAgentChange?: (enabled: boolean) => void }) {
   const [career, setCareer] = useState<Career | null>(null);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [agent, setAgent] = useState<AgentSettings | null>(null);
@@ -72,7 +72,7 @@ export default function SettingsView({ authRequired, onLogout, onError, onAgentC
         {TABS.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>)}
       </nav>
       <div className="set-content">
-      {tab === "perfil" && <><MyCvProfile career={career} /><a className="m-link" href="/radar" onClick={() => { try { localStorage.setItem("radar.tips.pending", "1"); } catch { /* Optional. */ } }}>Ver guía rápida →</a></>}
+      {tab === "perfil" && <>{cvWorkspaceHref && <section className="set-section"><h2>Documentos · opcional</h2><p className="m-sub">Consulta tus CV preparados, compara tus ★ o prepara un documento para una oferta.</p><a className="m-link" href={cvWorkspaceHref}>Abrir Mi CV y documentos →</a></section>}<MyCvProfile career={career} /><a className="m-link" href="/radar" onClick={() => { try { localStorage.setItem("radar.tips.pending", "1"); } catch { /* Optional. */ } }}>Ver guía rápida →</a></>}
 
       {tab === "busqueda" && (<>
       <MarketProfileEditor />

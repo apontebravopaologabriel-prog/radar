@@ -31,8 +31,12 @@ def test_external_process_has_no_fake_job_and_survives_close_reopen():
     payload = {"company": "Acme", "title": "Analista", "stage": "closed", "next_step": "Conversar", "due_date": "2026-12-04", "notes": "Contexto"}
     closed = client.put(f"/api/processes/{item['id']}", json=payload).json()
     assert closed["due_date"] == "2026-12-04" and closed["stage"] == "closed"
+    assert closed["archived_at"]
+    edited = client.put(f"/api/processes/{item['id']}", json={**payload, "notes": "Actualizado"}).json()
+    assert edited["archived_at"] == closed["archived_at"]
     payload["stage"] = "assessment"
-    assert client.put(f"/api/processes/{item['id']}", json=payload).json()["notes"] == "Contexto"
+    reopened = client.put(f"/api/processes/{item['id']}", json=payload).json()
+    assert reopened["notes"] == "Contexto" and reopened["archived_at"] is None
     assert len(client.get("/api/processes").json()["processes"]) == 1
 
 
@@ -69,8 +73,9 @@ def test_migrate_only_responses_once_without_overwriting_edits():
     assert item["source_application_id"] == application_id
     assert item["stage"] == "interview"
     client.put(f"/api/processes/{item['id']}", json={"company": "Updated", "title": "Puesto", "job_id": job_id, "stage": "closed"})
-    track_application(job_id, "offer", "Old client edited history")
     with connection() as conn:
+        # Simulate a pre-sync client that updated only the application.
+        conn.execute("UPDATE applications SET status='offer', notes='Old client edited history' WHERE job_id=%s", (job_id,))
         conn.execute("PRAGMA user_version=3")
         _ensure_runtime_schema(conn)
     result = client.get("/api/processes").json()["processes"]
@@ -89,3 +94,60 @@ def test_applied_is_history_and_sort_dates_before_undated():
         assert client.post("/api/processes", json={"company": "Acme", "title": title, "due_date": due}).status_code == 201
     assert [p["title"] for p in client.get("/api/processes").json()["processes"]] == ["Earlier", "Later", "Undated"]
     assert client.delete("/api/processes/not-deletable").status_code == 405
+
+
+def test_archive_history_search_and_pages_do_not_expand_the_live_window():
+    job_id = offer()
+    track_application(job_id, "applied")
+    track_application(job_id, "rejected")
+    with connection() as conn:
+        conn.execute("UPDATE applications SET applied_at='2025-01-01T03:00:00Z', updated_at='2025-01-02T12:00:00Z'")
+        conn.execute("UPDATE application_events SET occurred_at=CASE WHEN to_status='applied' THEN '2025-01-01T03:00:00Z' ELSE '2025-01-02T12:00:00Z' END")
+        conn.executemany(
+            "INSERT INTO processes (company, title, stage, archived_at) VALUES ('Compañía', %s, 'closed', '2025-01-01T12:00:00Z')",
+            [(f"Proceso {i}",) for i in range(21)],
+        )
+
+    tracking = client.get("/api/applications/tracking").json()
+    assert tracking == {"applications": [], "activity": {"2024-12-31": 1}}
+    first = client.get("/api/processes/archive", params={"q": "compania"}).json()
+    second = client.get("/api/processes/archive", params={"q": "compania", "page": 2}).json()
+    assert len(first["entries"]) == 20 and first["has_more"]
+    assert len(second["entries"]) == 1 and not second["has_more"]
+    assert second["entries"][0]["id"] not in {item["id"] for item in first["entries"]}
+    [application] = client.get("/api/processes/archive", params={"q": "logística"}).json()["entries"]
+    assert application["job_id"] == job_id
+
+
+def test_migrate_missing_follow_up_from_legacy_mcp_status():
+    job_id = offer()
+    track_application(job_id, "responded")
+    with connection() as conn:
+        conn.execute("DELETE FROM processes WHERE job_id=%s", (job_id,))
+        conn.execute("PRAGMA user_version=5")
+        _ensure_runtime_schema(conn)
+    [process] = client.get("/api/processes").json()["processes"]
+    assert process["stage"] == "contact"
+    assert process["job_id"] == job_id
+
+
+def test_return_to_submissions_preserves_follow_up_and_archive_origin():
+    job_id = offer()
+    track_application(job_id, "applied")
+    process = client.post("/api/processes", json={
+        "company": "Example", "title": "Analista", "job_id": job_id,
+        "stage": "interview", "notes": "Preparar entrevista",
+    }).json()
+    track_application(job_id, "interview")
+
+    assert client.put(f"/api/applications/{job_id}", json={"status": "applied"}).status_code == 200
+    [submitted] = client.get("/api/applications/tracking").json()["applications"]
+    assert submitted["status"] == "applied"
+    assert client.get("/api/processes").json()["processes"] == [process]
+
+    track_application(job_id, "rejected")
+    [archived] = client.get("/api/applications/tracking").json()["applications"]
+    assert archived["archived_from_applied"]
+
+    track_application(job_id, "interview")
+    assert client.get("/api/processes").json()["processes"] == [process]

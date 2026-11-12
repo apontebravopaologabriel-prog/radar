@@ -28,36 +28,34 @@ async function fetchPersonalJobs(path: PersonalJobsPath, signal?: AbortSignal): 
 
 export const fetchHiddenJobs = (signal?: AbortSignal) => fetchPersonalJobs("/api/jobs/hidden", signal);
 export const fetchFavoriteJobs = (signal?: AbortSignal) => fetchPersonalJobs("/api/jobs/favorites", signal);
-export const fetchAppliedJobs = (signal?: AbortSignal) => fetchPersonalJobs("/api/jobs/applied", signal);
 
 export async function fetchJob(id: string, signal?: AbortSignal): Promise<JobById["job"] | null> {
-  const response = await fetch(`${API_URL}/api/jobs/${encodeURIComponent(id)}`, { signal });
+  const response = await fetch(`${API_URL}/api/jobs/${encodeURIComponent(id)}`, { credentials: "include", signal });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return ((await response.json()) as JobById).job;
 }
 
 export async function updateJobFavorite(id: string, favorite: boolean): Promise<void> {
-  const response = await fetch(`${API_URL}/api/jobs/${id}/favorite`, { method: favorite ? "PUT" : "DELETE" });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
+  await requestJson(`/api/jobs/${encodeURIComponent(id)}/favorite`, {
+    method: favorite ? "PUT" : "DELETE",
+  });
 }
 
 export async function fetchSkillOverview(filters: Pick<Filters, "area" | "seniority" | "work_mode" | "max_age_days" | "geo_scope" | "market_id" | "profile_mode" | "relevance_tier" | "min_salary" | "max_salary">, signal?: AbortSignal): Promise<SkillOverview> {
   const params = new URLSearchParams();
   params.set("include_applied", "false");
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
-  const response = await fetch(`${API_URL}/api/skills/overview?${params.toString()}`, { signal });
+  const response = await fetch(`${API_URL}/api/skills/overview?${params.toString()}`, { credentials: "include", signal });
   if (!response.ok) throw new Error(`La API respondió ${response.status}`);
   return (await response.json()) as SkillOverview;
 }
 
-export async function updateJobStatus(id: string, status: "visible" | "hidden", reason?: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/jobs/${id}/status`, {
+export async function updateJobStatus(id: string, status: "visible" | "hidden", reason: string = "not_interested"): Promise<void> {
+  await requestJson(`/api/jobs/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status, reason }),
   });
-  if (!response.ok) throw new Error(`La API respondió ${response.status}`);
 }
 
 export async function runAnalyticsQuery(sql: string, signal?: AbortSignal): Promise<AnalyticsQueryResult> {

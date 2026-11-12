@@ -292,10 +292,16 @@ def _extract_portal_offer_info(url: str) -> tuple[str | None, list[str], str, bo
         bm_id = m.group(1) if m else None
         return bm_id, ([f"bm-{bm_id}", bm_id] if bm_id else []), url, False
 
-    # 5. Empleos Perú: /vacancy-details/<id> (en path o en #/vacancy-details/<id>)
+    # 5. Empleos Perú: ?jobId=<id> o /vacancy-details/<id> (en path o en #/vacancy-details/<id>)
     if "empleosperu" in host or host.endswith(".gob.pe"):
-        m = re.search(r"(?:vacancy-details|detalle-vacante|jobs)/([a-zA-Z0-9_-]{8,64})", url)
-        ep_id = m.group(1) if m else None
+        qs = parse_qs(parsed.query)
+        ep_id = next(
+            (v.strip() for v in qs.get("jobId", []) if re.fullmatch(r"[a-zA-Z0-9_-]{8,64}", v.strip())),
+            None,
+        )
+        if not ep_id:
+            m = re.search(r"(?:vacancy-details|detalle-vacante|jobs)/([a-zA-Z0-9_-]{8,64})", url)
+            ep_id = m.group(1) if m else None
         return ep_id, ([ep_id] if ep_id else []), url, True
 
     return None, [], url, False
@@ -358,7 +364,7 @@ def _try_portal_native(url: str) -> RawJob | None:
     host = (parsed.hostname or "").lower()
     raw_id, _, _, is_listing = _extract_portal_offer_info(url)
 
-    # 1. Empleos Perú: /vacancy-details/<id> or /detalle-vacante/<id>
+    # 1. Empleos Perú: ?jobId=<id>, /vacancy-details/<id> o /detalle-vacante/<id>
     if ("empleosperu" in host or host.endswith(".gob.pe")) and raw_id:
         from radar.sources.empleos_peru import EmpleosPeruSource
 

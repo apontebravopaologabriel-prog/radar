@@ -1,372 +1,116 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { importJobUrl } from "../lib/api";
-import { fetchApplications, removeApplication, updateApplication, type TrackedApplication } from "../lib/applications-api";
-import { studioApi, type StudioPackage } from "../lib/cv-studio-api";
-import { PREPARE_CV_EVENT } from "../lib/cv-events";
-import { OPEN_JOB_EVENT } from "./agent/Markdown";
+import { useEffect, useMemo, useState } from "react";
+import { updateApplication, type TrackedApplication } from "../lib/applications-api";
+import { daysFromTrackingDay, formatPublicationDate } from "../lib/tracking-dates";
+import TrackingOfferDetail from "./TrackingOfferDetail";
+import { IconArchive, IconPin } from "./ArchiveIcon";
 import "./applications.css";
 
-const TABS = [
-  ["applied", "Postulé"],
-  ["interview", "Entrevista"],
-  ["offer", "Oferta"],
-  ["rejected", "Descartadas"],
-  ["saved", "Guardadas"],
-  ["all", "Todas"],
-] as const;
+const WEEKS = 12;
+const STALE_DAYS = 14;
 
-const STATUS_LABELS: Record<string, string> = {
-  saved: "Guardada",
-  applied: "Postulé",
-  interview: "Entrevista",
-  offer: "Oferta",
-  rejected: "Descartada",
-  ignored: "Oculta",
-};
-
-const MOVES: Record<string, [string, string][]> = {
-  saved: [["applied", "Ya postulé"]],
-  applied: [["interview", "Me citaron"], ["rejected", "Descartar"]],
-  interview: [["offer", "Recibí oferta"], ["rejected", "Descartar"]],
-  offer: [["rejected", "Descartar"]],
-  rejected: [["applied", "Reabrir postulación"], ["saved", "Mover a guardadas"]],
-};
-
-
-function formatDay(iso: string | null): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso.replace(" ", "T")));
+function day(value: string | null | undefined) {
+  if (!value) return "Fecha no indicada";
+  const parsed = new Date(value.replace(" ", "T"));
+  return Number.isNaN(parsed.getTime()) ? "Fecha no indicada" : new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
 }
 
-function formatWorkMode(mode?: string | null): string | null {
-  if (mode === "remote") return "Remoto";
-  if (mode === "hybrid") return "Híbrido";
-  if (mode === "onsite") return "Presencial";
-  return null;
+function ago(days: number | null) {
+  if (days === null) return "—";
+  if (days < 1) return "hoy";
+  if (days < 30) return `${days} d`;
+  if (days < 70) return `${Math.floor(days / 7)} sem`;
+  return `${Math.floor(days / 30)} m`;
 }
 
-function formatAppSalary(item: TrackedApplication): string | null {
-  const min = item.salary_min ?? null;
-  const max = item.salary_max ?? null;
-  if (min === null && max === null) return null;
-  const symbol = item.salary_currency === "USD" ? "US$" : "S/";
-  if (min !== null && max !== null && min !== max) return `${symbol} ${Math.round(min)}–${Math.round(max)}`;
-  return `${symbol} ${Math.round(min ?? max ?? 0)}`;
-}
+export default function ApplicationsView({ items, activity, today, onContextChange, processJobIds, onChanged }: {
+  items: TrackedApplication[] | null;
+  activity: Record<string, number>;
+  today: string;
+  onContextChange?: (count: number, status: string) => void;
+  processJobIds: ReadonlySet<string>;
+  onChanged: () => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [onlyWaiting, setOnlyWaiting] = useState(false);
 
-function csvCell(value: unknown): string {
-  const str = String(value ?? "").replace(/"/g, '""');
-  return `"${str}"`;
-}
-
-export default function ApplicationsView({ onContextChange }: { onContextChange?: (count: number, status: string) => void }) {
-  const [items, setItems] = useState<TrackedApplication[] | null>(null);
-  const [packages, setPackages] = useState<Record<string, StudioPackage>>({});
-  const [tab, setTab] = useState<string>("applied");
-  const [query, setQuery] = useState<string>("");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [importOpen, setImportOpen] = useState<boolean>(false);
-  const [importUrl, setImportUrl] = useState<string>("");
-  const [importTitle, setImportTitle] = useState<string>("");
-  const [importCompany, setImportCompany] = useState<string>("");
-  const [importStatus, setImportStatus] = useState<string>("applied");
-  const [importBusy, setImportBusy] = useState<boolean>(false);
-
-  const load = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const [apps, pkgs] = await Promise.all([fetchApplications(signal), studioApi.packages().catch(() => ({ packages: [] as StudioPackage[] }))]);
-      setItems(apps);
-      setPackages(Object.fromEntries(pkgs.packages.map((pkg) => [pkg.job_id, pkg])));
-      setError(null);
-    } catch (reason) {
-      if (!signal?.aborted) setError(reason instanceof Error ? reason.message : "No se pudo cargar el seguimiento");
+  // Archived applications and those already followed as a process leave this list.
+  const recent = useMemo(() => (items ?? [])
+    .filter((item) => item.status === "applied" && !processJobIds?.has(item.job_id))
+    .sort((a, b) => (b.applied_at ?? b.updated_at).localeCompare(a.applied_at ?? a.updated_at)), [items, processJobIds]);
+  const waiting = useMemo(() => recent.filter((item) => (daysFromTrackingDay(item.applied_at, today) ?? 0) > STALE_DAYS), [recent, today]);
+  const filtered = useMemo(() => (onlyWaiting ? waiting : recent).filter((item) => `${item.title} ${item.company ?? ""} ${item.location ?? ""}`.toLocaleLowerCase("es").includes(query.trim().toLocaleLowerCase("es"))), [recent, waiting, onlyWaiting, query]);
+  const visible = showAll || query.trim() || onlyWaiting ? filtered : filtered.slice(0, 8);
+  const active = visible.find((item) => item.id === selected) ?? null;
+  const rhythm = useMemo(() => {
+    const weeks = Array.from({ length: WEEKS }, () => 0);
+    let oldest = 0;
+    let total = 0;
+    for (const [date, count] of Object.entries(activity)) {
+      const age = daysFromTrackingDay(`${date}T12:00:00-05:00`, today);
+      if (age === null || age < 0) continue;
+      oldest = Math.max(oldest, age);
+      total += count;
+      const week = Math.floor(age / 7);
+      if (week < WEEKS) weeks[WEEKS - 1 - week] += count;
     }
-  }, []);
+    return { weeks, max: Math.max(1, ...weeks), oldest, perWeek: total / Math.max(1, oldest / 7), total };
+  }, [activity, today]);
+  useEffect(() => { if (items) onContextChange?.(recent.length, "applied"); }, [items, recent.length, onContextChange]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
-
-  useEffect(() => {
-    const onChanged = () => { void load(); };
-    window.addEventListener("radar:jobs-changed", onChanged);
-    return () => window.removeEventListener("radar:jobs-changed", onChanged);
-  }, [load]);
-
-  const counts = useMemo(() => {
-    const list = items ?? [];
-    const byStatus = Object.fromEntries(TABS.map(([status]) => [status, status === "all" ? list.length : list.filter((item) => item.status === status).length]));
-    return byStatus;
-  }, [items]);
-
-  const shown = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return (items ?? [])
-      .filter((item) => (tab === "all" ? true : item.status === tab))
-      .filter((item) => {
-        if (!normalized) return true;
-        const haystack = [item.title, item.company, item.location, item.primary_area, item.notes].filter(Boolean).join(" ").toLowerCase();
-        return haystack.includes(normalized);
-      })
-      .sort((a, b) => (b.applied_at ?? b.updated_at).localeCompare(a.applied_at ?? a.updated_at));
-  }, [items, tab, query]);
-
-  useEffect(() => { if (items) onContextChange?.(shown.length, tab); }, [items, shown.length, tab, onContextChange]);
-
-  function notifyJobsChanged(jobId: string, status: string) {
-    window.dispatchEvent(new CustomEvent("radar:jobs-changed", { detail: { name: "track_job_application", arguments: { job_id: jobId, status } } }));
-  }
-
-  async function submitImportUrl(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedUrl = importUrl.trim();
-    if (!trimmedUrl) return;
-    setImportBusy(true);
-    setError(null);
+  async function move(item: TrackedApplication, status: "interview" | "rejected") {
+    setPending((current) => new Set(current).add(item.id));
+    setError("");
     try {
-      const res = await importJobUrl({
-        url: trimmedUrl,
-        title: importTitle.trim() || undefined,
-        company: importCompany.trim() || undefined,
-        application_status: importStatus,
-      });
-      setImportUrl("");
-      setImportTitle("");
-      setImportCompany("");
-      setImportOpen(false);
-      if (tab !== "all" && tab !== importStatus) setTab(importStatus);
-      await load();
-      notifyJobsChanged(res.job_id, importStatus);
+      await updateApplication(item.job_id, status);
+      setSelected((current) => current === item.id ? null : current);
+      onChanged();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo importar el enlace");
+      setError(reason instanceof Error ? reason.message : "No se pudo mover la postulación.");
     } finally {
-      setImportBusy(false);
+      setPending((current) => new Set([...current].filter((id) => id !== item.id)));
     }
   }
 
-  async function move(item: TrackedApplication, status: string) {
-    try {
-      await updateApplication(item.job_id, status, item.notes);
-      await load();
-      notifyJobsChanged(item.job_id, status);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo actualizar");
-    }
-  }
-
-  async function saveNote(item: TrackedApplication) {
-    const trimmed = noteDraft.trim();
-    setEditingNoteId(null);
-    try {
-      await updateApplication(item.job_id, item.status, trimmed || null);
-      await load();
-      notifyJobsChanged(item.job_id, item.status);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo guardar la nota");
-    }
-  }
-
-  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
-  async function remove(item: TrackedApplication) {
-    if (confirmRemove !== item.job_id) { setConfirmRemove(item.job_id); return; }
-    setConfirmRemove(null);
-    try {
-      await removeApplication(item.job_id);
-      await load();
-      notifyJobsChanged(item.job_id, "visible");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo quitar");
-    }
-  }
-
-  async function openFolder(jobId: string) {
-    try { await studioApi.openFolder(jobId); } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo abrir la carpeta"); }
-  }
-
-  function openInMap(jobId: string) {
-    window.dispatchEvent(new CustomEvent(OPEN_JOB_EVENT, { detail: { id: jobId } }));
-  }
-
-  function exportCsv() {
-    const list = items ?? [];
-    if (list.length === 0) return;
-    const headers = ["Estado", "Puesto", "Empresa", "Área", "Ubicación", "Modalidad", "Salario", "Fecha postulación", "Última actualización", "Notas", "URL"];
-    const rows = list.map((item) => [
-      STATUS_LABELS[item.status] ?? item.status,
-      item.title ?? "",
-      item.company ?? "",
-      item.primary_area ?? "",
-      item.location ?? "",
-      formatWorkMode(item.work_mode) ?? "",
-      formatAppSalary(item) ?? "",
-      item.applied_at ?? "",
-      item.updated_at ?? "",
-      item.notes ?? "",
-      item.url ?? "",
-    ].map(csvCell).join(","));
-    const csv = "\uFEFF" + [headers.map(csvCell).join(","), ...rows].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `radar-postulaciones-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <section className="applications-view" aria-label="Historial de postulaciones">
-      <header className="applications-head">
-        <div>
-          <h2>Historial de postulaciones</h2>
-          <p>Registro anterior, importación por enlace y exportación. Añadir una solicitud aquí no inicia un proceso.</p>
-        </div>
-        <div className="applications-toolbar">
-          <input
-            type="search"
-            className="applications-search"
-            placeholder="Filtrar por puesto, empresa, área o nota…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label="Filtrar postulaciones"
-          />
-          <button type="button" className={`applications-export ${importOpen ? "active" : ""}`} onClick={() => setImportOpen((curr) => !curr)} title="Importar una oferta externa pegando su link de Computrabajo, LinkedIn, Bumeran, etc.">
-            {importOpen ? "× Cerrar" : "+ Agregar por link"}
-          </button>
-          <button type="button" className="applications-export" disabled={!items || items.length === 0} onClick={exportCsv} title="Exportar todas tus postulaciones a CSV compatible con Excel">
-            Exportar CSV
-          </button>
-        </div>
-      </header>
-      {importOpen && (
-        <form className="applications-import-bar" onSubmit={(event) => void submitImportUrl(event)}>
-          <input
-            type="url"
-            required
-            className="applications-import-url"
-            placeholder="Pega el link de la oferta (Computrabajo, LinkedIn, Bumeran, Empleos Perú…)"
-            value={importUrl}
-            onChange={(event) => setImportUrl(event.target.value)}
-            disabled={importBusy}
-          />
-          <input
-            type="text"
-            className="applications-import-meta"
-            placeholder="Título (opcional si el portal es privado)"
-            value={importTitle}
-            onChange={(event) => setImportTitle(event.target.value)}
-            disabled={importBusy}
-          />
-          <input
-            type="text"
-            className="applications-import-meta"
-            placeholder="Empresa (opcional)"
-            value={importCompany}
-            onChange={(event) => setImportCompany(event.target.value)}
-            disabled={importBusy}
-          />
-          <select value={importStatus} onChange={(event) => setImportStatus(event.target.value)} disabled={importBusy} aria-label="Estado inicial">
-            <option value="applied">✓ Postulé</option>
-            <option value="saved">Guardada (por postular)</option>
-            <option value="interview">Entrevista</option>
-          </select>
-          <button type="submit" disabled={importBusy || !importUrl.trim()}>
-            {importBusy ? "Importando…" : "Importar oferta"}
-          </button>
-        </form>
-      )}
-      <div className="view-tabs applications-tabs" role="tablist" aria-label="Estado de la postulación">
-        {TABS.map(([status, label]) => (
-          <button key={status} type="button" role="tab" aria-selected={tab === status} className={`view-tab ${tab === status ? "active" : ""}`} onClick={() => setTab(status)}>{label} <b>{counts[status] ?? 0}</b></button>
-        ))}
-      </div>
-      {error && <p className="applications-error" role="alert">{error}</p>}
-      {!items && !error && <p className="applications-empty">Cargando…</p>}
-      {items && shown.length === 0 && (
-        <p className="applications-empty">
-          {query.trim()
-            ? "Ninguna postulación coincide con tu búsqueda."
-            : tab === "applied"
-              ? "Este historial está vacío. Puedes importar un registro antiguo con «+ Agregar por link»."
-              : "Sin ofertas en este estado."}
-        </p>
-      )}
-      <ul className="applications-list">
-        {shown.map((item) => {
-          const pkg = packages[item.job_id];
-          const workMode = formatWorkMode(item.work_mode);
-          const salary = formatAppSalary(item);
-          const metaParts = [
-            item.company ?? "Empresa sin nombre",
-            item.primary_area || null,
-            item.location || null,
-            workMode,
-            salary,
-            item.applied_at ? `postulé el ${formatDay(item.applied_at)}` : `actualizada el ${formatDay(item.updated_at)}`,
-          ].filter(Boolean);
-          const isEditingNote = editingNoteId === item.job_id;
-          return (
-            <li key={item.id} className="applications-row">
-              <div className="applications-main">
-                <div className="applications-title-row">
-                  {tab === "all" && <span className="applications-status-badge">{STATUS_LABELS[item.status] ?? item.status}</span>}
-                  <strong>{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title} ↗</a> : item.title}</strong>
-                </div>
-                <small>{metaParts.join(" · ")}</small>
-                {isEditingNote ? (
-                  <div className="applications-note-editor">
-                    <input
-                      type="text"
-                      value={noteDraft}
-                      placeholder="Ej. CV enviado por Bumeran, contacto RRHH, pretensión salarial…"
-                      onChange={(event) => setNoteDraft(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") void saveNote(item);
-                        if (event.key === "Escape") setEditingNoteId(null);
-                      }}
-                      autoFocus
-                    />
-                    <button type="button" onClick={() => void saveNote(item)}>Guardar</button>
-                    <button type="button" onClick={() => setEditingNoteId(null)}>Cancelar</button>
-                  </div>
-                ) : (
-                  <div className="applications-note-row">
-                    {item.notes ? (
-                      <button type="button" className="applications-notes-btn" onClick={() => { setEditingNoteId(item.job_id); setNoteDraft(item.notes ?? ""); }} title="Editar nota">
-                        “{item.notes}”
-                      </button>
-                    ) : (
-                      <button type="button" className="applications-add-note" onClick={() => { setEditingNoteId(item.job_id); setNoteDraft(""); }}>
-                        + Nota
-                      </button>
-                    )}
-                  </div>
-                )}
-                {pkg && (
-                  <small className="applications-files">
-                    {pkg.files.filter((file) => file.exists !== false).map((file) => <a key={file.name} href={studioApi.fileUrl(item.job_id, file.name)} target="_blank" rel="noopener noreferrer">{file.name}</a>)}
-                    {pkg.folder_exists && <button type="button" onClick={() => void openFolder(item.job_id)}>Abrir carpeta</button>}
-                  </small>
-                )}
-              </div>
-              <div className="applications-actions">
-                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(PREPARE_CV_EVENT, { detail: { jobId: item.job_id } }))}>{pkg ? "Revisar CV" : "Preparar CV"}</button>
-                <button type="button" onClick={() => openInMap(item.job_id)} title="Abrir la ficha de esta oferta en el mapa">Ver ficha</button>
-                {(MOVES[item.status] ?? []).map(([status, label]) => <button key={status} type="button" onClick={() => void move(item, status)}>{label}</button>)}
-                <button type="button" className="applications-remove" title="Quita esta oferta del seguimiento y la devuelve a las ofertas activas. No borra la oferta." onClick={() => void remove(item)} onBlur={() => setConfirmRemove(null)}>{confirmRemove === item.job_id ? "¿Seguro?" : "Quitar"}</button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
+  return <section className="applications-view" aria-label="Postulaciones recientes">
+    <div className="applications-section-head">
+      <h2>Postulaciones recientes <span>{recent.length}</span></h2>
+      {!onlyWaiting && !query.trim() && recent.length > 8 && <button type="button" onClick={() => setShowAll((value) => !value)}>{showAll ? "Ver recientes" : `Ver todas (${recent.length})`}</button>}
+    </div>
+    {rhythm.total > 0 && <div className="applications-rhythm" aria-label="Ritmo de búsqueda" title="Solo cuenta lo registrado en Radar">
+      <div className="applications-rhythm-bars" role="img" aria-label={`Postulaciones por semana, últimas ${WEEKS} semanas: ${rhythm.weeks.join(", ")}`}>{rhythm.weeks.map((count, index) => <i key={index} title={`${count} postulaciones`} style={{ height: `${Math.max(count ? 12 : 3, (count / rhythm.max) * 100)}%` }} />)}</div>
+      <dl><div><dt>Buscando desde hace</dt><dd>{rhythm.oldest} días</dd></div><div><dt>Ritmo</dt><dd>{rhythm.perWeek.toFixed(1)} / semana</dd></div><div><dt><button type="button" aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((value) => !value)}>Sin respuesta · +{STALE_DAYS} d</button></dt><dd>{waiting.length}</dd></div></dl>
+    </div>}
+    {recent.length > 0 && <input className="applications-search" type="search" aria-label="Buscar postulaciones" placeholder="Buscar puesto o empresa…" value={query} onChange={(event) => setQuery(event.target.value)} />}
+    {error && <p className="applications-message" role="alert">{error}</p>}
+    {items && !filtered.length && <p className="applications-message">{query.trim() ? "Sin coincidencias." : onlyWaiting ? "No hay postulaciones sin respuesta de más de 14 días." : "No hay postulaciones recientes."}</p>}
+    <div className="applications-workspace">
+      <ul className="applications-list">{visible.map((item) => <li key={item.id}>
+        <button type="button" className="applications-row" aria-pressed={selected === item.id} onClick={() => setSelected(selected === item.id ? null : item.id)}>
+          <span className="applications-date" title={`Publicado · ${formatPublicationDate(item.published_at)}`}>
+            <span className="applications-date-label">Publicado: </span>{formatPublicationDate(item.published_at, true)}
+          </span>
+          <span className="applications-role">{item.title}</span>
+          <span className="applications-company">{item.company || "Empresa no indicada"}</span>
+          <span className="applications-age" title={`Postulé · ${day(item.applied_at)}`}>
+            <span className="applications-date-label">Postulé: </span>{ago(daysFromTrackingDay(item.applied_at, today))}
+          </span>
+        </button>
+        <button type="button" className="applications-action" disabled={pending.has(item.id)} aria-label={`Pasar ${item.title} a Entrevista`} title="Pasar a Entrevista" onClick={() => void move(item, "interview")}><IconPin /></button>
+        <button type="button" className="applications-action" disabled={pending.has(item.id)} aria-label={`Archivar ${item.title}`} title="Archivar" onClick={() => void move(item, "rejected")}><IconArchive /></button>
+      </li>)}</ul>
+      {active && <aside className="applications-detail" aria-label={`Detalle de ${active.title}`}>
+        <button type="button" className="applications-close" aria-label="Cerrar detalle" onClick={() => setSelected(null)}>×</button>
+        <p className="applications-kicker">Postulé · {day(active.applied_at)}</p>
+        <TrackingOfferDetail key={active.id} item={active}>
+          {active.notes && <p className="applications-note">{active.notes}</p>}
+        </TrackingOfferDetail>
+      </aside>}
+    </div>
+  </section>;
 }

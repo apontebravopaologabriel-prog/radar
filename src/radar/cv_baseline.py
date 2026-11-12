@@ -196,11 +196,14 @@ def readiness(items: list[dict[str, Any]], description: str = "") -> dict[str, A
 
 
 def selected_job_ids(limit: int = 50) -> list[str]:
-    """Objetivos = ofertas activas marcadas con estrella."""
+    """Objetivos = ofertas activas marcadas con estrella; una oferta oculta deja de ser objetivo."""
     with connection() as conn:
         rows = conn.execute(
             """SELECT f.job_id FROM job_user_favorites f JOIN jobs j ON j.id = f.job_id
-               WHERE j.is_active = 1 ORDER BY f.created_at DESC LIMIT %s""",
+               WHERE j.is_active = 1
+                 AND NOT EXISTS (SELECT 1 FROM job_user_status jus
+                                 WHERE jus.job_id = f.job_id AND jus.status = 'hidden')
+               ORDER BY f.created_at DESC LIMIT %s""",
             (max(1, min(limit, 100)),),
         ).fetchall()
     return [row[0] for row in rows]

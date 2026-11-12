@@ -3,28 +3,22 @@
 import dynamic from "next/dynamic";
 import { FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchFavoriteJobs, fetchHiddenJobs, fetchJob, fetchJobDescription, fetchJobs, fetchSkillOverview, updateJobFavorite, updateJobStatus } from "../lib/api";
+import type { AnalysisScope } from "../lib/analysis-api";
+import { analysisScope, filtersFromScope } from "../lib/analysis-scope";
+import { updateApplication } from "../lib/applications-api";
 import { districtKey } from "../lib/districts";
 import { MY_CV_EVENT, PREPARE_CV_EVENT } from "../lib/cv-events";
 import { fetchMarkets, type Market } from "../lib/markets-api";
 import type { AgentContext } from "../lib/mobile-api";
 import {
-  ARCHIVE_FILTERS,
   distanceKm,
   INITIAL_FILTERS,
-  portalKey,
   RADAR_RADII,
-  REASON_LABELS,
-  SENIORITY_VALUES,
-  sourceName,
-  WORK_MODE_VALUES,
-  type AnalysisFilterColumn,
   type RadarView,
 } from "../lib/radar-format";
 import type { DistrictSummary, Filters, Job, MapMode, SkillOverview } from "../types";
 import { OPEN_JOB_EVENT } from "./agent/Markdown";
-import AnalysisView from "./AnalysisView";
 import ApplicationsView from "./ProcessesView";
-import CvView from "./CvView";
 import MarketControls from "./MarketControls";
 import { IconEyeOff, JobCard, LoadingDots, OfferSignalCard, ViewIcon } from "./radar/JobCards";
 import { JobReadingView, MapJobPopover } from "./radar/JobDetailViews";
@@ -32,6 +26,20 @@ import { useProgressiveList } from "./useProgressiveList";
 import "./radar-map.css";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima<LoadingDots /></div> });
+const AnalysisView = dynamic(() => import("./AnalysisView"), { loading: () => <div className="map-loading">Cargando análisis…</div> });
+const CvView = dynamic(() => import("./CvView"), { loading: () => <div className="map-loading">Cargando Mi CV…</div> });
+const SCOPE_LABELS: Record<string, string> = {
+  intern: "Intern", junior: "Junior", mid: "Semi-Senior", senior: "Senior",
+  onsite: "Presencial", hybrid: "Híbrido", remote: "Remoto",
+  linkedin: "Linkedin", indeed: "Indeed", computrabajo: "Computrabajo", bumeran: "Bumeran", empleos: "Empleos Perú", google: "Google Jobs", laborum: "Laborum",
+  English: "Inglés",
+  target: "Puestos priorizados", core: "Núcleo del mercado", adjacent: "Áreas relacionadas", out_of_focus: "Fuera de foco",
+};
+const APPLIED_STATES = ["applied", "responded", "interview", "offer", "rejected", "ignored"];
+
+async function fetchInterestJobs() {
+  return (await fetchFavoriteJobs()).filter((job) => !APPLIED_STATES.includes(job.user_application || ""));
+}
 
 export default function RadarClient({ onAgentContextChange }: { onAgentContextChange?: (context: AgentContext) => void }) {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
@@ -42,15 +50,20 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const marketId = filters.market_id || "industrial_engineering";
   const currentMarket = markets.find((market) => market.id === marketId);
   const areas = ["", ...new Set([...(currentMarket?.areas.core || []), ...(currentMarket?.areas.adjacent || [])])];
-  const refreshMarketResults = useCallback(() => setFilters((current) => ({ ...current })), []);
+  const [marketRevision, setMarketRevision] = useState(0);
+  const [viewResetRevision, setViewResetRevision] = useState(0);
+  const [analysisDetailOpen, setAnalysisDetailOpen] = useState(false);
+  const refreshMarketResults = useCallback(() => setMarketRevision((current) => current + 1), []);
   useEffect(() => {
     const controller = new AbortController();
     fetchMarkets(controller.signal).then(({ markets: choices }) => {
       setMarkets(choices);
       try {
-        const saved = localStorage.getItem("radar.market");
+        const previous = JSON.parse(sessionStorage.getItem("radar.explore.filters.v1") || "null") as { filters?: Filters; skill?: string } | null;
+        const saved = previous?.filters?.market_id || localStorage.getItem("radar.market");
         if (saved && choices.some((market) => market.id === saved)) {
-          setFilters({ ...INITIAL_FILTERS, market_id: saved });
+          const restored = { ...INITIAL_FILTERS, ...previous?.filters, market_id: saved };
+          setFilters(restored); setDraftSearch(restored.search); setSelectedSkill(previous?.skill || null);
         }
       } catch { /* Storage is optional. */ }
       setMarketReady(true);
@@ -102,16 +115,14 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const onApplicationsContext = useCallback((count: number, status: string) => setApplicationsContext((current) => (current && current.count === count && current.status === status ? current : { count, status })), []);
   const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
   const lastMapMode = useRef<"heatmap" | "radar">("heatmap");
-  const [hideReasonFor, setHideReasonFor] = useState<string | null>(null);
-  const [hideReason, setHideReason] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [, setFavoriteBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [offerPanelHeight, setOfferPanelHeight] = useState<number | null>(null);
   const offerPanelRef = useRef<HTMLDivElement | null>(null);
   const offerResizeRef = useRef<{ startY: number; startHeight: number; lastY: number; frame: number | null } | null>(null);
   const [expandedDescriptionId, setExpandedDescriptionId] = useState<string | null>(null);
-  const [archiveReason, setArchiveReason] = useState("");
   const [radarLabel, setRadarLabel] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string; undo?: () => void } | null>(null);
   const [descriptions, setDescriptions] = useState<Record<string, string | null>>({});
@@ -138,7 +149,6 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     setLoading(true);
     setError(null);
     const queryFilters = { ...filters };
-    delete queryFilters.source;
     fetchJobs(selectedSkill ? { ...queryFilters, skill: selectedSkill } : queryFilters, controller.signal)
       .then((result) => { if (!controller.signal.aborted) setJobs(result); })
       .catch((reason: Error) => {
@@ -146,7 +156,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [filters, selectedSkill, marketReady, salaryRangeInvalid]);
+  }, [filters, selectedSkill, marketReady, salaryRangeInvalid, marketRevision]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -161,22 +171,10 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   }, [filtersOpen, filters, mode]);
 
   const activeBaseJobs = useMemo(
-    () => jobs.filter((job) => !["applied", "interview", "offer", "rejected", "ignored"].includes(job.user_application || "")),
-    [jobs],
+    () => jobs.filter((job) => !APPLIED_STATES.includes(job.user_application || "") && job.user_status !== "hidden" && !removedIds.has(job.id)),
+    [jobs, removedIds],
   );
-  const portalJobs = useMemo(() => {
-    const requestedPortal = filters.source?.toLowerCase();
-    if (!requestedPortal) return activeBaseJobs;
-    return activeBaseJobs.filter((job) => portalKey(job.url) === requestedPortal || sourceName(job.url).toLowerCase().includes(requestedPortal));
-  }, [activeBaseJobs, filters.source]);
-  const portalCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const job of activeBaseJobs) {
-      const portal = portalKey(job.url);
-      counts[portal] = (counts[portal] || 0) + 1;
-    }
-    return counts;
-  }, [activeBaseJobs]);
+  const portalJobs = activeBaseJobs;
   const districtStats = useMemo<DistrictSummary[]>(() => {
     const groups = new Map<string, DistrictSummary>();
     for (const job of portalJobs) {
@@ -231,18 +229,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     [portalJobs, radarCenter, radarDistrictKey],
   );
   const radarCountsMap = useMemo(() => Object.fromEntries(radarRadiusCounts.map((item) => [item.radius, item.count])), [radarRadiusCounts]);
-  const countValues = useCallback((read: (job: Job) => string | null) => {
-    const counts = new Map<string, number>();
-    for (const job of visibleJobs) {
-      const value = read(job)?.trim() || "No indicado";
-      counts.set(value, (counts.get(value) || 0) + 1);
-    }
-    return Object.fromEntries(counts);
-  }, [visibleJobs]);
-  const areaCounts = useMemo(() => countValues((job) => job.primary_area), [countValues]);
-  const seniorityCounts = useMemo(() => countValues((job) => ({ intern: "Practicante", junior: "Junior", mid: "Intermedio", senior: "Senior" } as Record<string, string>)[job.seniority || ""] || job.seniority), [countValues]);
-  const modalityCounts = useMemo(() => countValues((job) => ({ onsite: "Presencial", hybrid: "Híbrido", remote: "Remoto" } as Record<string, string>)[job.work_mode || ""] || job.work_mode), [countValues]);
-  const archivedJobs = useMemo(() => archiveReason ? hiddenJobs.filter((job) => job.user_reason === archiveReason) : hiddenJobs, [archiveReason, hiddenJobs]);
+  const archivedJobs = hiddenJobs;
   const listedJobs = showHidden ? archivedJobs : showFavorites ? favoriteJobs : visibleJobs;
   const signalJobs = listedJobs;
   const {
@@ -258,6 +245,12 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      if (event.key === "Escape" && filtersOpen && !(event.target as HTMLElement | null)?.closest('[role="dialog"]')) {
+        setFiltersOpen(false);
+        return;
+      }
+      if (activeView !== "map") return;
       const target = event.target as HTMLElement | null;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (target?.closest('[role="dialog"]')) return;
@@ -276,7 +269,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       } else if (current && event.key === "x" && !showHidden) {
         event.preventDefault();
         const next = listedJobs[index + 1] || listedJobs[index - 1];
-        void hideJob(current, "not_interested").then(() => { if (next) setSelectedId(next.id); });
+        void hideJob(current).then(() => { if (next) setSelectedId(next.id); });
       } else if (current && event.key === "r" && showHidden) {
         event.preventDefault();
         void restoreJob(current);
@@ -286,17 +279,6 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  useEffect(() => {
-    if (selectedDistrictKey && !districtStats.some((district) => district.key === selectedDistrictKey)) {
-      setSelectedDistrictKey(null);
-    }
-  }, [districtStats, selectedDistrictKey]);
-
-  useEffect(() => {
-    if (mode !== "radar" || !radarDistrictKey || districtStats.some((district) => district.key === radarDistrictKey)) return;
-    setRadarDistrictKey(null);
-    setRadarCenter({ longitude: -77.043, latitude: -12.046 });
-  }, [districtStats, mode, radarDistrictKey]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -310,8 +292,6 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const selectJob = useCallback((job: Job) => {
     setSelectedId(job.id);
     setExpandedDescriptionId(null);
-    setHideReasonFor(null);
-    setHideReason("");
     if (mode === "heatmap") setSelectedDistrictKey(districtKey(job.district));
   }, [mode]);
 
@@ -323,8 +303,9 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   async function switchView(view: "active" | "favorites" | "hidden") {
     setStatusError(null);
     try {
-      if (view === "hidden" && hiddenJobs.length === 0) setHiddenJobs(await fetchHiddenJobs());
-      if (view === "favorites" && favoriteJobs.length === 0) setFavoriteJobs(await fetchFavoriteJobs());
+      if (view === "hidden") setHiddenJobs(await fetchHiddenJobs());
+      // Siempre se relee: una oferta oculta o postulada no debe seguir apareciendo en ★.
+      if (view === "favorites") setFavoriteJobs(await fetchInterestJobs());
     } catch {
       setStatusError(view === "hidden" ? "No se pudieron cargar las ofertas ocultas." : "No se pudieron cargar los favoritos.");
       return;
@@ -347,9 +328,11 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       const update = (item: Job) => item.id === job.id ? { ...item, is_favorite: nextValue } : item;
       setJobs((current) => current.map(update));
       setHiddenJobs((current) => current.map(update));
-      setFavoriteJobs((current) => nextValue
-        ? [{ ...job, is_favorite: true }, ...current.filter((item) => item.id !== job.id)]
-        : current.filter((item) => item.id !== job.id));
+      setFavoriteJobs((current) => {
+        const without = current.filter((item) => item.id !== job.id);
+        // Una oferta oculta no entra a ★: el archivo es su único lugar.
+        return nextValue && job.user_status !== "hidden" ? [{ ...job, is_favorite: true }, ...without] : without;
+      });
       if (!nextValue && showFavorites) setSelectedId(null);
     } catch {
       setStatusError(nextValue ? "No se pudo guardar el favorito." : "No se pudo quitar el favorito.");
@@ -358,27 +341,47 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     }
   }, [showFavorites]);
 
-  async function hideJob(target: Job, reason: string) {
-    setStatusBusy(true);
+  // Hide and "applied" update the UI first (the API can be slow while an ingestion holds the database) and roll back on failure.
+  const forgetJob = useCallback((id: string) => {
+    setRemovedIds((current) => new Set(current).add(id));
+    setJobs((current) => current.filter((job) => job.id !== id));
+    setFavoriteJobs((current) => current.filter((job) => job.id !== id));
+    setSelectedId((current) => current === id ? null : current);
+  }, []);
+  const unforgetJob = useCallback((job: Job) => {
+    setRemovedIds((current) => { const next = new Set(current); next.delete(job.id); return next; });
+    setJobs((current) => current.some((item) => item.id === job.id) ? current : [...current, job]);
+  }, []);
+
+  async function hideJob(target: Job) {
     setStatusError(null);
+    forgetJob(target.id);
+    setHiddenJobs((current) => [{ ...target, user_status: "hidden", user_reason: "not_interested" }, ...current.filter((job) => job.id !== target.id)]);
+    notify("[ok] oferta archivada", () => void restoreJob(target));
     try {
-      await updateJobStatus(target.id, "hidden", reason);
-      setJobs((current) => current.filter((job) => job.id !== target.id));
-      setHiddenJobs((current) => [{ ...target, user_status: "hidden", user_reason: reason }, ...current.filter((job) => job.id !== target.id)]);
-      setHideReasonFor(null);
-      setHideReason("");
-      setSelectedId((current) => current === target.id ? null : current);
-      notify(`[ok] oferta archivada · motivo=${REASON_LABELS[reason] || reason}`, () => void restoreJob(target));
+      await updateJobStatus(target.id, "hidden", "not_interested");
     } catch {
+      unforgetJob(target);
+      setHiddenJobs((current) => current.filter((job) => job.id !== target.id));
+      setToast(null);
       setStatusError("No se pudo ocultar la oferta.");
-    } finally {
-      setStatusBusy(false);
     }
   }
 
-  async function hideSelectedJob() {
-    if (!selectedJob || !hideReasonFor || !hideReason) return;
-    await hideJob(selectedJob, hideReason);
+  async function markApplied(target: Job) {
+    setStatusError(null);
+    forgetJob(target.id);
+    // Solo se confirma: la postulación queda en Mi búsqueda, sin cambiar de vista.
+    notify("[ok] postulación guardada en Mi búsqueda");
+    try {
+      await updateApplication(target.id, "applied");
+      if (target.is_favorite) await updateJobFavorite(target.id, false);
+      window.dispatchEvent(new CustomEvent("radar:jobs-changed"));
+    } catch {
+      unforgetJob(target);
+      setToast(null);
+      setStatusError("No se pudo guardar la postulación.");
+    }
   }
 
   async function restoreJob(job: Job) {
@@ -386,6 +389,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     setStatusError(null);
     try {
       await updateJobStatus(job.id, "visible");
+      setRemovedIds((current) => { const next = new Set(current); next.delete(job.id); return next; });
       setHiddenJobs((current) => current.filter((item) => item.id !== job.id));
       if (showHidden) setSelectedId(null);
       const refreshed = await fetchJobs(filters);
@@ -446,13 +450,13 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
 
   useEffect(() => {
     function onJobsChanged() {
-      void fetchJobs(filters).then((result) => { if (currentFiltersRef.current === filters) setJobs(result); }).catch(() => undefined);
-      if (showFavorites) void fetchFavoriteJobs().then(setFavoriteJobs).catch(() => undefined);
+      refreshMarketResults();
+      if (showFavorites) void fetchInterestJobs().then(setFavoriteJobs).catch(() => undefined);
       if (showHidden) void fetchHiddenJobs().then(setHiddenJobs).catch(() => undefined);
     }
     window.addEventListener("radar:jobs-changed", onJobsChanged);
     return () => window.removeEventListener("radar:jobs-changed", onJobsChanged);
-  }, [filters, showFavorites, showHidden]);
+  }, [filters, showFavorites, showHidden, refreshMarketResults]);
 
   function selectView(view: RadarView) {
     setActiveView(view);
@@ -477,11 +481,19 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     }
     selectViewRef.current("map");
     setSelectedId(job.id);
-    if (job.district) setSelectedDistrictKey(districtKey(job.district));
+    if (lastMapMode.current !== "radar" && job.district) setSelectedDistrictKey(districtKey(job.district));
     setExpandedDescriptionId(null);
   }, [chatJobs, favoriteJobs, hiddenJobs, jobs]);
   const selectViewRef = useRef(selectView);
   useEffect(() => { selectViewRef.current = selectView; });
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("view") === "cvs") {
+      selectViewRef.current("cvs");
+      url.searchParams.delete("view");
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }, []);
   useEffect(() => {
     const prepare = (event: Event) => {
       const id = (event as CustomEvent<{ jobId?: string }>).detail?.jobId;
@@ -500,21 +512,44 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   }, [openJobFromChat]);
 
   // Filtros es una capa global: abrirla o cerrarla no cambia de vista ni pierde estado.
-  const filtersAvailable = activeView === "map";
+  const filtersAvailable = activeView === "map" || activeView === "analysis";
 
-  function applyAnalysisFilter(column: AnalysisFilterColumn, value: string): boolean {
-    const normalized = value.trim().toLowerCase();
-    if (column === "area" && areas.includes(value)) updateFilter("area", value);
-    else if (column === "skill") setSelectedSkill(value);
-    else if (column === "seniority" && SENIORITY_VALUES[normalized]) updateFilter("seniority", SENIORITY_VALUES[normalized]);
-    else if (column === "work_mode" && WORK_MODE_VALUES[normalized]) updateFilter("work_mode", WORK_MODE_VALUES[normalized]);
-    else if (column === "district" && districtKey(value)) { setActiveView("map"); setFiltersOpen(false); changeMode("heatmap"); setSelectedDistrictKey(districtKey(value)); notify(`[ok] filtro ${column}=${value} · mostrando en el mapa`); return true; }
-    else return false;
-    setActiveView("map");
+  function resetExploreView() {
+    setFilters({ ...INITIAL_FILTERS, market_id: marketId });
+    setDraftSearch("");
+    setSelectedSkill(null);
+    setSelectedDistrictKey(null);
+    setRadarDistrictKey(null);
+    setRadarLabel(null);
+    setRadarCenterOpen(false);
+    setRadarRadiusKm(5);
+    setRadarCenter({ longitude: -77.043, latitude: -12.046 });
+    setShowFavorites(false);
+    setShowHidden(false);
+    setSelectedId(null);
+    setExpandedDescriptionId(null);
     setFiltersOpen(false);
-    changeMode(lastMapMode.current);
-    notify(`[ok] filtro ${column}=${value} · mostrando en el mapa`);
-    return true;
+    setStatusError(null);
+    lastMapMode.current = "heatmap";
+    if (activeView === "map") setMode("heatmap");
+    setViewResetRevision((value) => value + 1);
+    document.querySelector<HTMLButtonElement>('.edge-menu-toggle[aria-controls="radar-controls-panel"]')?.focus({ preventScroll: true });
+  }
+
+  function restoreAnalysisScope(scope: AnalysisScope) {
+    if (!markets.some((market) => market.id === scope.market_id)) { setStatusError("El mercado de esta vista ya no está disponible."); return; }
+    const next = filtersFromScope(scope);
+    setFilters(next); setDraftSearch(next.search); setSelectedSkill(scope.skill || null);
+    setSelectedDistrictKey(scope.district ? districtKey(scope.district) : null);
+    if (scope.radius_km != null && scope.latitude != null && scope.longitude != null) {
+      lastMapMode.current = "radar";
+      setRadarCenter({ latitude: scope.latitude, longitude: scope.longitude });
+      setRadarRadiusKm(scope.radius_km); setRadarDistrictKey("saved-center"); setRadarLabel("Centro guardado");
+    } else {
+      lastMapMode.current = scope.empty ? "radar" : "heatmap";
+      setRadarDistrictKey(null); setRadarLabel(null);
+    }
+    setSelectedId(null);
   }
 
   useEffect(() => {
@@ -523,7 +558,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
       const panel = offerPanelRef.current;
       if (resize) resize.frame = null;
       if (!resize || !panel) return;
-      const maxHeight = Math.max(180, window.innerHeight - 36);
+      const maxHeight = Math.max(180, window.innerHeight - (window.innerHeight <= 460 ? 120 : 270));
       const next = Math.max(180, Math.min(maxHeight, resize.startHeight + resize.startY - resize.lastY));
       panel.style.height = `${next}px`;
     }
@@ -569,41 +604,73 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const marketLabel = marketId === "industrial_engineering" ? "Industrial"
     : marketId === "sistemas_software" ? "Sistemas y Software" : currentMarket?.name || "Mercado";
 
+  const analysisMapMode = mode === "heatmap" || mode === "radar" ? mode : lastMapMode.current;
+  const canResetExplore = activeFilterCount > 0 || draftSearch !== filters.search || Boolean(selectedDistrictKey) ||
+    analysisMapMode === "radar" || filters.profile_mode !== INITIAL_FILTERS.profile_mode ||
+    filters.geo_scope !== INITIAL_FILTERS.geo_scope ||
+    (activeView === "map" && (showFavorites || showHidden || selectedId !== null)) ||
+    (activeView === "analysis" && analysisDetailOpen);
+  const analysisQueryScope = useMemo<AnalysisScope>(() => ({
+    ...analysisScope(filters, selectedSkill),
+    ...(analysisMapMode === "radar"
+      ? radarDistrictKey ? { latitude: radarCenter.latitude, longitude: radarCenter.longitude, radius_km: radarRadiusKm } : { empty: true }
+      : selectedDistrictKey ? { district: selectedDistrictKey } : {}),
+  }), [filters, selectedSkill, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, analysisMapMode]);
+  useEffect(() => {
+    if (!marketReady) return;
+    try { sessionStorage.setItem("radar.explore.filters.v1", JSON.stringify({ filters, skill: selectedSkill })); } catch { /* Storage is optional. */ }
+  }, [filters, selectedSkill, marketReady]);
+  const analysisLabels = useMemo(() => {
+    const labels = [marketLabel, `${filters.max_age_days} días`, "Lima/Callao"];
+    if (analysisQueryScope.radius_km) labels.push(`${radarLabel || radarDistrict?.district || "Centro del radar"} · ${radarRadiusKm} km`);
+    else if (analysisQueryScope.empty) labels.push("Radar sin centro");
+    else if (selectedDistrictKey) labels.push(selectedDistrict?.district || selectedDistrictKey);
+    for (const key of ["area", "source", "search", "seniority", "work_mode"] as const) if (filters[key]) labels.push(SCOPE_LABELS[filters[key]!] || filters[key]!);
+    if (selectedSkill) labels.push(SCOPE_LABELS[selectedSkill] || selectedSkill);
+    if (filters.min_salary || filters.max_salary) labels.push(`Sueldo ${filters.min_salary || "sin mínimo"}–${filters.max_salary || "sin máximo"}`);
+    if (filters.relevance_tier !== "market") labels.push(SCOPE_LABELS[filters.relevance_tier || ""] || "Incluye otros mercados");
+    if (filters.profile_mode === "saved") labels.push("Perfil de búsqueda");
+    return labels;
+  }, [analysisQueryScope, marketLabel, filters, radarLabel, radarDistrict, radarRadiusKm, selectedDistrictKey, selectedDistrict, selectedSkill]);
+
   return (
     <main className="radar-shell radar-minimal">
       <section className="workspace">
-        {filtersAvailable && <button className={`edge-menu-toggle ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => setFiltersOpen((current) => !current)}>
-          <span aria-hidden="true">{filtersOpen ? "×" : "☷"}</span>
-          <small>{filtersOpen ? "Cerrar" : "Filtros"}{!filtersOpen && activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}</small>
-        </button>}
+        {filtersAvailable && <div className="explore-controls">
+          {canResetExplore && <button className="edge-menu-toggle explore-reset" type="button" aria-label="Restablecer vista" title="Restablecer vista" onClick={resetExploreView}>
+            <span aria-hidden="true">↺</span>
+          </button>}
+          <button className={`edge-menu-toggle ${filtersOpen ? "is-open" : ""}`} type="button" aria-expanded={filtersOpen} aria-controls="radar-controls-panel" onClick={() => setFiltersOpen((current) => !current)}>
+            <span aria-hidden="true">{filtersOpen ? "×" : "☷"}</span>
+            <small>{filtersOpen ? "Cerrar" : "Filtros"}{!filtersOpen && activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}</small>
+          </button>
+        </div>}
         <nav className="mode-rail" aria-label="Vistas">
           <button className={activeView === "map" ? "active" : ""} type="button" aria-label="Mapa" title="Mapa" onClick={() => selectView("map")}><span aria-hidden="true">◎</span></button>
           <button className={activeView === "analysis" ? "active" : ""} type="button" aria-label="Análisis" title="Análisis" onClick={() => selectView("analysis")}><span aria-hidden="true">▦</span></button>
-          <button className={activeView === "cvs" ? "active" : ""} type="button" aria-label="Mi CV" title="Mi CV" onClick={() => selectView("cvs")}><span aria-hidden="true">☰</span></button>
-          <button className={activeView === "applications" ? "active" : ""} type="button" aria-label="Procesos" title="Procesos" onClick={() => selectView("applications")}><span aria-hidden="true">✓</span></button>
+          <button className={activeView === "applications" ? "active" : ""} type="button" aria-label="Mi búsqueda" title="Mi búsqueda" onClick={() => selectView("applications")}><span aria-hidden="true">✓</span></button>
         </nav>
-        <aside id="radar-controls-panel" className={`sidebar tool-${activeView !== "map" ? "analysis" : filtersOpen ? "filters" : mode === "radar" ? "radar" : "districts"} ${activeView === "map" && (filtersOpen || mode === "radar") ? "is-open" : ""}`}>
+        <aside id="radar-controls-panel" className={`sidebar tool-${filtersAvailable && filtersOpen ? "filters" : activeView !== "map" ? "analysis" : mode === "radar" ? "radar" : "districts"} ${(filtersAvailable && filtersOpen) || (activeView === "map" && mode === "radar") ? "is-open" : ""}`}>
           <MarketControls markets={markets} marketId={marketId} onMarket={changeMarket} />
           <form className="search-box" onSubmit={submitSearch}><span>⌕</span><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Cargo, empresa o palabra clave" aria-label="Buscar ofertas" /><button type="submit" aria-label="Buscar">↵</button></form>
 
-          <div className="primary-filters"><label>Área profesional<select value={filters.area} onChange={(event) => updateFilter("area", event.target.value)}>{areas.map((area) => <option key={area} value={area}>{area || `Todas las áreas · ${visibleJobs.length || 0}`}{area && ` · ${areaCounts[area] || 0}`}</option>)}</select></label><label>Antigüedad<select value={filters.max_age_days} onChange={(event) => updateFilter("max_age_days", event.target.value)}><option value="7">7 días</option><option value="14">14 días</option><option value="30">30 días</option><option value="90">90 días</option></select></label></div>
+          <div className="primary-filters"><label>Área profesional<select value={filters.area} onChange={(event) => updateFilter("area", event.target.value)}>{areas.map((area) => <option key={area} value={area}>{area || "Todas"}</option>)}</select></label><label>Antigüedad<select value={filters.max_age_days} onChange={(event) => updateFilter("max_age_days", event.target.value)}><option value="7">7 días</option><option value="14">14 días</option><option value="30">30 días</option><option value="90">90 días</option></select></label></div>
           <div className="filter-summary"><span>{activeFilterCount ? `${activeFilterCount} ${activeFilterCount === 1 ? "filtro modificado" : "filtros modificados"}` : "Todos los criterios"}</span>{activeFilterCount > 0 && <button type="button" className="clear-all-filters" onClick={() => { setFilters({ ...INITIAL_FILTERS, market_id: marketId }); setDraftSearch(""); setSelectedSkill(null); }}>Limpiar</button>}</div>
           <details className="market-extra-filters"><summary>Más filtros</summary><div className="filter-section">
             <label>Relevancia<select value={filters.relevance_tier || ""} onChange={(event) => updateFilter("relevance_tier", event.target.value)}><option value="market">Todo el mercado</option><option value="target">Puestos priorizados del mercado</option><option value="core">Núcleo del mercado</option><option value="adjacent">Áreas relacionadas</option><option value="out_of_focus">Fuera de foco</option><option value="">Incluir ofertas ajenas al mercado</option></select></label>
 
-            <div className="two-columns"><label>Seniority<select value={filters.seniority} onChange={(event) => updateFilter("seniority", event.target.value)}><option value="">Todos{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="intern">Practicante · {seniorityCounts.Practicante || 0}</option><option value="junior">Junior · {seniorityCounts.Junior || 0}</option><option value="mid">Intermedio · {seniorityCounts.Intermedio || 0}</option><option value="senior">Senior · {seniorityCounts.Senior || 0}</option></select></label><label>Modalidad<select value={filters.work_mode} onChange={(event) => updateFilter("work_mode", event.target.value)}><option value="">Todas{visibleJobs.length ? ` · ${visibleJobs.length}` : ""}</option><option value="onsite">Presencial · {modalityCounts.Presencial || 0}</option><option value="hybrid">Híbrido · {modalityCounts.Híbrido || 0}</option><option value="remote">Remoto · {modalityCounts.Remoto || 0}</option></select></label></div>
+            <div className="two-columns"><label>Seniority<select value={filters.seniority} onChange={(event) => updateFilter("seniority", event.target.value)}><option value="">Todos</option><option value="intern">Intern</option><option value="junior">Junior</option><option value="mid">Intermedio</option><option value="senior">Senior</option></select></label><label>Modalidad<select value={filters.work_mode} onChange={(event) => updateFilter("work_mode", event.target.value)}><option value="">Todas</option><option value="onsite">Presencial</option><option value="hybrid">Híbrido</option><option value="remote">Remoto</option></select></label></div>
             <fieldset className="salary-range"><legend>Sueldo publicado</legend><div className="two-columns"><label>Desde<input aria-label="Sueldo desde" type="number" min="0" placeholder="Sin mínimo" value={filters.min_salary} onChange={(event) => updateFilter("min_salary", event.target.value)} /></label><label>Hasta<input aria-label="Sueldo hasta" type="number" min="0" placeholder="Sin máximo" value={filters.max_salary} onChange={(event) => updateFilter("max_salary", event.target.value)} /></label></div><small>{salaryRangeInvalid ? "El mínimo no puede superar el máximo." : "Con un límite, se omiten ofertas sin sueldo publicado."}</small></fieldset>
-            <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos los portales · {activeBaseJobs.length}</option><option value="indeed">Indeed · {portalCounts.indeed || 0}</option><option value="computrabajo">Computrabajo · {portalCounts.computrabajo || 0}</option><option value="linkedin">LinkedIn · {portalCounts.linkedin || 0}</option><option value="google">Google Jobs · {portalCounts.google || 0}</option><option value="bumeran">Bumeran · {portalCounts.bumeran || 0}</option><option value="laborum">Laborum · {portalCounts.laborum || 0}</option><option value="empleos">Empleos Perú · {portalCounts.empleos || 0}</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas las competencias</option>{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{skill.name} · {skill.job_count}</option>)}</select></label></div>
+            <div className="two-columns"><label>Portal<select value={filters.source || ""} onChange={(event) => updateFilter("source", event.target.value)}><option value="">Todos</option><option value="indeed">Indeed</option><option value="computrabajo">Computrabajo</option><option value="linkedin">Linkedin</option><option value="google">Google Jobs</option><option value="bumeran">Bumeran</option><option value="laborum">Laborum</option><option value="empleos">Empleos Perú</option></select></label><label>Competencia<select value={selectedSkill || ""} onChange={(event) => { setSelectedSkill(event.target.value || null); setSelectedId(null); }}><option value="">Todas</option>{selectedSkill && !skillOverview?.skills.some((skill) => skill.name === selectedSkill) && <option value={selectedSkill}>{SCOPE_LABELS[selectedSkill] || selectedSkill}</option>}{skillsLoading && <option disabled>Cargando…</option>}{(skillOverview?.skills || []).map((skill) => <option key={skill.name} value={skill.name}>{SCOPE_LABELS[skill.name] || skill.name}</option>)}</select></label></div>
           </div></details>
 
           <div className="map-mode"><div className="section-label">Visualización</div><div className="segmented">{([["jobs", "Ofertas"], ["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} className={mode === value ? "active" : ""} onClick={() => changeMode(value)} type="button">{label}</button>)}</div>{mode === "radar" && <div className="radar-controls"><div className="radar-center-control"><span>Centro del radar</span><div className="radar-center-select"><button className={radarCenterOpen ? "open" : ""} type="button" aria-haspopup="listbox" aria-expanded={radarCenterOpen} onClick={() => setRadarCenterOpen((current) => !current)}>{radarDistrict ? `${radarDistrict.district} · ${radarDistrict.count} ofertas` : "Selecciona un distrito"}<b>⌄</b></button>{radarCenterOpen && <div className="radar-center-menu" role="listbox" aria-label="Centro del radar">{districtStats.map((district) => <button key={district.key} className={radarDistrictKey === district.key ? "active" : ""} type="button" role="option" aria-selected={radarDistrictKey === district.key} onClick={() => selectRadarDistrict(district.key)}>{district.district}<span>{district.count} ofertas</span></button>)}</div>}</div></div><div className="radar-locate-row"><button className="radar-locate" type="button" disabled={locating} onClick={locateMe}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>{locating ? "Localizando…" : "Mi ubicación"}</button><small>o elige un punto en el mapa</small></div><span className="radar-readout">Ubicación aproximada · {visibleJobs.length} ofertas</span><label className="radar-radius-select">Radio<select aria-label="Radio del radar" value={radarRadiusKm} onChange={(event) => { setRadarRadiusKm(Number(event.target.value)); setSelectedId(null); }}>{radarRadiusCounts.map(({ radius, count }) => <option key={radius} value={radius}>{radius} km · {count} ofertas</option>)}</select></label></div>}</div>
           {mode === "jobs" && <>
-          <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : selectedSkill ? `Ofertas con ${selectedSkill}` : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && !showHidden && !showFavorites ? "…" : `${showHidden ? archivedJobs.length : showFavorites ? favoriteJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "archivadas" : showFavorites ? "guardadas" : "en mapa"}`}</span>{selectedSkill && !showHidden && !showFavorites && <button className="clear-skill-filter" type="button" onClick={() => setSelectedSkill(null)} aria-label="Quitar filtro de competencia" title="Quitar filtro de competencia">×</button>}</div></div>
+          <div className="job-list-header"><span>{showHidden ? "Ofertas ocultas" : showFavorites ? "Favoritos" : selectedSkill ? `Ofertas con ${selectedSkill}` : selectedDistrict ? `Ofertas en ${selectedDistrict.district}` : "Ofertas recientes"}</span><div className="job-list-tools"><span>{loading && jobs.length === 0 && !showHidden && !showFavorites ? "…" : `${showHidden ? archivedJobs.length : showFavorites ? favoriteJobs.length : visibleJobs.filter((job) => job.latitude !== null && job.longitude !== null).length} ${showHidden ? "archivadas" : showFavorites ? "guardadas" : "en mapa"}`}</span>{selectedSkill && !showHidden && !showFavorites && <button className="clear-skill-filter" type="button" onClick={() => setSelectedSkill(null)} aria-label="Quitar filtro de competencia" title="Quitar filtro de competencia">×</button>}</div></div>
           <div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites], ["favorites", "★ fav", showFavorites], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}>{view === "hidden" && <IconEyeOff />}{label}</button>)}</div>
-          {showHidden && <div className="archive-filters" aria-label="Filtrar archivo por motivo">{ARCHIVE_FILTERS.map(([value, label]) => <button key={value} type="button" className={archiveReason === value ? "active" : ""} onClick={() => setArchiveReason(value)}>{label}</button>)}</div>}
 
           {statusError && <div className="status-error">{statusError}</div>}
-          <div className="job-list" ref={containerRef}>{loading && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros. Prueba a limpiar los filtros o ampliar la antigüedad."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{bottomSpacerHeight > 0 && <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />}</div>
+          <div className="job-list" ref={containerRef}>{loading && jobs.length === 0 && !showHidden && !showFavorites && <div className="empty-state">Buscando ofertas<LoadingDots /></div>}{!loading && error && !showHidden && !showFavorites && <div className="empty-state error-state">{error}</div>}{!loading && !error && listedJobs.length === 0 && <div className="empty-state">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros. Prueba a limpiar los filtros o ampliar la antigüedad."}</div>}{trimmed && <div style={{ height: spacerHeight }} aria-hidden="true" />}{pagedJobs.map((job) => <JobCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onMarkApplied={(target) => void markApplied(target)} onQuickHide={(target) => void hideJob(target)} onRestore={(target) => void restoreJob(target)} />)}{bottomSpacerHeight > 0 && <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />}</div>
           </>}
         </aside>
 
@@ -613,17 +680,19 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
               selectedJob={selectedJob}
 
               statusBusy={statusBusy}
-              hideReasonFor={hideReasonFor}
-              hideReason={hideReason}
               onToggleFavorite={(job) => void toggleFavorite(job)}
+              onMarkApplied={(job) => void markApplied(job)}
+              onQuickHide={(job) => void hideJob(job)}
               onRestore={(job) => void restoreJob(job)}
-              onOpenHideForm={(jobId) => { setHideReasonFor(jobId); setHideReason(""); }}
-              onCancelHideForm={() => { setHideReasonFor(null); setHideReason(""); }}
-              onChangeHideReason={setHideReason}
-              onConfirmHide={() => void hideSelectedJob()}
             />
           ) : mode === "analysis" ? (
-            <AnalysisView onApplyFilter={applyAnalysisFilter} onContextChange={setAnalysisContext} />
+            <AnalysisView scope={analysisQueryScope} scopeLabels={analysisLabels} onContextChange={setAnalysisContext}
+              resetRevision={viewResetRevision} onDetailOpenChange={setAnalysisDetailOpen}
+              onRestoreScope={restoreAnalysisScope}
+              onApplyChartFilter={(key, value) => {
+                if (key === "skill") setSelectedSkill(value);
+                else updateFilter(key, value);
+              }} />
           ) : mode === "applications" ? (
             <ApplicationsView onContextChange={onApplicationsContext} />
           ) : mode === "cvs" ? (
@@ -636,6 +705,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                     setSelectedDistrictKey(event.target.value || null); setSelectedId(null);
                   }}>
                     <option value="">Todos los distritos</option>
+                    {selectedDistrictKey && !selectedDistrict && <option value={selectedDistrictKey}>{selectedDistrictKey} · 0</option>}
                     {districtStats.map((district) => <option key={district.key} value={district.key}>{district.district} · {district.count}</option>)}
                   </select> : <span className="radar-location">{radarLabel || radarDistrict?.district || "Lima y Callao"}</span>}
                   <small>{marketLabel} · {filters.max_age_days} días · Lima/Callao</small>
@@ -643,22 +713,17 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
                 <div className="view-tabs map-view-toggle" role="tablist" aria-label="Tipo de mapa">{([["heatmap", "Distritos"], ["radar", "Radar"]] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={mode === value} className={`view-tab ${mode === value ? "active" : ""}`} onClick={() => changeMode(value)}>{label}</button>)}</div>
               </div>
               <div className={`map-wrap ${mode === "radar" ? "radar-active" : ""}`}>
-                <MapView radarCounts={radarCountsMap} onPickRadarCenter={(center) => pickRadarCenter(center, "PUNTO EN MAPA")} jobs={mode === "radar" ? visibleJobs : portalJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
-                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span title={currentMarket?.name}>{showHidden ? "Archivo" : showFavorites ? "Favoritos" : "Ofertas"}</span><div className="offer-scroll-tools"><strong>{loading && !showHidden && !showFavorites ? "…" : signalJobs.length.toString()}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites], ["favorites", "favoritos", showFavorites], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-label={label} title={label} aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}><ViewIcon view={view} /></button>)}</div></div></div><div className="offer-scroll-list" ref={containerRef2}>{trimmed2 && <div style={{ height: spacerHeight2 }} aria-hidden="true" />}{pagedJobsMap.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onQuickHide={(target) => void hideJob(target, "not_interested")} onRestore={(target) => void restoreJob(target)} />)}{bottomSpacerHeight2 > 0 && <div style={{ height: bottomSpacerHeight2 }} aria-hidden="true" />}{loading && !showHidden && !showFavorites && <span role="status" className="offer-scroll-empty">Cargando ofertas del mercado…</span>}{!loading && error && <span className="offer-scroll-empty" role="alert">{error}</span>}{!loading && !error && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros. Amplía la antigüedad o limpia los filtros."}</span>}</div></aside>}
+                <MapView key={viewResetRevision} radarCounts={radarCountsMap} onPickRadarCenter={(center) => pickRadarCenter(center, "PUNTO EN MAPA")} jobs={mode === "radar" ? visibleJobs : portalJobs} mode={mode} radarCenter={radarCenter} radarRadiusKm={radarRadiusKm} radarDistrictKey={radarDistrictKey} selectedDistrictKey={selectedDistrictKey} onSelectJob={(jobId) => { const job = visibleJobs.find((item) => item.id === jobId); if (job) selectJob(job); }} onSelectDistrict={selectDistrict} />
+                {(mode === "heatmap" || mode === "radar") && <aside className="offer-scroll" aria-label="Ofertas visibles" style={offerPanelHeight ? { height: `${offerPanelHeight}px` } : undefined}><div className="offer-resize-handle" role="separator" aria-label="Ajustar altura de ofertas" onPointerDown={startOfferResize} /><div className="offer-scroll-heading"><span title={currentMarket?.name}>{showHidden ? "Archivo" : showFavorites ? "Favoritos" : "Ofertas"}</span><div className="offer-scroll-tools"><strong>{loading && jobs.length === 0 && !showHidden && !showFavorites ? "…" : signalJobs.length.toString()}</strong><div className="view-tabs" role="tablist" aria-label="Vista de ofertas">{([["active", "activas", !showHidden && !showFavorites], ["favorites", "favoritos", showFavorites], ["hidden", "archivo", showHidden]] as const).map(([view, label, active]) => <button key={view} type="button" role="tab" aria-label={label} title={label} aria-selected={active} className={`view-tab ${view} ${active ? "active" : ""}`} onClick={() => void switchView(view)}><ViewIcon view={view} /></button>)}</div></div></div><div className="offer-scroll-list" ref={containerRef2}>{trimmed2 && <div style={{ height: spacerHeight2 }} aria-hidden="true" />}{pagedJobsMap.map((job) => <OfferSignalCard key={job.id} job={job} selected={selectedId === job.id} showHidden={showHidden} onSelect={selectJob} onToggleFavorite={toggleFavorite} onMarkApplied={(target) => void markApplied(target)} onQuickHide={(target) => void hideJob(target)} onRestore={(target) => void restoreJob(target)} />)}{bottomSpacerHeight2 > 0 && <div style={{ height: bottomSpacerHeight2 }} aria-hidden="true" />}{!loading && error && <span className="offer-scroll-empty" role="alert">{error}</span>}{!loading && !error && signalJobs.length === 0 && <span className="offer-scroll-empty">{showHidden ? "> archivo vacío" : showFavorites ? "> sin favoritos guardados" : "No hay ofertas con estos filtros. Amplía la antigüedad o limpia los filtros."}</span>}</div></aside>}
                 {selectedJob && (
                   <MapJobPopover
                     selectedJob={selectedJob}
                     expandedDescriptionId={expandedDescriptionId}
-                    hideReasonFor={hideReasonFor}
-                    hideReason={hideReason}
                     statusBusy={statusBusy}
-                    onClose={() => { setSelectedId(null); setExpandedDescriptionId(null); setHideReasonFor(null); setHideReason(""); }}
-                    onOpenStudio={(jobId) => { setStudioJobId(jobId); selectView("cvs"); }}
+                    onClose={() => { setSelectedId(null); setExpandedDescriptionId(null); }}
                     onToggleDescription={(jobId) => setExpandedDescriptionId((current) => current === jobId ? null : jobId)}
-                    onOpenHideForm={(jobId) => { setHideReasonFor(jobId); setHideReason(""); }}
-                    onCancelHideForm={() => { setHideReasonFor(null); setHideReason(""); }}
-                    onChangeHideReason={setHideReason}
-                    onConfirmHide={() => void hideSelectedJob()}
+                    onQuickHide={(job) => void hideJob(job)}
+                    onMarkApplied={(job) => void markApplied(job)}
                     onRestore={(job) => void restoreJob(job)}
                   />
                 )}

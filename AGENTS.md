@@ -26,46 +26,40 @@ Backend (`src/radar/`):
 - `mcp/server.py`: stdio MCP server over the registry. `mcp_config.py` + `api_mcp.py`: "Connect an AI client" (snippets and confirmed install for Claude Desktop, Cursor, Gemini CLI).
 - `capture.py` (`radar refresh`), `scheduled_capture.py`, `source_fetch.py`: the scheduled market capture, cross-platform and driven by the active pack. `scheduler.py`: in-process scheduler used where there is no systemd timer. `refresh.py`: the in-app "update now" run (same ingestion, in-process).
 - `app.py` (`radar-app`): desktop entry (API + window + scheduler, `--smoke`). `paths.py`: OS-specific data/state/frontend folders. `security.py`: Host/Origin guard, headers, file permissions. `settings.py`: settings and secrets (OS credential store on Windows).
-- `insights.py`: read-only queries behind open questions (job card, fit, demand, breakdowns, salaries, SQL). `skill_export.py` generates `docs/skills/radar/SKILL.md`.
+- `analysis.py`: deterministic scoped overview and bucket drill-down, reusing `list_jobs` and shared approximate location inference. `insights.py`: read-only queries behind open questions (job card, fit, demand, breakdowns, salaries, SQL). `skill_export.py` generates `docs/skills/radar/SKILL.md`.
 - `cv_targets.py`, `cv_baseline.py`, `cv_plan.py`, `cv_build.py` (deterministic selection), `cv_doc.py` (per-offer document, operations, suggestions), `cv_facts.py` (fact guard), `cv_render.py` (templates, PDF, hit map, page images), `cv_packages.py` (folder per application), `cv_docx.py`, `cv_pdf.py`, `cv_edit.py`, `cv_import.py`, `cv_profile.py`, `cv_photo.py`, `profile_edit.py`, `processes.py`: CV, profile and recruitment process logic. See `docs/cv.md`.
 - `maintenance.py`, `system.py`: classification audit/reclassification, system status, systemd timer. Closed action lists, confirmation, backup first; they never delete offers.
 - `help.md` + `help.py`: curated product help; the agent explains the product only from it (`get_help`). Update it when a visible feature changes.
 
 Frontend (`frontend/`):
 
-- `components/RadarClient.tsx` (+ `components/radar/JobCards.tsx`, `components/radar/JobDetailViews.tsx`, `lib/radar-format.tsx`): state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx` (+ `components/analysis.css`), `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
+- `components/RadarClient.tsx` (+ `components/radar/JobCards.tsx`, `components/radar/JobDetailViews.tsx`, `lib/radar-format.tsx`): state, filters, offers, popups, map tools. `MapView.tsx` (MapLibre), `LeafletMapView.tsx` (fallback without WebGL2), `AnalysisView.tsx` (scoped overview, + `components/analysis.css`, `lib/analysis-api.ts`, `lib/analysis-scope.ts`), `AnalysisSqlView.tsx` (optional global read-only SQL), `CvView.tsx` (+ `lib/cv-types.ts`, `lib/cv-api.ts`, `components/cv.css`).
 - `components/ApplicationsView.tsx` (+ `applications.css`): the secondary application history; `ProcessesView.tsx` and `ProcessForm.tsx` implement response-driven follow-up. `scripts/copy-maplibre-worker.mjs` (npm `prebuild`) copies the MapLibre 6 worker to `public/maplibre/`, served at `/maplibre`; without it the map is blank. Chat links `radar:job:<id>` open an offer through the `radar:open-job` event (`agent/Markdown.tsx`).
 - `components/agent/`: shared chat (`useAgentChat`, `AgentChatPanel`) and the desktop window (`AgentDock`, mounted in `app/radar/page.tsx`). Two modes: floating window and panel pinned right (`--agent-dock-w`, container `.radar-stage`). It exists only when the agent is enabled; do not reintroduce a permanent button when it is off (only the link to `/ajustes` remains). `commands.ts` holds the `/` commands (`local` ones use the API and spend no tokens; add one = one entry in `COMMANDS`). `Markdown.tsx` is the safe renderer (no raw HTML, only http/https/mailto links). `RadarMark.tsx` is the agent symbol.
 - `components/CvStudio.tsx` (+ `cv-studio.css`, `lib/cv-studio-api.ts`): the Studio tab; it asks the agent dock to pin itself (`radar:agent-layout` event) and publishes `cvStudio` in the agent context.
-- `components/mobile/` and `app/m/`: the PWA at `/m`. `public/` holds manifest and service worker.
+- `components/settings/`: first-run, settings (`/ajustes`), onboarding, MCP connect and profile editor, with the shared terminal styles (`terminal.css`). The mobile PWA (`/m`) was archived in `legacy/mobile/`.
 - `app/globals.css` (layout, graphite theme, popups, scrolls), `lib/api.ts` (HTTP client).
 - `frontend/out/`: static export served by FastAPI. Built by `npm run build`, **not versioned** (gitignored); the launcher builds it if missing. Never edit it by hand.
 
-`packaging/` (PyInstaller spec, Inno Setup script) and `.github/workflows/release.yml` build the Windows installer; see `docs/packaging.md`. `legacy/postgres/` is a historical artifact (old PostgreSQL migrations, compose file, migration script). It is never executed; do not add files there.
+`packaging/` (PyInstaller spec, Inno Setup script) and `.github/workflows/release.yml` build the Windows installer; see `docs/packaging.md`. `legacy/mobile/` (archived mobile PWA) and `legacy/postgres/` are historical artifacts (old PostgreSQL migrations, compose file, migration script). It is never executed; do not add files there.
 
 ## Desktop interface contracts
 
 - The main screen is `/radar`, centered on Lima/Callao and the `Districts` view by default.
-- The map fills the background. Controls are floating tools: Filters, Radar, Analysis and CVs. Do not reintroduce a top bar, a bottom bar, map zoom controls or map attribution badges.
+- The map fills the background. Controls are floating tools: Filters, Radar and Analysis. My CV is optional through Settings or Prepare CV in an offer. Do not reintroduce a top bar, a bottom bar, map zoom controls or map attribution badges.
 - Monochrome design: black, graphite, grays. No green accents without an explicit product decision.
 - Auto-refresh queries Computrabajo (native HTTP adapter), Bumeran, Empleos Perú, and Indeed/LinkedIn (through JobSpy) by default. Each portal runs isolated so one failure does not stop the refresh.
 - Districts shows compact labels `District · count` with collision handling and a selector listing every district/count; avoid overlapping circles and a permanent ranking panel.
 - Radar requires a selected district and offers 2, 5 and 10 km radii. Its district selector may open upward; the radius uses a compact select and the panel floats bottom-right. Salary uses optional From/To inputs without preset buttons.
-- Procesos (`ProcessesView.tsx`, ✓ in the rail) is a full-screen optional follow-up over `/api/processes`. Company and role suffice; job linkage is optional. “Me contactaron” opens a confirmation form. `ApplicationsView.tsx` remains secondary history; legacy endpoints keep their meaning. Never automate applying.
-- Analysis and Mi CV replace the map with full-screen views, leaving room for the toolbar. Mi CV edits the real profile and opens offer-specific PDF previews; Studio is optional via "Editar en detalle". Mi CV owns prepared files and contextual comparisons of ★ offers. Historical target CVs remain hypothetical and must never be exported as real CVs. Do not create another target-selection mechanism.
+- Mi búsqueda (`ProcessesView.tsx`, ✓ in the rail) puts response-driven processes above a compact eight-row submission history from `ApplicationsView.tsx`. Company and role suffice for processes; job linkage is optional. “Me contactaron” opens a confirmation form. Row details hold the actions; a single page scroll adapts to the agent panel. Legacy endpoints keep their meaning. Never automate applying.
+- Analysis and Mi CV replace the map with full-screen views, leaving room for the toolbar. Analysis starts with the shared map scope and native charts; SQL is explicitly global under Advanced. Analysis compares requirements of up to four ★ or submitted offers, opening each matrix cell for factual evidence. Saved views store relative filters. Mi CV is reached from Settings (`/radar?view=cvs`), without a primary rail button. It opens on factual data unless an offer requested a document, and owns prepared files and PDF previews; Studio is optional via "Editar en detalle". Historical target CVs remain hypothetical and must never be exported as real CVs. Do not create another target-selection mechanism.
 - Offers appear in a floating tray, resizable from the top handle, with internal scroll. Cards keep a compact height even with few offers. The tray also exposes compact icons to toggle favorites and hidden offers. Cards expose only favorite and archive actions; no application checkbox or p shortcut.
 - Per signal, the source (`Indeed`, `LinkedIn`, …) appears next to the area on hover or focus; the title is the direct link to the original offer and must not open the detail by accident.
 - The company may show a discreet `⌖` icon that opens an external Google Maps search (company + location). Do not turn it into an API integration or auto-draw sites on the map.
 - The filter panel has portal and competency selectors; both reuse the API filters and stay in sync with the map.
-- In the detail, hide is only an eye icon next to the close `X`. The reason appears in a separate popup to the left of the detail; do not turn it back into an inline form.
+- In the map detail popover (`MapJobPopover`), `✓` (Postulé) and hide (eye icon) sit next to the close `X` at the top-right; there is no bottom action bar (`Me contactaron` / `Preparar CV` live in Mi búsqueda / Mi CV).
+- Maintenance (`system.py` `run_maintenance`): closed `TASKS` include `repair_data`, `expire_stale`, `check_applications`, `market_snapshot`, `backup`, `deduplicate_jobs` (cross-portal/district merge within 30 days, same geo bucket), and `compact_db` (prunes redundant `job_observations`, clears old `job_sources.raw_payload`, deletes orphaned `job_market_classifications`, and runs `VACUUM` after automatic backup).
 - Descriptions render with the local Markdown renderer. Never use `dangerouslySetInnerHTML` with external content.
-
-## Mobile contracts (`/m`)
-
-- A separate interface from the map: the desktop floating-bar rules do not apply.
-- Gray and black terminal look: monospaced, dark only, no color accents (deliberate exception: the agent chat uses the accent palette of `mobile.css`, Claude Code style), `>` on titles and `[SECTION]` labels, 44 px touch targets.
-- The mobile map uses Leaflet with OpenStreetMap tiles (CARTO now requires a key) and one point per place; no polygons or per-offer layers.
-- The service worker never caches `/api/chat`, `/api/agent` or `/api/auth`.
 
 ## Tools and agent contracts
 

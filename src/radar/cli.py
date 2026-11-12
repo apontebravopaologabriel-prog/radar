@@ -59,7 +59,7 @@ def main() -> None:
     snapshot.add_argument("--date", default=None, dest="snapshot_date")
     application = sub.add_parser("application", help="Registra el estado de una postulación")
     application.add_argument("--job-id", required=True)
-    application.add_argument("--status", default="saved", choices=["new", "reviewed", "saved", "ignored", "applied", "interview", "offer", "rejected", "expired"])
+    application.add_argument("--status", default="saved", choices=["new", "reviewed", "saved", "ignored", "applied", "responded", "interview", "offer", "rejected", "expired"])
     application.add_argument("--notes", default=None)
     importer = sub.add_parser("import-jobs", help="Importa ofertas desde CSV/JSON de un portal")
     importer.add_argument("--file", required=True)

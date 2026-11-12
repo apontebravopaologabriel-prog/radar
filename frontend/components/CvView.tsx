@@ -9,15 +9,15 @@ import { MY_CV_EVENT, PREPARE_CV_EVENT } from "../lib/cv-events";
 import type { CvSelectionItem, CvTarget } from "../lib/cv-types";
 import CvHistoryEditor from "./CvHistoryEditor";
 import CvStudio, { type StudioContext } from "./CvStudio";
-import CvInsights, { RequirementTable } from "./CvInsights";
+import { RequirementTable } from "./CvInsights";
 import MyCvProfile from "./MyCvProfile";
 import "./cv.css";
 
-type CvMode = "prepare" | "compare" | "profile";
+type CvMode = "prepare" | "profile";
 
 export default function CvView({ onStudioContext, openJobId, onOpenJobConsumed }: { onStudioContext?: (context: StudioContext | null) => void; openJobId?: string | null; onOpenJobConsumed?: () => void }) {
   const [career, setCareer] = useState<Career | null>(null);
-  const [mode, setMode] = useState<CvMode>("prepare");
+  const [mode, setMode] = useState<CvMode>(openJobId ? "prepare" : "profile");
   const [jobId, setJobId] = useState<string | null>(openJobId ?? null);
   const [advanced, setAdvanced] = useState(false);
   const [reqOpen, setReqOpen] = useState(false);
@@ -190,13 +190,10 @@ export default function CvView({ onStudioContext, openJobId, onOpenJobConsumed }
       <aside className="cv-rail" aria-label="Fuentes y modos de CV">
         <nav className="cv-rail-modes" aria-label="Modo">
           <button type="button" className={mode === "prepare" ? "active" : ""} onClick={() => setMode("prepare")}>
-            CV
-          </button>
-          <button type="button" className={mode === "compare" ? "active" : ""} onClick={() => setMode("compare")}>
-            Matriz{starred.length ? ` · ${starred.length}` : ""}
+            Documentos
           </button>
           <button type="button" className={mode === "profile" ? "active" : ""} onClick={() => setMode("profile")}>
-            Datos
+            Mis datos
           </button>
         </nav>
 
@@ -331,12 +328,6 @@ export default function CvView({ onStudioContext, openJobId, onOpenJobConsumed }
               <p>Elige una de tus ★ o busca cualquier puesto en la columna izquierda para previsualizar y descargar tu CV en vivo.</p>
             </div>
           )
-        )}
-
-        {mode === "compare" && (
-          <div className="cv-stage-pad">
-            <CvInsights />
-          </div>
         )}
 
         {mode === "profile" && (

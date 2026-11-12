@@ -3,14 +3,7 @@
    las reglas de escritorio van en el @media del final para que ganen la cascada sobre las de aquí arriba. */
 .m-app .m-main:has(.settings-stack) { max-width: none; margin: 0; padding: 22px 16px 40px; }
 .settings-stack > .m-head { padding: 0 0 10px; }
-.set-shell { display: flex; flex-direction: column; }
-
-.set-tabs, .set-rail { display: flex; gap: 2px; margin: 4px 0 18px; border-bottom: 1px solid var(--line); overflow-x: auto; }
-.set-rail button, .set-tabs button { min-height: 0; padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.set-rail button::before, .set-tabs button::before { content: "  "; color: var(--muted); }
-.set-rail button:hover, .set-tabs button:hover { color: var(--muted); }
-.set-rail button.active, .set-tabs button.active { border-bottom-color: var(--ink); color: var(--ink); }
-.set-rail button.active::before, .set-tabs button.active::before { content: "> "; color: var(--muted); }
+.set-shell { display: flex; flex-direction: column; }.set-rail{ display: flex; gap: 2px; margin: 4px 0 18px; border-bottom: 1px solid var(--line); overflow-x: auto; }.set-rail button{ min-height: 0; padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }.set-rail button::before{ content: "  "; color: var(--muted); }.set-rail button:hover{ color: var(--muted); }.set-rail button.active{ border-bottom-color: var(--ink); color: var(--ink); }.set-rail button.active::before{ content: "> "; color: var(--muted); }
 
 .set-content { min-width: 0; }
 

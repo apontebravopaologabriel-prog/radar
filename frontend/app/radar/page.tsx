@@ -5,7 +5,7 @@ import AuthGate from "../../components/AuthGate";
 import AgentDock from "../../components/agent/AgentDock";
 import ReleaseNotice from "../../components/ReleaseNotice";
 import QuickTips from "../../components/QuickTips";
-import FirstRun from "../../components/mobile/FirstRun";
+import FirstRun from "../../components/settings/FirstRun";
 import RadarClient from "../../components/RadarClient";
 import { useState } from "react";
 import type { AgentContext } from "../../lib/mobile-api";

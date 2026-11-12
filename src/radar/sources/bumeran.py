@@ -3,7 +3,6 @@ from __future__ import annotations
 import html
 import json
 import re
-import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime, timedelta
@@ -14,6 +13,10 @@ from radar.domain.models import RawJob
 BASE_URL = "https://www.bumeran.com.pe"
 SEARCH_API_URL = f"{BASE_URL}/api/avisos/searchV2"
 REQUEST_TIMEOUT = 20.0
+# The public search matches every term (AND), so a long phrase of the pack returns nothing even when the
+# market has offers for that role. Retry with progressively shorter prefixes before reporting an empty page.
+QUERY_WORD_LIMITS = (4, 3, 2)
+_STOPWORDS = frozenset({"de", "del", "la", "el", "los", "las", "y", "e", "en", "para", "con", "a", "al", "por"})
 
 _USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -24,6 +27,32 @@ _USER_AGENT = (
 def _slugify(text: str) -> str:
     cleaned = re.sub(r"[^\w\s-]", " ", text.lower())
     return re.sub(r"[\s_]+", "-", cleaned).strip("-")
+
+
+class BumeranUnavailable(RuntimeError):
+    """Bumeran did not answer at all. An answer without offers is still a successful, empty search."""
+
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _query_variants(query: str) -> list[str]:
+    """La frase completa y luego prefijos más cortos, sin dejar de ser una consulta con sentido."""
+    words = query.split()
+    variants = [query]
+    for size in QUERY_WORD_LIMITS:
+        if size >= len(words):
+            continue
+        head = words[:size]
+        while head and head[-1].lower() in _STOPWORDS:
+            head.pop()
+        if len([word for word in head if word.lower() not in _STOPWORDS]) < 2:
+            continue
+        candidate = " ".join(head)
+        if candidate.lower() not in {variant.lower() for variant in variants}:
+            variants.append(candidate)
+    return variants
 
 
 def _strip_html(raw: str | None) -> str:
@@ -46,10 +75,24 @@ class BumeranSource:
         self.timeout = timeout
 
     def search(self, query: str, location: str | None = None, limit: int = 25) -> list[RawJob]:
-        items = self._search_api(query, location, limit)
-        if not items:
-            items = self._search_html(query, location, limit)
-        return [self._to_job(item) for item in items[:limit]]
+        for text in _query_variants(query):
+            errors: list[Exception] = []
+            answered = False
+            for fetch in (self._search_api, self._search_html):
+                try:
+                    items = fetch(text, location, limit)
+                except Exception as exc:  # noqa: BLE001 - decided below: an answer or a source failure
+                    errors.append(exc)
+                    continue
+                answered = True
+                if items:
+                    return [self._to_job(item) for item in items[:limit]]
+            if not answered:
+                # Shortening the phrase cannot fix a portal that is not answering; fail the step instead
+                # of reporting an empty market (docs/data-sources.md).
+                raise BumeranUnavailable(f"Bumeran no respondió: {str(errors[-1])[:200]}",
+                                         getattr(errors[-1], "code", None)) from errors[-1]
+        return []
 
     def _search_api(self, query: str, location: str | None, limit: int) -> list[dict[str, Any]]:
         search_text = f"{query} {location}".strip() if location and location.lower() != "lima" else query
@@ -74,13 +117,10 @@ class BumeranSource:
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                raw = resp.read().decode("utf-8", errors="replace")
-                data = json.loads(raw)
-                return self._extract_jobs(data)
-        except (urllib.error.URLError, TimeoutError, ValueError, OSError):
-            return []
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            data = json.loads(raw)
+            return self._extract_jobs(data)
 
     def _search_html(self, query: str, location: str | None, limit: int) -> list[dict[str, Any]]:
         slug = _slugify(query)
@@ -98,12 +138,9 @@ class BumeranSource:
                 "Accept-Language": "es-PE,es;q=0.9",
             },
         )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                page = resp.read().decode("utf-8", errors="replace")
-                return self._extract_from_html(page, base_url=self.base_url)[:limit]
-        except (urllib.error.URLError, TimeoutError, OSError):
-            return []
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            page = resp.read().decode("utf-8", errors="replace")
+            return self._extract_from_html(page, base_url=self.base_url)[:limit]
 
     @staticmethod
     def _extract_jobs(payload: Any) -> list[dict[str, Any]]:

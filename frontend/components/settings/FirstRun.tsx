@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import "./mobile.css";
+import "./terminal.css";
 import Onboarding from "./Onboarding";
 import { setupApi } from "../../lib/setup-api";
 

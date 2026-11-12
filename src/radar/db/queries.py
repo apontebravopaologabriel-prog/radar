@@ -172,7 +172,7 @@ def list_jobs(
         clauses.append("NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
     if not include_applied:
         clauses.append(
-            "NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)"
+            "NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','responded','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)"
         )
     limit_clause = ""
     if limit is not None:
@@ -226,7 +226,8 @@ def list_hidden_jobs() -> list[dict[str, Any]]:
         j.published_at, ia.name AS primary_area, j.sector, j.relevance_tier, j.relevance_score,
         j.relevance_evidence, j.description_clean,
         j.hours_per_week, j.schedule_text, j.application_status, j.application_checked_at,
-        jus.status AS user_status, jus.reason AS user_reason, 1 AS is_favorite,
+        jus.status AS user_status, jus.reason AS user_reason,
+        EXISTS (SELECT 1 FROM job_user_favorites f WHERE f.job_id=j.id) AS is_favorite,
         (SELECT a.status FROM applications a WHERE a.job_id=j.id) AS user_application
         FROM jobs j
         LEFT JOIN companies c ON c.id=j.company_id
@@ -272,9 +273,11 @@ _USER_LIST_SQL = """SELECT j.id, j.title, c.name AS company, j.location, j.senio
 
 
 def list_favorite_jobs() -> list[dict[str, Any]]:
-    """Devuelve las ofertas guardadas por el usuario, más recientes primero."""
-    sql = _USER_LIST_SQL.format(join="JOIN job_user_favorites juf ON juf.job_id=j.id", where="1=1",
-                                order="juf.created_at DESC, j.published_at DESC NULLS LAST")
+    """Ofertas guardadas por el usuario, más recientes primero; una oferta oculta sigue oculta."""
+    sql = _USER_LIST_SQL.format(
+        join="JOIN job_user_favorites juf ON juf.job_id=j.id",
+        where="COALESCE(jus.status, 'visible') <> 'hidden'",
+        order="juf.created_at DESC, j.published_at DESC NULLS LAST")
     with connection() as conn:
         rows = conn.execute(sql).fetchall()
     return [_row_to_dict(row) for row in rows]
@@ -289,9 +292,9 @@ def get_job(job_id: str) -> dict[str, Any] | None:
 
 
 def list_applied_jobs() -> list[dict[str, Any]]:
-    """Ofertas a las que el usuario postuló (postulada, entrevista u oferta), la postulación más reciente primero."""
+    """Ofertas postuladas, con respuesta, en entrevista u oferta; la postulación más reciente primero."""
     sql = _USER_LIST_SQL.format(
-        join="JOIN applications ap ON ap.job_id=j.id AND ap.status IN ('applied','interview','offer')", where="1=1",
+        join="JOIN applications ap ON ap.job_id=j.id AND ap.status IN ('applied','responded','interview','offer')", where="1=1",
         order="COALESCE(ap.applied_at, ap.updated_at) DESC")
     with connection() as conn:
         rows = conn.execute(sql).fetchall()
@@ -317,7 +320,7 @@ def skill_overview(
     ]
     params: list[Any] = list(visible_date_bounds(max_age_days))
     if not include_applied:
-        clauses.append("NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)")
+        clauses.append("NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','responded','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)")
     if area:
         clauses.append("EXISTS (SELECT 1 FROM job_areas ja2 JOIN industrial_areas ia2 ON ia2.id=ja2.area_id WHERE ja2.job_id=j.id AND ja2.is_primary=1 AND ia2.name=%s)")
         params.append(area)
@@ -502,7 +505,7 @@ def recommendations(
     if not include_hidden:
         extra_filters.append("AND NOT EXISTS (SELECT 1 FROM job_user_status jus WHERE jus.job_id=j.id AND jus.status='hidden')")
     if not include_applied:
-        extra_filters.append("AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)")
+        extra_filters.append("AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id=j.id AND a.status IN ('applied','responded','interview','offer','rejected')) AND NOT EXISTS (SELECT 1 FROM processes p WHERE p.job_id=j.id)")
     extra_filter_sql = ("\n            " + "\n            ".join(extra_filters)) if extra_filters else ""
 
     with connection() as conn:
@@ -613,18 +616,46 @@ def skill_history(limit: int = 180) -> list[dict[str, Any]]:
     return [{"date": str(x[0]), "skill": x[1], "value": int(x[2])} for x in rows]
 
 
-def applications(limit: int = 50) -> list[dict[str, Any]]:
+APPLICATION_ARCHIVED_AT = """CASE WHEN a.status IN ('ignored', 'rejected') THEN COALESCE(
+                (SELECT MIN(e.occurred_at) FROM application_events e
+                 WHERE e.application_id=a.id AND e.to_status IN ('ignored', 'rejected')
+                 AND e.occurred_at > COALESCE(
+                    (SELECT MAX(previous.occurred_at) FROM application_events previous
+                     WHERE previous.application_id=a.id AND previous.to_status NOT IN ('ignored', 'rejected')), '')
+                ), a.updated_at) END"""
+
+
+def applications(limit: int = 50, *, include_tracking_details: bool = False, tracking_since: str | None = None) -> list[dict[str, Any]]:
+    archive_expression = APPLICATION_ARCHIVED_AT if include_tracking_details else "NULL"
+    archive_origin = "0"
+    scope = ""
+    order = "ORDER BY a.updated_at DESC LIMIT %s"
+    parameters: tuple = (min(max(limit, 1), 200),)
+    if tracking_since is not None:
+        archive_origin = """CASE WHEN a.status IN ('rejected', 'ignored') THEN COALESCE((
+            SELECT e.to_status='applied' FROM application_events e
+            WHERE e.application_id=a.id AND e.to_status NOT IN ('rejected', 'ignored')
+            ORDER BY e.occurred_at DESC LIMIT 1), 0) ELSE 0 END"""
+        scope = f"""WHERE a.status='applied' OR (
+            a.status IN ('rejected', 'ignored') AND (
+                EXISTS (SELECT 1 FROM processes p WHERE p.job_id=a.job_id)
+                OR julianday({APPLICATION_ARCHIVED_AT}) >= julianday(%s)
+            )
+        )"""
+        order = "ORDER BY a.updated_at DESC, a.id"
+        parameters = (tracking_since,)
     with connection() as conn:
         rows = conn.execute(
-            """SELECT a.id, a.job_id, j.title, c.name, a.status, a.notes, a.applied_at, a.updated_at,
+            f"""SELECT a.id, a.job_id, j.title, c.name, a.status, a.notes, a.applied_at, a.updated_at,
             (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY js.last_seen_at DESC LIMIT 1) AS source_url,
-            j.location, j.work_mode, j.salary_min, j.salary_max, j.salary_currency, ia.name AS primary_area
+            j.location, j.work_mode, j.salary_min, j.salary_max, j.salary_currency, ia.name AS primary_area,
+            {archive_expression} AS archived_at, j.published_at, {archive_origin}
             FROM applications a JOIN jobs j ON j.id=a.job_id
             LEFT JOIN companies c ON c.id=j.company_id
             LEFT JOIN job_areas ja ON ja.job_id=j.id AND ja.is_primary=1
             LEFT JOIN industrial_areas ia ON ia.id=ja.area_id
-            ORDER BY a.updated_at DESC LIMIT %s""",
-            (min(max(limit, 1), 200),),
+            {scope} {order}""",
+            parameters,
         ).fetchall()
     return [
         {
@@ -643,6 +674,8 @@ def applications(limit: int = 50) -> list[dict[str, Any]]:
             "salary_max": float(x[12]) if x[12] is not None else None,
             "salary_currency": x[13],
             "primary_area": x[14],
+            **({"archived_at": x[15], "published_at": x[16]} if include_tracking_details else {}),
+            **({"archived_from_applied": bool(x[17])} if tracking_since is not None else {}),
         }
         for x in rows
     ]

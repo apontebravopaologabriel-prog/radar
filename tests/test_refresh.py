@@ -99,19 +99,18 @@ def test_custom_career_endpoint_activates_it_and_refresh_uses_its_queries(monkey
     assert seen and all(c["query"] == "abogado laboral" for c in seen)
 
 
-def test_all_three_markets_use_broad_queries_fairly_without_duplicate_downloads(monkeypatch):
+def test_all_markets_use_broad_queries_fairly_without_duplicate_downloads(monkeypatch):
     from radar.careers import load_pack
-    ids = ['industrial_engineering', 'sistemas_software', 'ingenieria_mecanica']
+    ids = ['industrial_engineering', 'sistemas_software']
     packs = [load_pack(key) for key in ids]
     seen = []
     monkeypatch.setattr(refresh, '_sources', lambda: ['computrabajo'])
     monkeypatch.setattr(refresh, '_run_step', lambda step: seen.append(step) or {})
     refresh.start_refresh(market_ids=ids)
     _wait()
-    assert [step['query'] for step in seen[:3]] == [p.market_queries[0] for p in packs]
+    assert [step['query'] for step in seen[:2]] == [p.market_queries[0] for p in packs]
     expected = {q for p in packs for q in (*p.queries, *p.market_queries)}
     assert {step['query'] for step in seen} == expected
     assert len(seen) == len(expected)
     assert all(step['limit'] == 50 for step in seen)
     assert all(step['market_ids'] == [p.id for p in packs if step['query'] in (*p.queries, *p.market_queries)] for step in seen)
-    assert load_pack('ingenieria_mecanica').name == 'Ingeniería Mecánica'

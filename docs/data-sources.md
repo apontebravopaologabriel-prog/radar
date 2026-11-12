@@ -48,3 +48,18 @@ pages are isolated source failures; Radar does not bypass them or treat them as 
 ## Computrabajo HTML request compatibility (2026-11-09)
 
 The public listing opened normally in a browser, while the original native request received an awselb/2.0 403 before parsing. A standard HTML request with Spanish language negotiation and a compatible User-Agent that explicitly identifies Radar returned HTTP 200 and 20 dated, located cards. The native adapter now uses that request shape for public search/detail. No portal account, personal browser profile, proxy, CAPTCHA handling or new dependency is used. Future 403/challenge responses still fail explicitly and retain source isolation/backoff; this is not a guarantee of uninterrupted portal access.
+
+## Bumeran query matching (2026-11-10)
+
+Bumeran's public search (`/api/avisos/searchV2`) matches every term in the query, so the long phrases used by the
+career packs ("analista de datos reportes Excel", "data scientist machine learning") returned zero offers while the
+same market answered 9–10 offers for the two-word core. The adapter now retries the same step with progressively
+shorter prefixes (4, 3 and 2 words, never ending in a stopword) and keeps the first variant that answers, so
+`analista de datos reportes Excel` resolves as `analista de datos`. The full phrase is always tried first; the
+shortened variants only run when the portal answered with no offers. Classification and relevance tiers still
+filter what enters, so a broader query cannot by itself promote an offer.
+
+The two transport calls no longer swallow errors: when neither the JSON API nor the public HTML page answers,
+`BumeranSource.search` raises `BumeranUnavailable(status_code=…)`. Scheduled capture and the in-app refresh record
+that as a source failure instead of a successful empty market (HTTP 403 also counts towards the source pause).
+`source_fetch` forwards the status from `urllib`'s `HTTPError.code` as well.

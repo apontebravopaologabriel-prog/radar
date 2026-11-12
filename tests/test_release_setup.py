@@ -125,24 +125,6 @@ def test_place_catalog_covers_geometry_and_resolves_ambiguity():
     assert infer_location('Huachipa').place_id == infer_location('Lurigancho-Chosica').place_id
 
 
-@pytest.mark.parametrize(('title','text','relevant'), [
-    ('Ingeniero de diseño mecánico', 'Diseñar componentes mecánicos con SolidWorks.', True),
-    ('Planner de mantenimiento', 'Funciones: Planificar mantenimiento mecanico de bombas y compresores.', True),
-    ('Desarrollador de software', 'Requisitos: Ingeniería Mecánica y Python. Funciones: desarrollar software.', False),
-    ('Técnico mecánico', 'Realizar mantenimiento mecanico de bombas.', False),
-    ('Asistente administrativo', 'Requisitos: SolidWorks, AutoCAD e Ingeniería Mecánica.', False),
-])
-def test_mechanical_market_requires_occupational_evidence(title, text, relevant):
-    from radar.careers import load_pack
-    from radar.classify import classify
-    from radar.domain.models import RawJob
-    from radar.taxonomy import infer_relevance
-
-    pack=load_pack('ingenieria_mecanica'); job=RawJob('test',title,'ACME','https://example.test',description=text)
-    result=classify(job,pack)
-    assert (infer_relevance(job,result.primary_area.value,pack).tier != 'out_of_focus') is relevant
-
-
 def test_cv_mention_at_work_is_not_invented_education():
     result = cv_import.parse_text('Ana Perez\nExperiencia laboral\nTrabajé con estudiantes de Ingeniería Industrial en ACME.\nExcel avanzado', 'industrial_engineering')
     assert result['education'] == []
@@ -207,15 +189,15 @@ def test_reference_score_uses_selected_market_projection():
     from radar.domain.models import RawJob
     from radar.settings import set_setting
 
-    ingest_jobs([RawJob('test','Ingeniero de diseño mecánico','ACME','https://example.test/mec',
-                       location='Lima',description='Diseñar componentes mecánicos en SolidWorks.',published_at=datetime.now(UTC))])
-    set_setting('career', 'ingenieria_mecanica')
-    profile_id=save_profile('Ana',None,['Diseño mecánico y simulación'],['Lima'],[],{})
+    ingest_jobs([RawJob('test','Desarrollador backend Python','ACME','https://example.test/dev',
+                       location='Lima',description='Desarrollar aplicaciones y APIs backend con Python.',published_at=datetime.now(UTC))])
+    set_setting('career', 'sistemas_software')
+    profile_id=save_profile('Ana',None,['Desarrollo de software'],['Lima'],[],{})
     recompute_scores(profile_id)
     [job]=recommendations()['jobs']
-    assert job['fit_assessment']['market_id'] == 'ingenieria_mecanica'
+    assert job['fit_assessment']['market_id'] == 'sistemas_software'
     assert job['fit_assessment']['dimensions']['area']['status'] == 'met'
-    assert any(s['name']=='SolidWorks' for s in job['fit_assessment']['skills'])
+    assert any(s['name']=='Python' for s in job['fit_assessment']['skills'])
 
 
 def test_spanish_months_do_not_invent_missing_months():

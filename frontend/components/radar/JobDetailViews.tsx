@@ -1,6 +1,6 @@
 "use client";
 
-import PreparedCvList from "../PreparedCvList";
+import JobFacts from "./JobFacts";
 import { memo } from "react";
 import { formatDate, formatSalary, renderMarkdown, sourceLabel, sourceName } from "../../lib/radar-format";
 import type { Job } from "../../types";
@@ -11,25 +11,17 @@ import { CompanyMapsLink, IconEyeOff, IconUndo } from "./JobCards";
 export const JobReadingView = memo(function JobReadingView({
   selectedJob,
   statusBusy,
-  hideReasonFor,
-  hideReason,
+  onMarkApplied,
+  onQuickHide,
   onToggleFavorite,
   onRestore,
-  onOpenHideForm,
-  onCancelHideForm,
-  onChangeHideReason,
-  onConfirmHide,
 }: {
   selectedJob: Job | null;
   statusBusy: boolean;
-  hideReasonFor: string | null;
-  hideReason: string;
+  onMarkApplied: (job: Job) => void;
+  onQuickHide: (job: Job) => void;
   onToggleFavorite: (job: Job) => void;
   onRestore: (job: Job) => void;
-  onOpenHideForm: (jobId: string) => void;
-  onCancelHideForm: () => void;
-  onChangeHideReason: (reason: string) => void;
-  onConfirmHide: () => void;
 }) {
   return (
     <div className="job-reading-view">
@@ -66,23 +58,12 @@ export const JobReadingView = memo(function JobReadingView({
           <div className="reading-actions">
             <button className="reading-apply-toggle" type="button" onClick={() => window.dispatchEvent(new CustomEvent(PREPARE_CV_EVENT, { detail: { jobId: selectedJob.id } }))}>Preparar CV</button>
             {selectedJob.url && <a className="reading-apply-btn" href={selectedJob.url} target="_blank" rel="noreferrer">{sourceLabel(selectedJob.url)} ↗</a>}
-<button type="button" className="reading-apply-toggle" onClick={() => startProcess(selectedJob)}>Me contactaron</button>
+            <button type="button" className="reading-apply-toggle applied-action" onClick={() => onMarkApplied(selectedJob)}>✓ Postulé</button>
+            <button type="button" className="reading-apply-toggle" onClick={() => startProcess(selectedJob)}>Me contactaron</button>
             {selectedJob.user_status === "hidden" ? (
               <button className="restore-button icon-only" type="button" aria-label="Restaurar oferta (r)" title="Restaurar oferta (r)" disabled={statusBusy} onClick={() => onRestore(selectedJob)}><IconUndo /></button>
-            ) : hideReasonFor === selectedJob.id ? (
-              <div className="reading-hide-form">
-                <select value={hideReason} onChange={(e) => onChangeHideReason(e.target.value)}>
-                  <option value="" disabled>Selecciona un motivo</option>
-                  <option value="closed">Ya cerró</option>
-                  <option value="not_interested">No me interesa</option>
-                  <option value="duplicate">Oferta duplicada</option>
-                  <option value="other">Otro</option>
-                </select>
-                <button className="restore-button" type="button" disabled={statusBusy || !hideReason} onClick={onConfirmHide}>{statusBusy ? "Guardando…" : "Confirmar"}</button>
-                <button className="cancel-hide" type="button" onClick={onCancelHideForm}>Cancelar</button>
-              </div>
             ) : (
-              <button className="reading-hide-trigger icon-only" type="button" aria-label="Ocultar oferta (x)" title="Ocultar oferta (x)" onClick={() => onOpenHideForm(selectedJob.id)}><IconEyeOff /></button>
+              <button className="reading-hide-trigger icon-only" type="button" aria-label="Archivar oferta (x)" title="Archivar oferta" onClick={() => onQuickHide(selectedJob)}><IconEyeOff /></button>
             )}
           </div>
 
@@ -107,37 +88,32 @@ export const JobReadingView = memo(function JobReadingView({
 export const MapJobPopover = memo(function MapJobPopover({
   selectedJob,
   expandedDescriptionId,
-  hideReasonFor,
-  hideReason,
-  statusBusy,
+  statusBusy = false,
   onClose,
-  onOpenStudio,
   onToggleDescription,
-  onOpenHideForm,
-  onCancelHideForm,
-  onChangeHideReason,
-  onConfirmHide,
+  onQuickHide,
+  onMarkApplied,
   onRestore,
 }: {
   selectedJob: Job;
   expandedDescriptionId: string | null;
-  hideReasonFor: string | null;
-  hideReason: string;
-  statusBusy: boolean;
+  statusBusy?: boolean;
   onClose: () => void;
-  onOpenStudio: (jobId: string) => void;
   onToggleDescription: (jobId: string) => void;
-  onOpenHideForm: (jobId: string) => void;
-  onCancelHideForm: () => void;
-  onChangeHideReason: (reason: string) => void;
-  onConfirmHide: () => void;
-  onRestore: (job: Job) => void;
+  onQuickHide?: (job: Job) => void;
+  onMarkApplied?: (job: Job) => void;
+  onRestore?: (job: Job) => void;
 }) {
   return (
     <>
-      <article className={`job-popover ${expandedDescriptionId === selectedJob.id ? "is-description-expanded" : ""}`}>
-        {selectedJob.user_status !== "hidden" && (
-          <button className="hide-button popover-hide-button" type="button" aria-label="Ocultar oferta" title="Ocultar oferta" onClick={() => onOpenHideForm(selectedJob.id)}>
+      <article aria-label="Detalle de la oferta" className={`job-popover ${expandedDescriptionId === selectedJob.id ? "is-description-expanded" : ""}`}>
+        {onMarkApplied && (
+          <button className="popover-applied-button" type="button" aria-label="Postulé" title="Postulé" disabled={statusBusy} onClick={() => onMarkApplied(selectedJob)}>
+            ✓
+          </button>
+        )}
+        {onQuickHide && selectedJob.user_status !== "hidden" && (
+          <button className="hide-button popover-hide-button" type="button" aria-label="Archivar oferta" title="Archivar oferta" onClick={() => onQuickHide(selectedJob)}>
             <IconEyeOff />
           </button>
         )}
@@ -149,13 +125,7 @@ export const MapJobPopover = memo(function MapJobPopover({
           <CompanyMapsLink job={selectedJob} />
         </p>
         <div className="popover-divider" />
-        <div className="popover-grid">
-          <div><span>Ubicación</span><strong>{selectedJob.district || selectedJob.location || "Pendiente"}</strong></div>
-          <div><span>Modalidad</span><strong>{selectedJob.work_mode === "hybrid" ? "Híbrido" : selectedJob.work_mode === "remote" ? "Remoto" : selectedJob.work_mode === "onsite" ? "Presencial" : "No indicada"}</strong></div>
-          <div><span>Salario</span><strong>{formatSalary(selectedJob)}</strong></div>
-          <div><span>Publicado</span><strong>{formatDate(selectedJob.published_at)}</strong></div>
-          <div><span>Estado de publicación</span><strong>{selectedJob.application_status === "closed" ? "Cerrada" : selectedJob.application_status === "expired" ? "Vencida" : selectedJob.application_status === "open" ? "Abierta según última consulta" : "Vigencia sin verificar"}</strong></div>
-        </div>
+        <JobFacts job={selectedJob} />
         {selectedJob.description && (
           <div className="popover-description-wrap">
             <div
@@ -177,37 +147,14 @@ export const MapJobPopover = memo(function MapJobPopover({
             </div>
           </div>
         )}
-        <PreparedCvList jobId={selectedJob.id} />
-        <div className="popover-actions"><button type="button" className="popover-prepare-cv" onClick={() => startProcess(selectedJob)}>Me contactaron</button>
-          <button className="popover-prepare-cv" type="button" onClick={() => onOpenStudio(selectedJob.id)}>Preparar CV</button>
-          {selectedJob.user_status === "hidden" && (
+        {selectedJob.user_status === "hidden" && onRestore && (
+          <div className="popover-actions">
             <button className="restore-button icon-only" type="button" aria-label="Restaurar oferta (r)" title="Restaurar oferta (r)" disabled={statusBusy} onClick={() => onRestore(selectedJob)}>
               <IconUndo />
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </article>
-      {hideReasonFor === selectedJob.id && selectedJob.user_status !== "hidden" && (
-        <aside className="hide-reason-popover" aria-label="Motivo para ocultar oferta">
-          <button className="hide-reason-close" type="button" aria-label="Cerrar ocultar oferta" onClick={onCancelHideForm}>×</button>
-          <span className="job-area">Ocultar oferta</span>
-          <strong>¿Por qué no quieres verla?</strong>
-          <label>
-            Motivo
-            <select value={hideReason} onChange={(event) => onChangeHideReason(event.target.value)}>
-              <option value="" disabled>Selecciona un motivo</option>
-              <option value="closed">Ya cerró</option>
-              <option value="not_interested">No me interesa</option>
-              <option value="duplicate">Oferta duplicada</option>
-              <option value="other">Otro</option>
-            </select>
-          </label>
-          <button className="restore-button" type="button" disabled={statusBusy || !hideReason} onClick={onConfirmHide}>
-            {statusBusy ? "Guardando…" : "Confirmar ocultar"}
-          </button>
-          <button className="cancel-hide" type="button" onClick={onCancelHideForm}>Cancelar</button>
-        </aside>
-      )}
     </>
   );
 });

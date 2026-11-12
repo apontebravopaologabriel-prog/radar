@@ -28,7 +28,7 @@
 | Interface does not load | FastAPI serves `frontend/out` on port 8100 (the launcher no longer uses the Next.js server). Rebuild with `cd frontend && npm run build`, check `frontend.log`, confirm `/radar` answers after `/api/health` |
 | Explorer bottom hidden | The sidebar has its own scroll. During `npm run dev`, hard-reload. On small screens the offer list also scrolls internally |
 | New route returns 404, new tool missing | The API runs old code. The launcher restarts it when `.py` files changed; otherwise restart manually ([operations.md](operations.md#desktop-launcher)), reload the external MCP server, and reload the page |
-| Everything returns 401 | `RADAR_ACCESS_TOKEN` is set: sign in on the login screen of `/radar`, `/ajustes` or `/m` |
+| Everything returns 401 | `RADAR_ACCESS_TOKEN` is set: sign in on the login screen of `/radar` or `/ajustes` |
 | Everything returns 403 `Host no permitido` | You reached the API through a name that is not allowed. Add it to `RADAR_ALLOWED_HOSTS` (or bind with `RADAR_API_HOST`) |
 
 ## My CV

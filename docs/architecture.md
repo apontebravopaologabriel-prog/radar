@@ -19,7 +19,7 @@ Optional external agent (Claude Code, Antigravity, Hermes, ...)
   | MCP stdio
 Radar MCP server (FastMCP) ---------+
                                     |   shared registry: src/radar/tools.py
-Browser (/radar, /m)                |
+Browser (/radar)                    |
   | HTTP                            |
 Radar API (FastAPI, :8100) -- chat agent loop (optional) -+
   |  security guard (Host/Origin, headers) · in-process scheduler (capture.py)
@@ -64,7 +64,7 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
 - `/radar`: Next.js static export. `RadarClient.tsx` holds filters, offer list, selection and views;
   `MapView.tsx` renders MapLibre (districts choropleth, clusters, radar radii); `LeafletMapView.tsx` is the
   automatic fallback when WebGL2 is missing. Detection happens before MapLibre is created.
-- `/m`: separate mobile PWA (`components/mobile/`).
+- The mobile PWA (`/m`) was archived in `legacy/mobile/`; it is no longer built or served.
 - `/ajustes`: settings page (career, profile, agent, access, data).
 - Map controls use opaque graphite surfaces. The district selector replaces the permanent ranking.
   Filters show market, search, area and period first, with advanced criteria collapsed. Loading is shown
@@ -78,12 +78,12 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
   District selection changes the highlight and list without rebuilding the market map sources.
   The generated offer contract distinguishes the `slim` row, which carries `has_description`, from the
   full row, which carries a nullable `description`. The by-ID lookup returns a slim row even outside the current filters.
-- Offer tray views: active, favorites (`/api/jobs/favorites`), applied (`/api/jobs/applied`) and archive
+- Offer tray views: active, favorites (`/api/jobs/favorites`) and archive
   (`/api/jobs/hidden`); `GET /api/jobs/{id}` returns one offer (used when the chat opens an offer that is not in the
   current lists). Tracking: `GET/PUT/DELETE /api/applications[/{job_id}]` (`DELETE` removes only your tracking record).
-  `ProcessesView.tsx` is the response-driven follow-up view; `ApplicationsView.tsx` is its lazy-loaded legacy history; the chat opens offers through the `radar:open-job` window event
+  `ProcessesView.tsx` puts actionable responses first, followed by `ApplicationsView.tsx` with eight recent submissions and searchable history. Both use one page scroll and share one application list. While visible, the page refreshes tracking roughly every second to pick up writes from external MCP clients. Responses, interviews and offers update the application and linked process in the same transaction. The pin records an interview. Returning a linked process to submissions sets its application status to applied and preserves the process data for future follow-up. The summary opens the earliest dated active commitment. Archived counts and lists the last seven Lima calendar days without deleting records. Search older archives through a paginated endpoint. The tracking snapshot uses daily counts from the full application history for its activity chart. Its application timestamps come from status events. Process closures keep their archive timestamp across edits, with a last-update fallback for legacy closures. Selecting a row shows the saved description and the same offer facts as the map, with the title linking to the original listing. The chat opens offers through the `radar:open-job` window event
   (`Markdown.tsx` -> `RadarClient.tsx`).
-  Desktop, mobile and the local agent command use the shared `applications-api.ts` client and types
+  The map's `✓ Postulé` action records an application and removes its offer from active map listings without leaving the map. The personal screen tracks Postulé, Respondieron, Entrevista, Oferta and Cerradas; a process with a linked offer updates the same application status. Favorites represent interest before applying; archive is a separate reversible exclusion and needs no reason, and it wins over the star (a hidden favorite stays out of the active listings, the ★ branch and the `Comparing ★` selection). Desktop, mobile and the local agent command use the shared `applications-api.ts` client and types
   generated from the tracking operations in FastAPI. Onboarding, Settings and the local `/refresh` command
   use `refresh-api.ts` for the in-app market refresh. Its generated status includes the current search,
   completed and created counts, timestamps and errors. With the Python environment active, run
@@ -91,6 +91,10 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
 - MapLibre 6 loads its worker as a separate module: `frontend/scripts/copy-maplibre-worker.mjs` (the `prebuild` step)
   copies it to `public/maplibre/`, the API serves it at `/maplibre` and `MapView.tsx` calls `setWorkerUrl`. Without it the
   map stays blank ("Worker failed to load").
+
+Analysis reuses the map filter popover in place. Both views show a reset control beside Filters when the selection differs from the defaults. It preserves the active market and clears the geographic and offer selection. Charts open a popover aligned with the map’s bottom-left offer tray with a scrollable group picker, an upward resize handle and listings loaded on scroll. Offer selection reuses the map’s read-only detail content without changing views. The dashboard ranks tools and technologies by offer count and shows their share of the scoped offers. The competency drill-down groups languages and knowledge separately and can show a donut using total tool mentions. Market catalog overrides affect this presentation only. The drill-down picker includes soft and uncategorized skills. Offers without a district appear as a separate clickable coverage count. Salary columns show all currency and period groups in a responsive grid. Daily publications use a line chart, and work modality uses a donut with an interactive legend. Analysis refreshes for changes to the shared filter values, independently of map refresh events. Generic employer labels are omitted from company metrics while their jobs remain in the offer totals. Skill and
+work-mode selections can be applied to the shared scope explicitly. Compare uses a compact picker for up
+to four favorites or submissions. Consultas retains read-only SQL over the full database.
 
 ### Performance budget
 
@@ -100,7 +104,6 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
 | `/radar` initial transfer | < 1 MB compressed |
 | `/radar` DOM nodes | < 8 000 |
 | Window drag/resize | ≤ 1 relayout per gesture, no long tasks |
-| `/m` first useful paint | < 1 s on 4G |
 
 Measure with `node scripts/perf/measure.mjs <load|idle|drag|pinresize|scroll|detail>` (Chromium over CDP;
 needs the API on `127.0.0.1:8101`).
@@ -129,10 +132,16 @@ needs the API on `127.0.0.1:8101`).
 - LinkedIn runs only through public JobSpy search (no login); Computrabajo cookies are not used.
 - The API limits CORS to localhost origins (`RADAR_API_ALLOW_ORIGINS`).
 - `Districts` uses Lima/Callao boundaries, color by filtered count, selection synced with ranking and list.
-- Analysis sends SQL to `/api/analytics/query`, which accepts only read-only queries; `/api/analytics/schema`
-  describes the tables.
-- Mi CV shares factual editing/import through `/api/me/cv*` and prepares offer-specific documents through
-  `/api/cv/*`. Studio is optional detailed editing. Mi CV owns prepared files and contextual comparisons of favorites. The factual CV and immutable imported sources (`cv_imports/`) live beside the
+- Analysis opens a responsive scoped overview backed by `analysis.py` and typed `/api/analytics/overview`.
+  It reuses `list_jobs` with active inbox exclusions and selected-market projections, then applies the map's
+  district or unrounded Haversine radius. `/api/analytics/offers` provides paginated drill-down with the same scope.
+  Charts use native lightweight bars; no physics or window management. Salary groups keep currency and period
+  separate; dates use Lima calendar days with zero-filled publication series. Saved browser views store relative
+  filters, not snapshots. The optional SQL editor uses `/api/analytics/query` (read-only, full database); its queries
+  deliberately do not inherit the map scope. `/api/analytics/schema` describes the tables.
+- The Analysis comparison tab selects up to four starred or submitted offers. `/api/cv/targets` supplies deterministic requirements and factual evidence; matrix cells expose the reason and quoted job text on click. The company research action only drafts a question for the optional agent, which can use existing local Radar tools; it does not fetch external company information.
+- Mi CV is secondary, accessed through Settings (`/radar?view=cvs`) or Prepare CV in an offer. It opens on factual data unless an offer requested a document. It shares factual editing/import through `/api/me/cv*` and prepares offer-specific documents through
+  `/api/cv/*`. Studio is optional detailed editing. Mi CV owns prepared files; comparison lives in Analysis. The factual CV and immutable imported sources (`cv_imports/`) live beside the
   database outside Git; document operations and package indexes live in SQLite. See [cv.md](cv.md).
 
 ## Boundaries with other systems
@@ -184,3 +193,5 @@ Schema version 4 adds `processes` independently of `applications`. Before an exi
 Prepared files and starred-offer comparisons live in Mi CV; the detail also exposes prepared files. Package loading errors do not block Processes. No CV export or portal link implicitly records submission or creates a process.
 
 Salary filtering accepts optional min_salary/max_salary in job/map APIs and market skills. Published salary bands overlap the requested band; one-sided values work, and unknown salaries are excluded only when a bound is present. Amounts retain the existing source currency semantics (no conversion). Invalid/reversed ranges return 422 and show a local UI explanation. The query context carries both bounds to agent queries.
+
+Map filter controls are bottom-right; their popup opens above the trigger. Districts/Radar tabs retain independent top-right space. The Radar panel reserves the same bottom trigger clearance. This avoids active-filter badge width colliding with the map-mode tabs.

@@ -28,23 +28,15 @@ WRITE_TOOL = ToolAnnotations(
 )
 
 MCP_INSTRUCTIONS = (
-    "Radar es el observatorio de inteligencia laboral e Inbox de triaje de Paolo en SQLite "
-    "(~/.local/share/radar/radar.db + cv_master.json), articulado con /home/paolo/Documents/Work/Postulaciones/<Empresa>/ "
-    "(War-Room en Markdown para preparación de entrevistas y narrativa STAR).\n\n"
-    "PROTOCOLO DE MÁXIMA EFICIENCIA (MÍNIMAS LLAMADAS) PARA AGENTES EXTERNOS (Antigravity, Claude Code):\n"
-    "1. PREPARACIÓN DE ENTREVISTAS Y NARRATIVA (1 sola llamada): Usa `get_interview_dossier(query_or_job_id)` cuando "
-    "la persona pida preparar una entrevista, guion STAR o análisis de una empresa/puesto. Busca automáticamente "
-    "incluso en ofertas ya marcadas como `applied` (postuladas) u ocultas y devuelve en un solo paso la descripción "
-    "congelada de la oferta, puntaje/evidencia de encaje (`fit`), brecha determinista (`baseline`) y el `cv_master` real.\n"
-    "2. FICHA Y FIT EN 1 LLAMADA: `get_job_details(job_id)` ya incluye el desglose completo de `fit` (dimensiones, "
-    "evidencia, coincidencias y brechas). `get_my_cv()` ya incluye tanto `cv_master` como el `profile` de skills y áreas.\n"
-    "3. INBOX Y TRIAJE: `search_saved_jobs` y `find_jobs_near` excluyen por defecto ofertas a las que ya postuló "
-    "(`applied`) u ocultas (`hidden`). Si buscas una oferta a la que ya postuló, pasa `include_applied=True` o usa "
-    "`list_job_applications` / `get_interview_dossier`. Para archivar en el Inbox usa `track_job_application` "
-    "(`applied`, `interview`, `ignored`), `favorite_job` o `import_job_url`.\n"
-    "4. REGLAS DE INTEGRIDAD: El puntaje de encaje y la brecha (`baseline`) los calcula el código determinista de Radar; "
-    "nunca inventes datos en el CV (`update_cv` exige hechos dictados por la persona y `cv_facts` bloquea invenciones). "
-    "Antes de ejecutar herramientas de escritura (`readOnlyHint=False`), pide confirmación a la persona."
+    "Radar consulta y organiza la búsqueda laboral en SQLite. Para mover una postulación por ID, llama "
+    "directamente a track_job_application con responded (Contacto), interview (Entrevista), offer (Oferta) o rejected (Archivados). "
+    "Si falta el ID, usa list_job_applications(compact=true) primero. Pide confirmación antes de escribir.\n"
+    "Para preparar una entrevista, análisis de empresa o guion STAR, usa get_interview_dossier en una llamada: "
+    "busca también postuladas y ocultas, y devuelve oferta, fit, brecha y CV real. Los expedientes Markdown "
+    "de preparación se guardan en /home/paolo/Documents/Work/Postulaciones/<Empresa>/. "
+    "get_job_details ya trae el fit; get_my_cv incluye CV y perfil. "
+    "Para buscar una postulación en el mercado usa search_saved_jobs con include_applied=true. "
+    "Usa el puntaje y la evidencia calculados por Radar y conserva los hechos del CV."
 )
 
 mcp = FastMCP("radar", instructions=MCP_INSTRUCTIONS)

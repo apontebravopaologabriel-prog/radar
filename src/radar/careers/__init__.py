@@ -31,6 +31,7 @@ class SkillDef:
     aliases: tuple[str, ...]
     category: str | None
     type: str
+    analysis_group: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +127,7 @@ def parse_pack(raw: dict, source: str = "pack") -> CareerPack:
         area_rules={k: tuple(v) for k, v in raw["area_rules"].items()},
         out_of_focus_rules={k: tuple(v) for k, v in raw.get("out_of_focus_rules", {}).items()},
         skills={
-            n: SkillDef(n, tuple(s.get("aliases", [])), s.get("category"), s.get("type", "technical"))
+            n: SkillDef(n, tuple(s.get("aliases", [])), s.get("category"), s.get("type", "technical"), s.get("analysis_group"))
             for n, s in raw["skills"].items()
         },
         excluded_title_signals=tuple(raw.get("excluded_title_signals", [])),

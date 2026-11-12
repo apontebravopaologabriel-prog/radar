@@ -265,7 +265,8 @@ def favorite_job(job_id: str, favorite: bool = True) -> dict:
 @tool(write=True)
 def track_job_application(job_id: str, status: str = "saved", notes: str | None = None) -> dict:
     """Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas).
-    Estados: saved, applied, interview, offer, rejected, ignored (oculta), visible (restaura). No postula."""
+    Seguimiento: responded (Contacto), interview (Entrevista), offer (Oferta). rejected archiva.
+    Otros estados: saved, applied, ignored (oculta), visible (restaura). No postula."""
     if status == "visible":
         untrack_application(job_id)
         set_job_user_status(job_id, "visible")
@@ -276,9 +277,13 @@ def track_job_application(job_id: str, status: str = "saved", notes: str | None 
 
 
 @tool()
-def list_job_applications(limit: int = 50) -> dict:
-    """Lista postulaciones registradas con su estado y enlace original."""
-    return {"applications": applications(limit)}
+def list_job_applications(limit: int = 50, compact: bool = False) -> dict:
+    """Lista postulaciones con su estado y enlace. Usa compact=true para cambios de etapa y archivo."""
+    rows = applications(limit)
+    if compact:
+        fields = ("job_id", "title", "company", "status", "applied_at", "url")
+        rows = [{field: row[field] for field in fields} for row in rows]
+    return {"applications": rows}
 
 
 @tool(write=True)

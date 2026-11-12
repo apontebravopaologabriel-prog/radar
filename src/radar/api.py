@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from starlette.middleware.gzip import GZipMiddleware
 
 from radar import __version__
+from radar.analysis import AnalysisScope, Dimension, matching_jobs
+from radar.analysis import router as analysis_router
 from radar.api_agent import router as agent_router
 from radar.api_cv import router as cv_router
 from radar.api_mcp import router as mcp_router
@@ -100,11 +102,6 @@ if FRONTEND_OUT.exists():
             return FileResponse(str(radar_html), headers=headers)
         return FileResponse(str(FRONTEND_OUT / "index.html"), headers=headers)
 
-    @app.get("/m", include_in_schema=False)
-    @app.get("/m/", include_in_schema=False)
-    def serve_mobile_ui():
-        return FileResponse(str(FRONTEND_OUT / "m.html"), headers={"Cache-Control": "no-cache"})
-
     @app.get("/ajustes", include_in_schema=False)
     @app.get("/ajustes/", include_in_schema=False)
     def serve_settings_ui():
@@ -112,7 +109,6 @@ if FRONTEND_OUT.exists():
 
     _ROOT_ASSETS = {
         "manifest.webmanifest": "application/manifest+json",
-        "sw.js": "text/javascript",
         "icon-180.png": "image/png",
         "icon-192.png": "image/png",
         "icon-512.png": "image/png",
@@ -139,19 +135,9 @@ def _slimmed(job: dict[str, Any], slim: bool) -> dict[str, Any]:
 
 
 def _with_location(job: dict[str, Any]) -> dict[str, Any]:
-    from radar.geolocation import infer_job_location
+    from radar.geolocation import with_location
 
-    point = infer_job_location(job.get("location"), job.get("title"), job.get("description"))
-    result = dict(job)
-    result["latitude"] = point.latitude if point else None
-    result["longitude"] = point.longitude if point else None
-    result["district"] = point.label if point and point.precision == "district" else None
-    result["place_id"] = point.place_id if point else None
-    result["location_precision"] = point.precision if point else "unknown"
-    result["location_confidence"] = point.confidence if point else 0
-    result["geocoding_source"] = point.source if point else None
-    return result
-
+    return with_location(job)
 
 class JobFields(BaseModel):
     id: str
@@ -236,6 +222,25 @@ class JobMap(BaseModel):
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
+
+app.include_router(analysis_router)
+
+
+class AnalysisOffersScope(AnalysisScope):
+    dimension: Dimension | None = None
+    value: str | None = None
+    limit: int = Field(default=25, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
+
+
+@app.get("/api/analytics/offers", response_model=JobPage)
+def analysis_offers(
+    scope: Annotated[AnalysisOffersScope, Query()],
+):
+    base = AnalysisScope.model_validate(scope.model_dump(exclude={"dimension", "value", "limit", "offset"}))
+    rows = matching_jobs(base, scope.dimension, scope.value)
+    return {"jobs": [_slimmed(dict(row), True) for row in rows[scope.offset:scope.offset + scope.limit]],
+            "total": len(rows), "offset": scope.offset}
 
 
 @app.get("/api/jobs", response_model=JobPage)
@@ -433,7 +438,7 @@ class JobUrlImport(BaseModel):
     description: str | None = Field(default=None, max_length=30000)
     favorite: bool = False
     application_status: str | None = Field(
-        default=None, pattern="^(saved|applied|interview|offer|rejected|ignored|visible)$"
+        default=None, pattern="^(saved|applied|responded|interview|offer|rejected|ignored|visible)$"
     )
     notes: str | None = Field(default=None, max_length=1000)
 
@@ -485,8 +490,6 @@ def delete_favorite(job_id: str) -> dict[str, bool]:
 
 @app.patch("/api/jobs/{job_id}/status")
 def update_job_status(job_id: str, payload: JobStatusUpdate) -> dict[str, str]:
-    if payload.status == "hidden" and not payload.reason:
-        raise HTTPException(status_code=422, detail="El motivo es obligatorio al ocultar una oferta")
     try:
         set_job_user_status(job_id, payload.status, payload.reason, payload.note)
         if payload.status == "hidden" and payload.reason == "applied":

@@ -16,6 +16,16 @@ def normalize_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", value)
 
 
+def normalize_company_key(value: str | None) -> str:
+    """Normalize company name stripping common Peruvian legal entity suffixes for deduplication."""
+    norm = normalize_text(value)
+    if not norm:
+        return ""
+    norm = re.sub(r"[.,]+", " ", norm)
+    norm = re.sub(r"\b(?:s\s*a\s*c|s\s*a\s*a|s\s*r\s*l|e\s*i\s*r\s*l|s\s*a|ltda)\b", " ", norm)
+    return re.sub(r"\s+", " ", norm).strip()
+
+
 def clean_description(value: str | None) -> str:
     text = value or ""
     text = re.sub(r"<[^>]+>", " ", text)

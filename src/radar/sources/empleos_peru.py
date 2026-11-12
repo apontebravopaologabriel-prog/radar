@@ -218,7 +218,7 @@ class EmpleosPeruSource:
         elif raw_url:
             url = str(raw_url)
         elif offer_id:
-            url = f"{self.base_url}/search-jobs/vacancy-details/{offer_id}"
+            url = f"{self.base_url}/search-jobs?jobId={urllib.parse.quote(offer_id)}"
         else:
             url = ""
 

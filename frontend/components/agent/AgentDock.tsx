@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type AgentContext, type AgentSettings } from "../../lib/mobile-api";
-import "../mobile/mobile.css";
+import "../settings/terminal.css";
 import "./agent-window.css";
 import RadarMark from "./RadarMark";
 

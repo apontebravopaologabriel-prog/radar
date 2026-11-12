@@ -99,6 +99,7 @@ def test_bumeran_and_empleos_peru_map_to_rawjob():
     ep_jobs = [EmpleosPeruSource()._to_job(item) for item in EmpleosPeruSource._extract_jobs(ep_payload)]
     assert len(ep_jobs) == 1
     assert ep_jobs[0].source == "Empleos Perú"
+    assert ep_jobs[0].url == "https://mtpe-candidatos.empleosperu.gob.pe/search-jobs?jobId=EP-99"
     assert ep_jobs[0].salary_min == 1800.0
     assert ep_jobs[0].salary_currency == "PEN"
 
@@ -111,6 +112,7 @@ def test_bumeran_and_empleos_peru_map_to_rawjob():
         "jobDescription": "Evaluar cartera",
     })
     assert "Trujillo" in (ep_ubigeo.location or "")
+    assert ep_ubigeo.url == "https://mtpe-candidatos.empleosperu.gob.pe/search-jobs?jobId=EP-100"
     assert "Evaluar cartera" in (ep_ubigeo.description or "")
     assert "Empresa: Misión corporativa" in (ep_ubigeo.description or "")
 
@@ -176,3 +178,45 @@ def test_native_computrabajo_http_403_is_not_retried_or_hidden(monkeypatch):
     with pytest.raises(httpx.HTTPStatusError):
         native.search("analista", "Lima", 10)
     assert len(requests) == 1
+
+
+def test_bumeran_shortens_an_and_query_that_returns_nothing(monkeypatch):
+    from radar.sources import bumeran
+
+    seen: list[str] = []
+
+    def fake_api(self, query, location, limit):
+        seen.append(query)
+        return [{"id": 1, "titulo": "Analista de datos", "empresa": "ACME", "detalle": "<p>SQL</p>"}] if query == "analista de datos" else []
+
+    monkeypatch.setattr(bumeran.BumeranSource, "_search_api", fake_api)
+    monkeypatch.setattr(bumeran.BumeranSource, "_search_html", lambda self, query, location, limit: [])
+    jobs = bumeran.BumeranSource().search("analista de datos reportes Excel", "Lima", 10)
+    assert [job.title for job in jobs] == ["Analista de datos"]
+    assert seen == ["analista de datos reportes Excel", "analista de datos reportes", "analista de datos"]
+
+
+def test_bumeran_variants_keep_a_meaningful_query():
+    from radar.sources.bumeran import _query_variants
+
+    assert _query_variants("soporte ti") == ["soporte ti"]
+    assert _query_variants("analista de datos") == ["analista de datos"]
+    assert _query_variants("data scientist machine learning") == ["data scientist machine learning", "data scientist machine", "data scientist"]
+    assert "analista" not in _query_variants("analista de")
+
+
+def test_bumeran_silence_is_a_source_failure_not_an_empty_market(monkeypatch):
+    import urllib.error
+
+    import pytest
+
+    from radar.sources import bumeran
+
+    def forbidden(self, query, location, limit):
+        raise urllib.error.HTTPError(query, 403, "Forbidden", None, None)
+
+    monkeypatch.setattr(bumeran.BumeranSource, "_search_api", forbidden)
+    monkeypatch.setattr(bumeran.BumeranSource, "_search_html", forbidden)
+    with pytest.raises(bumeran.BumeranUnavailable) as failure:
+        bumeran.BumeranSource().search("analista de datos reportes Excel", "Lima", 10)
+    assert failure.value.status_code == 403

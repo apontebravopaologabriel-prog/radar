@@ -4,14 +4,23 @@ import hashlib
 import json
 import math
 from dataclasses import replace
+from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from typing import Any
 
-from radar.careers import CareerPack, active_pack, effective_weights
+from radar.careers import CareerPack, active_pack, effective_weights, list_packs
 from radar.classify import classify, infer_seniority
-from radar.db.database import connection
+from radar.db.database import connection, database_path
 from radar.domain.models import RawJob
 from radar.enrichment import extract_schedule, infer_sector, infer_work_mode, normalize_salary
-from radar.normalize import clean_description, content_hash, fingerprint, normalize_text
+from radar.geolocation import infer_location
+from radar.normalize import (
+    clean_description,
+    content_hash,
+    fingerprint,
+    normalize_company_key,
+    normalize_text,
+)
 from radar.salary import extract_salary
 from radar.scoring import score_job
 from radar.taxonomy import infer_relevance
@@ -215,18 +224,32 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None, *, run_id: s
                     _write_areas(conn, job_id, classified)
                     stats["updated"] += 1
                 else:
+                    clean_desc = clean_description(raw.description)
+                    title_norm = normalize_text(raw.title)
+                    c_hash = content_hash(raw)
+                    dup_parent = _find_canonical_duplicate(
+                        conn,
+                        source_id=source_id,
+                        content_digest=c_hash,
+                        company_name=raw.company,
+                        company_id=company_id,
+                        title_norm=title_norm,
+                        description_clean=clean_desc,
+                        location_text=raw.location,
+                    )
+                    dup_status = "merged" if dup_parent else "canonical"
                     row = conn.execute(
                         """INSERT INTO jobs(company_id,title,title_normalized,location,location_normalized,country,description_raw,description_clean,
-                        salary_min,salary_max,salary_currency,salary_period,salary_source,published_at,seniority,work_mode,employment_type,sector,sector_confidence,relevance_tier,relevance_score,relevance_evidence,hours_per_week,schedule_text,application_status,application_checked_at,application_status_source,canonical_fingerprint,content_hash)
-                        VALUES (%s,%s,%s,%s,%s,'PE',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                        salary_min,salary_max,salary_currency,salary_period,salary_source,published_at,seniority,work_mode,employment_type,sector,sector_confidence,relevance_tier,relevance_score,relevance_evidence,hours_per_week,schedule_text,application_status,application_checked_at,application_status_source,canonical_fingerprint,content_hash,duplicate_group_id,duplicate_status)
+                        VALUES (%s,%s,%s,%s,%s,'PE',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                         (
                             company_id,
                             raw.title,
-                            normalize_text(raw.title),
+                            title_norm,
                             raw.location,
                             normalize_text(raw.location),
                             raw.description,
-                            clean_description(raw.description),
+                            clean_desc,
                             salary_min,
                             salary_max,
                             salary_currency,
@@ -247,7 +270,9 @@ def ingest_jobs(jobs: list[RawJob], pack: CareerPack | None = None, *, run_id: s
                             raw.application_checked_at,
                             application_source,
                             fp,
-                            content_hash(raw),
+                            c_hash,
+                            dup_parent,
+                            dup_status,
                         ),
                     ).fetchone()
                     job_id = row[0]
@@ -481,6 +506,244 @@ def expire_stale_jobs(stale_after_days: int = 45) -> int:
         return cursor.rowcount
 
 
+_GENERIC_COMPANIES = frozenset({
+    "",
+    "importante empresa del sector",
+    "confidencial",
+    "empresa confidencial",
+    "anonimo",
+    "empresa del rubro",
+    "sin empresa",
+})
+
+
+def _parse_dt_days(value: Any) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
+    text = str(value).strip().replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
+def _within_window(dt_a: Any, dt_b: Any, window_days: int) -> bool:
+    a, b = _parse_dt_days(dt_a), _parse_dt_days(dt_b)
+    if not a or not b:
+        return True
+    return abs((a - b).days) <= window_days
+
+
+def _desc_similar(a: str | None, b: str | None, threshold: float = 0.85) -> bool:
+    ta, tb = (a or "")[:600].lower(), (b or "")[:600].lower()
+    if not ta or not tb:
+        return ta == tb
+    if ta == tb:
+        return True
+    return SequenceMatcher(None, ta, tb).ratio() >= threshold
+
+
+def _geo_bucket(location_text: str | None) -> str:
+    pt = infer_location(location_text)
+    if pt is None:
+        return "unlocated"
+    if (pt.place_id and pt.place_id.startswith("pe:lima-callao:")) or normalize_text(pt.label) in {"lima", "callao"}:
+        return "lima_callao"
+    return normalize_text(pt.label)
+
+
+def _find_canonical_duplicate(
+    conn,
+    *,
+    source_id: str,
+    content_digest: str,
+    company_name: str | None,
+    company_id: str | None,
+    title_norm: str,
+    description_clean: str,
+    location_text: str | None = None,
+    window_days: int = 30,
+) -> str | None:
+    """Return an existing recent canonical job ID from another portal if this offer is a cross-portal duplicate."""
+    target_geo = _geo_bucket(location_text)
+    if len(description_clean) >= 40:
+        for row_id, row_loc in conn.execute(
+            """SELECT id, location FROM jobs
+            WHERE duplicate_status='canonical' AND content_hash=%s
+              AND coalesce(published_at, created_at) >= datetime('now', '-' || %s || ' days')
+              AND NOT EXISTS (SELECT 1 FROM job_sources js WHERE js.job_id = jobs.id AND js.source_id = %s)
+            ORDER BY created_at ASC LIMIT 10""",
+            (content_digest, window_days, source_id),
+        ).fetchall():
+            if _geo_bucket(row_loc) == target_geo:
+                return row_id
+
+    comp_key = normalize_company_key(company_name)
+    if not title_norm or comp_key in _GENERIC_COMPANIES:
+        return None
+
+    if company_id:
+        for row_id, row_loc in conn.execute(
+            """SELECT id, location FROM jobs
+            WHERE duplicate_status='canonical' AND company_id=%s AND title_normalized=%s
+              AND coalesce(published_at, created_at) >= datetime('now', '-' || %s || ' days')
+              AND NOT EXISTS (SELECT 1 FROM job_sources js WHERE js.job_id = jobs.id AND js.source_id = %s)
+            ORDER BY created_at ASC LIMIT 10""",
+            (company_id, title_norm, window_days, source_id),
+        ).fetchall():
+            if _geo_bucket(row_loc) == target_geo:
+                return row_id
+
+    candidates = conn.execute(
+        """SELECT j.id, c.name, j.description_clean, j.location
+        FROM jobs j LEFT JOIN companies c ON c.id = j.company_id
+        WHERE j.duplicate_status='canonical' AND j.title_normalized=%s
+          AND coalesce(j.published_at, j.created_at) >= datetime('now', '-' || %s || ' days')
+          AND NOT EXISTS (SELECT 1 FROM job_sources js WHERE js.job_id = j.id AND js.source_id = %s)
+        ORDER BY j.created_at ASC LIMIT 15""",
+        (title_norm, window_days, source_id),
+    ).fetchall()
+    for cand_id, cand_comp, cand_desc, cand_loc in candidates:
+        if _geo_bucket(cand_loc) != target_geo:
+            continue
+        if normalize_company_key(cand_comp) == comp_key and _desc_similar(description_clean, cand_desc):
+            return cand_id
+    return None
+
+
+def deduplicate_jobs(window_days: int = 30) -> dict[str, int]:
+    """Group and mark cross-portal/district duplicates as 'merged' without deleting historical offers."""
+    with connection() as conn:
+        user_touched = {
+            row[0]
+            for query in (
+                "SELECT job_id FROM applications",
+                "SELECT job_id FROM processes WHERE job_id IS NOT NULL",
+                "SELECT job_id FROM job_user_favorites",
+                "SELECT job_id FROM job_user_status",
+                "SELECT job_id FROM cv_documents WHERE job_id IS NOT NULL",
+            )
+            for row in conn.execute(query).fetchall()
+        }
+        rows = conn.execute(
+            """SELECT j.id, j.company_id, c.name, j.title_normalized, j.content_hash,
+                      j.description_clean, coalesce(j.published_at, j.created_at) AS ref_dt,
+                      j.salary_min, j.created_at, j.location
+            FROM jobs j
+            LEFT JOIN companies c ON c.id = j.company_id
+            WHERE j.duplicate_status = 'canonical'"""
+        ).fetchall()
+
+        # Priority: user activity first, then salary present, longest description, oldest created_at.
+        rows.sort(
+            key=lambda r: (
+                0 if r[0] in user_touched else 1,
+                0 if r[7] is not None else 1,
+                -len(r[5] or ""),
+                str(r[8] or ""),
+            )
+        )
+
+        by_hash: dict[str, list[tuple[str, Any, str]]] = {}
+        by_comp_title: dict[tuple[str, str], list[tuple[str, Any, str]]] = {}
+        by_compkey_title: dict[tuple[str, str], list[tuple[str, Any, str, str]]] = {}
+        merges: list[tuple[str, str]] = []
+
+        for job_id, comp_id, comp_name, title_norm, c_hash, desc_clean, ref_dt, _, _, loc_val in rows:
+            canonical_id: str | None = None
+            comp_key = normalize_company_key(comp_name)
+            is_generic = comp_key in _GENERIC_COMPANIES
+            geo_b = _geo_bucket(loc_val)
+
+            if c_hash and len(desc_clean or "") >= 40:
+                for cid, c_dt, c_geo in by_hash.get(c_hash, ()):
+                    if geo_b == c_geo and _within_window(ref_dt, c_dt, window_days):
+                        canonical_id = cid
+                        break
+
+            if not canonical_id and comp_id and title_norm and not is_generic:
+                for cid, c_dt, c_geo in by_comp_title.get((comp_id, title_norm), ()):
+                    if geo_b == c_geo and _within_window(ref_dt, c_dt, window_days):
+                        canonical_id = cid
+                        break
+
+            if not canonical_id and title_norm and not is_generic:
+                for cid, c_dt, c_desc, c_geo in by_compkey_title.get((comp_key, title_norm), ()):
+                    if geo_b == c_geo and _within_window(ref_dt, c_dt, window_days) and _desc_similar(desc_clean, c_desc):
+                        canonical_id = cid
+                        break
+
+            # Never merge a job with user activity into another job.
+            if canonical_id and job_id not in user_touched:
+                merges.append((canonical_id, job_id))
+                continue
+
+            if c_hash and len(desc_clean or "") >= 40:
+                by_hash.setdefault(c_hash, []).append((job_id, ref_dt, geo_b))
+            if comp_id and title_norm and not is_generic:
+                by_comp_title.setdefault((comp_id, title_norm), []).append((job_id, ref_dt, geo_b))
+            if title_norm and not is_generic:
+                by_compkey_title.setdefault((comp_key, title_norm), []).append((job_id, ref_dt, desc_clean or "", geo_b))
+
+        for canonical_id, dup_id in merges:
+            conn.execute(
+                "UPDATE jobs SET duplicate_status='merged', duplicate_group_id=%s, updated_at=now() WHERE id=%s",
+                (canonical_id, dup_id),
+            )
+        conn.commit()
+    return {"scanned": len(rows), "merged": len(merges)}
+
+
+def compact_database(raw_payload_days: int = 30) -> dict[str, Any]:
+    """Prune redundant observations, stale raw payloads and orphaned market rows, then VACUUM."""
+    db_file = database_path()
+    size_before = round(db_file.stat().st_size / (1024 * 1024), 2) if db_file.exists() else 0.0
+    active_markets = [p.id for p in list_packs()]
+
+    with connection() as conn:
+        if active_markets:
+            placeholders = ",".join(["%s"] * len(active_markets))
+            orphaned = conn.execute(
+                f"DELETE FROM job_market_classifications WHERE market_id NOT IN ({placeholders})",
+                tuple(active_markets),
+            ).rowcount
+        else:
+            orphaned = 0
+
+        obs_pruned = conn.execute(
+            """DELETE FROM job_observations
+            WHERE id NOT IN (
+                SELECT max_id FROM (
+                    SELECT MAX(id) AS max_id
+                    FROM job_observations
+                    GROUP BY job_id, source_id
+                )
+            )"""
+        ).rowcount
+
+        raw_cleared = conn.execute(
+            """UPDATE job_sources SET raw_payload = '{}'
+            WHERE raw_payload <> '{}'
+              AND last_seen_at < datetime('now', '-' || %s || ' days')""",
+            (raw_payload_days,),
+        ).rowcount
+        conn.commit()
+        conn.execute("VACUUM")
+        conn.execute("ANALYZE")
+
+    size_after = round(db_file.stat().st_size / (1024 * 1024), 2) if db_file.exists() else 0.0
+    return {
+        "size_before_mb": size_before,
+        "size_after_mb": size_after,
+        "orphaned_classifications_deleted": orphaned,
+        "observations_pruned": obs_pruned,
+        "raw_payloads_cleared": raw_cleared,
+    }
+
+
 def save_profile(
     name: str,
     education: str | None,
@@ -682,18 +945,32 @@ def untrack_application(job_id: str) -> bool:
 
 
 def track_application(job_id: str, status: str = "saved", notes: str | None = None) -> str:
-    statuses = {"new", "reviewed", "saved", "ignored", "applied", "interview", "offer", "rejected", "expired"}
+    statuses = {"new", "reviewed", "saved", "ignored", "applied", "responded", "interview", "offer", "rejected", "expired"}
     if status not in statuses:
         raise ValueError(f"status inválido: {status}")
     with connection() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         existing = conn.execute("SELECT id, status FROM applications WHERE job_id=%s", (job_id,)).fetchone()
         if existing:
             application_id, previous = existing
-            conn.execute("UPDATE applications SET status=%s, notes=%s, applied_at=CASE WHEN %s='applied' THEN COALESCE(applied_at,now()) ELSE applied_at END, updated_at=now() WHERE id=%s", (status, notes, status, application_id))
+            conn.execute("UPDATE applications SET status=%s, notes=COALESCE(%s, notes), applied_at=CASE WHEN %s='applied' THEN COALESCE(applied_at,now()) ELSE applied_at END, updated_at=now() WHERE id=%s", (status, notes, status, application_id))
             if previous != status:
                 conn.execute("INSERT INTO application_events(application_id,from_status,to_status,notes) VALUES (%s,%s,%s,%s)", (application_id, previous, status, notes))
         else:
             application_id = conn.execute("INSERT INTO applications(job_id,status,notes,applied_at) VALUES (%s,%s,%s,CASE WHEN %s='applied' THEN now() ELSE NULL END) RETURNING id", (job_id, status, notes, status)).fetchone()[0]
             conn.execute("INSERT INTO application_events(application_id,to_status,notes) VALUES (%s,%s,%s)", (application_id, status, notes))
+        stage = {"responded": "contact", "interview": "interview", "offer": "offer"}.get(status)
+        if stage:
+            conn.execute(
+                """INSERT INTO processes (job_id, source_application_id, company, title, url, stage)
+                   SELECT j.id, %s, COALESCE(NULLIF(c.name, ''), 'Empresa no indicada'), j.title,
+                       (SELECT source_url FROM job_sources WHERE job_id=j.id ORDER BY last_seen_at DESC LIMIT 1),
+                       %s
+                   FROM jobs j LEFT JOIN companies c ON c.id=j.company_id WHERE j.id=%s
+                   ON CONFLICT(job_id) DO UPDATE SET stage=excluded.stage, archived_at=NULL, updated_at=now()
+                   WHERE processes.stage <> excluded.stage
+                     AND (excluded.stage <> 'contact' OR processes.stage='closed')""",
+                (application_id, stage, job_id),
+            )
         conn.commit()
     return str(application_id)

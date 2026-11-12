@@ -166,6 +166,6 @@ export async function streamChat(messages: ApiMessage[], onEvent: (event: ChatEv
 }
 
 export const STATUS_LABELS: Record<string, string> = {
-  saved: "Guardadas", applied: "Postulé", interview: "Entrevista", offer: "Oferta", rejected: "Descartadas",
+  saved: "Guardadas", applied: "Postulé", responded: "Respondieron", interview: "Entrevista", offer: "Oferta", rejected: "Descartadas",
 };
-export const STATUS_ORDER = ["saved", "applied", "interview", "offer", "rejected"];
+export const STATUS_ORDER = ["saved", "applied", "responded", "interview", "offer", "rejected"];

@@ -61,7 +61,7 @@ export function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short" }).format(new Date(value));
 }
 
-export function formatSalary(job: Job) {
+export function formatSalary(job: Pick<Job, "salary_min" | "salary_max" | "salary_currency">) {
   if (job.salary_min === null && job.salary_max === null) return "No indicado";
   const currency = job.salary_currency === "PEN" ? "S/" : job.salary_currency || "";
   if (job.salary_min !== null && job.salary_max !== null) {
@@ -147,7 +147,7 @@ export function sourceLabel(url: string | null) {
   if (!url) return "Abrir oferta original";
   try {
     const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("linkedin")) return "Ver en LinkedIn";
+    if (host.includes("linkedin")) return "Ver en Linkedin";
     if (host.includes("indeed")) return "Ver en Indeed";
     if (host.includes("computrabajo")) return "Ver en Computrabajo";
     if (host.includes("bumeran")) return "Ver en Bumeran";
@@ -165,7 +165,7 @@ export function sourceName(url: string | null) {
   if (!url) return "Fuente n/i";
   try {
     const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-    if (host.includes("linkedin")) return "LinkedIn";
+    if (host.includes("linkedin")) return "Linkedin";
     if (host.includes("indeed")) return "Indeed";
     if (host.includes("computrabajo")) return "Computrabajo";
     if (host.includes("bumeran")) return "Bumeran";

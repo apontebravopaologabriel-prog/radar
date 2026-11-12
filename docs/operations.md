@@ -112,7 +112,7 @@ Profile and the agent edit the same data (see [cv.md](cv.md#profile-editing)).
 | `radar skill export --out docs/skills` | Regenerate the agent skill |
 
 The agent offers the same through `run_maintenance(task)` (closed list: `backup`, `repair_data`, `expire_stale`,
-`check_applications` up to 60 links, `market_snapshot`). Run a backup before reclassifying or repairing.
+`check_applications` up to 60 links, `market_snapshot`, `deduplicate_jobs`, `compact_db`). Run a backup before reclassifying or repairing (`deduplicate_jobs` and `compact_db` create one automatically).
 `update_cv` keeps `cv_master.json.bak-<date>` (last 5). `get_system_status` summarizes database size,
 integrity, offers by tier, last capture and timer.
 
@@ -206,11 +206,16 @@ pkill -f ".venv/bin/radar-api"
 nohup .venv/bin/radar-api >>~/.local/state/radar/api.log 2>&1 &
 ```
 
-## Hiding and restoring offers
+## Saving application status and hiding offers
 
-In the offer detail, the eye icon asks for a reason (`closed`, `not_interested`, `applied`, `duplicate`,
-`other`) and stores it in `job_user_status`. The eye icon in the tray lists hidden offers; the detail then offers
-restore. `jobs` is never modified.
+Use the star for offers of interest that are not yet submitted. Marking `✓ Postulé` records the application,
+removes the offer from active map results and lists it in the personal progress view, without switching views.
+Move it through
+`Respondieron`, `Entrevista`, `Oferta` or `Cerradas` as events happen. If a recruiter responds, optional contact
+and next-step details can be added under “Me contactaron”. Archiving is a separate, reversible
+way to remove an offer from the map; it asks no reason. The archive tab restores it. Hiding wins over the star:
+an archived offer stays out of the active listings, ★ favorites and the `Comparing ★` selection until it is
+restored. `jobs` is never modified.
 
 ## Remote access (phone)
 
@@ -224,14 +229,14 @@ Radar is local; the phone must reach the PC, which must be on.
    RADAR_API_HOST=<tailscale-ip-of-the-pc> .venv/bin/radar-api
    ```
 
-3. Open `http://<tailscale-ip>:8100/m` on the phone and install it ("Add to home screen"). The session cookie
+3. Open `http://<tailscale-ip>:8100/radar` on the phone (the desktop interface; the mobile PWA was archived). The session cookie
    is `Secure` only over HTTPS; `tailscale serve` provides HTTPS.
 
 Without `RADAR_ACCESS_TOKEN` there is no authentication: never expose the API beyond `127.0.0.1` that way, and
 never bind `0.0.0.0` on a network you do not control. With the token set, both `/radar` and `/ajustes` show a login
 screen. `RADAR_API_HOST` is added to the accepted `Host` names automatically; add other names (for example a
-`tailscale serve` hostname) with `RADAR_ALLOWED_HOSTS`. See [security.md](security.md). Mobile remote access is
-experimental in the 1.0 plan.
+`tailscale serve` hostname) with `RADAR_ALLOWED_HOSTS`. See [security.md](security.md). Remote access from a phone is
+unsupported and untested.
 
 ## Agent configuration
 

@@ -21,7 +21,8 @@ def _child(sender, function: Callable, args: tuple) -> None:
         sender.send((True, function(*args)))
     except Exception as exc:  # noqa: BLE001 - transport errors to the parent
         response = getattr(exc, "response", None)
-        sender.send((False, (str(exc)[:500], getattr(response, "status_code", None))))
+        status = getattr(exc, "status_code", None) or getattr(response, "status_code", None) or getattr(exc, "code", None)
+        sender.send((False, (str(exc)[:500], status)))
     finally:
         sender.close()
 

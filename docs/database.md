@@ -30,7 +30,7 @@ never executed).
 | `market_snapshots` | Dated market totals, areas and skills |
 | `applications`, `application_events` | Personal pipeline and every status transition |
 | `career_events` | Employment, studies, projects, courses, achievements, goals |
-| `job_user_status` | Visible/hidden state, reason (`closed`, `not_interested`, `applied`, `duplicate`, `other`), note |
+| `job_user_status` | Visible/hidden state, optional reason (`closed`, `not_interested`, `applied`, `duplicate`, `other`), note |
 | `job_user_favorites` | Starred offers with save date (independent from hidden state) |
 | `app_settings` | Settings such as the chosen career and `classification_rules_hash` |
 | `agent_usage` | Token usage per month |
@@ -105,8 +105,9 @@ audit rather than automatic destructive merging.
 
 - Market metrics come from `jobs`, `job_areas` and `job_skills`. User data never alters market statistics.
 - Every explicit profile update creates a `profile_versions` row.
-- Hiding an offer stores a reason and excludes it from normal queries; restoring sets it back to `visible`.
-  Neither touches `jobs`.
+- Hiding an offer excludes it from normal queries; the reason is optional and restoring sets it back to `visible`.
+  Neither touches `jobs`. Hiding always wins over the star: hidden offers are not listed as favorites either.
+  Databases created before the reason became optional rebuild `job_user_status` on open (SQLite cannot drop a CHECK).
 - `GET /api/skills/overview` computes demand from offers filtered by age, area, seniority and work mode,
   grouping `job_skills`, and crosses it with `user_skills`. It never invents a level the user did not declare.
 

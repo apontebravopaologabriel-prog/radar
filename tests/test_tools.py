@@ -479,6 +479,25 @@ def test_application_tracking_and_hidden_sync():
     assert any(h["id"] == job_id and h["user_reason"] == "not_interested" for h in hidden)
 
 
+def test_hidden_offer_leaves_favorites_list():
+    from fastapi.testclient import TestClient
+
+    from radar.api import app
+
+    job_id = _seed_market()[0]["id"]
+    api = TestClient(app)
+    assert api.put(f"/api/jobs/{job_id}/favorite").status_code == 200
+    assert [j["id"] for j in api.get("/api/jobs/favorites").json()["jobs"]] == [job_id]
+
+    api.patch(f"/api/jobs/{job_id}/status", json={"status": "hidden"})
+    assert api.get("/api/jobs/favorites").json()["jobs"] == []
+    [hidden] = api.get("/api/jobs/hidden").json()["jobs"]
+    assert hidden["id"] == job_id and hidden["is_favorite"] is True
+
+    api.patch(f"/api/jobs/{job_id}/status", json={"status": "visible"})
+    assert [j["id"] for j in api.get("/api/jobs/favorites").json()["jobs"]] == [job_id]
+
+
 def test_import_job_url_extracts_json_ld_and_tracks_application(monkeypatch):
     import httpx
     from fastapi.testclient import TestClient
@@ -671,3 +690,30 @@ def test_search_saved_jobs_centers_snippet_on_search_match():
     hits = tools.search_saved_jobs(search="almuerzo")["jobs"]
     assert len(hits) == 1
     assert "almuerzo cubierto al 72%" in hits[0]["snippet"]
+
+
+def test_mcp_application_interview_and_archive_share_tracking():
+    from radar.processes import list_processes
+
+    job_id = _seed_market()[0]["id"]
+    applied = tools.track_job_application(job_id, "applied", "CV enviado")
+    track = server.mcp._tool_manager._tools["track_job_application"].fn
+    track(job_id=job_id, status="responded")
+    contact, = list_processes()["processes"]
+    assert contact["stage"] == "contact"
+    track(job_id=job_id, status="interview")
+    track(job_id=job_id, status="offer")
+    track(job_id=job_id, status="responded")
+    process, = list_processes()["processes"]
+    assert process["stage"] == "offer" and process["id"] == contact["id"]
+    assert process["source_application_id"] == applied["application_id"]
+    track(job_id=job_id, status="offer")
+    assert list_processes()["processes"] == [process]
+
+    track(job_id=job_id, status="rejected")
+    full, = tools.list_job_applications()["applications"]
+    compact, = tools.list_job_applications(compact=True)["applications"]
+    assert full["status"] == compact["status"] == "rejected"
+    assert full["notes"] == "CV enviado"
+    assert compact == {key: full[key] for key in ("job_id", "title", "company", "status", "applied_at", "url")}
+    assert list_processes()["processes"] == [process]

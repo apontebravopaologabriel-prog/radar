@@ -202,12 +202,15 @@ def test_today_applications_and_profile_endpoints():
 
 
 def test_applications_http_contract_preserves_history_and_offer():
+    from datetime import UTC, datetime
+
     from radar.db.database import connection
     from radar.db.repository import ingest_jobs, track_application
     from radar.domain.models import RawJob
 
     api = TestClient(app)
-    ingest_jobs([RawJob("test", "Analista BI", None, "https://example.com/bi")])
+    published = datetime(2026, 11, 12, 3, tzinfo=UTC)
+    ingest_jobs([RawJob("test", "Analista BI", None, "https://example.com/bi", published_at=published)])
     with connection() as conn:
         job_id = conn.execute("SELECT id FROM jobs").fetchone()[0]
     application_id = track_application(job_id, "reviewed")
@@ -217,6 +220,7 @@ def test_applications_http_contract_preserves_history_and_offer():
     [item] = response.json()["applications"]
     assert item["id"] == application_id
     assert item["status"] == "reviewed"
+    assert datetime.fromisoformat(item["published_at"]) == published
     assert item["company"] is item["notes"] is item["applied_at"] is item["salary_min"] is None
     assert api.put(f"/api/applications/{job_id}", json={"status": "reviewed"}).status_code == 422
     assert api.put(f"/api/applications/{job_id}", json={"status": "saved", "notes": "x" * 1001}).status_code == 422
@@ -226,6 +230,13 @@ def test_applications_http_contract_preserves_history_and_offer():
     assert response.json() == {"application_id": application_id, "status": "applied"}
     [item] = api.get("/api/applications").json()["applications"]
     assert item["notes"] == "Entrevista" and item["applied_at"]
+    assert item["archived_at"] is None
+    track_application(job_id, "rejected")
+    archived, = api.get("/api/applications").json()["applications"]
+    assert archived["archived_at"]
+    track_application(job_id, "rejected", "Nota actualizada")
+    edited, = api.get("/api/applications").json()["applications"]
+    assert edited["archived_at"] == archived["archived_at"]
     assert api.delete(f"/api/applications/{job_id}").json() == {"removed": True}
     assert api.delete(f"/api/applications/{job_id}").json() == {"removed": False}
     assert api.get("/api/applications").json() == {"applications": []}

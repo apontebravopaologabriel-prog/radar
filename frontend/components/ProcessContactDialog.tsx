@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { fetchProcesses, PROCESS_EVENT, type ProcessInput, type ProcessItem } from "../lib/processes-api";
+import { applicationStatusForProcess, fetchProcesses, PROCESS_EVENT, type ProcessInput, type ProcessItem } from "../lib/processes-api";
+import { updateApplication } from "../lib/applications-api";
 import ProcessForm from "./ProcessForm";
 import "./processes.css";
 export default function ProcessContactDialog() {
@@ -26,6 +27,15 @@ export default function ProcessContactDialog() {
     return () => previous?.focus();
   }, [draft]);
   if (!draft) return null;
+  async function save(item: ProcessItem) {
+    try {
+      if (item.job_id) await updateApplication(item.job_id, applicationStatusForProcess(item.stage));
+      window.dispatchEvent(new CustomEvent("radar:jobs-changed"));
+      close();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Se guardó el proceso, pero no se pudo actualizar el estado.");
+    }
+  }
   return <div className="process-dialog" onKeyDown={(e) => {
     if (e.key === "Escape") { e.stopPropagation(); close(); }
     if (e.key === "Tab") {
@@ -33,5 +43,5 @@ export default function ProcessContactDialog() {
       if (e.shiftKey && document.activeElement === nodes[0]) { e.preventDefault(); nodes.at(-1)?.focus(); }
       else if (!e.shiftKey && document.activeElement === nodes.at(-1)) { e.preventDefault(); nodes[0]?.focus(); }
     }
-  }}><div ref={panel} role="dialog" aria-modal="true" aria-label="Me contactaron"><p>Registra este proceso cuando hayas recibido una respuesta.</p>{error && <p role="alert">{error}</p>}<ProcessForm initial={draft} id={"id" in draft ? draft.id : undefined} onSaved={close} onCancel={close} /></div></div>;
+  }}><div ref={panel} role="dialog" aria-modal="true" aria-label="Me contactaron"><p>Registra este proceso cuando hayas recibido una respuesta.</p>{error && <p role="alert">{error}</p>}<ProcessForm initial={draft} id={"id" in draft ? draft.id : undefined} onSaved={(item) => void save(item)} onCancel={close} /></div></div>;
 }

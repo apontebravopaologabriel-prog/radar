@@ -30,7 +30,7 @@ offer text ↔ the agent (untrusted input); portals ↔ connectors. The SQLite f
 - **Credential store:** on Windows (or with `RADAR_SECRETS_BACKEND=keyring`) provider keys live in the OS credential
   manager; any old plaintext copy is migrated and removed. Elsewhere they stay in `secrets.json` (`0600`).
 - **Pinned connector:** the Computrabajo adapter runs `mcp-computrabajo@1.0.0`, not `@latest`.
-- **Login screen** on desktop and mobile when the access key is set. CI runs a `pip-audit`/`npm audit` job (informational)
+- **Login screen** on the desktop interface when the access key is set. CI runs a `pip-audit`/`npm audit` job (informational)
   and Dependabot is enabled.
 - **Access key** (`auth.py`): with `RADAR_ACCESS_TOKEN`, every `/api/*` except health, login and status needs
   the session cookie (`HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS, 30 days) or `Authorization: Bearer`.

@@ -20,7 +20,7 @@ from radar.db.database import connection, database_path
 TIMER_UNIT = "radar-refresh.timer"
 MAX_INTERVAL_DAYS = 30
 BACKUPS_KEPT = 5
-TASKS = ("repair_data", "expire_stale", "check_applications", "market_snapshot", "backup")
+TASKS = ("repair_data", "expire_stale", "check_applications", "market_snapshot", "backup", "deduplicate_jobs", "compact_db")
 
 
 def timer_path() -> Path:
@@ -154,7 +154,13 @@ def backup_database() -> dict[str, Any]:
 
 def run_maintenance(task: str, days: int = 45, limit: int = 40) -> dict[str, Any]:
     """Ejecuta una tarea de mantenimiento de la lista cerrada `TASKS`."""
-    from radar.db.repository import capture_market_snapshot, expire_stale_jobs, repair_data_quality
+    from radar.db.repository import (
+        capture_market_snapshot,
+        compact_database,
+        deduplicate_jobs,
+        expire_stale_jobs,
+        repair_data_quality,
+    )
     from radar.liveness import check_application_status
 
     if task not in TASKS:
@@ -167,4 +173,10 @@ def run_maintenance(task: str, days: int = 45, limit: int = 40) -> dict[str, Any
         return {"task": task, "result": check_application_status(min(max(limit, 1), 60), 7)}
     if task == "market_snapshot":
         return {"task": task, "metrics_saved": capture_market_snapshot(None)}
+    if task == "deduplicate_jobs":
+        backup = backup_database()
+        return {"task": task, "backup": backup["backup"], "result": deduplicate_jobs(min(max(days, 7), 90))}
+    if task == "compact_db":
+        backup = backup_database()
+        return {"task": task, "backup": backup["backup"], "result": compact_database(min(max(days, 7), 180))}
     return {"task": task, **backup_database()}

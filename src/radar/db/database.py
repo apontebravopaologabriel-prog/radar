@@ -138,7 +138,35 @@ def _schema_section(start_marker: str, end_marker: str) -> str:
     return text[start : text.index(end_marker, start)]
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 6
+
+
+def _relax_hidden_reason_check(conn: sqlite3.Connection) -> None:
+    """Older databases required a reason to hide an offer; archiving no longer asks for one.
+
+    SQLite cannot drop a CHECK constraint, so the table is rebuilt only when the old rule is
+    still present. Idempotent: once rebuilt the check disappears and this is a no-op.
+    """
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='job_user_status'").fetchone()
+    if not row or "reason IS NOT NULL" not in (row[0] or ""):
+        return
+    conn.executescript(
+        """
+        ALTER TABLE job_user_status RENAME TO job_user_status_old;
+        CREATE TABLE job_user_status (
+            job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'hidden' CHECK (status IN ('visible', 'hidden')),
+            reason TEXT CHECK (reason IN ('closed', 'not_interested', 'applied', 'duplicate', 'other')),
+            note TEXT,
+            created_at TEXT NOT NULL DEFAULT (now()),
+            updated_at TEXT NOT NULL DEFAULT (now())
+        );
+        INSERT INTO job_user_status(job_id, status, reason, note, created_at, updated_at)
+            SELECT job_id, status, reason, note, created_at, updated_at FROM job_user_status_old;
+        DROP TABLE job_user_status_old;
+        CREATE INDEX IF NOT EXISTS job_user_status_hidden_idx ON job_user_status (status, updated_at DESC);
+        """
+    )
 
 
 def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
@@ -190,16 +218,29 @@ def _ensure_runtime_schema(conn: sqlite3.Connection) -> None:
         conn.execute("CREATE TRIGGER IF NOT EXISTS agent_memories_au AFTER UPDATE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts, rowid, topic_key, content) VALUES ('delete', old.rowid, old.topic_key, old.content); INSERT INTO agent_memories_fts(rowid, topic_key, content) VALUES (new.rowid, new.topic_key, new.content); END")
         conn.executescript(_schema_section("-- CV Studio", "CREATE TABLE IF NOT EXISTS market_snapshots"))
         conn.executescript(_schema_section("-- Response-driven processes", "-- End response-driven processes"))
-        if current_version < 4:
+        process_columns = {row[1] for row in conn.execute("PRAGMA table_info(processes)")}
+        if "archived_at" not in process_columns:
+            conn.execute("ALTER TABLE processes ADD COLUMN archived_at TEXT")
+        if current_version < 6:
             conn.execute("""INSERT OR IGNORE INTO processes
                 (job_id, source_application_id, company, title, url, stage, notes, created_at, updated_at)
                 SELECT a.job_id, a.id, COALESCE(c.name, 'Empresa sin nombre'), j.title,
                     (SELECT source_url FROM job_sources js WHERE js.job_id=j.id ORDER BY last_seen_at DESC LIMIT 1),
-                    a.status, a.notes, COALESCE(a.applied_at, a.updated_at), a.updated_at
+                    CASE WHEN a.status='responded' THEN 'contact' ELSE a.status END,
+                    a.notes, COALESCE(a.applied_at, a.updated_at), a.updated_at
                 FROM applications a JOIN jobs j ON j.id=a.job_id
                 LEFT JOIN companies c ON c.id=j.company_id
-                WHERE a.status IN ('interview','offer') ORDER BY a.updated_at DESC""")
+                WHERE a.status IN ('responded','interview','offer') ORDER BY a.updated_at DESC""")
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    _relax_hidden_reason_check(conn)
+    conn.execute(
+        """UPDATE OR IGNORE job_sources
+        SET source_url = REPLACE(source_url, '/search-jobs/vacancy-details/', '/search-jobs?jobId=')
+        WHERE source_url LIKE '%empleosperu.gob.pe/search-jobs/vacancy-details/%'"""
+    )
+    conn.execute(
+        "DELETE FROM job_sources WHERE source_url LIKE '%empleosperu.gob.pe/search-jobs/vacancy-details/%'"
+    )
     conn.executemany(
         "INSERT INTO industrial_areas(name, slug) VALUES (%s, %s) ON CONFLICT DO NOTHING",
         _CATALOG_AREAS + _pack_areas(),

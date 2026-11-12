@@ -168,10 +168,3 @@ resolved scope. Parallel calls are isolated. See [agent scope](agent.md#market-s
 Free-form Analysis SQL, legacy match scores and scheduled capture retain their reference behavior.
 Cross-market scores are not invented: reference scores and legacy snapshots are labelled accordingly.
 Versioned history, source-level availability verification and full market-aware scoring remain planned.
-
-## Focused expansion (2026-11-04)
-
-`ingenieria_mecanica` is an experimental third pack; Industrial and Systems remain the main capture targets.
-Mechanical uses contextual evidence gates and excludes reviewed physical trade titles and unrelated IT/tool
-mentions. Its regression fixtures are diagnostic, not a measured precision estimate. Reference scores now
-read that market's independent projection (`v2.1-evidence`).

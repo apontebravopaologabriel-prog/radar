@@ -27,9 +27,7 @@ function usePanel<T extends { id: string }>(list: T[], selectedId: string | null
 
   useLayoutEffect(() => {
     if (!node) return;
-    if (selectedIndex < 0) {
-      node.scrollTop = 0;
-    } else {
+    if (selectedIndex >= 0) {
       const top = selectedIndex * ROW_HEIGHT;
       if (top < node.scrollTop) node.scrollTop = top;
       else if (top + ROW_HEIGHT > node.scrollTop + node.clientHeight) {

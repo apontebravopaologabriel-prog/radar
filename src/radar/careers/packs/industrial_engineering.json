@@ -185,8 +185,7 @@
    "analista de planeamiento",
    "asistente de planeamiento",
    "planeamiento",
-   "planificacion operativa",
-   "back office"
+   "planificacion operativa"
   ],
   "Supply Chain, logística y compras": [
    "supply chain",
@@ -359,28 +358,46 @@
   "Excel": {
    "aliases": [
     "excel",
-    "microsoft 365"
+    "microsoft 365",
+    "ms excel",
+    "microsoft excel",
+    "excell",
+    "exel",
+    "hojas de calculo"
    ],
    "category": "herramienta",
    "type": "technical"
   },
   "Power BI": {
    "aliases": [
-    "power bi"
+    "power bi",
+    "powerbi",
+    "power-bi",
+    "power_bi",
+    "power b.i."
    ],
    "category": "bi",
    "type": "technical"
   },
   "SQL": {
    "aliases": [
-    "sql"
+    "sql",
+    "t-sql",
+    "tsql",
+    "pl/sql",
+    "plsql",
+    "mysql",
+    "sql server"
    ],
    "category": "datos",
    "type": "technical"
   },
   "Python": {
    "aliases": [
-    "python"
+    "python",
+    "pyton",
+    "phyton",
+    "phython"
    ],
    "category": "datos",
    "type": "technical"
@@ -388,21 +405,42 @@
   "PostgreSQL": {
    "aliases": [
     "postgresql",
-    "postgres"
+    "postgres",
+    "postgress",
+    "posgres"
    ],
    "category": "datos",
    "type": "technical"
   },
   "SAP": {
    "aliases": [
-    "sap"
+    "sap",
+    "sap s/4hana",
+    "sap s4hana",
+    "s/4hana",
+    "s4hana",
+    "sap mm",
+    "sap sd",
+    "sap pp",
+    "sap wm",
+    "sap ewm",
+    "sap fi",
+    "sap co",
+    "sap bw",
+    "sap b1",
+    "sap business one",
+    "sap hana",
+    "sap erp",
+    "sap r/3"
    ],
    "category": "erp",
    "type": "technical"
   },
   "Lean": {
    "aliases": [
-    "lean"
+    "lean",
+    "lean manufacturing",
+    "manufactura esbelta"
    ],
    "category": "mejora",
    "type": "methodology"
@@ -410,14 +448,20 @@
   "Six Sigma": {
    "aliases": [
     "six sigma",
-    "six-sigma"
+    "six-sigma",
+    "6 sigma",
+    "lean six sigma",
+    "green belt",
+    "black belt",
+    "yellow belt"
    ],
    "category": "calidad",
    "type": "methodology"
   },
   "Kaizen": {
    "aliases": [
-    "kaizen"
+    "kaizen",
+    "kaisen"
    ],
    "category": "mejora",
    "type": "methodology"
@@ -432,7 +476,9 @@
   },
   "5S": {
    "aliases": [
-    "5s"
+    "5s",
+    "5 s",
+    "las 5s"
    ],
    "category": "mejora",
    "type": "methodology"
@@ -449,18 +495,25 @@
     "rpa"
    ],
    "category": "automatizacion",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "Power Automate": {
    "aliases": [
-    "power automate"
+    "power automate",
+    "powerautomate",
+    "power-automate",
+    "ms flow",
+    "microsoft flow"
    ],
    "category": "automatizacion",
    "type": "technical"
   },
   "Tableau": {
    "aliases": [
-    "tableau"
+    "tableau",
+    "tablau",
+    "tableu"
    ],
    "category": "bi",
    "type": "technical"
@@ -485,7 +538,8 @@
   "OR-Tools": {
    "aliases": [
     "or-tools",
-    "ortools"
+    "ortools",
+    "or tools"
    ],
    "category": "analitica",
    "type": "technical"
@@ -511,7 +565,8 @@
     "sop"
    ],
    "category": "planeamiento",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "knowledge"
   },
   "Demand Planning": {
    "aliases": [
@@ -658,6 +713,264 @@
    ],
    "category": "habilidad",
    "type": "soft"
+  },
+  "Macros / VBA": {
+   "aliases": [
+    "vba",
+    "macros",
+    "excel vba",
+    "visual basic for applications"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Power Apps": {
+   "aliases": [
+    "powerapps",
+    "power-apps"
+   ],
+   "category": "automatizacion",
+   "type": "technical"
+  },
+  "Power Query": {
+   "aliases": [
+    "powerquery",
+    "power-query"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "Looker Studio": {
+   "aliases": [
+    "looker studio",
+    "data studio",
+    "google data studio",
+    "looker"
+   ],
+   "category": "bi",
+   "type": "technical"
+  },
+  "MS Project": {
+   "aliases": [
+    "ms project",
+    "microsoft project",
+    "ms-project",
+    "msproject"
+   ],
+   "category": "proyectos",
+   "type": "technical"
+  },
+  "AutoCAD": {
+   "aliases": [
+    "autocad",
+    "auto cad",
+    "auto-cad"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "SolidWorks": {
+   "aliases": [
+    "solidworks",
+    "solid works",
+    "solidwork"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Bizagi": {
+   "aliases": [
+    "bizagi",
+    "bisagi",
+    "bizagi modeler"
+   ],
+   "category": "procesos",
+   "type": "technical"
+  },
+  "Visio": {
+   "aliases": [
+    "visio",
+    "ms visio",
+    "microsoft visio"
+   ],
+   "category": "procesos",
+   "type": "technical"
+  },
+  "Minitab": {
+   "aliases": [
+    "minitab",
+    "mini tab"
+   ],
+   "category": "calidad",
+   "type": "technical"
+  },
+  "ERP": {
+   "aliases": [
+    "erp",
+    "sistemas erp",
+    "odoo",
+    "oracle erp",
+    "netsuite",
+    "softland",
+    "starsoft"
+   ],
+   "category": "erp",
+   "type": "technical"
+  },
+  "WMS": {
+   "aliases": [
+    "wms",
+    "warehouse management system"
+   ],
+   "category": "supply-chain",
+   "type": "technical"
+  },
+  "TMS": {
+   "aliases": [
+    "tms",
+    "transportation management system"
+   ],
+   "category": "supply-chain",
+   "type": "technical"
+  },
+  "MRP": {
+   "aliases": [
+    "mrp",
+    "mrp ii",
+    "material requirements planning"
+   ],
+   "category": "planeamiento",
+   "type": "technical"
+  },
+  "CRM": {
+   "aliases": [
+    "crm",
+    "salesforce",
+    "hubspot",
+    "zoho crm"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Jira": {
+   "aliases": [
+    "jira"
+   ],
+   "category": "proyectos",
+   "type": "technical"
+  },
+  "Confluence": {
+   "aliases": [
+    "confluence"
+   ],
+   "category": "proyectos",
+   "type": "technical"
+  },
+  "Git": {
+   "aliases": [
+    "git",
+    "github",
+    "gitlab"
+   ],
+   "category": "herramienta",
+   "type": "technical"
+  },
+  "Databricks": {
+   "aliases": [
+    "databricks"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "BigQuery": {
+   "aliases": [
+    "bigquery",
+    "big query"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "PLC / SCADA": {
+   "aliases": [
+    "plc",
+    "scada",
+    "hmi"
+   ],
+   "category": "automatizacion",
+   "type": "technical"
+  },
+  "R": {
+   "aliases": [
+    "rstudio",
+    "r studio",
+    "lenguaje r"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "SPSS": {
+   "aliases": [
+    "spss"
+   ],
+   "category": "datos",
+   "type": "technical"
+  },
+  "FlexSim / Arena": {
+   "aliases": [
+    "flexsim",
+    "arena simulation",
+    "promodel"
+   ],
+   "category": "analitica",
+   "type": "technical"
+  },
+  "ISO 9001": {
+   "aliases": [
+    "iso 9001",
+    "iso9001"
+   ],
+   "category": "calidad",
+   "type": "domain"
+  },
+  "ISO 45001": {
+   "aliases": [
+    "iso 45001",
+    "iso45001",
+    "ohsas 18001"
+   ],
+   "category": "calidad",
+   "type": "domain"
+  },
+  "ISO 14001": {
+   "aliases": [
+    "iso 14001",
+    "iso14001"
+   ],
+   "category": "calidad",
+   "type": "domain"
+  },
+  "HACCP": {
+   "aliases": [
+    "haccp",
+    "hasap"
+   ],
+   "category": "calidad",
+   "type": "domain"
+  },
+  "BASC": {
+   "aliases": [
+    "basc"
+   ],
+   "category": "supply-chain",
+   "type": "domain"
+  },
+  "Kanban": {
+   "aliases": [
+    "kanban",
+    "kamban"
+   ],
+   "category": "mejora",
+   "type": "methodology"
   }
  },
  "excluded_title_signals": [
@@ -756,15 +1069,12 @@
   "cocinero",
   "docente",
   "enfermera",
-  "recursos humanos",
   "reclutador",
   "seleccion de personal",
   "psicologo",
   "abogado",
-  "gestion humana",
   "gestion de personas",
   "gestion del talento",
-  "talento humano",
   "counter",
   "agencia de viajes",
   "panaderia",
@@ -779,7 +1089,20 @@
   "planeamiento financiero",
   "analista financiero",
   "experiencia de cliente",
-  "customer experience"
+  "customer experience",
+  "asesor back office",
+  "ejecutivo back office",
+  "teleoperador",
+  "call center",
+  "asesor legal",
+  "medico ocupacional",
+  "enfermero",
+  "comunicador",
+  "backoffice mesa de ayuda",
+  "back office mesa de ayuda",
+  "back office compra de deuda",
+  "asesor(a) backoffice",
+  "back office sin exp"
  ],
  "target_titles": [
   "analista de business intelligence",
@@ -856,7 +1179,9 @@
   "mecanico de mantenimiento",
   "tecnico electricista",
   "tecnico en mantenimiento",
-  "tecnico electronico"
+  "tecnico electronico",
+  "operario de almacen",
+  "tecnico(a) mecanico"
  ],
  "adjacent_title_signals": [
   "ingenieria industrial",
@@ -985,6 +1310,11 @@
   "operario de mantenimiento para",
   "analista de laboratorio clinico",
   "analistas de laboratorio clinico",
-  "procesamiento de muestras biologicas"
+  "procesamiento de muestras biologicas",
+  "rubro de call center",
+  "equipo de backooffice por call center",
+  "mesa de ayuda - soporte tecnico claro",
+  "teleoperador(a) de mesa de ayuda",
+  "asesores(as) de mesa de ayuda tecnica"
  ]
 }

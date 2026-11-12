@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import "./mobile.css";
+import "./terminal.css";
 import AuthGate from "../AuthGate";
 import SettingsView from "./SettingsView";
 
@@ -14,7 +14,7 @@ export default function SettingsPage() {
     <div className="m-app">
       <main className="m-main">
         <a className="m-link" href="/radar">← Volver al mapa</a>
-        <SettingsView authRequired={false} onLogout={() => undefined} onError={onError} />
+        <SettingsView cvWorkspaceHref="/radar?view=cvs" authRequired={false} onLogout={() => undefined} onError={onError} />
       </main>
       {error && <p className="m-toast" role="alert" onClick={() => setError("")}>{error}</p>}
     </div>

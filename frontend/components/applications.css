@@ -1,46 +1,66 @@
-/* Vista Postulaciones: lista por estado. Monocromo, sin acentos. */
-.applications-view { display: grid; align-content: start; gap: 12px; height: 100%; padding: 22px 24px 24px 84px; overflow-y: auto; }
-.applications-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; max-width: 960px; gap: 12px; }
-.applications-head h2 { margin: 0 0 4px; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #f0f0f0; }
-.applications-head p { margin: 0; color: #8c8c8c; font-size: 11px; }
-.applications-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.applications-search { width: 240px; padding: 5px 9px; border: 1px solid #3a3a3a; border-radius: 0; background: #0e0e0e; color: #e6e6e6; font: inherit; font-size: 10.5px; outline: none; }
-.applications-search:focus { border-color: #c8c8c8; }
-.applications-export { padding: 5px 10px; border: 1px solid #4a4a4a; border-radius: 0; background: #141414; color: #d0d0d0; font: inherit; font-size: 10px; letter-spacing: .03em; cursor: pointer; }
-.applications-export:hover:not(:disabled), .applications-export.active { border-color: #e0e0e0; color: #ffffff; background: #1f1f1f; }
-.applications-export:disabled { opacity: .45; cursor: default; }
-.applications-import-bar { display: flex; flex-wrap: wrap; align-items: center; max-width: 960px; gap: 6px; padding: 9px 10px; border: 1px solid #383838; background: #0c0c0c; }
-.applications-import-url { flex: 2 1 280px; min-width: 220px; padding: 5px 8px; border: 1px solid #444444; border-radius: 0; background: #121212; color: #ededed; font: inherit; font-size: 10.5px; outline: none; }
-.applications-import-meta { flex: 1 1 150px; min-width: 130px; padding: 5px 8px; border: 1px solid #363636; border-radius: 0; background: #121212; color: #dcdcdc; font: inherit; font-size: 10px; outline: none; }
-.applications-import-url:focus, .applications-import-meta:focus { border-color: #d0d0d0; }
-.applications-import-bar select, .applications-import-bar button { padding: 5px 10px; border: 1px solid #4a4a4a; border-radius: 0; background: #161616; color: #e0e0e0; font: inherit; font-size: 10px; cursor: pointer; }
-.applications-import-bar button:hover:not(:disabled) { border-color: #ededed; color: #ffffff; background: #222222; }
-.applications-import-bar button:disabled { opacity: .5; cursor: default; }
-.applications-tabs b { margin-left: 4px; color: #8c8c8c; font-weight: 500; }
-.applications-list { display: grid; max-width: 960px; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.applications-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #2c2c2c; background: #0a0a0a; }
-.applications-main { display: grid; min-width: 0; gap: 4px; flex: 1; }
-.applications-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.applications-status-badge { padding: 1px 6px; border: 1px solid #4a4a4a; color: #c8c8c8; background: #151515; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; flex-shrink: 0; }
-.applications-main strong { overflow: hidden; color: #f0f0f0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.applications-main strong a { color: inherit; text-decoration: none; }
-.applications-main strong a:hover { text-decoration: underline; }
-.applications-main small { color: #8c8c8c; font-size: 10px; }
-.applications-nudge { color: #d0d0d0 !important; }
-.applications-note-row { display: flex; align-items: center; margin-top: 2px; }
-.applications-notes-btn { padding: 0; border: 0; border-bottom: 1px dotted #5a5a5a; background: transparent; color: #b8b8b8; font: inherit; font-size: 10px; font-style: italic; text-align: left; cursor: pointer; }
-.applications-notes-btn:hover { color: #ffffff; border-bottom-color: #d0d0d0; }
-.applications-add-note { padding: 1px 6px; border: 1px dashed #3a3a3a; border-radius: 0; background: transparent; color: #7a7a7a; font: inherit; font-size: 9.5px; cursor: pointer; }
-.applications-add-note:hover { border-color: #a0a0a0; color: #d0d0d0; }
-.applications-note-editor { display: flex; align-items: center; gap: 4px; margin-top: 2px; max-width: 520px; }
-.applications-note-editor input { flex: 1; min-width: 0; padding: 3px 7px; border: 1px solid #555555; border-radius: 0; background: #121212; color: #ededed; font: inherit; font-size: 10px; outline: none; }
-.applications-note-editor button { padding: 3px 8px; border: 1px solid #4a4a4a; border-radius: 0; background: #161616; color: #d0d0d0; font: inherit; font-size: 9.5px; cursor: pointer; }
-.applications-note-editor button:hover { border-color: #d0d0d0; color: #ffffff; }
-.applications-files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 2px; }
-.applications-files a { color: #c8c8c8; }
-.applications-files button, .applications-actions button { padding: 4px 9px; border: 1px solid #4a4a4a; border-radius: 0; color: #c8c8c8; background: #141414; font: inherit; font-size: 10px; cursor: pointer; }
-.applications-files button:hover, .applications-actions button:hover { border-color: #d0d0d0; color: #ffffff; }
-.applications-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 4px; }
-.applications-empty, .applications-error { max-width: 960px; margin: 0; color: #8c8c8c; font-size: 11px; }
-.applications-error { color: #d0d0d0; }
-@media (max-width: 720px) { .applications-view { padding-left: 16px; } .applications-row { flex-direction: column; } .applications-search { width: 100%; } }
+.applications-view { min-width: 0; padding-top: 28px; border-top: 1px solid #3a3a3a; }
+.applications-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.applications-section-head h2 { margin: 0; font-size: 14px; font-weight: 500; color: #eee; }
+.applications-section-head h2 span { margin-left: 5px; color: #929292; font-size: 11px; }
+.applications-section-head p { margin: 5px 0 0; color: #929292; font-size: 11px; }
+.applications-view button, .applications-view input { font: inherit; color: #ddd; }.applications-section-head button,
+.applications-message button{ padding: 4px 0; border: 0; color: #bbb; background: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; font-size: 11px; }.applications-section-head button:hover,
+.applications-message button:hover{ color: #fff; }
+.applications-search { width: min(360px, 100%); margin: 2px 0 14px; padding: 8px 10px; border: 1px solid #505050; background: #1b1b1b; font-size: 12px; }
+.applications-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; }
+.applications-workspace:has(.applications-detail) { grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); }
+.applications-list { min-width: 0; margin: 0; padding: 0; list-style: none; }
+.applications-list li { display: flex; align-items: center; border-bottom: 1px solid #383838; }
+.applications-action { padding: 8px 10px; border: 0; background: none; color: #777; cursor: pointer; line-height: 0; }
+.applications-action:hover { color: #fff; }
+.applications-action, .processes-list .processes-icon { opacity: 0; transition: opacity .12s; }
+li:is(:hover, :focus-within) > .applications-action, li:is(:hover, :focus-within) > .processes-icon, .applications-action:focus-visible, .processes-list .processes-icon:focus-visible { opacity: 1; }
+@media (hover: none) { .applications-action, .processes-list .processes-icon { opacity: .7; } }
+.applications-row { display: grid; grid-template-columns: 54px minmax(0, 1.6fr) minmax(0, 1fr) 48px; flex: 1; min-width: 0; align-items: center; gap: 12px; width: 100%; min-height: 49px; padding: 8px 10px; border: 0; background: transparent; color: #ccc; text-align: left; cursor: pointer; }
+.applications-row:hover, .applications-row[aria-pressed="true"] { background: #282828; color: #fff; }
+.applications-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.applications-role { font-size: 12px; font-weight: 600; }.applications-company,
+.applications-date, .applications-age { color: #aaa; font-size: 11px; }
+.applications-age { text-align: right; }
+.applications-date-label { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); }
+.applications-detail { position: sticky; top: 12px; align-self: start; min-width: 0; padding: 20px; border: 1px solid #4a4a4a; background: #222; overflow-wrap: anywhere; }
+.applications-detail h3 { margin: 4px 24px 7px 0; font-size: 16px; }
+.applications-detail p { margin: 0; color: #aaa; font-size: 11px; line-height: 1.6; }
+.applications-detail .applications-kicker { color: #ccc; font-size: 10px; letter-spacing: .04em; }
+.applications-detail .applications-note { margin-top: 18px; color: #ccc; white-space: pre-wrap; }
+.applications-detail .applications-close { position: absolute; top: 11px; right: 12px; padding: 0; border: 0; background: none; color: #aaa; cursor: pointer; font-size: 19px; }.applications-message{ color: #999; font-size: 11px; }
+.applications-message { margin: 18px 0; }
+.applications-view :is(button, input):focus-visible { outline: 1px solid #ddd; outline-offset: 2px; }
+@container (max-width: 950px) { .applications-workspace:has(.applications-detail) { grid-template-columns: minmax(0, 1fr); } .applications-detail { position: static; grid-row: 1; } }
+@container (max-width: 700px) { .applications-row { grid-template-columns: 48px minmax(0, 1fr) 34px; gap: 3px 6px; } .applications-company { grid-column: 2; grid-row: 2; } .applications-age { grid-column: 3; grid-row: 1; } }
+.applications-rhythm { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 24px; align-items: end; margin: 0 0 16px; padding: 12px 0; border-block: 1px solid #333; }
+.applications-rhythm-bars { display: flex; align-items: flex-end; gap: 3px; height: 28px; }
+.applications-rhythm-bars i { flex: 1; min-height: 2px; background: #777; }
+.applications-rhythm-bars i:last-child { background: #ccc; }
+.applications-rhythm dl { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.applications-rhythm dl div { display: grid; gap: 2px; }
+.applications-rhythm dt { color: #808080; font-size: 9px; }
+.applications-rhythm dd { margin: 0; color: #bbb; font-size: 11px; }
+.job-description-note { margin: 12px 0 0; color: #888; font-size: 10px; }
+.job-description-body { margin-top: 16px; cursor: pointer; max-height: 9.5em; overflow: hidden; color: #bbb; font-size: 11px; line-height: 1.6; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+.job-description-body.is-open { max-height: 55vh; overflow-y: auto; -webkit-mask-image: none; mask-image: none; scrollbar-width: thin; scrollbar-color: #666 transparent; }
+.job-description-body :is(p, ul, ol, h1, h2, h3, h4) { margin: 0 0 8px; font-size: 11px; }
+@container (max-width: 700px) { .applications-rhythm { grid-template-columns: minmax(0, 1fr); } }
+/* Hover unificado: el fondo vive en la fila completa (li) para que el icono de archivar no quede como un cuadrado oscuro. */
+.applications-list li, .processes-list li:not(.processes-group) { transition: background-color .12s; }
+.applications-list li:hover, .applications-list li:focus-within, .processes-list li:not(.processes-group):hover, .processes-list li:not(.processes-group):focus-within { background: #282828; }
+.applications-list li:hover > .applications-row, .applications-list li:hover > .applications-action,
+.processes-list li:hover > button, .processes-list li:hover > .processes-icon { background: transparent; color: #fff; }
+.applications-list .applications-action, .processes-list .processes-icon { background: transparent; }
+.applications-list .applications-action:hover, .processes-list .processes-icon:hover { background: transparent; color: #fff; }
+.applications-list .applications-action:focus-visible, .processes-list .processes-icon:focus-visible { outline-offset: -2px; }
+
+.tracking-offer-title { padding-right: 18px; }
+.tracking-offer-title a { color: inherit; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.tracking-offer-title a:hover { color: #fff; }
+:is(.applications-detail, .processes-detail) .popover-grid { margin: 12px 0; padding-top: 12px; border-top: 1px solid #414141; }
+:is(.applications-detail, .processes-detail) .popover-grid span { font-size: 9px; }
+:is(.applications-detail, .processes-detail) .popover-grid strong { font-size: 11px; overflow-wrap: anywhere; }
+
+.applications-rhythm dt button { padding: 0; border: 0; background: none; color: #aaa; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.applications-rhythm dt button:is(:hover, [aria-pressed="true"]) { color: #fff; }

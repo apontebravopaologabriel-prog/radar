@@ -4,8 +4,8 @@ import { useState } from "react";
 import type { Career } from "../lib/mobile-api";
 import CvImportPanel from "./CvImportPanel";
 import CvHistoryEditor from "./CvHistoryEditor";
-import ProfileTab from "./mobile/ProfileTab";
-import "./mobile/settings.css";
+import ProfileTab from "./settings/ProfileTab";
+import "./settings/settings.css";
 import "./my-cv.css";
 
 export default function MyCvProfile({ career, onChanged }: { career: Career; onChanged?: () => void }) {
