@@ -28,9 +28,10 @@ WRITE_TOOL = ToolAnnotations(
 )
 
 MCP_INSTRUCTIONS = (
-    "Radar consulta y organiza la búsqueda laboral en SQLite. Para mover una postulación por ID, llama "
-    "directamente a track_job_application con responded (Contacto), interview (Entrevista), offer (Oferta) o rejected (Archivados). "
-    "Si falta el ID, usa list_job_applications(compact=true) primero. Pide confirmación antes de escribir.\n"
+    "Radar consulta y organiza la búsqueda laboral en SQLite. Para mover o archivar una postulación por puesto "
+    "o empresa en 1 sola llamada, pasa el texto directamente en `job_id` de track_job_application (o `job_ids` en lote) con "
+    "responded (Contacto), interview (Entrevista), offer (Oferta), rejected (Archivados) o ignored (Oculta). "
+    "Solo usa list_job_applications(compact=true, query=...) si necesitas listar o desambiguar. Pide confirmación antes de escribir.\n"
     "Para preparar una entrevista, análisis de empresa o guion STAR, usa get_interview_dossier en una llamada: "
     "busca también postuladas y ocultas, y devuelve oferta, fit, brecha y CV real. Los expedientes Markdown "
     "de preparación se guardan en /home/paolo/Documents/Work/Postulaciones/<Empresa>/. "

@@ -30,8 +30,8 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 | `run_readonly_sql` | lee | SELECT/WITH en SQLite (máx. 50 filas; último recurso). Empresa: `LEFT JOIN companies c ON c.id=j.company_id` (`c.name`, no existe `j.company`); fechas SQLite: `date('now','-7 days')` (no `INTERVAL`). Clasificación por mercado: `job_market_classifications m ON m.job_id=j.id AND m.market_id='...'` (`m.relevance_tier`, `m.areas`, `m.skills`). Prefiere `search_saved_jobs`. | sql: string |
 | `update_profile_fields` | escribe | Edita SOLO los campos que pases del perfil (lo que se ve y edita en Ajustes); lo demás no se toca. Pasa | name?: string, headline?: string, summary?: string, home_district?: string, education?: string, contact?: object, areas?: array, areas_add?: array, areas_remove?: array, locations?: array, locations_add?: array, locations_remove?: array, work_modes?: array, skills?: object |
 | `favorite_job` | escribe | Marca o desmarca una oferta con estrella (★). | job_id: string, favorite?: boolean |
-| `track_job_application` | escribe | Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas). | job_id: string, status?: string, notes?: string |
-| `list_job_applications` | lee | Lista postulaciones con su estado y enlace. Usa compact=true para cambios de etapa y archivo. | limit?: integer, compact?: boolean |
+| `track_job_application` | escribe | Registra o actualiza el estado de una o varias ofertas en 1 llamada. | job_id: string, status?: string, notes?: string, job_ids?: array |
+| `list_job_applications` | lee | Lista postulaciones con su estado y enlace. Filtra por `query` o `status` en SQL; usa compact=true para cambios de etapa. | limit?: integer, compact?: boolean, query?: string, status?: string |
 | `import_job_url` | escribe | Importa una oferta por su URL (Computrabajo, LinkedIn, Bumeran, Empleos Perú u otra web) y calcula su encaje. | url: string, title?: string, company?: string, location?: string, description?: string, favorite?: boolean, application_status?: string |
 
 ## Flujos recomendados (mínimas llamadas)

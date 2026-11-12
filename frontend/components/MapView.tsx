@@ -20,9 +20,11 @@ export type MapViewProps = {
   onSelectDistrict: (districtKey: string) => void;
   radarCounts?: Record<number, number>;
   onPickRadarCenter?: (center: RadarCenter) => void;
+  resetRevision?: number;
 };
 
 const INITIAL_CENTER: [number, number] = [-77.043, -12.046];
+const INITIAL_ZOOM = 10.7;
 
 function supportsWebGL2(): boolean {
   try {
@@ -126,13 +128,15 @@ function normalizeDistrictGeoJson(payload: FeatureCollection<Polygon | MultiPoly
 }
 
 export default function MapView(props: MapViewProps) {
-  const { jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict, radarCounts, onPickRadarCenter } = props;
+  const { jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict, radarCounts, onPickRadarCenter, resetRevision = 0 } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const modeRef = useRef(mode);
   const jobsRef = useRef(jobs);
   const radarDistrictKeyRef = useRef(radarDistrictKey);
   const selectedDistrictRef = useRef(selectedDistrictKey);
+  const prevDistrictRef = useRef(selectedDistrictKey);
+  const prevResetRevisionRef = useRef(resetRevision);
   const selectJobRef = useRef(onSelectJob);
   const selectDistrictRef = useRef(onSelectDistrict);
   const pickCenterRef = useRef(onPickRadarCenter);
@@ -193,7 +197,7 @@ export default function MapView(props: MapViewProps) {
     if (webglAvailable !== true) return;
     if (!containerRef.current) return;
     maplibregl.setWorkerUrl(`${window.location.origin}/maplibre/maplibre-gl-worker.mjs`); // ver scripts/copy-maplibre-worker.mjs
-    const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: 10.7, minZoom: 9, maxZoom: 17, fadeDuration: 0, renderWorldCopies: false, maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2), attributionControl: false });
+    const map = new maplibregl.Map({ container: containerRef.current, style: "https://tiles.openfreemap.org/styles/dark", center: INITIAL_CENTER, zoom: INITIAL_ZOOM, minZoom: 9, maxZoom: 17, fadeDuration: 0, renderWorldCopies: false, maxTileCacheSize: 60, pixelRatio: Math.min(window.devicePixelRatio || 1, 2), attributionControl: false });
     mapRef.current = map;
     const setMoving = (moving: boolean) => document.body.classList.toggle("is-map-moving", moving);
     map.on("movestart", () => setMoving(true));
@@ -318,12 +322,23 @@ export default function MapView(props: MapViewProps) {
   }, [mode, radarDistrictKey]);
 
   useEffect(() => {
+    const prevDistrict = prevDistrictRef.current;
+    prevDistrictRef.current = selectedDistrictKey;
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     syncDistrictState(map, jobsRef.current, selectedDistrictKey);
     setModeVisibility(map, modeRef.current, Boolean(radarDistrictKeyRef.current));
     if (selectedDistrictKey) focusDistrict(map, selectedDistrictKey);
+    else if (prevDistrict && modeRef.current !== "radar") map.easeTo({ center: INITIAL_CENTER, zoom: INITIAL_ZOOM });
   }, [selectedDistrictKey]);
+
+  useEffect(() => {
+    if (resetRevision === prevResetRevisionRef.current) return;
+    prevResetRevisionRef.current = resetRevision;
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    map.easeTo({ center: INITIAL_CENTER, zoom: INITIAL_ZOOM });
+  }, [resetRevision]);
 
   useEffect(() => {
     const map = mapRef.current;

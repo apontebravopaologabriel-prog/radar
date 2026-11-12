@@ -8,6 +8,7 @@ import type { Job } from "../types";
 import type { MapViewProps } from "./MapView";
 
 const INITIAL_CENTER: L.LatLngExpression = [-12.046, -77.043];
+const INITIAL_ZOOM = 10.7;
 const DISTRICT_COLORS = ["#111111", "#202020", "#363636", "#555555", "#858585", "#c8c8c8"];
 
 function colorForCount(count: number, max: number) {
@@ -24,15 +25,17 @@ function jobsByDistrict(jobs: Job[]) {
   return counts;
 }
 
-export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict }: MapViewProps) {
+export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectJob, onSelectDistrict, resetRevision = 0 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const districtsRef = useRef<FeatureCollection<Polygon | MultiPolygon, Record<string, unknown>> | null>(null);
+  const prevDistrictRef = useRef(selectedDistrictKey);
+  const prevResetRevisionRef = useRef(resetRevision);
   const [districtVersion, setDistrictVersion] = useState(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17, zoomControl: false, attributionControl: false, preferCanvas: true }).setView(INITIAL_CENTER, 10.7);
+    const map = L.map(containerRef.current, { minZoom: 9, maxZoom: 17, zoomControl: false, attributionControl: false, preferCanvas: true }).setView(INITIAL_CENTER, INITIAL_ZOOM);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 19 }).addTo(map);
     mapRef.current = map;
     loadDistrictGeoJson()
@@ -88,11 +91,22 @@ export default function LeafletMapView({ jobs, mode, radarCenter, radarRadiusKm,
       L.circleMarker([radarCenter.latitude, radarCenter.longitude], { radius: 6, color: "#ffffff", weight: 2, fillColor: "#eeeeee", fillOpacity: 1 }).addTo(map);
       map.setView([radarCenter.latitude, radarCenter.longitude], 13, { animate: true, duration: 0.7 });
     }
+    const prevDistrict = prevDistrictRef.current;
+    prevDistrictRef.current = selectedDistrictKey;
     if (selectedDistrictKey) {
       const selected = jobs.find((job) => districtKey(job.district) === selectedDistrictKey && job.latitude !== null && job.longitude !== null);
       if (selected) map.setView([selected.latitude as number, selected.longitude as number], Math.max(map.getZoom(), 12));
+    } else if (prevDistrict && mode !== "radar") {
+      map.setView(INITIAL_CENTER, INITIAL_ZOOM, { animate: true, duration: 0.7 });
     }
   }, [jobs, mode, radarCenter, radarRadiusKm, radarDistrictKey, selectedDistrictKey, onSelectDistrict, onSelectJob, districtVersion]);
+
+  useEffect(() => {
+    if (resetRevision === prevResetRevisionRef.current) return;
+    prevResetRevisionRef.current = resetRevision;
+    const map = mapRef.current;
+    if (map) map.setView(INITIAL_CENTER, INITIAL_ZOOM, { animate: true, duration: 0.7 });
+  }, [resetRevision]);
 
   return <div ref={containerRef} className="map-canvas leaflet-map" aria-label="Mapa de ofertas laborales de Lima" />;
 }

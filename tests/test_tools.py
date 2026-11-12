@@ -717,3 +717,18 @@ def test_mcp_application_interview_and_archive_share_tracking():
     assert full["notes"] == "CV enviado"
     assert compact == {key: full[key] for key in ("job_id", "title", "company", "status", "applied_at", "url")}
     assert list_processes()["processes"] == [process]
+
+
+def test_mcp_track_application_by_query_batch_and_sql_filters():
+    jobs = _seed_market()
+    first, second = jobs[0]["id"], jobs[1]["id"]
+    tools.track_job_application(first, status="applied", notes="Lote", job_ids=[first, second])
+    filtered = tools.list_job_applications(compact=True, query=jobs[0]["title"][:12], status="applied")["applications"]
+    assert len(filtered) == 1 and filtered[0]["job_id"] == first
+
+    moved = tools.track_job_application(jobs[0]["title"][:12], status="interview")
+    assert moved["job_id"] == first and moved["status"] == "interview"
+
+    archived = tools.track_job_application(first, status="rejected", job_ids=[first, second])
+    assert archived["updated"] == 2 and archived["status"] == "rejected"
+    assert tools.list_job_applications(status="applied")["applications"] == []

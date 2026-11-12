@@ -5,6 +5,7 @@ from typing import Any
 
 from radar.db.database import connection
 from radar.freshness import DEFAULT_MAX_AGE_DAYS, PERU_UTC_OFFSET_HOURS, visible_date_bounds
+from radar.normalize import normalize_text
 
 # Date-only and zone-less publications retain their calendar day. For zoned timestamps,
 # drop fractional seconds before conversion to avoid rounding across midnight in SQLite.
@@ -625,25 +626,45 @@ APPLICATION_ARCHIVED_AT = """CASE WHEN a.status IN ('ignored', 'rejected') THEN 
                 ), a.updated_at) END"""
 
 
-def applications(limit: int = 50, *, include_tracking_details: bool = False, tracking_since: str | None = None) -> list[dict[str, Any]]:
+def applications(
+    limit: int = 50,
+    *,
+    include_tracking_details: bool = False,
+    tracking_since: str | None = None,
+    query: str | None = None,
+    status: str | None = None,
+) -> list[dict[str, Any]]:
     archive_expression = APPLICATION_ARCHIVED_AT if include_tracking_details else "NULL"
     archive_origin = "0"
-    scope = ""
+    conditions: list[str] = []
+    params: list[Any] = []
     order = "ORDER BY a.updated_at DESC LIMIT %s"
-    parameters: tuple = (min(max(limit, 1), 200),)
     if tracking_since is not None:
         archive_origin = """CASE WHEN a.status IN ('rejected', 'ignored') THEN COALESCE((
             SELECT e.to_status='applied' FROM application_events e
             WHERE e.application_id=a.id AND e.to_status NOT IN ('rejected', 'ignored')
             ORDER BY e.occurred_at DESC LIMIT 1), 0) ELSE 0 END"""
-        scope = f"""WHERE a.status='applied' OR (
-            a.status IN ('rejected', 'ignored') AND (
-                EXISTS (SELECT 1 FROM processes p WHERE p.job_id=a.job_id)
-                OR julianday({APPLICATION_ARCHIVED_AT}) >= julianday(%s)
-            )
-        )"""
+        conditions.append(
+            f"""(a.status='applied' OR (
+                a.status IN ('rejected', 'ignored') AND (
+                    EXISTS (SELECT 1 FROM processes p WHERE p.job_id=a.job_id)
+                    OR julianday({APPLICATION_ARCHIVED_AT}) >= julianday(%s)
+                )
+            ))"""
+        )
+        params.append(tracking_since)
         order = "ORDER BY a.updated_at DESC, a.id"
-        parameters = (tracking_since,)
+    if status:
+        conditions.append("a.status = %s")
+        params.append(status)
+    for token in normalize_text(query).split():
+        like = f"%{token}%"
+        conditions.append("(j.title_normalized LIKE %s OR COALESCE(c.normalized_name, '') LIKE %s)")
+        params.extend((like, like))
+    scope = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    if tracking_since is None:
+        params.append(min(max(limit, 1), 200))
+    parameters = tuple(params)
     with connection() as conn:
         rows = conn.execute(
             f"""SELECT a.id, a.job_id, j.title, c.name, a.status, a.notes, a.applied_at, a.updated_at,

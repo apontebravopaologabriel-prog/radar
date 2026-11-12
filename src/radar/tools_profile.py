@@ -120,11 +120,18 @@ def _preview_job_label(job_id: str) -> str:
 
 
 def _preview_track(args: dict[str, Any]) -> list[str]:
+    job_ids = args.get("job_ids")
     job_id = str(args.get("job_id") or "")
     status = str(args.get("status") or "saved")
     notes = str(args.get("notes") or "").strip()
+    if isinstance(job_ids, list) and job_ids:
+        target = f"{len(job_ids)} ofertas seleccionadas"
+    elif job_id:
+        target = _preview_job_label(job_id) if get_job(job_id) else f"Búsqueda: {job_id}"
+    else:
+        target = "Oferta desconocida"
     lines = [
-        f"Oferta: {_preview_job_label(job_id)}",
+        f"Oferta: {target}",
         f"Estado: {_STATUS_PREVIEW_ES.get(status, status)}",
     ]
     if notes:
@@ -262,24 +269,74 @@ def favorite_job(job_id: str, favorite: bool = True) -> dict:
     return {"job_id": job_id, "is_favorite": favorite}
 
 
-@tool(write=True)
-def track_job_application(job_id: str, status: str = "saved", notes: str | None = None) -> dict:
-    """Registra o actualiza el estado de una oferta (al marcar applied/ignored sale de activas).
-    Seguimiento: responded (Contacto), interview (Entrevista), offer (Oferta). rejected archiva.
-    Otros estados: saved, applied, ignored (oculta), visible (restaura). No postula."""
+def _resolve_track_targets(
+    job_id: str,
+    job_ids: list[str] | None = None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    if job_ids:
+        return [str(item) for item in job_ids if str(item).strip()], []
+    if job_id and get_job(job_id):
+        return [job_id], []
+    needle = job_id.strip()
+    if not needle:
+        return [], []
+    app_matches = applications(limit=10, query=needle)
+    if len(app_matches) == 1:
+        return [app_matches[0]["job_id"]], []
+    if len(app_matches) > 1:
+        compact = [
+            {"job_id": r["job_id"], "title": r["title"], "company": r["company"], "status": r["status"]}
+            for r in app_matches[:8]
+        ]
+        return [], compact
+    from radar.db.queries import list_jobs
+
+    job_matches = list_jobs(search=needle, limit=10, include_closed=True, include_hidden=True, max_age_days=None)
+    if len(job_matches) == 1:
+        return [str(job_matches[0]["id"])], []
+    compact = [
+        {"job_id": str(r["id"]), "title": r["title"], "company": r.get("company"), "status": r.get("user_status")}
+        for r in job_matches[:8]
+    ]
+    return [], compact
+
+
+def _apply_track_one(job_id: str, status: str, notes: str | None) -> dict[str, Any]:
     if status == "visible":
         untrack_application(job_id)
         set_job_user_status(job_id, "visible")
         return {"job_id": job_id, "status": "visible"}
     if status == "ignored":
         set_job_user_status(job_id, "hidden", "not_interested", notes)
-    return {"application_id": track_application(job_id, status, notes), "status": status}
+    return {"application_id": track_application(job_id, status, notes), "job_id": job_id, "status": status}
+
+
+@tool(write=True)
+def track_job_application(
+    job_id: str,
+    status: str = "saved",
+    notes: str | None = None,
+    job_ids: list[str] | None = None,
+) -> dict:
+    """Registra o actualiza el estado de una o varias ofertas en 1 llamada.
+    `job_id` acepta ID o puesto/empresa único; `job_ids` aplica en lote.
+    Seguimiento: responded (Contacto), interview (Entrevista), offer (Oferta). rejected archiva.
+    Otros estados: saved, applied, ignored (oculta), visible (restaura). No postula."""
+    targets, candidates = _resolve_track_targets(job_id=job_id, job_ids=job_ids)
+    if candidates:
+        return {"updated": 0, "ambiguous": True, "matches": candidates}
+    if not targets:
+        raise ValueError("No se encontró ninguna oferta coincidente; indica job_id o texto más específico.")
+    if len(targets) == 1:
+        return _apply_track_one(targets[0], status, notes)
+    results = [_apply_track_one(item, status, notes) for item in targets]
+    return {"updated": len(results), "status": status, "results": results}
 
 
 @tool()
-def list_job_applications(limit: int = 50, compact: bool = False) -> dict:
-    """Lista postulaciones con su estado y enlace. Usa compact=true para cambios de etapa y archivo."""
-    rows = applications(limit)
+def list_job_applications(limit: int = 50, compact: bool = False, query: str = "", status: str = "") -> dict:
+    """Lista postulaciones con su estado y enlace. Filtra por `query` o `status` en SQL; usa compact=true para cambios de etapa."""
+    rows = applications(limit, query=query or None, status=status or None)
     if compact:
         fields = ("job_id", "title", "company", "status", "applied_at", "url")
         rows = [{field: row[field] for field in fields} for row in rows]
