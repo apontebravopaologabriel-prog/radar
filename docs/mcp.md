@@ -2,7 +2,7 @@
 
 Radar works fully on its own with the integrated agent ([agent.md](agent.md)). The MCP server is an optional
 door for people who prefer an external agent (Claude Code, Antigravity, Hermes, any MCP client). It exposes
-a curated, high-cohesion subset of the registry (`MCP_TOOLS` in `src/radar/tools_registry.py`, 22 tools) over stdio (`radar-mcp`, FastMCP), omitting UI-only tools, duplicate aliases and unconfirmed system writes (see "Same as the in-app agent?" below). Nothing
+a curated, high-cohesion subset of the registry (`MCP_TOOLS` in `src/radar/tools/registry.py`, 19 tools) over stdio (`radar-mcp`, FastMCP), omitting UI-only tools, duplicate aliases and unconfirmed system writes (see "Same as the in-app agent?" below). Nothing
 is registered or exposed unless you configure a client.
 
 An external agent can combine Radar with other MCP servers (calendar, mail, notes); the integrated agent cannot.
@@ -93,8 +93,8 @@ client ask before each call, when connecting an agent you do not fully trust.
 | `get_market_summary()` | Active total, primary areas, frequent skills |
 | `list_recommended_jobs(limit=10, max_age_days=14)` | Active, dated, within range, with link, date, mode, sector, salary, hours; needs a profile. LinkedIn offers additionally need `application_status=open` and a recent check |
 | `get_job_history(job_id, limit=20)` | Time series of one offer |
-| `list_targets()`, `get_target_context(job_ids)`, `get_target_matrix()`, `resolve_nearest_districts(reference, limit=3)` | Read-only target CV data: [cv.md](cv.md#mcp-tools) |
-| `get_interview_dossier(query_or_job_id)` | Single-call interview prep dossier (searches active, applied and hidden offers up to 365 days; returns offer details, fit, deterministic baseline gap, tailored CV selection and `cv_master.json`) |
+| `resolve_nearest_districts(reference, limit=3)` | Closest Lima districts by approximate centroid distance |
+| `get_interview_dossier(query_or_job_id)` | Single-call interview prep dossier (searches active, applied and hidden offers up to 365 days; returns offer details, fit, deterministic baseline gap and `cv_master.json`) |
 
 `search_saved_jobs(limit, seniority, area, max_age_days=14, search, sector, exclude_sector)` excludes hidden
 offers and returns a description excerpt. `run_readonly_sql` accepts only a single `SELECT`/`WITH` (max 50 rows).

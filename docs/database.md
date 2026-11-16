@@ -7,8 +7,7 @@ re-applies indexes and catalog additively (`ON CONFLICT DO NOTHING`) once per pr
 catch up automatically.
 
 Rules for schema changes: edit `schema_sqlite.sql` (and `_ensure_runtime_schema()` if existing databases need
-it). Never delete the `.db` and never add files to `legacy/postgres/migrations/` (historical PostgreSQL,
-never executed).
+it). Never delete the `.db`.
 
 ## Tables
 

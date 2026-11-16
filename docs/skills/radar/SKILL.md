@@ -61,8 +61,8 @@ La pestaña Hoy muestra pocas ofertas frescas que encajan, con el motivo en una 
 ### seguimiento
 
 Mi búsqueda muestra primero Procesos agrupados por etapa (contacto, prueba, entrevista u oferta); pulsa el pin junto a una postulación reciente para pasarla a Entrevista. El icono de archivo mueve la postulación o el proceso a Archivados, donde puedes restaurarlos durante los últimos siete días calendario de Lima, incluido hoy. «Buscar en historial» permite consultar los archivos anteriores por puesto o empresa. El resumen muestra el primer compromiso por fecha y señala si está vencido. Los cambios hechos desde un cliente MCP aparecen mientras Mi búsqueda está visible. Debajo aparece el ritmo de búsqueda (postulaciones por semana, solo lo registrado en Radar) y ocho postulaciones recientes con búsqueda. Cada fila muestra la fecha del aviso a la izquierda y los días desde que postulaste a la derecha. Pulsa «Sin respuesta · +14 d» para filtrar postulaciones pendientes. El detalle muestra ubicación, modalidad, salario, fecha y estado de publicación. Pulsa el título para abrir el aviso original y la descripción guardada para expandirla. «Ver todas» permite buscar en todo el historial. Abre una fila para ver sus detalles; el pin y el icono de archivo aparecen al pasar el cursor por la fila o enfocarla con el teclado. En Seguimiento, la flecha junto al icono de archivo devuelve la oferta vinculada a Postulaciones recientes y conserva sus datos. «Me contactaron» abre un formulario de confirmación. «Agregar proceso» pide solo empresa y puesto; enlace, etapa, próximo paso, fecha y nota son opcionales. Puedes registrar una oportunidad externa sin oferta en Radar. Activos y Cerrados conservan el proceso; cerrar y reabrir no exige crear otro. La fecha es un día local, sin notificaciones automáticas.
-✓ Postulé registra manualmente una solicitud y la saca del mapa sin cambiar de vista. No envía nada al portal. En el detalle de la postulación puedes abrir la oferta o deshacer el registro. Archivar una oferta es independiente y reversible. Preparar o descargar un CV, y abrir un portal, nunca registran un envío.
-Análisis → «Comparar» permite agregar hasta cuatro ofertas favoritas o postuladas mediante un selector compacto. Pulsa una celda para leer el requisito, el motivo y la cita del aviso. «Sin evidencia» significa que tus datos no lo demuestran, no que carezcas de la competencia. Mi CV se abre en «Mis datos»; «Documentos» conserva los CV preparados.
+✓ Postulé registra manualmente una solicitud y la saca del mapa sin cambiar de vista. No envía nada al portal. En el detalle de la postulación puedes abrir la oferta o deshacer el registro. Archivar una oferta es independiente y reversible. Abrir un portal nunca registra un envío.
+Análisis → «Comparar» permite agregar hasta cuatro ofertas favoritas o postuladas mediante un selector compacto. Pulsa una celda para leer el requisito, el motivo y la cita del aviso. «Sin evidencia» significa que tus datos no lo demuestran, no que carezcas de la competencia. Mi CV se abre en tus datos reales.
 
 ### primer-inicio
 
@@ -70,7 +70,7 @@ Al abrir Radar por primera vez, elige un mercado y arrastra o adjunta tu CV PDF 
 
 ### actualizaciones
 
-«Actualizar mercado ahora» busca ofertas. Un aviso de nueva versión de Radar abre la página oficial de descarga; no instala automáticamente. La comprobación de versión no bloquea el uso sin conexión. En Windows la captura programada funciona mientras Radar está abierto; si falla la ventana puede abrirse el navegador y el registro queda en desktop.log. Computrabajo usa un conector nativo sin Node; si el portal bloquea la consulta, se informa el error y continúan las otras fuentes.
+«Actualizar mercado ahora» busca ofertas. En Windows la captura programada funciona mientras Radar está abierto; si falla la ventana puede abrirse el navegador y el registro queda en desktop.log. Computrabajo usa un conector nativo sin Node; si el portal bloquea la consulta, se informa el error y continúan las otras fuentes.
 
 ### perfil
 
@@ -106,7 +106,7 @@ En la ventana del agente escribe `/` para ver los comandos (Tab completa, ↑↓
 
 ### mapa
 
-La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Callao, y ciudades del resto del país) con la cantidad de ofertas. Toca un punto o elige un lugar de referencia y un radio (2, 5, 10, 25 o 100 km, o Todo Perú): abajo verás las ofertas de la más cercana a la más lejana. La distancia es entre centroides de distrito o ciudad, así que es aproximada; un punto punteado y "dpto." significan que la oferta solo indica el departamento y se ubica en su capital. El mapa carga los mosaicos de un servidor externo (OpenStreetMap), que ve qué zona miras. El mapa completo de escritorio (distritos y radar) está en Ajustes → modo avanzado, y ahí también Análisis (resumen con los filtros del mapa, comparación de ofertas y Consultas opcional); Mi CV se abre desde Ajustes o Preparar CV en una oferta.
+La pestaña Mapa muestra un punto por lugar del Perú (distritos de Lima y Callao, y ciudades del resto del país) con la cantidad de ofertas. Toca un punto o elige un lugar de referencia y un radio (2, 5 o 10 km en modo Radar): abajo verás las ofertas de la más cercana a la más lejana. La distancia es entre centroides de distrito o ciudad, así que es aproximada; un punto punteado y "dpto." significan que la oferta solo indica el departamento y se ubica en su capital. El mapa carga los mosaicos de un servidor externo (OpenStreetMap), que ve qué zona miras. Análisis muestra el resumen con los filtros del mapa, comparación de ofertas y Consultas opcional; Mi CV se abre desde Ajustes.
 
 ### actualizar
 
@@ -132,13 +132,11 @@ Tus datos viven en tu equipo (SQLite). Al usar el agente, tu perfil y las oferta
 
 ### cv
 
-Desde una oferta pulsa «Preparar CV». Radar elige y ordena contenido de tu trayectoria real: revisa las páginas y pulsa «Descargar PDF». No necesitas marcar ★, crear un candidato hipotético ni activar el agente. «Qué pide esta oferta y qué aparece en tu perfil» muestra los requisitos y la evidencia. Si prefieres tu documento de siempre, «Usar mi archivo original» conserva sus bytes y lo asocia a esa oferta. Editar el perfil no modifica ese archivo original. La descarga guarda el CV, una copia de la publicación y las versiones anteriores en una carpeta por oferta. Las carpetas nuevas se guardan por defecto en los datos de Radar. Puedes elegir otra ubicación en «Carpeta y nombres de archivo» de Studio. En Postulaciones encuentras los CVs preparados; «Ya la envié» solo registra tu envío manual en el portal.
+Mi CV guarda tu trayectoria factual (`cv_master.json`: experiencia, estudios, certificados, proyectos e idiomas) y se abre desde Ajustes. Radar compara los requisitos de cada oferta contra tu evidencia factual en Análisis → Comparar y entrega ese mismo contexto al agente interno (`get_my_cv`, `get_interview_dossier`). Si importaste un archivo PDF/Word en Ajustes, el archivo original se conserva sin cambios.
 
-«Editar en detalle» abre Studio como editor opcional: quita o incluye líneas, reordena, cambia la redacción, elige plantilla, páginas o foto, deshaz cambios y descarga PDF o PDF + Word. Estos cambios valen para ese documento; los hechos nuevos se añaden en Mi CV. Si activaste el agente, puede proponer cambios con antes/después para que los aceptes. La protección de hechos bloquea reformulaciones que añadan datos no respaldados. «Volver a vista previa» conserva tus cambios. En tu trayectoria puedes copiar los datos de un registro para pegarlos manualmente en formularios.
+En el chat del agente, el puesto de cada oferta es un enlace: al pulsarlo se abre esa oferta en el detalle del mapa (aunque no esté en la vista actual) y el enlace «portal ↗» va a la publicación original.
 
-En el chat del agente, el puesto de cada oferta es un enlace: al pulsarlo se abre esa oferta en el detalle del mapa (aunque no esté en la vista actual) y el enlace «portal ↗» va a la publicación original. En el móvil solo funciona el enlace al portal.
-
-En ventanas estrechas, el agente se muestra flotante para conservar el espacio del mapa. En pantallas más anchas puedes fijarlo a la derecha y ajustar su ancho. El editor opcional «Editar en detalle» puede fijar el agente a su lado si está activado.
+En ventanas estrechas, el agente se muestra flotante para conservar el espacio del mapa. En pantallas más anchas puedes fijarlo a la derecha y ajustar su ancho.
 
 En Radar el mapa y la lista muestran solo ofertas dentro del radio activo. Cambiar entre Radar y Distritos cierra los filtros. Las tarjetas muestran el portal junto a la empresa.
 
@@ -164,4 +162,4 @@ El resumen muestra ofertas, empresas identificadas y proporción de ofertas con 
 
 «Vistas guardadas» conserva los filtros en este navegador. Al abrir una vista de siete días, el periodo vuelve a calcularse respecto al día actual. «Consultas» es opcional y de solo lectura: consulta la base completa y no hereda los filtros del mapa. Las consultas guardadas del escritorio anterior siguen accesibles allí; ya no hay ventanas flotantes ni gravedad.
 
-Mi CV es opcional y se abre desde Ajustes → «Abrir Mi CV y documentos» o «Preparar CV» en una oferta. Abre primero tus datos reales, conserva archivos preparados y ofrece el editor detallado para un documento. La comparación de ★ y postulaciones está en Análisis. El resumen del mercado funciona sin importar un CV. Los filtros se conservan al volver de Ajustes en la misma pestaña.
+Mi CV es opcional y se abre desde Ajustes. Edita tus datos reales; la comparación de ★ y postulaciones está en Análisis. El resumen del mercado funciona sin importar un CV. Los filtros se conservan al volver de Ajustes en la misma pestaña.

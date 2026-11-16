@@ -64,12 +64,11 @@ SQLite (source of truth)  +  local files next to it (cv_master.json, targets/, p
 - `/radar`: Next.js static export. `RadarClient.tsx` holds filters, offer list, selection and views;
   `MapView.tsx` renders MapLibre (districts choropleth, clusters, radar radii); `LeafletMapView.tsx` is the
   automatic fallback when WebGL2 is missing. Detection happens before MapLibre is created.
-- The mobile PWA (`/m`) was archived in `legacy/mobile/`; it is no longer built or served.
 - `/ajustes`: settings page (career, profile, agent, access, data).
 - Map controls use opaque graphite surfaces. The district selector replaces the permanent ranking.
   Filters show market, search, area and period first, with advanced criteria collapsed. Loading is shown
   inside the tray while data is requested. The agent uses a floating window when pinning would leave
-  less than 640 px for the map; CV Studio retains its requested pinned layout.
+  less than 640 px for the map.
 - Theme: graphite dark (`#212121` work area, `#171717` navigation, `#2f2f2f` controls and cards).
 - Performance: list endpoints use an index on `job_sources(job_id, last_seen_at)`, selective gzip (not for
   `/api/chat`), `slim` listings without descriptions (fetched on open via `/api/jobs/{id}/description`),
@@ -137,9 +136,8 @@ to four favorites or submissions. Consultas retains read-only SQL over the full 
   filters, not snapshots. The optional SQL editor uses `/api/analytics/query` (read-only, full database); its queries
   deliberately do not inherit the map scope. `/api/analytics/schema` describes the tables.
 - The Analysis comparison tab selects up to four starred or submitted offers. `/api/cv/targets` supplies deterministic requirements and factual evidence; matrix cells expose the reason and quoted job text on click. The company research action only drafts a question for the optional agent, which can use existing local Radar tools; it does not fetch external company information.
-- Mi CV is secondary, accessed through Settings (`/radar?view=cvs`) or Prepare CV in an offer. It opens on factual data unless an offer requested a document. It shares factual editing/import through `/api/me/cv*` and prepares offer-specific documents through
-  `/api/cv/*`. Studio is optional detailed editing. Mi CV owns prepared files; comparison lives in Analysis. The factual CV and immutable imported sources (`cv_imports/`) live beside the
-  database outside Git; document operations and package indexes live in SQLite. See [cv.md](cv.md).
+- Mi CV is secondary, accessed through Settings (`/radar?view=cvs`). It edits factual trajectory data (`cv_master.json`) through `/api/me/cv*`; comparison lives in Analysis (`/api/cv/targets`). The factual CV and immutable imported sources (`cv_imports/`) live beside the
+  database outside Git. See [cv.md](cv.md).
 
 ## Boundaries with other systems
 
@@ -171,15 +169,13 @@ deferred until volume and semantic queries justify it.
 
 ## Local setup and geography (2026-11-04)
 
-`cv_import.py` handles bounded local PDF/DOCX preview and confirmed profile merge; `/api/me/setup*` stores
-resumable drafts and explicit completion. Preview does not write factual history. `updates.py` handles fixed
-GitHub release checks independently of offer capture. `places_lima.json` supplies shared polygon keys,
+`cv/import_cv.py` handles bounded local PDF/DOCX preview and confirmed profile merge; `/api/me/setup*` stores
+resumable drafts and explicit completion. Preview does not write factual history. `places_lima.json` supplies shared polygon keys,
 aliases and approximate centroids to both API and frontend; the desktop sends `geo_scope=lima_callao`.
-See [implementation and verification scope](windows-cv-markets-2026-11-04.md).
 
 Radar map sources use the radius-filtered offers; Districts keeps the full market source. Switching map modes closes filters immediately. Compact cards show the source beside the company; translucent surfaces do not use backdrop blur.
 
-Map tray titles use a single ellipsized line (full title in the detail and native tooltip). Location has no decorative prefix. The detail exposes one compact Prepare CV action, isolated from the My CV page button styles.
+Map tray titles use a single ellipsized line (full title in the detail and native tooltip). Location has no decorative prefix.
 
 ## Response-driven processes
 

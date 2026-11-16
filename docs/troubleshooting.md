@@ -38,10 +38,6 @@
 | "La API respondió 404" on `/api/cv/*` | The API runs old code; restart it |
 | No profile yet | Open Mi CV and drop a PDF/DOCX or complete your information manually; hypothetical target files are not required |
 | HTTP 409 while saving/importing | Another view changed the factual CV; reload/review the new data before confirming. Pending local edits remain available |
-| Preview changed before download | Reload the preview and review it; export refuses a different PDF revision |
-| No photo | Expected `photo.jpg` (or `photo.png`) in the data folder; upload from Settings |
-| `save_target_profile` returns `errors` | Schema needs `quote` or `reason` on explicit items, `reason` on inferred and `cubierto` items, and valid `origin`, `status`, `kind` |
-| PDF has odd characters | No TrueType font was found and Helvetica (Latin-1) was used. Install Calibri/Arial/DejaVu or point `RADAR_PDF_FONT` to a folder with `regular.ttf`, `bold.ttf`, `italic.ttf` |
 
 ## Agent
 

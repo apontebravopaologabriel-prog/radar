@@ -94,8 +94,3 @@ search, or by user-prepared CSV import.
 - Offer count is not competition.
 - Review recommendations manually before acting.
 - The score, competency levels and offer validity are never decided by an LLM.
-
-## Legacy
-
-`legacy/postgres/docker-compose.yml` is pre-SQLite infrastructure. If started for any reason it must stay bound
-to `127.0.0.1`.

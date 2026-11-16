@@ -254,7 +254,7 @@ Everything personal lives outside the repository (and must stay out), in the dat
 | Item | Back it up? |
 | --- | --- |
 | `radar.db` (offers, profile, applications, conversations, memory) | Yes, **as a snapshot from `radar backup`**, never the live file with its `-wal`/`-shm` |
-| `cv_master.json`, `photo.jpg`, `cv_imports/`, `targets/`, `cvs/`, `careers/` | Yes (your real CV and generated files) |
+| `cv_master.json`, `cv_imports/`, `careers/` | Yes (your real CV and custom career packs) |
 | `secrets.json` (provider keys) | **No.** Keys are re-enterable; keeping them out of copies avoids leaking them |
 | `backups/`, old `*.bak*` copies | These are the copies, not originals; prune the old manual ones |
 
@@ -264,13 +264,6 @@ folder is on the **same disk**, so it protects against mistakes, not against los
 (`rclone` with a `crypt` remote) because the data is personal. A mirror of `~/Documents` does not include this folder. The
 installer's uninstaller never deletes the data folder. A backup/restore screen and a JSON/CSV export are planned for v1.0.
 
-## CV Studio files
-
-New CV packages default to `application_packages/` next to the Radar database. To use a custom folder
-under your home directory, change "Carpeta y nombres de archivo" in Studio or use `PUT /api/cv/settings`.
-Each application folder contains the CV, `oferta.md`, `postulacion.json` and `anteriores/`. Include these
-folders in your backups. Radar reuses existing package folders for subsequent exports.
-
 ## Verification
 
 ```bash
@@ -279,18 +272,16 @@ cd frontend && npm run lint && npm test && npm run build
 ```
 
 Manual logical backup: `sqlite3 ~/.local/share/radar/radar.db ".backup '/path/radar-$(date +%F).db'"`. Include
-`cv_master.json`, `targets/`, `photo.jpg` and `careers/` in any backup. Do not edit the schema by hand; see
+`cv_master.json`, `cv_imports/` and `careers/` in any backup. Do not edit the schema by hand; see
 [database.md](database.md).
 
-## First-run CV setup and updates
+## First-run CV setup
 
 Setup accepts local text PDF/DOCX drafts and requires review/confirmation before updating factual history.
-Reopen import from Mi CV or Settings → Mi CV. First confirmed setup starts capture; profile updates and
+Reopen import from Settings → Mi CV. First confirmed setup starts capture; profile updates and
 draft saves do not. Imported originals are kept in `cv_imports/`; include them with the factual CV in
-backups. Preparation opens a PDF preview; Studio is optional via Editar en detalle. See [cv.md](cv.md).
+backups. See [cv.md](cv.md).
 Mechanical is experimental and must be explicitly selected; "main markets" selects Industrial and Systems.
-Application-release notices link to the official release page and do not install automatically. See
-[implementation notes](windows-cv-markets-2026-11-04.md) for extraction limits and remaining Windows gates.
 
 ## Default portal coverage
 
