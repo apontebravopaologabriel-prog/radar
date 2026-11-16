@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { fetchCvSelection, fetchCvTargets } from "../lib/cv-api";
 import { fetchApplications } from "../lib/applications-api";
 import type { CvBaselineItem, CvTarget } from "../lib/cv-types";
-import { MY_CV_EVENT } from "../lib/cv-events";
 import "./cv.css";
 
 const LABEL = { cubierto: "Con evidencia", parcial: "Por revisar", falta: "Sin evidencia" };
@@ -187,9 +186,9 @@ export default function CvInsights({ onOpenJob }: { onOpenJob?: (id: string) => 
             <div className="cv-improve">
               <div className="cv-improve-head">
                 <h3>Sin evidencia en la selección</h3>
-                <button type="button" className="cv-pill-btn" onClick={() => window.dispatchEvent(new CustomEvent(MY_CV_EVENT))}>
-                  + Añadir evidencia en Datos
-                </button>
+                <a className="cv-pill-btn" href="/ajustes">
+                  + Añadir evidencia en Ajustes
+                </a>
               </div>
               {topGaps.length ? (
                 <ul className="cv-improve-list">

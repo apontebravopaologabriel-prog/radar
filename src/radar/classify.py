@@ -26,11 +26,11 @@ def _evidence(text: str, phrase: str) -> str:
 
 
 def _contains(text: str, phrase: str) -> bool:
-    return _word(phrase).search(text) is not None
+    return phrase in text and _word(phrase).search(text) is not None
 
 
 def _match(text: str, phrase: str) -> re.Match[str] | None:
-    return _word(phrase).search(text)
+    return _word(phrase).search(text) if phrase in text else None
 
 
 def _requirement_type(text: str, start: int) -> str:
@@ -47,6 +47,8 @@ MIN_AREA_SCORE = 1.5  # un solo término débil o una mención suelta en la desc
 
 def _title_contains(title: str, phrase: str) -> bool:
     """En el título se admiten derivados cortos («almacenero», «almacenes») para no depender de cada variante."""
+    if phrase not in title:
+        return False
     suffix = r"\w{0,5}" if len(phrase) >= 6 else ""  # las siglas cortas («bi», «sig») deben coincidir exactas
     return _word(phrase, suffix).search(title) is not None
 
@@ -59,6 +61,8 @@ def _area_score(title: str, description: str, phrases: tuple[str, ...], weak: fr
         if _title_contains(title, phrase):
             score += 3.0 + len(phrase) / 100
             best, in_title = best or phrase, True
+            continue
+        if phrase not in description:
             continue
         hits = len(_word(phrase).findall(description))
         if hits:
@@ -77,7 +81,7 @@ def classify(job: RawJob, pack: CareerPack | None = None) -> ClassifiedJob:
     commercial_title = None
     for area, phrases in pack.out_of_focus_rules.items():
         title_phrase = next((p for p in sorted(phrases, key=len, reverse=True) if _contains(title, p)), None)
-        phrase = title_phrase or next((p for p in phrases if len(_word(p).findall(description)) >= 3), None)
+        phrase = title_phrase or next((p for p in phrases if p in description and len(_word(p).findall(description)) >= 3), None)
         if phrase:
             commercial_title = commercial_title or title_phrase
             weight = 4.0 if title_phrase else 0.5

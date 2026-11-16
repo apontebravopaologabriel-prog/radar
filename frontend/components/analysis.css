@@ -38,6 +38,7 @@
 .analysis-ranked { display: grid; gap: 4px; }
 .analysis-view .analysis-rank { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 3px 16px; width: 100%; border: 0; padding: 6px 0; text-align: left; background: transparent; }
 .analysis-rank-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.analysis-rank-meta { color: #8c8c8c; font-size: 10px; font-weight: 400; }
 .analysis-rank strong { font-weight: 500; font-size: 11px; color: #ddd; }
 .analysis-rank-track { grid-column: 1 / -1; display: block; height: 4px; background: #292929; }
 .analysis-rank-track i { display: block; height: 100%; background: #aaa; }

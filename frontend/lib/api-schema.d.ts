@@ -452,6 +452,14 @@ export interface components {
         Breakdown: {
             /** Count */
             count: number;
+            /** Levels */
+            levels?: {
+                [key: string]: number;
+            } | null;
+            /** Preferred Count */
+            preferred_count?: number | null;
+            /** Required Count */
+            required_count?: number | null;
             /** Value */
             value: string;
         };

@@ -57,6 +57,9 @@ class AnalysisScope(BaseModel):
 class Breakdown(BaseModel):
     value: str
     count: int
+    levels: dict[str, int] | None = None
+    required_count: int | None = None
+    preferred_count: int | None = None
 
 
 class SalaryGroup(BaseModel):
@@ -166,7 +169,11 @@ def _annotated_jobs(scope: AnalysisScope) -> list[dict[str, Any]]:
                 sources[str(job_id)].add(name)
             for job in batch:
                 period, skills = metadata.get(job["id"], (None, []))
-                job["skill_types"] = {item["name"]: item.get("skill_type") for item in skills}
+                job["skill_meta"] = {
+                    item["name"]: (item.get("skill_type"), item.get("level"), item.get("requirement_type"))
+                    for item in skills
+                }
+                job["skill_types"] = {name: meta[0] for name, meta in job["skill_meta"].items()}
                 job["skills"] = sorted(job["skill_types"])
                 job["sources"] = sorted(sources[job["id"]])
                 job["publication"] = publication_day(job["published_at"])
@@ -178,6 +185,29 @@ def _annotated_jobs(scope: AnalysisScope) -> list[dict[str, Any]]:
 def _breakdown(values) -> list[Breakdown]:
     counts = Counter(value for value in values if value)
     return [Breakdown(value=value, count=count) for value, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+
+
+def _skill_breakdown(entries: list[tuple[str, str | None, str | None]]) -> list[Breakdown]:
+    counts: Counter[str] = Counter()
+    levels: dict[str, Counter[str]] = defaultdict(Counter)
+    reqs: dict[str, Counter[str]] = defaultdict(Counter)
+    for name, level, req_type in entries:
+        if not name:
+            continue
+        counts[name] += 1
+        levels[name][level if level in {"basic", "intermediate", "advanced"} else "unspecified"] += 1
+        if req_type in {"required", "preferred"}:
+            reqs[name][req_type] += 1
+    return [
+        Breakdown(
+            value=name,
+            count=count,
+            levels={k: levels[name][k] for k in ("advanced", "intermediate", "basic", "unspecified") if levels[name][k]},
+            required_count=reqs[name]["required"],
+            preferred_count=reqs[name]["preferred"],
+        )
+        for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
 
 
 def _salary_midpoint(job: dict) -> float | None:
@@ -217,15 +247,15 @@ _SKILL_GROUPS = {"technical": "technical", "methodology": "knowledge", "domain":
 def _skill_groups(scope: AnalysisScope, rows: list[dict]) -> dict[str, list[Breakdown]]:
     # Older projections contain the detected name but omit its type.
     catalog = {normalize_text(name): skill for name, skill in load_pack(scope.market_id).skills.items()}
-    names: dict[str, list[str]] = defaultdict(list)
+    names: dict[str, list[tuple[str, str | None, str | None]]] = defaultdict(list)
     for job in rows:
-        for name, kind in job["skill_types"].items():
+        for name, (kind, level, req_type) in job.get("skill_meta", {}).items():
             skill = catalog.get(normalize_text(name))
             catalog_kind = skill.type if skill else None
             group = (skill.analysis_group if skill and skill.analysis_group in {"technical", "knowledge"} else None)
             group = group or _SKILL_GROUPS.get(catalog_kind) or _SKILL_GROUPS.get(kind, "other")
-            names[group].append(name)
-    return {group: _breakdown(values) for group, values in names.items()}
+            names[group].append((name, level, req_type))
+    return {group: _skill_breakdown(values) for group, values in names.items()}
 
 
 def _overview(scope: AnalysisScope, rows: list[dict]) -> Overview:
@@ -255,7 +285,11 @@ def _overview(scope: AnalysisScope, rows: list[dict]) -> Overview:
         employers=len(companies), salary_count=salary_count,
         salary_share=salary_count / len(rows) if rows else 0,
         areas=_breakdown(job["primary_area"] or "No indicada" for job in rows),
-        skills=_breakdown(skill for job in rows for skill in job["skills"]),
+        skills=_skill_breakdown([
+            (name, level, req_type)
+            for job in rows
+            for name, (_, level, req_type) in job.get("skill_meta", {}).items()
+        ]),
         skill_groups=_skill_groups(scope, rows),
         seniorities=_breakdown(job["seniority"] or "unknown" for job in rows),
         work_modes=_breakdown(job["work_mode"] or "unknown" for job in rows),
@@ -266,7 +300,7 @@ def _overview(scope: AnalysisScope, rows: list[dict]) -> Overview:
     )
 
 
-@router.get("/overview", response_model=Overview)
+@router.get("/overview", response_model=Overview, response_model_exclude_none=True)
 def overview(scope: Annotated[AnalysisScope, Query()]):
     return _overview(scope, _annotated_jobs(scope))
 

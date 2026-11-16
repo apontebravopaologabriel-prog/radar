@@ -14,7 +14,7 @@ export default function SettingsPage() {
     <div className="m-app">
       <main className="m-main">
         <a className="m-link" href="/radar">← Volver al mapa</a>
-        <SettingsView cvWorkspaceHref="/radar?view=cvs" authRequired={false} onLogout={() => undefined} onError={onError} />
+        <SettingsView authRequired={false} onLogout={() => undefined} onError={onError} />
       </main>
       {error && <p className="m-toast" role="alert" onClick={() => setError("")}>{error}</p>}
     </div>

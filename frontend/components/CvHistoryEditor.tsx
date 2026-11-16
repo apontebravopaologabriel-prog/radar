@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CV_SECTIONS, ORIGINAL_CV_URL, cvProfileApi, entryLabel, type CvSection, type CvSections, type CvSnapshot } from "../lib/cv-profile-api";
+import { CV_SECTIONS, ORIGINAL_CV_URL, cvProfileApi, type CvSection, type CvSections, type CvSnapshot } from "../lib/cv-profile-api";
 import CvFields from "./CvFields";
 
 const DRAFT_KEY = "radar.cv.history-draft";
@@ -64,7 +64,6 @@ export default function CvHistoryEditor({ onChanged }: { onChanged?: () => void 
     {!saved ? <p>Cargando tu trayectoria…</p> : (Object.keys(CV_SECTIONS) as CvSection[]).map((section) => {
       const entries = dirty[section] ?? saved.sections[section];
       return <details key={section} className="mycv-section"><summary>{CV_SECTIONS[section].label} · {entries.length}{dirty[section] ? " · cambios pendientes" : ""}</summary>
-        {entries.length > 0 && <p className="mycv-summary">{entries.map(entryLabel).join(" / ")}</p>}
         <CvFields section={section} entries={entries} disabled={busy} onChange={(next) => change(section, next)} />
       </details>;
     })}

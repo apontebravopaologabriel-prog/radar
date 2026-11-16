@@ -57,6 +57,24 @@ def test_skill_levels_do_not_spill_between_list_items():
     assert skill_level('SQL, Excel avanzado.', 'SQL')[0] is None
     assert skill_level('SQL, Excel avanzado.', 'Excel')[0] == 'advanced'
     assert skill_level('Nivel avanzado de SQL.', 'SQL')[0] == 'advanced'
+    assert skill_level('Dominio de Power BI y nociones de Python.', 'Power BI')[0] == 'advanced'
+    assert skill_level('Dominio de Power BI y nociones de Python.', 'Python')[0] == 'basic'
+    assert skill_level('Sólidos conocimientos en Excel.', 'Excel')[0] == 'intermediate'
+
+
+def test_expanded_tools_detect_automation_and_erp_crm_without_make_false_positives():
+    from radar.careers import load_pack
+    from radar.classify import classify
+
+    ind = load_pack('industrial_engineering')
+    job = RawJob('test', 'Analista de Procesos y Automatización', 'ACME', 'https://example.test/1',
+                 description='Automatización de flujos con n8n, Power Automate, Zapier y Make.com. Integración con Odoo ERP y Salesforce CRM.')
+    detected = {name for name, _ in classify(job, ind).skills}
+    assert {'n8n', 'Power Automate', 'Zapier', 'Make', 'Odoo', 'ERP', 'Salesforce', 'CRM'} <= detected
+
+    english_job = RawJob('test', 'Operations Analyst', 'ACME', 'https://example.test/2',
+                         description='Make decisions and make improvements across the plant.')
+    assert 'Make' not in {name for name, _ in classify(english_job, ind).skills}
 
 
 def test_scores_expose_unknowns_and_declared_level_gap():

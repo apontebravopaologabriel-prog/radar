@@ -1,32 +1,51 @@
-.mycv-profile { max-width: 980px; margin: 0 auto; color: #dedede; font-size: 13px; line-height: 1.55; }
-.mycv-import, .mycv-history { margin-bottom: 24px; }
-.mycv-drop { padding: 24px; border: 1px dashed #646464; background: #242424; text-align: center; }
-.mycv-drop.dragging { background: #3a3a3a; border-color: #eee; }
-.mycv-drop h3 { margin: 0 0 6px; font-size: 19px; }
-.mycv-drop p, .mycv-summary { color: #aaa; }
-.mycv-button { min-height: 44px; padding: 9px 15px; border: 1px solid #666; color: #eee; background: #292929; font: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mycv-button:hover:not(:disabled) { border-color: #eee; background: #363636; }
-.mycv-button.primary { background: #dedede; color: #151515; border-color: #dedede; }
+.mycv-profile { max-width: 760px; color: #dedede; font-size: 12px; line-height: 1.45; }
+.mycv-import, .mycv-history { margin-bottom: 14px; }
+.mycv-drop { padding: 12px 14px; border: 1px dashed #3d3d3d; background: #181818; text-align: center; margin-top: 6px; }
+.mycv-drop.dragging { background: #262626; border-color: #eee; }
+.mycv-drop h3 { margin: 0 0 3px; font-size: 12px; font-weight: 600; }
+.mycv-drop p, .mycv-summary { color: #8c8c8c; font-size: 11px; margin: 0 0 6px; }
+.mycv-button { min-height: 24px; padding: 3px 9px; border: 1px solid #444; color: #e2e2e2; background: #1e1e1e; font: inherit; font-size: 11px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.mycv-button:hover:not(:disabled) { border-color: #bbb; background: #292929; }
+.mycv-button.primary { background: #dcdcdc; color: #141414; border-color: #dcdcdc; }
 .mycv-button:disabled { opacity: .55; cursor: wait; }
-.mycv-link { border: 0; color: #ccc; background: transparent; font: inherit; text-decoration: underline; cursor: pointer; padding: 10px 8px; min-height: 44px; }
+.mycv-link { border: 0; color: #9c9c9c; background: transparent; font: inherit; font-size: 11px; text-decoration: underline; cursor: pointer; padding: 2px 4px; min-height: 0; }
+.mycv-link:hover:not(:disabled) { color: #e8e8e8; }
 .mycv-link:disabled { opacity: .5; cursor: wait; }
-.mycv-message { padding: 10px 12px; border-left: 2px solid #aaa; background: #282828; color: #ddd; white-space: pre-wrap; }
-.mycv-review { padding: 14px 0; }
-.mycv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mycv-mini-act, .mycv-add-act { border: 0; background: transparent; color: #888; font: inherit; font-size: 11px; padding: 0; min-height: 0; cursor: pointer; }
+.mycv-mini-act:hover:not(:disabled), .mycv-add-act:hover:not(:disabled) { color: #e8e8e8; }
+.mycv-add-act { display: inline-block; margin-top: 6px; }
+.mycv-entry-actions { display: flex; gap: 10px; margin-top: 6px; }
+.mycv-message { padding: 6px 9px; border-left: 2px solid #777; background: #1e1e1e; color: #d6d6d6; font-size: 11px; white-space: pre-wrap; }
+.mycv-review { padding: 8px 0; }
+.mycv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
 .mycv-wide { grid-column: 1 / -1; }
-.mycv-grid label { display: grid; gap: 5px; align-content: start; color: #bbb; font-size: 12px; }
+.m-app .mycv-grid label, .mycv-grid label { display: grid; gap: 2px; margin-top: 0; align-content: start; color: #8c8c8c; font-size: 10.5px; }
 .mycv-grid label::before { display: none; }
-.mycv-grid input, .mycv-grid textarea { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid #555; border-radius: 0; padding: 9px; background: #202020; color: #eee; font: inherit; }
-.mycv-grid input:focus, .mycv-grid textarea:focus { outline: 1px solid #ddd; }
+.m-app .mycv-grid input:not([type="range"]):not([hidden]):not(.rs-search),
+.m-app .mycv-grid textarea,
+.mycv-grid input,
+.mycv-grid textarea {
+  width: 100%; min-height: 25px; margin-top: 0; box-sizing: border-box;
+  border: 1px solid #303030; border-radius: 0; padding: 3px 6px;
+  background: #141414; color: #e2e2e2; font: inherit; font-size: 11.5px; line-height: 1.35;
+}
+.m-app .mycv-grid input:focus, .m-app .mycv-grid textarea:focus,
+.mycv-grid input:focus, .mycv-grid textarea:focus { outline: none; border-color: #9a9a9a; }
 .mycv-grid textarea { resize: vertical; }
-.mycv-fields fieldset, .mycv-review fieldset { min-width: 0; margin: 12px 0; border: 1px solid #444; padding: 14px; }
-.mycv-fields legend, .mycv-review legend { max-width: 100%; overflow-wrap: anywhere; padding: 0 8px; color: #ddd; }
-.mycv-section { border-bottom: 1px solid #454545; padding: 6px 0; }
-.mycv-section > summary { padding: 12px 4px; cursor: pointer; color: #ddd; min-height: 44px; box-sizing: border-box; }
-.mycv-section[open] { padding-bottom: 16px; }
-.mycv-section pre, .mycv-changes pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; font: inherit; font-size: 12px; color: #aaa; }
-.mycv-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
-.mycv-changes { margin-top: 20px; padding: 16px; border: 1px solid #666; }
-.mycv-history h2 { font-size: 16px; margin: 20px 0 4px; }
-.mycv-profile .set-profile { padding: 8px 0; }
-@media (max-width: 640px) { .mycv-grid { grid-template-columns: minmax(0, 1fr); } .mycv-drop { padding: 18px 12px; } }
+.mycv-entry { margin: 2px 0; border-left: 1px solid #2b2b2b; padding-left: 10px; }
+.mycv-entry > summary { padding: 3px 0; cursor: pointer; color: #cfcfcf; font-size: 11.5px; }
+.mycv-entry > summary:hover { color: #fff; }
+.mycv-entry > fieldset { min-width: 0; margin: 4px 0 8px; border: 0; padding: 4px 0 2px; }
+.mycv-review fieldset { min-width: 0; margin: 6px 0 10px; border: 1px solid #303030; padding: 8px 10px; }
+.mycv-review legend { max-width: 100%; overflow-wrap: anywhere; padding: 0 6px; color: #bbb; font-size: 11px; }
+.mycv-section { border-bottom: 1px solid #282828; padding: 2px 0; }
+.mycv-section > summary { padding: 6px 0; cursor: pointer; color: #dcdcdc; font-size: 12px; box-sizing: border-box; }
+.mycv-section > summary:hover { color: #fff; }
+.mycv-section[open] { padding-bottom: 10px; }
+.mycv-section pre, .mycv-changes pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font: inherit; font-size: 11px; color: #9a9a9a; }
+.mycv-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.mycv-changes { margin-top: 10px; padding: 10px; border: 1px solid #3d3d3d; }
+.mycv-history h2 { font-size: 12.5px; margin: 4px 0 2px; }
+.mycv-profile .set-profile { padding: 4px 0; }
+.set-identity-fields .set-field:first-child input { font-size: 12px; }
+@media (max-width: 640px) { .mycv-grid { grid-template-columns: minmax(0, 1fr); } .mycv-drop { padding: 10px 8px; } }

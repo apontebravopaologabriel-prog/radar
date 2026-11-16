@@ -22,12 +22,27 @@ type ChartGroup = { key: string; label: string; rows: Breakdown[] };
 const SENIORITY_ORDER = new Map(["intern", "trainee", "junior", "mid", "senior", "senior_or_lead", "lead", "manager", "unknown"].map((key, index) => [key, index]));
 type SavedView = { name: string; scope: AnalysisScope };
 
-function RankedBars({ rows, onSelect, limit = RANKING_PREVIEW_ROWS, selectedValue, offerTotal }: { rows: Breakdown[]; onSelect: (row: Breakdown) => void; limit?: number; selectedValue?: string; offerTotal?: number }) {
+function formatSkillMeta(row?: Breakdown | null) {
+  if (!row) return "";
+  const parts: string[] = [];
+  if (row.levels?.advanced) parts.push(`Avanzado ${row.levels.advanced}`);
+  if (row.levels?.intermediate) parts.push(`Intermedio ${row.levels.intermediate}`);
+  if (row.levels?.basic) parts.push(`Básico ${row.levels.basic}`);
+  if (row.preferred_count) parts.push(`Deseable ${row.preferred_count}`);
+  return parts.join(" · ");
+}
+
+function RankedBars({ rows, onSelect, limit = RANKING_PREVIEW_ROWS, selectedValue, offerTotal, expandable = false }: { rows: Breakdown[]; onSelect: (row: Breakdown) => void; limit?: number; selectedValue?: string; offerTotal?: number; expandable?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expandable && expanded ? rows : rows.slice(0, limit);
   const max = offerTotal || Math.max(...rows.map((row) => row.count), 1);
-  return <div className="analysis-ranked">{rows.slice(0, limit).map((row) => <button key={row.value} className="analysis-rank" aria-pressed={row.value === selectedValue} onClick={() => onSelect(row)} title={`${LABELS[row.value] || row.value}: ${row.count} ofertas. Ver ofertas.`}>
-    <span className="analysis-rank-label">{LABELS[row.value] || row.value}</span><strong>{number(row.count)}{offerTotal ? ` · ${number(row.count / offerTotal * 100)} %` : ""}</strong>
-    <span className="analysis-rank-track" aria-hidden="true"><i style={{ width: `${row.count / max * 100}%` }} /></span>
-  </button>)}{rows.length === 0 && <p className="analysis-muted">Sin datos en esta selección.</p>}</div>;
+  return <div className="analysis-ranked">{visible.map((row) => {
+    const meta = formatSkillMeta(row);
+    return <button key={row.value} className="analysis-rank" aria-pressed={row.value === selectedValue} onClick={() => onSelect(row)} title={`${LABELS[row.value] || row.value}: ${row.count} ofertas${meta ? ` (${meta})` : ""}. Ver ofertas.`}>
+      <span className="analysis-rank-label">{LABELS[row.value] || row.value}{meta && <small className="analysis-rank-meta"> · {meta}</small>}</span><strong>{number(row.count)}{offerTotal ? ` · ${number(row.count / offerTotal * 100)} %` : ""}</strong>
+      <span className="analysis-rank-track" aria-hidden="true"><i style={{ width: `${row.count / max * 100}%` }} /></span>
+    </button>;
+  })}{expandable && rows.length > limit && <button type="button" className="analysis-coverage" onClick={() => setExpanded((v) => !v)}>{expanded ? `Mostrar principales (${limit})` : `Ver todas las herramientas (${rows.length})`}</button>}{rows.length === 0 && <p className="analysis-muted">Sin datos en esta selección.</p>}</div>;
 }
 
 function GroupPicker({ rows, groups, value, onChange }: { rows: Breakdown[]; groups?: ChartGroup[]; value: string; onChange: (row?: Breakdown) => void }) {
@@ -316,7 +331,7 @@ export default function AnalysisView({ scope, scopeLabels, resetRevision, onDeta
         {scope.empty ? <p className="analysis-message">Elige un centro en Radar para analizar las ofertas dentro del radio.</p> : currentData.total === 0 ? <p className="analysis-message">No hay ofertas con esta selección. Amplía el periodo o cambia los filtros.</p> : <>
           <div className="analysis-grid">{questions.slice(0, 2).map((q) => <section className="analysis-chart" key={q.key}><button className="analysis-question" onClick={() => choose(q.key)}><h2>{q.key === "skill" ? "Herramientas y tecnologías" : q.title}</h2><span>Explorar ↗</span></button>
             {q.key === "skill" ? (
-              tools ? <RankedBars rows={tools.rows} offerTotal={currentData.total} selectedValue={selection?.dimension === "skill" ? selection.value : undefined} onSelect={(row) => choose("skill", row)} />
+              tools ? <RankedBars rows={tools.rows} offerTotal={currentData.total} expandable selectedValue={selection?.dimension === "skill" ? selection.value : undefined} onSelect={(row) => choose("skill", row)} />
                 : <p className="analysis-muted">Sin herramientas detectadas en esta selección.</p>
             ) : <RankedBars rows={q.rows} selectedValue={selection?.dimension === q.key ? selection.value : undefined} onSelect={(row) => choose(q.key, row)} />}
             {q.key === "area" && <p className="analysis-definition">{number(currentData.total)} ofertas · área principal</p>}</section>)}

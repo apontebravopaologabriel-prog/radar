@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
-from functools import cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 from radar.classification_text import contains, job_text
@@ -17,9 +17,10 @@ def qualification_aliases():
     return json.loads((Path(__file__).parent / "careers/qualifications.json").read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=16)
 def clauses(description):
     text = job_text(description).role.replace("ing.", "ing")
-    return [c.strip() for c in re.split(r"\n|;|(?<=[.!?])\s+", text) if c.strip()]
+    return tuple(c.strip() for c in re.split(r"\n|;|(?<=[.!?])\s+", text) if c.strip())
 
 
 def assessment(status, reason, quote="", required=True, **extra):
@@ -191,18 +192,38 @@ def experience_assessment(description, profile, skill_names=()):
     return min(mandatory or found, key=lambda r: {"missing": 0, "unknown": 1, "partial": 2, "met": 3}[r["status"]])
 
 
+_LEVEL_CUES = re.compile(
+    r"basic\w*|intermedi\w*|avanzad\w*|advanced|dominio|expert\w*|alto nivel|solidos conocimientos|manejo fluido|nociones|elemental"
+)
+_LEVEL_GROUPS = (
+    ("advanced", ("avanzado", "avanzada", "avanzados", "advanced", "dominio", "experto", "experta", "expert", "alto nivel")),
+    ("intermediate", ("intermedio", "intermedia", "intermedios", "intermediate", "nivel medio", "solidos conocimientos", "manejo fluido")),
+    ("basic", ("basico", "basica", "basicos", "basic", "nociones", "conocimientos generales", "elemental", "nivel inicial")),
+)
+
+
+@cache
+def _alias_re(alias: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<!\w){re.escape(normalize_text(alias))}(?!\w)")
+
+
 def skill_level(description, name, aliases=()):
+    if not description:
+        return (None, "", True)
+    cue_clauses = [c for c in clauses(description) if _LEVEL_CUES.search(c)]
+    if not cue_clauses:
+        return (None, "", True)
     matches = []
-    for clause in clauses(description):
+    for clause in cue_clauses:
         for alias in (name, *aliases):
-            match = re.search(rf"(?<!\w){re.escape(normalize_text(alias))}(?!\w)", clause)
+            match = _alias_re(alias).search(clause)
             if not match:
                 continue
             # Stop at a list separator so “SQL, Excel avanzado” does not raise SQL's level.
-            after = re.split(r",|\s+y\s+|\s+and\s+", clause[match.end():match.end()+65])[0]
-            before = clause[max(0, match.start()-25):match.start()]
-            local = after if re.search(r"basico|intermedio|avanzado|basic|intermediate|advanced", after) else before if before.rstrip().endswith(("de", "in")) else ""
-            level = next((key for key, phrases in (("advanced", ("avanzado", "advanced")), ("intermediate", ("intermedio", "intermediate")), ("basic", ("basico", "basic"))) if any(contains(local, phrase) for phrase in phrases)), None)
+            after = re.split(r",|\s+y\s+|\s+and\s+|\s+o\s+|\s+or\s+|/|\|", clause[match.end():match.end()+65])[0]
+            before = re.split(r",|\s+y\s+|\s+and\s+|\s+o\s+|\s+or\s+|/|\|", clause[max(0, match.start()-45):match.start()])[-1]
+            local = after if _LEVEL_CUES.search(after) else before if before.rstrip().endswith(("de", "en", "con", "in", "of", ":")) else ""
+            level = next((key for key, phrases in _LEVEL_GROUPS if any(contains(local, phrase) for phrase in phrases)), None)
             if level:
                 matches.append((level, clause, not optional(clause)))
     order = {"basic": 1, "intermediate": 2, "advanced": 3}

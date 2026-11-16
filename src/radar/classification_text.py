@@ -8,7 +8,7 @@ from functools import cache, lru_cache
 
 from radar.normalize import normalize_text
 
-CLASSIFIER_VERSION = "2026-11-01.1"
+CLASSIFIER_VERSION = "2026-11-16.1"
 
 
 @cache
@@ -18,7 +18,8 @@ def phrase_pattern(phrase: str, stem: bool = False) -> re.Pattern[str]:
 
 
 def contains(text: str, phrase: str, *, stem: bool = False) -> bool:
-    return bool(phrase_pattern(phrase, stem).search(text))
+    norm = normalize_text(phrase)
+    return norm in text and bool(phrase_pattern(phrase, stem).search(text))
 
 
 @cache

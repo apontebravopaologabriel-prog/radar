@@ -12,6 +12,7 @@ from radar.classification_text import CLASSIFIER_VERSION
 from radar.classify import classify
 from radar.domain.models import RawJob
 from radar.normalize import content_hash
+from radar.requirements import skill_level
 from radar.taxonomy import infer_relevance
 
 _PACK_HASHES: dict[tuple[int, str], tuple[object, str]] = {}
@@ -39,8 +40,15 @@ def _projection_values(job_id, raw, pack, version=None):
                                 [area.value for area in classified.secondary_areas])
     areas = [{"name": area.value, "evidence": area.evidence, "confidence": area.confidence}
              for area in [classified.primary_area, *classified.secondary_areas]]
-    skills = [{"name": name, "evidence": evidence.evidence, "requirement_type": evidence.requirement_type}
-              for name, evidence in classified.skills]
+    skills = [
+        {
+            "name": name,
+            "evidence": evidence.evidence,
+            "requirement_type": evidence.requirement_type,
+            "level": skill_level(raw.description or "", name, pack.skill_aliases.get(name, ()))[0],
+        }
+        for name, evidence in classified.skills
+    ]
     return (job_id, pack.id, version or pack_hash(pack), content_hash(raw), relevance.tier, relevance.score,
             relevance.evidence, json.dumps(areas, ensure_ascii=False), json.dumps(skills, ensure_ascii=False))
 
@@ -120,10 +128,10 @@ def backfill_market(market_id: str) -> int:
     changed = 0
     with _backfill_lock(str(db_file)):
         rows = pending()
-        for offset in range(0, len(rows), 50):
+        for offset in range(0, len(rows), 400):
             prepared = [(_projection_values(job_id, RawJob("stored", title, company, "", location=location,
                                                         description=description), pack, version), old_hash)
-                        for job_id, title, company, location, description, old_hash in rows[offset:offset + 50]]
+                        for job_id, title, company, location, description, old_hash in rows[offset:offset + 400]]
             with connection() as conn:
                 conn.execute("BEGIN IMMEDIATE")
                 for values, expected_hash in prepared:

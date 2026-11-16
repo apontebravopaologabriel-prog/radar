@@ -7,7 +7,6 @@ import type { AnalysisScope } from "../lib/analysis-api";
 import { analysisScope, filtersFromScope } from "../lib/analysis-scope";
 import { updateApplication } from "../lib/applications-api";
 import { districtKey } from "../lib/districts";
-import { MY_CV_EVENT } from "../lib/cv-events";
 import { fetchMarkets, type Market } from "../lib/markets-api";
 import type { AgentContext } from "../lib/mobile-api";
 import {
@@ -27,7 +26,6 @@ import "./radar-map.css";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="map-loading">Cargando mapa de Lima<LoadingDots /></div> });
 const AnalysisView = dynamic(() => import("./AnalysisView"), { loading: () => <div className="map-loading">Cargando análisis…</div> });
-const CvView = dynamic(() => import("./CvView"), { loading: () => <div className="map-loading">Cargando Mi CV…</div> });
 const SCOPE_LABELS: Record<string, string> = {
   intern: "Intern", junior: "Junior", mid: "Semi-Senior", senior: "Senior",
   onsite: "Presencial", hybrid: "Híbrido", remote: "Remoto",
@@ -484,19 +482,6 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const selectViewRef = useRef(selectView);
   useEffect(() => { selectViewRef.current = selectView; });
   useEffect(() => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("view") === "cvs") {
-      selectViewRef.current("cvs");
-      url.searchParams.delete("view");
-      window.history.replaceState(window.history.state, "", url);
-    }
-  }, []);
-  useEffect(() => {
-    const profile = () => { selectViewRef.current("cvs"); };
-    window.addEventListener(MY_CV_EVENT, profile);
-    return () => { window.removeEventListener(MY_CV_EVENT, profile); };
-  }, []);
-  useEffect(() => {
     const onOpen = (event: Event) => { const id = (event as CustomEvent<{ id?: string }>).detail?.id; if (id) void openJobFromChat(id); };
     window.addEventListener(OPEN_JOB_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_JOB_EVENT, onOpen);
@@ -686,8 +671,6 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
               }} />
           ) : mode === "applications" ? (
             <ApplicationsView onContextChange={onApplicationsContext} />
-          ) : mode === "cvs" ? (
-            <CvView />
           ) : (
             <>
               <div className="map-header">

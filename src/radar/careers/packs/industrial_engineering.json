@@ -748,7 +748,8 @@
     "looker"
    ],
    "category": "bi",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "technical"
   },
   "MS Project": {
    "aliases": [
@@ -812,7 +813,12 @@
     "oracle erp",
     "netsuite",
     "softland",
-    "starsoft"
+    "starsoft",
+    "dynamics 365",
+    "concar",
+    "defontana",
+    "nisira",
+    "exactus"
    ],
    "category": "erp",
    "type": "technical"
@@ -847,10 +853,14 @@
     "crm",
     "salesforce",
     "hubspot",
-    "zoho crm"
+    "zoho crm",
+    "sistemas crm",
+    "pipedrive",
+    "kommo"
    ],
    "category": "herramienta",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "technical"
   },
   "Jira": {
    "aliases": [
@@ -880,15 +890,18 @@
     "databricks"
    ],
    "category": "datos",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "technical"
   },
   "BigQuery": {
    "aliases": [
     "bigquery",
-    "big query"
+    "big query",
+    "google bigquery"
    ],
    "category": "datos",
-   "type": "technical"
+   "type": "technical",
+   "analysis_group": "technical"
   },
   "PLC / SCADA": {
    "aliases": [
@@ -971,6 +984,285 @@
    ],
    "category": "mejora",
    "type": "methodology"
+  },
+  "n8n": {
+   "aliases": [
+    "n8n"
+   ],
+   "category": "automatizacion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Make": {
+   "aliases": [
+    "make.com",
+    "integromat",
+    "n8n make",
+    "make n8n",
+    "make zapier",
+    "zapier make",
+    "automatizacion con make",
+    "flujos en make"
+   ],
+   "category": "automatizacion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Zapier": {
+   "aliases": [
+    "zapier"
+   ],
+   "category": "automatizacion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Power Platform": {
+   "aliases": [
+    "power platform",
+    "microsoft power platform"
+   ],
+   "category": "automatizacion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Copilot Studio": {
+   "aliases": [
+    "copilot studio",
+    "power virtual agents"
+   ],
+   "category": "automatizacion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "OpenAI / LLMs": {
+   "aliases": [
+    "openai",
+    "chatgpt",
+    "claude",
+    "anthropic",
+    "gemini",
+    "langchain",
+    "ollama",
+    "hugging face"
+   ],
+   "category": "ia",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Odoo": {
+   "aliases": [
+    "odoo",
+    "odoo erp"
+   ],
+   "category": "erp",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "SAP Business One": {
+   "aliases": [
+    "sap business one",
+    "sap b1",
+    "sap bo"
+   ],
+   "category": "erp",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "SAP S/4HANA": {
+   "aliases": [
+    "sap s/4hana",
+    "sap s4hana",
+    "s/4hana",
+    "sap hana"
+   ],
+   "category": "erp",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Dynamics 365": {
+   "aliases": [
+    "dynamics 365",
+    "microsoft dynamics",
+    "dynamics nav",
+    "navision",
+    "dynamics ax",
+    "business central"
+   ],
+   "category": "erp",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Oracle NetSuite": {
+   "aliases": [
+    "netsuite",
+    "oracle netsuite",
+    "oracle erp",
+    "oracle cloud erp",
+    "jd edwards"
+   ],
+   "category": "erp",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Starsoft / Concar": {
+   "aliases": [
+    "starsoft",
+    "concar",
+    "siscont",
+    "defontana",
+    "nisira",
+    "exactus",
+    "spring erp"
+   ],
+   "category": "erp",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Salesforce": {
+   "aliases": [
+    "salesforce",
+    "salesforce crm"
+   ],
+   "category": "crm",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "HubSpot": {
+   "aliases": [
+    "hubspot",
+    "hubspot crm"
+   ],
+   "category": "crm",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Zoho CRM": {
+   "aliases": [
+    "zoho crm",
+    "zoho"
+   ],
+   "category": "crm",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Qlik": {
+   "aliases": [
+    "qlik",
+    "qlik sense",
+    "qlikview",
+    "qlik view"
+   ],
+   "category": "bi",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Microsoft Fabric": {
+   "aliases": [
+    "microsoft fabric",
+    "ms fabric"
+   ],
+   "category": "datos",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "SSIS / SSRS": {
+   "aliases": [
+    "ssis",
+    "ssrs",
+    "ssas",
+    "integration services",
+    "reporting services",
+    "analysis services"
+   ],
+   "category": "datos",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Snowflake": {
+   "aliases": [
+    "snowflake"
+   ],
+   "category": "datos",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Grafana": {
+   "aliases": [
+    "grafana"
+   ],
+   "category": "monitoreo",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Postman": {
+   "aliases": [
+    "postman"
+   ],
+   "category": "desarrollo",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Miro": {
+   "aliases": [
+    "miro",
+    "lucidchart"
+   ],
+   "category": "colaboracion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Notion": {
+   "aliases": [
+    "notion",
+    "airtable"
+   ],
+   "category": "colaboracion",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Trello / Monday": {
+   "aliases": [
+    "trello",
+    "monday",
+    "monday.com",
+    "asana",
+    "clickup"
+   ],
+   "category": "proyectos",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "S10": {
+   "aliases": [
+    "s10",
+    "s10 costos",
+    "s10 presupuestos"
+   ],
+   "category": "proyectos",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Primavera P6": {
+   "aliases": [
+    "primavera p6",
+    "oracle primavera",
+    "primavera"
+   ],
+   "category": "proyectos",
+   "type": "technical",
+   "analysis_group": "technical"
+  },
+  "Revit": {
+   "aliases": [
+    "revit",
+    "autodesk revit",
+    "bim revit",
+    "civil 3d",
+    "inventor"
+   ],
+   "category": "diseno",
+   "type": "technical",
+   "analysis_group": "technical"
   }
  },
  "excluded_title_signals": [
