@@ -28,6 +28,7 @@ radar-desktop = "radar.app:main"
 
 [project.optional-dependencies]
 dev = [
+  "fpdf2>=2.7,<3",
   "pytest>=9.0.3,<10",
   "ruff>=0.9,<1",
 ]
