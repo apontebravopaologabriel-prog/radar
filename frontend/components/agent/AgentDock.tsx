@@ -41,10 +41,9 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
   const box = useRef<HTMLDivElement>(null);
   const enabled = settings?.enabled === true;
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
-  const studio = Boolean(context?.cvStudio);
-  const canPin = studio || viewportWidth === null || viewportWidth >= MAP_MIN_WIDTH + PIN_MIN;
+  const canPin = viewportWidth === null || viewportWidth >= MAP_MIN_WIDTH + PIN_MIN;
   const effectiveMode = canPin ? mode : "float";
-  const effectivePinWidth = studio || viewportWidth === null ? pinWidth : Math.min(pinWidth, viewportWidth - MAP_MIN_WIDTH);
+  const effectivePinWidth = viewportWidth === null ? pinWidth : Math.min(pinWidth, viewportWidth - MAP_MIN_WIDTH);
   const pinned = enabled && open && effectiveMode === "pinned";
 
   useEffect(() => {
@@ -77,25 +76,6 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
     return () => cancelAnimationFrame(frame);
   }, [pinned, effectivePinWidth]);
   useEffect(() => () => { document.documentElement.style.setProperty("--agent-dock-w", "0px"); }, []);
-
-  // El Estudio de CV pide el panel del agente fijado a la derecha mientras está abierto y devuelve el estado anterior al salir.
-  const beforeStudio = useRef<{ open: boolean; mode: Mode } | null>(null);
-  useEffect(() => {
-    if (!enabled) return;
-    const onLayout = (event: Event) => {
-      const wanted = (event as CustomEvent<{ studio: boolean }>).detail?.studio;
-      if (wanted && !beforeStudio.current) {
-        beforeStudio.current = { open, mode };
-        setOpen(true); setMode("pinned"); setMinimized(false);
-      } else if (!wanted && beforeStudio.current) {
-        const previous = beforeStudio.current;
-        beforeStudio.current = null;
-        setOpen(previous.open); setMode(previous.mode);
-      }
-    };
-    window.addEventListener("radar:agent-layout", onLayout);
-    return () => window.removeEventListener("radar:agent-layout", onLayout);
-  }, [enabled, open, mode]);
 
   const toggle = useCallback(() => { setOpen((v) => !v); setMinimized(false); }, []);
   const toggleMode = useCallback(() => setMode((m) => (m === "float" ? "pinned" : "float")), []);
@@ -162,7 +142,7 @@ export default function AgentDock({ context }: { context?: AgentContext }) {
     let width = effectivePinWidth;
     let raf: number | null = null;
     const move = (e: PointerEvent) => {
-      width = Math.min(Math.max(window.innerWidth - e.clientX, PIN_MIN), studio ? PIN_MAX : Math.min(PIN_MAX, window.innerWidth - MAP_MIN_WIDTH));
+      width = Math.min(Math.max(window.innerWidth - e.clientX, PIN_MIN), Math.min(PIN_MAX, window.innerWidth - MAP_MIN_WIDTH));
       if (raf === null) raf = requestAnimationFrame(() => { raf = null; if (aside.current) aside.current.style.width = `${width}px`; });
     };
     const up = () => {

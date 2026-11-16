@@ -1,6 +1,6 @@
 # Radar
 
-Version 1.0.2 ([changelog](CHANGELOG.md), [known issues](KNOWN-ISSUES.md)). Local-first career intelligence for the Peruvian job market (Lima first, then the rest of the country).
+Version 1.0.2 ([changelog](CHANGELOG.md)). Local-first career intelligence for the Peruvian job market (Lima first, then the rest of the country).
 Radar collects job offers, normalizes and classifies them, scores them against your profile with traceable
 rules, and shows them on a map. An optional chat agent and an optional MCP server query the same data.
 
@@ -20,11 +20,11 @@ search -> normalize -> classify -> deduplicate -> observe -> store -> score -> e
 
 | Area | What it does |
 | --- | --- |
-| Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), one-click `✓ Postulé`, reversible archive, `Analysis` (scoped market overview, drill-down and optional read-only SQL); optional `Mi CV` is accessed from Settings or an offer |
+| Desktop `/radar` | Map views `Districts` and `Radar` (2/5/10 km), filters, offer tray, favorites (★), one-click `✓ Postulé`, reversible archive, `Analysis` (scoped market overview, drill-down and optional read-only SQL); optional `Mi CV` is accessed from Settings |
 | Mi búsqueda | Response-driven processes appear first with the next step and optional date; submitted offers remain in a compact searchable history. Open a row for actions and details. Archived shows the last seven Lima calendar days |
 | Chat agent (optional, off by default) | Floating window (`Ctrl+J`) or pinned panel; uses your own LLM API key; every write needs your approval; offers in its answers link to the map detail. See [docs/agent.md](docs/agent.md) |
 | MCP server (optional) | Exposes the same tool registry to external agents. See [docs/mcp.md](docs/mcp.md) |
-| My CV (optional) | Review factual profile data and prepared documents. Prepare a CV from an offer, preview and download; detailed Studio editing is optional. Analysis compares requirements across starred and submitted offers. See [docs/cv.md](docs/cv.md) |
+| My CV (optional) | Review and edit factual profile data (`cv_master.json`) or import from PDF/DOCX. Analysis compares requirements across starred and submitted offers. See [docs/cv.md](docs/cv.md) |
 | Refresh & Import | Scheduled or in-app market pull across Computrabajo, Bumeran, Empleos Perú, and Indeed/LinkedIn (JobSpy). Single-URL instant import from the UI (`+ Agregar por link`) or agent (`/importar`). See [docs/operations.md](docs/operations.md) and [docs/data-sources.md](docs/data-sources.md) |
 
 On desktop, **Filters → Market** switches Industrial/Systems without overwriting classifications.
@@ -45,7 +45,6 @@ pytest
 ```
 
 The database is created on first use at `~/.local/share/radar/radar.db` (override with `RADAR_DB_PATH`).
-Windows users download the installer instead ([docs/guia-usuario.md](docs/guia-usuario.md), build in [docs/packaging.md](docs/packaging.md)).
 Desktop window without the installer: `radar-app`. FastAPI serves the built frontend at `http://127.0.0.1:8100/radar`.
 For frontend development, run `radar-api`, then `cd frontend && npm run dev` and open `http://localhost:3000/radar`.
 Desktop launcher: `scripts/radar-launch.sh` (see operations).
@@ -72,19 +71,12 @@ Read in this order when changing behavior:
 | [docs/database.md](docs/database.md) | SQLite schema, persistence, deduplication, classification |
 | [docs/careers.md](docs/careers.md) | Career pack format and how to add a career |
 | [docs/operations.md](docs/operations.md) | Install, ingestion, refresh and scheduler, backups, remote access |
-| [docs/packaging.md](docs/packaging.md) | Windows installer and release process |
-| [docs/guia-usuario.md](docs/guia-usuario.md) | End-user guide (Spanish) |
 | [docs/agent.md](docs/agent.md) | Chat agent: modes, tools, memory, UI |
 | [docs/mcp.md](docs/mcp.md) | External MCP clients |
-| [docs/cv.md](docs/cv.md) | My CV, local import, optional detailed editing and saved-offer comparisons |
+| [docs/cv.md](docs/cv.md) | My CV, local import, factual profile and saved-offer comparisons |
 | [docs/security.md](docs/security.md) | Threat model, controls, compliance |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom → fix |
 | [docs/data-sources.md](docs/data-sources.md) | Portal adapters, data privacy, and third-party notices |
-| [SECURITY.md](SECURITY.md) | Security policy and vulnerability disclosure |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide, setup, and testing |
-| [docs/roadmap.md](docs/roadmap.md) | Versions v0.8 → v1.5 (single source of status) |
-| [docs/design-auto-compaction.md](docs/design-auto-compaction.md) | Design of the v0.9 focus feature: automatic context summarization |
-| [docs/design-cv-studio.md](docs/design-cv-studio.md) | Design of the v1.0 hero feature: CV editor with agent panel, export and application folders |
 
 `docs/skills/radar/SKILL.md` is generated (`radar skill export --out docs/skills`); never edit it by hand.
 

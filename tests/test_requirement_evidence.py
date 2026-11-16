@@ -109,7 +109,7 @@ def test_similar_positions_are_not_confirmed_by_unrelated_work():
 
 
 def test_advanced_skill_is_not_established_by_a_certificate(tmp_path):
-    from radar.cv_baseline import baseline
+    from radar.cv.baseline import baseline
     from radar.db.database import connection
     from radar.db.repository import ingest_jobs
 

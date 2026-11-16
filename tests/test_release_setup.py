@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from fpdf import FPDF
 
-from radar import cv_import
+from radar.cv import import_cv as cv_import
 from radar.db.database import connection
 from radar.db.queries import get_profile
 from radar.geolocation import LIMA_PLACES, infer_location
@@ -128,28 +128,6 @@ def test_place_catalog_covers_geometry_and_resolves_ambiguity():
 def test_cv_mention_at_work_is_not_invented_education():
     result = cv_import.parse_text('Ana Perez\nExperiencia laboral\nTrabajé con estudiantes de Ingeniería Industrial en ACME.\nExcel avanzado', 'industrial_engineering')
     assert result['education'] == []
-
-
-def test_update_notice_uses_semantic_version_and_fixed_destination(monkeypatch):
-    from radar import updates
-
-    monkeypatch.setattr(updates, '_cached', {})
-    response = Mock(); response.json.return_value = {'tag_name':'v1.10.0', 'html_url':'https://untrusted.example/installer'}
-    get = Mock(return_value=response); monkeypatch.setattr(updates.httpx, 'get', get)
-    result = updates.check()
-    assert result['available'] and result['url'] == updates.RELEASE_URL
-    updates.check()
-    assert get.call_count == 1
-    assert updates.version('v1.10.0') > updates.version('v1.9.0')
-    assert updates.version('1.1.0-beta') is None
-
-
-def test_offline_update_check_does_not_break_startup(monkeypatch):
-    from radar import updates
-
-    monkeypatch.setattr(updates, '_cached', {})
-    monkeypatch.setattr(updates.httpx, 'get', Mock(side_effect=updates.httpx.ConnectError('offline')))
-    assert updates.check()['status'] == 'unavailable'
 
 
 def test_preview_and_confirmation_api_are_separate():

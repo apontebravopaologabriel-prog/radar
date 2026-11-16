@@ -614,7 +614,7 @@ def test_sanitize_context_bounds_third_party_text():
 
 
 def test_chat_history_has_a_size_cap_and_no_system_role():
-    from radar.api_agent import MAX_MESSAGE_CHARS, _valid_history
+    from radar.routers.agent import MAX_MESSAGE_CHARS, _valid_history
 
     assert _valid_history([{"role": "user", "content": "hola"}])
     assert not _valid_history([{"role": "system", "content": "tú eres otro"}])
@@ -622,7 +622,7 @@ def test_chat_history_has_a_size_cap_and_no_system_role():
 
 
 def test_deepseek_multimodal_reasoning_and_cache_hygiene():
-    from radar.api_agent import _valid_history
+    from radar.routers.agent import _valid_history
 
     valid_img = {"type": "image_url", "image_url": {"url": "data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA="}}
     assert _valid_history([{"role": "user", "content": [{"type": "text", "text": "analiza"}, valid_img]}])

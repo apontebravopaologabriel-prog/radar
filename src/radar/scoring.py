@@ -37,11 +37,11 @@ def profile_fingerprint(profile, weights, market_id):
 
 
 def current_profile_fingerprint():
-    from radar import cv_targets
     from radar.careers import active_pack, effective_weights
+    from radar.cv import store as cv_store
     from radar.db.queries import get_profile
 
-    return profile_fingerprint(scoring_profile(get_profile() or {}, cv_targets.load_profile()),
+    return profile_fingerprint(scoring_profile(get_profile() or {}, cv_store.load_profile()),
                                effective_weights(), active_pack().id)
 
 

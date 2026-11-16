@@ -207,7 +207,7 @@ def list_jobs(
         def matches(job):
             point = infer_job_location(job.get("location"), job.get("title"), job.get("description"))
             if near:
-                from radar.cv_targets import distance_km
+                from radar.cv.store import distance_km
 
                 radius = float(scope.values().get("radius_km", 5))
                 return point and distance_km(target, point) <= radius

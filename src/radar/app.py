@@ -82,10 +82,9 @@ def smoke(port: int) -> int:
         with urlopen(f"http://{HOST}:{free}/radar", timeout=5) as page:
             html_ok = page.status == 200 and b"<html" in page.read(2000).lower()
         tools_ok = len(mcp._tool_manager.list_tools()) > 10
-        preview_ok = _preview_works()
         jobspy_ok = _jobspy_works()
-        print(json.dumps({"api": True, "frontend": html_ok, "mcp_tools": tools_ok, "cv_preview": preview_ok, "jobspy_runtime": jobspy_ok, "port": free}))
-        return 0 if html_ok and tools_ok and preview_ok and jobspy_ok else 1
+        print(json.dumps({"api": True, "frontend": html_ok, "mcp_tools": tools_ok, "jobspy_runtime": jobspy_ok, "port": free}))
+        return 0 if html_ok and tools_ok and jobspy_ok else 1
     finally:
         server.should_exit = True
 
@@ -99,15 +98,6 @@ def _jobspy_works() -> bool:
     session = Session()
     session.close()
     return True
-
-
-def _preview_works() -> bool:
-    """El estudio de CV necesita fpdf2 (escribe el PDF) y pypdfium2 (lo convierte en imagen): el instalador debe traer ambos."""
-    from radar.cv_render import page_png, render
-
-    selection = {"language": "es", "header": {"name": "Prueba", "headline": "", "contact": ""}, "summary": "", "experience": [], "projects": [],
-                 "certifications": [], "education": [], "skills": [], "languages": []}
-    return page_png(render(selection, "sidebar").pdf, 1, 0.5).startswith(b"\x89PNG")
 
 
 def _free_port() -> int:

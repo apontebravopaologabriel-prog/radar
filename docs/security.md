@@ -41,9 +41,9 @@ offer text ↔ the agent (untrusted input); portals ↔ connectors. The SQLite f
   http/https/mailto links).
 - **Write tools never run inside the agent loop.** They return as `pending` and the user approves them at
   `/api/chat/confirm`. `auto` mode self-approves only four personal-tracking actions (`favorite_job`,
-  `track_job_application`, `remember_user`, `record_career_event`); `update_profile_fields`, `close_gap` and
-  `build_cv` still ask. Plan and read-only modes offer no write tool and reject any call. There are no tools
-  that apply to jobs or send messages; `ingest_jobs` and `save_target_profile` are not exposed to the chat.
+  `track_job_application`, `remember_user`, `record_career_event`); `update_profile_fields`
+  still asks. Plan and read-only modes offer no write tool and reject any call. There are no tools
+  that apply to jobs or send messages; `ingest_jobs` is not exposed to the chat.
 - **Closed action lists:** `run_maintenance` accepts only `backup`, `repair_data`, `expire_stale`,
   `check_applications`, `market_snapshot`; `set_refresh_schedule` edits only `radar-refresh.timer` (1–30 days);
   `update_cv` validates each section and keeps a previous copy. None deletes offers; reclassification writes a
@@ -53,15 +53,13 @@ offer text ↔ the agent (untrusted input); portals ↔ connectors. The SQLite f
 - **SQL editor:** the connection is opened `mode=ro`, only a single `SELECT`/`WITH` is accepted (validated
   before reaching SQLite), and a progress handler aborts slow queries. Provider keys live outside this
   database.
-- **Files:** `GET /api/cv/files/...` serves only `.docx`/`.pdf` inside `cvs/`; paths with `..` or from other
-  folders are rejected. The API never accepts a client file path. Photos are verified with Pillow, stripped of
-  EXIF and resized.
+- **Files:** `GET /api/me/cv/original` serves only the stored original CV binary; the API never accepts a client file path.
 - **Outbound URL guard** (`ensure_public_http_url`): the link checker visits URLs that come from external job posts, so every request, redirects included, must be http(s) to a public address; loopback, private ranges, link-local and cloud-metadata addresses are refused. A DNS change between check and connection is not covered.
 - **Subprocesses** use argument lists (no `shell=True`) with timeouts.
 - **CORS** is limited to localhost origins (`RADAR_API_ALLOW_ORIGINS`).
 - The service worker never caches `/api/chat`, `/api/agent` or `/api/auth`.
 
-## Known gaps (tracked in [roadmap.md](roadmap.md#remaining-for-v10-ordered))
+## Known gaps
 
 1. **Single shared token**, no rotation and no per-device sessions.
 2. **Pre-existing copies.** Old manual `.bak*` and `pre-*` copies in the data folder are hardened to `600` but are not

@@ -3,7 +3,6 @@
 import "../perf.css";
 import AuthGate from "../../components/AuthGate";
 import AgentDock from "../../components/agent/AgentDock";
-import ReleaseNotice from "../../components/ReleaseNotice";
 import QuickTips from "../../components/QuickTips";
 import FirstRun from "../../components/settings/FirstRun";
 import RadarClient from "../../components/RadarClient";
@@ -17,7 +16,6 @@ export default function RadarPage() {
       <div className="radar-stage">
         <RadarClient onAgentContextChange={setAgentContext} />
       </div>
-      <ReleaseNotice />
       <QuickTips />
       <FirstRun />
       <AgentDock context={agentContext} />

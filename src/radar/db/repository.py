@@ -814,7 +814,7 @@ def recompute_scores(profile_id: str) -> int:
     """Compute evidence outside transactions and replace only unchanged input revisions."""
     from collections import defaultdict
 
-    from radar import cv_targets
+    from radar.cv import store as cv_store
     from radar.db.queries import get_profile
     from radar.markets import backfill_market
     from radar.scoring import SCORING_VERSION, profile_fingerprint, scoring_profile
@@ -825,7 +825,7 @@ def recompute_scores(profile_id: str) -> int:
     account = get_profile()
     if not account or account["id"] != str(profile_id):
         return 0
-    profile = scoring_profile(account, cv_targets.load_profile())
+    profile = scoring_profile(account, cv_store.load_profile())
     profile["skill_aliases"] = pack.skill_aliases
     revision = profile_fingerprint(profile, weights, pack.id)
     with connection() as conn:
@@ -853,7 +853,7 @@ def recompute_scores(profile_id: str) -> int:
             result.assessment.update(profile_hash=revision, content_hash=old_hash, market_id=pack.id, weights=weights)
             prepared.append((job_id, old_hash, result))
         # A factual CV or preference edit during computation must not overwrite its newer scores.
-        if profile_fingerprint(scoring_profile(get_profile() or {}, cv_targets.load_profile()), effective_weights(), active_pack().id) != revision:
+        if profile_fingerprint(scoring_profile(get_profile() or {}, cv_store.load_profile()), effective_weights(), active_pack().id) != revision:
             return count
         with connection() as conn:
             conn.execute("BEGIN IMMEDIATE")

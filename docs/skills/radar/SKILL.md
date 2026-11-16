@@ -13,9 +13,6 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 |---|---|---|---|
 | `get_my_cv` | lee | Tu CV real (cv_master) y preferencias de perfil en 1 llamada: resumen, experiencia, formación, |  |
 | `update_cv` | escribe | Edita tu CV real (Mi CV). section: certifications {name, issuer, date AAAA-MM}, experience {role, | section: string, action: string, item?: object, match?: string |
-| `get_closure_plan` | lee | Plan para cerrar brechas entre tus objetivos (ofertas con estrella): qué skills cerrar primero, cuántos | limit?: integer |
-| `prepare_application` | escribe | Prepara la postulación: exporta el CV vigente del Estudio (formats: pdf, docx) a la carpeta de esa oferta, junto con una | job_id: string, formats?: array |
-| `close_gap` | escribe | Registra evidencia REAL que cierra una brecha (la persona la aportó; no inventes nada). skill: la brecha | skill: string, kind: string, name: string, issuer?: string, date?: string, description?: string, link?: string |
 | `get_interview_dossier` | lee | Dossier completo en 1 sola llamada para preparar entrevistas o narrativa en Markdown: busca la oferta por ID o | query_or_job_id: string |
 | `health` | lee | Indica que Radar está disponible. |  |
 | `search_saved_jobs` | lee | Busca ofertas activas (excluye cerradas, postuladas y ocultas). Filtra por `min_salary`/`max_salary` (S/), `place`, | limit?: integer, seniority?: string, area?: string, max_age_days?: integer, search?: string, work_mode?: string, min_salary?: number, max_salary?: number, place?: string, skill?: string, relevance_tier?: string, sector?: string, exclude_sector?: string, include_applied?: boolean, include_hidden?: boolean, market_id?: string |
@@ -36,10 +33,10 @@ Radar es una app local de inteligencia de carrera. Este servidor MCP expone sus 
 
 ## Flujos recomendados (mínimas llamadas)
 
-1. **Entrevistas y análisis profundo de puesto (1 llamada):** `get_interview_dossier(query_or_job_id)` busca incluso en ofertas postuladas u ocultas y devuelve oferta, encaje, brecha determinista, selección de CV y `cv_master`.
+1. **Entrevistas y análisis profundo de puesto (1 llamada):** `get_interview_dossier(query_or_job_id)` busca incluso en ofertas postuladas u ocultas y devuelve oferta, encaje, brecha determinista y `cv_master`.
 2. **Ver qué hay hoy y detalle:** `get_today_feed` o `search_saved_jobs`; `get_job_details(job_id)` ya incluye el desglose completo de encaje (`fit`).
 3. **Por zona:** `find_jobs_near(place, radius_km)`; el lugar puede ser un distrito de Lima o una ciudad del Perú.
-4. **CV, perfil y qué aprender:** `get_my_cv` (incluye CV maestro y perfil de skills), `get_closure_plan` y `get_skill_demand`.
+4. **CV, perfil y qué aprender:** `get_my_cv` (incluye CV maestro y perfil de skills) y `get_skill_demand`.
 5. **Preguntas abiertas de datos:** `run_readonly_sql` (solo SELECT/WITH; si falla devuelve el esquema automáticamente).
 6. **Seguimiento e Inbox:** `track_job_application`, `favorite_job`, `import_job_url` (escrituras: confirmar con la persona antes).
 
@@ -135,7 +132,7 @@ Tus datos viven en tu equipo (SQLite). Al usar el agente, tu perfil y las oferta
 
 ### cv
 
-Desde una oferta pulsa «Preparar CV». Radar elige y ordena contenido de tu trayectoria real: revisa las páginas y pulsa «Descargar PDF». No necesitas marcar ★, crear un candidato hipotético ni activar el agente. «Qué pide esta oferta y qué aparece en tu perfil» muestra los requisitos y la evidencia. Si prefieres tu documento de siempre, «Usar mi archivo original» conserva sus bytes y lo asocia a esa oferta. Editar el perfil no modifica ese archivo original. La descarga crea una carpeta por oferta con el CV, una copia de la publicación y las versiones anteriores. En Postulaciones encuentras los CVs preparados; «Ya la envié» solo registra tu envío manual en el portal.
+Desde una oferta pulsa «Preparar CV». Radar elige y ordena contenido de tu trayectoria real: revisa las páginas y pulsa «Descargar PDF». No necesitas marcar ★, crear un candidato hipotético ni activar el agente. «Qué pide esta oferta y qué aparece en tu perfil» muestra los requisitos y la evidencia. Si prefieres tu documento de siempre, «Usar mi archivo original» conserva sus bytes y lo asocia a esa oferta. Editar el perfil no modifica ese archivo original. La descarga guarda el CV, una copia de la publicación y las versiones anteriores en una carpeta por oferta. Las carpetas nuevas se guardan por defecto en los datos de Radar. Puedes elegir otra ubicación en «Carpeta y nombres de archivo» de Studio. En Postulaciones encuentras los CVs preparados; «Ya la envié» solo registra tu envío manual en el portal.
 
 «Editar en detalle» abre Studio como editor opcional: quita o incluye líneas, reordena, cambia la redacción, elige plantilla, páginas o foto, deshaz cambios y descarga PDF o PDF + Word. Estos cambios valen para ese documento; los hechos nuevos se añaden en Mi CV. Si activaste el agente, puede proponer cambios con antes/después para que los aceptes. La protección de hechos bloquea reformulaciones que añadan datos no respaldados. «Volver a vista previa» conserva tus cambios. En tu trayectoria puedes copiar los datos de un registro para pegarlos manualmente en formularios.
 

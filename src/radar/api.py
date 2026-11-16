@@ -16,10 +16,6 @@ from starlette.middleware.gzip import GZipMiddleware
 from radar import __version__
 from radar.analysis import AnalysisScope, Dimension, matching_jobs
 from radar.analysis import router as analysis_router
-from radar.api_agent import router as agent_router
-from radar.api_cv import router as cv_router
-from radar.api_mcp import router as mcp_router
-from radar.api_me import router as me_router
 from radar.auth import AccessMiddleware
 from radar.auth import router as auth_router
 from radar.db.analytics import QueryError, QueryTimeout, describe_schema, run_readonly_query
@@ -40,6 +36,12 @@ from radar.db.queries import (
 )
 from radar.paths import frontend_dir
 from radar.processes import router as processes_router
+from radar.routers.agent import router as agent_router
+from radar.routers.cv import router as cv_router
+from radar.routers.market import router as market_router
+from radar.routers.mcp import router as mcp_router
+from radar.routers.me import router as me_router
+from radar.routers.tracking import router as tracking_router
 from radar.security import LocalGuardMiddleware, restrict_umask
 
 FRONTEND_OUT = frontend_dir()
@@ -79,6 +81,8 @@ app.include_router(cv_router)
 app.include_router(me_router)
 app.include_router(mcp_router)
 app.include_router(agent_router)
+app.include_router(market_router)
+app.include_router(tracking_router)
 app.include_router(processes_router)
 
 if FRONTEND_OUT.exists():

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchCvSelection, fetchCvTargets } from "../lib/cv-api";
 import { fetchApplications } from "../lib/applications-api";
 import type { CvBaselineItem, CvTarget } from "../lib/cv-types";
-import { MY_CV_EVENT, PREPARE_CV_EVENT } from "../lib/cv-events";
+import { MY_CV_EVENT } from "../lib/cv-events";
 import "./cv.css";
 
 const LABEL = { cubierto: "Con evidencia", parcial: "Por revisar", falta: "Sin evidencia" };
@@ -149,7 +149,7 @@ export default function CvInsights({ onOpenJob }: { onOpenJob?: (id: string) => 
                   <th>Requisito</th>
                   {targets.map((target) => (
                     <th key={target.id}>
-                      <button type="button" onClick={() => onOpenJob ? onOpenJob(target.id) : window.dispatchEvent(new CustomEvent(PREPARE_CV_EVENT, { detail: { jobId: target.id } }))}>
+                      <button type="button" onClick={() => onOpenJob ? onOpenJob(target.id) : window.dispatchEvent(new CustomEvent("radar:open-job", { detail: { id: target.id } }))}>
                         {target.company || target.title}
                         <small>{target.title}</small>
                       </button>
@@ -180,7 +180,7 @@ export default function CvInsights({ onOpenJob }: { onOpenJob?: (id: string) => 
             <strong>{focusedItem?.label || rows.find(([key]) => key === focused.key)?.[1] || "Requisito"} · {focusedTarget?.company || focusedTarget?.title}</strong>
             <p>{focusedItem ? `${LABEL[focusedItem.status]}. ${focusedItem.reason}` : "Este requisito no se detectó en esta oferta."}</p>
             {focusedItem?.quote && <blockquote>“{focusedItem.quote}”</blockquote>}
-            {focusedTarget && <button type="button" onClick={() => onOpenJob ? onOpenJob(focusedTarget.id) : window.dispatchEvent(new CustomEvent(PREPARE_CV_EVENT, { detail: { jobId: focusedTarget.id } }))}>Abrir oferta ↗</button>}
+            {focusedTarget && <button type="button" onClick={() => onOpenJob ? onOpenJob(focusedTarget.id) : window.dispatchEvent(new CustomEvent("radar:open-job", { detail: { id: focusedTarget.id } }))}>Abrir oferta ↗</button>}
           </div>}
 
           {targets.length > 0 && (

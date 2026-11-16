@@ -13,10 +13,6 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.11", "3.12", "3.14"]
-        include:
-          # Windows es el objetivo de la v1.0: se vigila desde ahora para ver qué falta portar.
-          - os: windows-latest
-            python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -105,9 +105,6 @@ to four favorites or submissions. Consultas retains read-only SQL over the full 
 | `/radar` DOM nodes | < 8 000 |
 | Window drag/resize | ≤ 1 relayout per gesture, no long tasks |
 
-Measure with `node scripts/perf/measure.mjs <load|idle|drag|pinresize|scroll|detail>` (Chromium over CDP;
-needs the API on `127.0.0.1:8101`).
-
 ## Chat agent (summary; full reference in [agent.md](agent.md))
 
 - Runs in the server, never in the browser. OpenAI-compatible provider; keeps DeepSeek `reasoning_content`

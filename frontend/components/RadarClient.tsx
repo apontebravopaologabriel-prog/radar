@@ -7,7 +7,7 @@ import type { AnalysisScope } from "../lib/analysis-api";
 import { analysisScope, filtersFromScope } from "../lib/analysis-scope";
 import { updateApplication } from "../lib/applications-api";
 import { districtKey } from "../lib/districts";
-import { MY_CV_EVENT, PREPARE_CV_EVENT } from "../lib/cv-events";
+import { MY_CV_EVENT } from "../lib/cv-events";
 import { fetchMarkets, type Market } from "../lib/markets-api";
 import type { AgentContext } from "../lib/mobile-api";
 import {
@@ -109,8 +109,6 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
   const [chatJobs, setChatJobs] = useState<Job[]>([]); // ofertas abiertas desde el chat que no estaban en ningún listado
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeView, setActiveView] = useState<RadarView>("map");
-  const [studioJobId, setStudioJobId] = useState<string | null>(null);
-  const [studioContext, setStudioContext] = useState<AgentContext["cvStudio"] | null>(null);
   const [applicationsContext, setApplicationsContext] = useState<{ count: number; status: string } | null>(null);
   const onApplicationsContext = useCallback((count: number, status: string) => setApplicationsContext((current) => (current && current.count === count && current.status === status ? current : { count, status })), []);
   const [analysisContext, setAnalysisContext] = useState<AgentContext["analysis"]>({ ready: false, updatedAt: new Date(0).toISOString(), windows: [], recentQueries: [] });
@@ -221,8 +219,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     visibleCount: activeView === "applications" ? applicationsContext?.count : visibleJobs.length,
     districtJobs: mode === "radar" ? undefined : browsedDistrict?.count,
     analysis: activeView === "analysis" ? analysisContext : undefined,
-    cvStudio: activeView === "cvs" ? studioContext ?? undefined : undefined,
-  }), [activeView, analysisContext, applicationsContext, studioContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, selectedSkill, visibleJobs.length]);
+  }), [activeView, analysisContext, applicationsContext, browsedDistrict, filters, mode, radarDistrict, radarRadiusKm, selectedJob, selectedSkill, visibleJobs.length]);
   useEffect(() => { onAgentContextChange?.(agentContext); }, [agentContext, onAgentContextChange]);
   const radarRadiusCounts = useMemo(
     () => RADAR_RADII.map((radius) => ({ radius, count: radarDistrictKey ? portalJobs.filter((job) => job.latitude !== null && job.longitude !== null && distanceKm(radarCenter, { latitude: job.latitude, longitude: job.longitude }) <= radius).length : 0 })),
@@ -495,15 +492,9 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
     }
   }, []);
   useEffect(() => {
-    const prepare = (event: Event) => {
-      const id = (event as CustomEvent<{ jobId?: string }>).detail?.jobId;
-      if (typeof id !== "string" || !id) return;
-      setStudioJobId(id); selectViewRef.current("cvs");
-    };
-    const profile = () => { setStudioJobId(null); selectViewRef.current("cvs"); };
-    window.addEventListener(PREPARE_CV_EVENT, prepare);
+    const profile = () => { selectViewRef.current("cvs"); };
     window.addEventListener(MY_CV_EVENT, profile);
-    return () => { window.removeEventListener(PREPARE_CV_EVENT, prepare); window.removeEventListener(MY_CV_EVENT, profile); };
+    return () => { window.removeEventListener(MY_CV_EVENT, profile); };
   }, []);
   useEffect(() => {
     const onOpen = (event: Event) => { const id = (event as CustomEvent<{ id?: string }>).detail?.id; if (id) void openJobFromChat(id); };
@@ -696,7 +687,7 @@ export default function RadarClient({ onAgentContextChange }: { onAgentContextCh
           ) : mode === "applications" ? (
             <ApplicationsView onContextChange={onApplicationsContext} />
           ) : mode === "cvs" ? (
-            <CvView onStudioContext={setStudioContext} openJobId={studioJobId} onOpenJobConsumed={() => setStudioJobId(null)} />
+            <CvView />
           ) : (
             <>
               <div className="map-header">

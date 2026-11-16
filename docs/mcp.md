@@ -73,18 +73,17 @@ Same registry and same functions, with these differences:
 
 | | In-app agent | MCP server |
 | --- | --- | --- |
-| Tools | 50 (with on-demand groups) | **22 curated tools (`MCP_TOOLS`)**: focused on 1-call War-Room (`get_interview_dossier`), offer triage (`get_today_feed`, `search_saved_jobs`, `find_jobs_near`, `get_job_details`, `compare_jobs`), tracking (`track_job_application`, `favorite_job`, `list_job_applications`, `import_job_url`), CV & gap closure (`get_my_cv`, `update_cv`, `update_profile_fields`, `get_closure_plan`, `close_gap`, `prepare_application`), market analytics (`get_market_breakdown`, `get_skill_demand`, `get_salary_stats`, `get_place_profile`, `run_readonly_sql`) and `health`. UI-coupled tools (`get_help`, `get_setup_status`, `cv_doc_*`, chat memory) and duplicate aliases (`build_cv`, `explain_job_fit`, `get_user_profile`, `plan_learning`) are omitted to maximize tool-selection accuracy and minimize round-trips |
-| Not exposed in either | `ingest_jobs`, `capture_market_history`, `update_profile`, `save_target_profile` (writes that skip the confirmation card; CLI and onboarding only) | |
+| Tools | ~40 (with on-demand groups) | **19 curated tools (`MCP_TOOLS`)**: focused on 1-call War-Room (`get_interview_dossier`), offer triage (`get_today_feed`, `search_saved_jobs`, `find_jobs_near`, `get_job_details`, `compare_jobs`), tracking (`track_job_application`, `favorite_job`, `list_job_applications`, `import_job_url`), CV & profile (`get_my_cv`, `update_cv`, `update_profile_fields`), market analytics (`get_market_breakdown`, `get_skill_demand`, `get_salary_stats`, `get_place_profile`, `run_readonly_sql`) and `health`. UI-coupled tools (`get_help`, `get_setup_status`, chat memory) and duplicate aliases (`explain_job_fit`, `get_user_profile`, `plan_learning`) are omitted to maximize tool-selection accuracy and minimize round-trips |
+| Not exposed in either | `ingest_jobs`, `capture_market_history`, `update_profile` (writes that skip the confirmation card; CLI and onboarding only) | |
 | Writes | Always a confirmation card; none in plan or read-only mode | **Run directly**, with no card. Only Radar's read-only setting (`agent_read_only`) blocks them, plus whatever approval the client asks for |
 | Tool loading | `cv`, `perfil`, `sistema` groups load on demand | All tools visible at once (heavier for the client's context) |
-| Rules and persona | System prompt, persona, memory, screen context, auto-compaction | None: the client needs the generated skill (`docs/skills/radar/SKILL.md`). The CV fact guard is code, so it holds for every client |
-| Extras | Studio panel, suggestions UI | Resources and prompts |
+| Rules and persona | System prompt, persona, memory, screen context, auto-compaction | None: the client needs the generated skill (`docs/skills/radar/SKILL.md`) |
+| Extras | — | Resources and prompts |
 
-Write tools exposed through MCP: `update_cv`, `update_profile_fields`, `close_gap`, `favorite_job`, `track_job_application`,
+Write tools exposed through MCP: `update_cv`, `update_profile_fields`, `favorite_job`, `track_job_application`,
 `record_career_event`, `remember_user`, `set_career_track`, `create_career_pack`, `set_refresh_schedule`, `run_maintenance`,
-`set_score_weights`, `reclassify_jobs`, `refresh_market`, `build_cv`, `prepare_application`. Turn on Radar's read-only mode, or make the
-client ask before each call, when connecting an agent you do not fully trust. `cv_doc_propose` creates suggestions, not changes: the
-person accepts them in the Studio.
+`set_score_weights`, `reclassify_jobs`, `refresh_market`. Turn on Radar's read-only mode, or make the
+client ask before each call, when connecting an agent you do not fully trust.
 
 ## Tools worth knowing
 

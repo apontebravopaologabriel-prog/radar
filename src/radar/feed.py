@@ -201,7 +201,7 @@ def nearby(
     La distancia es entre centroides (distrito o ciudad). Las ofertas que solo indican el
     departamento se ubican en su capital y se marcan con precisión "department".
     """
-    from radar.cv_targets import distance_km
+    from radar.cv.store import distance_km
     from radar.geolocation import infer_location
 
     origin = infer_location(place)

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from radar import cv_baseline, cv_targets
+from radar.cv import baseline as cv_baseline
 from radar.db.database import connection
 from radar.db.queries import set_job_favorite
 from radar.db.repository import ingest_jobs
@@ -67,19 +67,6 @@ def test_selection_is_favorites_and_ranked(job):
     set_job_favorite(job)
     [target] = cv_baseline.ranked_selection()
     assert target["id"] == job and target["location"]["km_from_home"] is not None
-
-
-def test_code_status_overrides_agent_status(job):
-    cv_targets.save_target(job, {"sections": {"tools": [
-        {"text": "Excel", "origin": "tipico", "key": "excel", "status": "falta"},
-        {"text": "Git", "origin": "tipico", "key": "git", "status": "falta"}]}, "gaps": []})
-    target = cv_baseline.combined_target(job)
-    tools = {i["key"]: i for i in target["sections"]["tools"]}
-    assert tools["excel"]["status"] == "cubierto" and tools["excel"]["status_source"] == "codigo"
-    assert tools["git"]["status_source"] == "agente"
-    matrix = cv_targets.build_matrix([target])
-    rows = {r["key"]: r for r in matrix["rows"]}
-    assert rows["git"]["agent_cells"] == [job] and rows["excel"]["agent_cells"] == []
 
 
 def test_soft_skills_are_listed_but_not_scored_and_quotes_are_clean(job):

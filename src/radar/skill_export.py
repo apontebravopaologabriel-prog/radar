@@ -14,10 +14,10 @@ from radar.help import help_topics, read_help
 WORKFLOWS = """\
 ## Flujos recomendados (mínimas llamadas)
 
-1. **Entrevistas y análisis profundo de puesto (1 llamada):** `get_interview_dossier(query_or_job_id)` busca incluso en ofertas postuladas u ocultas y devuelve oferta, encaje, brecha determinista, selección de CV y `cv_master`.
+1. **Entrevistas y análisis profundo de puesto (1 llamada):** `get_interview_dossier(query_or_job_id)` busca incluso en ofertas postuladas u ocultas y devuelve oferta, encaje, brecha determinista y `cv_master`.
 2. **Ver qué hay hoy y detalle:** `get_today_feed` o `search_saved_jobs`; `get_job_details(job_id)` ya incluye el desglose completo de encaje (`fit`).
 3. **Por zona:** `find_jobs_near(place, radius_km)`; el lugar puede ser un distrito de Lima o una ciudad del Perú.
-4. **CV, perfil y qué aprender:** `get_my_cv` (incluye CV maestro y perfil de skills), `get_closure_plan` y `get_skill_demand`.
+4. **CV, perfil y qué aprender:** `get_my_cv` (incluye CV maestro y perfil de skills) y `get_skill_demand`.
 5. **Preguntas abiertas de datos:** `run_readonly_sql` (solo SELECT/WITH; si falla devuelve el esquema automáticamente).
 6. **Seguimiento e Inbox:** `track_job_application`, `favorite_job`, `import_job_url` (escrituras: confirmar con la persona antes).
 """

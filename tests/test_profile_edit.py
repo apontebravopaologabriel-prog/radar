@@ -3,7 +3,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from radar import cv_targets, profile_edit, tools
+from radar import tools
+from radar.cv import profile_edit
+from radar.cv import store as cv_store
 from radar.db import repository
 from radar.db.database import connection
 from radar.db.queries import get_profile
@@ -134,7 +136,7 @@ def test_completeness_and_agent_facing_pieces(env):
 
 def test_declared_tools_come_from_the_database_not_from_a_stale_copy(env):
     (env / "cv_master.json").write_text(json.dumps({**CV, "tools_declared_in_db": {"Viejo": "basic"}}), encoding="utf-8")
-    declared = cv_targets.load_profile()["tools_declared_in_db"]
+    declared = cv_store.load_profile()["tools_declared_in_db"]
     assert declared["Excel"] == "intermediate" and "Viejo" not in declared
 
 

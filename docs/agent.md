@@ -54,13 +54,12 @@ available, so put heavy, rarely used tools in a group.
 | --- | --- |
 | Market and offers | `search_saved_jobs`, `get_today_feed`, `find_jobs_near`, `get_job_details`, `explain_job_fit`, `compare_jobs`, `get_skill_demand`, `get_market_breakdown` (by area, place, company, work mode, seniority, sector or portal), `get_place_profile`, `compare_places`, `get_salary_stats`, `plan_learning`, `get_market_history`, `get_data_schema`, `run_readonly_sql`. MCP only: `get_market_summary`, `list_recommended_jobs`, `get_skill_impact`, `get_job_history`, `health` |
 | Profile, CV, memory | `get_my_profile`, `update_profile_fields`\*, `get_user_profile`, `get_my_cv`, `update_cv`\*, `get_user_memory`, `remember_user`\*, `search_past_conversations`, `get_career_timeline`, `record_career_event`\*, `list_career_tracks`, `set_career_track`\*, `create_career_pack`\* |
-| Closure plan, CV studio and application packages | `get_closure_plan`, `close_gap`\*, `preview_cv`, `build_cv`\* (compatibility alias of `prepare_application`), `cv_doc_get`, `cv_doc_propose` (creates suggestions the person accepts in the Studio; nothing changes until then), `prepare_application`\* (exports the PDF/Word to the offer's folder; never submits), `list_application_packages` |
 | Tracking | `favorite_job`\*, `track_job_application`\* (`job_id` accepts an ID or unique title/company query, or batch `job_ids`; `responded`, `interview` and `offer` synchronize linked processes, `rejected` archives), `list_job_applications` (optional `compact=true`, SQL `query` and `status` filters), `import_job_url`\* |
 | Capture and system | `refresh_market`\*, `get_refresh_status`, `get_system_status`, `set_refresh_schedule`\*, `run_maintenance`\*, `set_score_weights`\*, `audit_classification`, `reclassify_jobs`\*, `get_setup_status`, `get_help`. Not exposed to chat or MCP (CLI/onboarding only): `ingest_jobs`, `capture_market_history` |
-| Target CVs and interview prep (MCP only, read-only) | `get_interview_dossier`, `get_target_context`, `list_targets`, `get_target_matrix`, `resolve_nearest_districts` |
+| Interview prep (MCP only, read-only) | `get_interview_dossier`, `resolve_nearest_districts` |
 
-\* writes: the chat shows a card and runs it only after approval. `update_profile` (full replacement) and `save_target_profile` exist
-only for onboarding and the CLI; neither the chat nor the MCP server exposes them (the app agent uses `update_profile_fields`).
+\* writes: the chat shows a card and runs it only after approval. `update_profile` (full replacement) exists
+only for onboarding and the CLI; neither the chat nor the MCP server exposes it (the app agent uses `update_profile_fields`).
 
 Design decisions:
 
@@ -135,8 +134,7 @@ treated as navigation data, used silently and never quoted. `@` mentions always 
 When the last prompt reported by the provider exceeds `agent_autocompact_pct` (default 65 %, 0 = off) of the context
 window, the server summarizes everything except the last 4 user turns and emits a `compacted` event with the
 new history; the UI shows the summary and any preference candidates to save with `#`. Old tool results are also
-cut to 700 characters. Manual `/compact [focus]` uses the same code. Design and rationale:
-[design-auto-compaction.md](design-auto-compaction.md).
+cut to 700 characters. Manual `/compact [focus]` uses the same code.
 
 ## Memory and conversations
 
@@ -153,8 +151,7 @@ cut to 700 characters. Manual `/compact [focus]` uses the same code. Design and 
 `certifications`, `experience`, `education`, `languages`, `projects`, `contact`, `gaps`, `summary`, `headline`.
 Actions: `add`, `update`, `remove`. It validates allowed fields and `YYYY-MM` dates, rejects duplicates and
 ambiguous matches, keeps untouched keys, writes atomically and saves `cv_master.json.bak-<date>` (last 5). Only
-with what the person dictates. Users can also import, edit all factual sections and prepare/download a CV
-without chat. `preview_cv` and `build_cv` use the current offer document, including confirmed detailed edits.
+with what the person dictates. Users can also import and edit all factual sections without chat.
 Details: [cv.md](cv.md).
 
 ## System and maintenance tools
@@ -171,10 +168,6 @@ deletes offers and leaves a reversible copy when applicable.
   `tests/test_tools.py`.
 - **New command:** an entry in `COMMANDS` in `commands.ts` (and in `VIEWS` if it opens a window or notice).
 - **Personality or rules:** `soul.md` and `SYSTEM_PROMPT`.
-- **Quality check:** `scripts/agent_eval.py` runs 17 typical questions against the configured provider in
-  read-only mode (spends tokens, recorded in `agent_usage`). Last real run (DeepSeek, 2026-09-20): all 17
-  chose the right tool; it refused "apply for me and write the recruiter" and resisted an injected
-  instruction. Re-run after changing tools, grouping or prompts.
 
 ### Evidence-aware fit
 

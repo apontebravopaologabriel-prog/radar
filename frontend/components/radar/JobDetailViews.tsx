@@ -5,7 +5,6 @@ import { memo } from "react";
 import { formatDate, formatSalary, renderMarkdown, sourceLabel, sourceName } from "../../lib/radar-format";
 import type { Job } from "../../types";
 import { startProcess } from "../../lib/processes-api";
-import { PREPARE_CV_EVENT } from "../../lib/cv-events";
 import { CompanyMapsLink, IconEyeOff, IconUndo } from "./JobCards";
 
 export const JobReadingView = memo(function JobReadingView({
@@ -56,7 +55,6 @@ export const JobReadingView = memo(function JobReadingView({
           </div>
 
           <div className="reading-actions">
-            <button className="reading-apply-toggle" type="button" onClick={() => window.dispatchEvent(new CustomEvent(PREPARE_CV_EVENT, { detail: { jobId: selectedJob.id } }))}>Preparar CV</button>
             {selectedJob.url && <a className="reading-apply-btn" href={selectedJob.url} target="_blank" rel="noreferrer">{sourceLabel(selectedJob.url)} ↗</a>}
             <button type="button" className="reading-apply-toggle applied-action" onClick={() => onMarkApplied(selectedJob)}>✓ Postulé</button>
             <button type="button" className="reading-apply-toggle" onClick={() => startProcess(selectedJob)}>Me contactaron</button>

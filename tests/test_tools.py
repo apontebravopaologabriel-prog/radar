@@ -39,7 +39,7 @@ def test_write_tools_are_classified_and_chat_excludes_risky_ones():
     assert {"update_profile", "track_job_application", "favorite_job", "set_career_track"} <= writes
     assert "get_today_feed" not in writes
     chat = {t.name for t in tools.chat_tools()}
-    assert "ingest_jobs" not in chat and "save_target_profile" not in chat
+    assert "ingest_jobs" not in chat
 
 
 def test_schemas_derive_from_signatures():
@@ -402,9 +402,9 @@ def test_backup_and_status_work_on_a_real_database():
 def test_get_my_cv_reads_the_master_cv_without_private_paths(tmp_path, monkeypatch):
     import json
 
-    from radar import cv_targets
+    from radar.cv import store as cv_store
 
-    monkeypatch.setattr(cv_targets, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(cv_store, "data_dir", lambda: tmp_path)
     assert tools.get_my_cv()["cv"] is None
     (tmp_path / "cv_master.json").write_text(json.dumps({"_nota": "x", "name": "Ana", "headline": "Ing. industrial",
                                                         "experience": [{"role": "Auxiliar"}], "photo_path": "/home/x.jpg"}), encoding="utf-8")
@@ -415,9 +415,10 @@ def test_get_my_cv_reads_the_master_cv_without_private_paths(tmp_path, monkeypat
 def test_update_cv_edits_the_master_cv_safely(tmp_path, monkeypatch):
     import json
 
-    from radar import cv_edit, cv_targets
+    from radar.cv import edit as cv_edit
+    from radar.cv import store as cv_store
 
-    monkeypatch.setattr(cv_targets, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(cv_store, "data_dir", lambda: tmp_path)
     monkeypatch.setattr(cv_edit, "data_dir", lambda: tmp_path)
     cv_file = tmp_path / "cv_master.json"
     cv_file.write_text(json.dumps({"name": "Ana", "photo_path": "/x.jpg", "certifications": [{"name": "SQL", "date": "2025-06"}],
@@ -642,9 +643,9 @@ def test_search_saved_jobs_and_recommendations_exclude_applied_and_hidden_by_def
 def test_get_interview_dossier_finds_applied_offers_in_one_call(tmp_path, monkeypatch):
     import json
 
-    from radar import cv_targets
+    from radar.cv import store as cv_store
 
-    monkeypatch.setattr(cv_targets, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(cv_store, "data_dir", lambda: tmp_path)
     (tmp_path / "cv_master.json").write_text(
         json.dumps(
             {

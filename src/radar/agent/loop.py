@@ -19,9 +19,10 @@ from typing import Any
 
 import httpx
 
-from radar import cv_targets, maintenance, tools
+from radar import maintenance, tools
 from radar.agent.memory import delete_memory, list_memories, migrate_legacy, save_memory
 from radar.agent.provider import LLMConfig, ProviderError, stream_chat
+from radar.cv import store as cv_store
 from radar.db.database import connection
 from radar.db.queries import get_profile
 from radar.settings import get_setting
@@ -99,12 +100,6 @@ de responder; nunca digas que no conoces su contexto sin haberla consultado. Ús
 - Para actualizar el CV (certificaciones, experiencia, estudios, idiomas, resumen) usa update_cv con lo que la persona \
 dicte: no inventes datos, pregunta lo que falte (emisor, fecha) y, si aporta evidencia a una brecha, ofrece actualizarla \
 (section=gaps). Skills y herramientas van en update_profile. Avisa que verá el cambio al abrir de nuevo la vista de CVs.
-- ESTUDIO DE CV (la persona edita el CV de una oferta con una página a la vista; el contexto trae `cvStudio` con la oferta y la línea \
-seleccionada): carga el grupo cv, llama cv_doc_get para ver los ids reales y propón los cambios con cv_doc_propose; ella los \
-acepta o rechaza en la página. No reescribas por gusto: usa solo hechos que ya están en esa línea o en su cargo. Si algo que quiere \
-poner es un dato verdadero que no está en su CV, pídele que lo diga y guárdalo antes con update_cv. Un cambio marcado como dato nuevo \
-no se puede aceptar. Cuando termine, ofrece prepare_application (exporta el PDF a la carpeta de esa postulación); nunca postules ni \
-envíes nada por ella: sube el archivo ella y, si lo pide, márcala como enviada.
 - Sistema: get_system_status para saber cómo está (BD, captura, temporizador). Con confirmación puedes cambiar el \
 temporizador (set_refresh_schedule), hacer mantenimiento (run_maintenance; antes un backup si no hay uno reciente) y \
 ajustar pesos (set_score_weights). No cambies la clave, el modo solo lectura ni el tope de tokens: son de la persona.
@@ -164,7 +159,7 @@ def system_prompt() -> str:
     """Prompt de sistema + memoria de la persona (datos que ella escribió, no instrucciones)."""
     memory = get_memory()
     name = (get_profile() or {}).get("name")
-    cv = cv_targets.load_profile() or {}
+    cv = cv_store.load_profile() or {}
     who = f"La persona se llama {name}." if name else ""
     if cv.get("headline") or cv.get("home_district"):
         who += f" Perfil: {cv.get('headline') or ''}{' Vive en ' + cv['home_district'] + '.' if cv.get('home_district') else ''}"

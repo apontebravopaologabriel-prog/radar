@@ -28,16 +28,12 @@ WRITE_TOOL = ToolAnnotations(
 )
 
 MCP_INSTRUCTIONS = (
-    "Radar consulta y organiza la búsqueda laboral en SQLite. Para mover o archivar una postulación por puesto "
-    "o empresa en 1 sola llamada, pasa el texto directamente en `job_id` de track_job_application (o `job_ids` en lote) con "
-    "responded (Contacto), interview (Entrevista), offer (Oferta), rejected (Archivados) o ignored (Oculta). "
-    "Solo usa list_job_applications(compact=true, query=...) si necesitas listar o desambiguar. Pide confirmación antes de escribir.\n"
-    "Para preparar una entrevista, análisis de empresa o guion STAR, usa get_interview_dossier en una llamada: "
-    "busca también postuladas y ocultas, y devuelve oferta, fit, brecha y CV real. Los expedientes Markdown "
-    "de preparación se guardan en /home/paolo/Documents/Work/Postulaciones/<Empresa>/. "
-    "get_job_details ya trae el fit; get_my_cv incluye CV y perfil. "
-    "Para buscar una postulación en el mercado usa search_saved_jobs con include_applied=true. "
-    "Usa el puntaje y la evidencia calculados por Radar y conserva los hechos del CV."
+    "Radar manages Paolo's job search in SQLite. "
+    "Pass company/role text directly in `job_id` (or `job_ids`) to `track_job_application` with "
+    "responded, interview, offer, rejected, or ignored; only call `list_job_applications(compact=true, query=...)` "
+    "to disambiguate. Ask confirmation before writes.\n"
+    "For interview prep or STAR scripts, call `get_interview_dossier` once and save prep Markdowns in "
+    "`/home/paolo/Documents/Work/prep/<company>.md` (`kebab-case`, H1 `# <Company> — <Role Title>`, adapting `prep/narrativa.md`). Rely on Radar scores/evidence and real CV facts."
 )
 
 mcp = FastMCP("radar", instructions=MCP_INSTRUCTIONS)
@@ -88,30 +84,30 @@ def schema_resource() -> dict:
 
 @mcp.prompt()
 def configurar_radar() -> str:
-    """Guía paso a paso para dejar Radar listo (perfil, carrera, mercado)."""
+    """Step-by-step guide to review and update Paolo's Radar CV and profile."""
     return (
-        "Ayúdame a configurar Radar. Llama a get_setup_status y guíame un paso a la vez: pregunta lo que "
-        "falte y propón update_profile solo con lo que yo afirme. Explica el producto con get_help."
+        "Inspect my current profile with `get_my_cv`, point out missing or stale fields, "
+        "and propose `update_profile_fields` or `update_cv` changes only with facts I confirm."
     )
 
 
 @mcp.prompt()
 def analizar_mercado(area: str = "", lugar: str = "") -> str:
-    """Análisis del mercado actual, opcionalmente por área y lugar."""
-    foco = " ".join(x for x in (f"del área {area}" if area else "", f"en {lugar}" if lugar else "") if x)
+    """Market analysis using real Radar data, optionally filtered by area and location."""
+    focus = " ".join(x for x in (f"for area {area}" if area else "", f"in {lugar}" if lugar else "") if x)
     return (
-        f"Analiza el mercado laboral {foco or 'general'} con datos reales: get_market_breakdown (por área, lugar, sector "
-        "y empresa, con filtros), get_place_profile si hay un lugar, get_skill_demand y get_salary_stats. Antes de "
-        "concluir, si los conteos por área parecen raros, corre audit_classification. Resume con cifras y cita las herramientas."
+        f"Analyze the job market {focus or 'overall'} using `get_market_breakdown`, "
+        "`get_place_profile` (if a location is given), `get_skill_demand`, and `get_salary_stats`. "
+        "Summarize concisely with numbers and cite the tools used."
     )
 
 
 @mcp.prompt()
 def plan_de_aprendizaje() -> str:
-    """Plan para cerrar brechas de skills según el mercado y mi perfil."""
+    """Plan to close skill gaps based on market demand and Paolo's CV."""
     return (
-        "Arma un plan de aprendizaje con plan_learning y get_skill_demand: qué skills me suben más el encaje, "
-        "cuánta demanda tienen y en qué orden aprenderlas. Sé concreto y breve."
+        "Build a skill-closure plan using `get_my_cv` and `get_skill_demand`: "
+        "which skills raise my fit most, their demand, and the recommended learning order. Be concise."
     )
 
 
